@@ -2,6 +2,8 @@
 
 Robotik kodlama eğitim setlerinin siparişten iadeye kadar izlenmesi için .NET 10 tabanlı kiralama yönetim sistemi.
 
+Katmanlar, servis sorumlulukları, API yetkileri, veri modeli ve iş akışları için [teknik dokümantasyon dizinine](docs/README.md) bakın.
+
 ## Tamamlanan MVP kapsamı
 
 - PBKDF2 parola güvenliği, imzalı Bearer token, rol ve müşteri hesabı izolasyonu
