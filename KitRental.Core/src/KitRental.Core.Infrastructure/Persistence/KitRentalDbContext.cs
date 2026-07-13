@@ -76,6 +76,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             events.ToTable("InventoryEvents");
             events.WithOwner().HasForeignKey("OwnerProductUnitId");
             events.HasKey(item => item.Id);
+            events.Property(item => item.Id).ValueGeneratedNever();
             events.Property(item => item.Reason).HasMaxLength(500).IsRequired();
             events.HasIndex(item => item.ProductUnitId);
         });
@@ -95,6 +96,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             addresses.ToTable("CustomerAddresses");
             addresses.WithOwner().HasForeignKey("CustomerId");
             addresses.HasKey(address => address.Id);
+            addresses.Property(address => address.Id).ValueGeneratedNever();
             addresses.Property(address => address.Title).HasMaxLength(100).IsRequired();
             addresses.Property(address => address.ContactName).HasMaxLength(160).IsRequired();
             addresses.Property(address => address.Phone).HasMaxLength(40).IsRequired();
@@ -130,6 +132,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             lines.ToTable("RentalOrderLines");
             lines.WithOwner().HasForeignKey("RentalOrderId");
             lines.HasKey(line => line.Id);
+            lines.Property(line => line.Id).ValueGeneratedNever();
             lines.HasOne<ProductModel>().WithMany().HasForeignKey(line => line.ProductModelId).OnDelete(DeleteBehavior.Restrict);
         });
         builder.Navigation(order => order.Lines).HasField("_lines").UsePropertyAccessMode(PropertyAccessMode.Field);
@@ -138,6 +141,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             history.ToTable("OrderStatusEvents");
             history.WithOwner().HasForeignKey("RentalOrderId");
             history.HasKey(item => item.Id);
+            history.Property(item => item.Id).ValueGeneratedNever();
             history.Property(item => item.Reason).HasMaxLength(500).IsRequired();
         });
         builder.Navigation(order => order.History).HasField("_history").UsePropertyAccessMode(PropertyAccessMode.Field);
@@ -167,6 +171,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             events.ToTable("ShipmentEvents");
             events.WithOwner().HasForeignKey("ShipmentId");
             events.HasKey(item => item.Id);
+            events.Property(item => item.Id).ValueGeneratedNever();
             events.Property(item => item.Location).HasMaxLength(200);
             events.Property(item => item.Description).HasMaxLength(1000).IsRequired();
         });
@@ -188,6 +193,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             history.ToTable("FaultStatusEvents");
             history.WithOwner().HasForeignKey("FaultTicketId");
             history.HasKey(item => item.Id);
+            history.Property(item => item.Id).ValueGeneratedNever();
             history.Property(item => item.Note).HasMaxLength(2000).IsRequired();
         });
         builder.Navigation(ticket => ticket.History).HasField("_history").UsePropertyAccessMode(PropertyAccessMode.Field);
@@ -205,6 +211,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             items.ToTable("InspectionItems");
             items.WithOwner().HasForeignKey("ReturnInspectionId");
             items.HasKey(item => item.Id);
+            items.Property(item => item.Id).ValueGeneratedNever();
             items.Property(item => item.Name).HasMaxLength(200).IsRequired();
             items.Property(item => item.Note).HasMaxLength(1000);
         });
@@ -284,6 +291,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             lines.ToTable("BillOfMaterialsLines");
             lines.WithOwner().HasForeignKey("BillOfMaterialsId");
             lines.HasKey(line => line.Id);
+            lines.Property(line => line.Id).ValueGeneratedNever();
             lines.Property(line => line.Quantity).HasPrecision(18, 3);
             lines.HasOne<Component>().WithMany().HasForeignKey(line => line.ComponentId).OnDelete(DeleteBehavior.Restrict);
             lines.HasIndex(line => line.ComponentId);
