@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\KitRental.Identity.Application\KitRental.Identity.Application.csproj" />
+    <ProjectReference Include="..\KitRental.Identity.Infrastructure\KitRental.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\KitRental.BuildingBlocks\src\KitRental.Observability\KitRental.Observability.csproj" />
+  </ItemGroup>
+</Project>

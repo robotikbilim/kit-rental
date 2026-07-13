@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/KitRental.Core.Api/KitRental.Core.Api.csproj" />
+    <Project Path="src/KitRental.Core.Application/KitRental.Core.Application.csproj" />
+    <Project Path="src/KitRental.Core.Domain/KitRental.Core.Domain.csproj" />
+    <Project Path="src/KitRental.Core.Infrastructure/KitRental.Core.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/KitRental.Core.UnitTests/KitRental.Core.UnitTests.csproj" />
+    <Project Path="tests/KitRental.Core.IntegrationTests/KitRental.Core.IntegrationTests.csproj" />
+    <Project Path="tests/KitRental.Core.ArchitectureTests/KitRental.Core.ArchitectureTests.csproj" />
+  </Folder>
+</Solution>

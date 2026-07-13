@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\KitRental.Core.Application\KitRental.Core.Application.csproj" />
+    <ProjectReference Include="..\KitRental.Core.Infrastructure\KitRental.Core.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\KitRental.BuildingBlocks\src\KitRental.Security\KitRental.Security.csproj" />
+    <ProjectReference Include="..\..\..\KitRental.BuildingBlocks\src\KitRental.Observability\KitRental.Observability.csproj" />
+  </ItemGroup>
+</Project>

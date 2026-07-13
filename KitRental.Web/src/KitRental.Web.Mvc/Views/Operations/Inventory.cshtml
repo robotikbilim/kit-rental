@@ -1,0 +1,6 @@
+@model IReadOnlyCollection<ProductUnitViewModel>
+@{ ViewData["Title"] = "Envanter"; }
+<div class="page-heading"><div><span class="eyebrow">FİZİKSEL TAKİP</span><h1>Envanter</h1></div></div>
+<table><thead><tr><th>Seri numarası</th><th>QR kod</th><th>Model</th><th>Durum</th></tr></thead>
+<tbody>@foreach (var item in Model) { <tr><td>@item.SerialNumber</td><td>@item.QrCode</td><td>@item.ProductModelId</td><td><span class="badge">@item.Status</span></td></tr> }</tbody></table>
+@if (Model.Count == 0) { <div class="empty">Henüz fiziksel ürün birimi yok.</div> }

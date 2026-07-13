@@ -1,0 +1,9 @@
+@model IReadOnlyCollection<PortalOrderViewModel>
+@{ ViewData["Title"] = "Siparişler"; }
+@functions { string StatusName(int value) => value switch { 2 => "Onay bekliyor", 3 => "Onaylandı", 4 => "Hazırlanıyor", 5 => "Kargoya hazır", 6 => "Teslimat yolunda", 7 => "Teslim edildi", 8 => "Aktif kiralama", 9 => "İade bekleniyor", 10 => "İade yolunda", 11 => "Kontrolde", 13 => "Tamamlandı", 14 => "Reddedildi", 15 => "İptal", _ => "Taslak" }; }
+<div class="page-heading"><div><span class="eyebrow">KİRALAMA AKIŞI</span><h1>Siparişler</h1><p class="block-muted">Müşterilerin portal üzerinden gönderdiği talepler burada onay bekler.</p></div><span class="request-counter">@Model.Count(item => item.Status == 2) yeni talep</span></div>
+@if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
+@if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
+<div class="table-scroll"><table><thead><tr><th>Sipariş</th><th>Müşteri</th><th>Talep edilen kitler</th><th>Dönem</th><th>Durum</th><th>İşlem</th></tr></thead>
+<tbody>@foreach (var item in Model) { <tr class="@(item.Status == 2 ? "pending-order" : null)"><td><strong>@item.OrderNumber</strong><small class="block-muted">@item.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></td><td>@item.CustomerName</td><td>@string.Join(", ", item.Lines.Select(line => $"{line.ProductName} × {line.Quantity}"))</td><td>@item.StartDate.ToString("dd.MM.yyyy") — @item.EndDate.ToString("dd.MM.yyyy")</td><td><span class="badge order-status-@item.Status">@StatusName(item.Status)</span></td><td>@if (item.Status == 2) { <form asp-action="ApproveOrder" asp-route-id="@item.Id" method="post"><button class="table-action" type="submit">Onayla</button></form> }</td></tr> }</tbody></table></div>
+@if (Model.Count == 0) { <div class="empty">Henüz sipariş yok.</div> }

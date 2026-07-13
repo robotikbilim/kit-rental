@@ -1,0 +1,22 @@
+@model PhysicalKitDetailViewModel
+@{
+    ViewData["Title"] = Model.Kit.SerialNumber;
+    string StatusName(int status) => status switch { 1 => "Kiralanabilir", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimatta", 5 => "Kirada", 6 => "İade yolunda", 7 => "Kontrolde", 8 => "Serviste", 9 => "Karantina", 10 => "Kayıp", 11 => "Emekli", _ => "Bilinmiyor" };
+}
+<a class="back-link" asp-action="Index">← Fiziksel kitlere dön</a>
+@if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
+<section class="detail-hero fleet-hero">
+    <div class="detail-image"><img src="@(Model.Kit.ImageUrl ?? "/images/kit-placeholder.svg")" alt="@Model.Kit.KitName" /></div>
+    <div><span class="eyebrow">@Model.Kit.KitSku</span><h1>@Model.Kit.KitName</h1><p>Seri: <strong>@Model.Kit.SerialNumber</strong><br />QR: @Model.Kit.QrCode</p><span class="fleet-status status-@Model.Kit.Status">@StatusName(Model.Kit.Status)</span></div>
+    <div>@if(Model.Kit.Status == 1){<a class="primary-action" asp-action="Rent" asp-route-id="@Model.Kit.Id">Bu kiti kirala</a>}</div>
+</section>
+
+<section class="detail-section"><div class="section-heading"><div><span class="eyebrow">KİRALAMA GEÇMİŞİ</span><h2>Kime, nereye ve ne zaman?</h2></div><b>@Model.RentalHistory.Count kayıt</b></div>
+@if(Model.RentalHistory.Count == 0){<div class="empty">Bu kit daha önce kiralanmamış.</div>}else{<div class="history-list">@foreach(var rental in Model.RentalHistory){<article><div class="history-date">@rental.StartDate.ToString("dd MMM")<small>@rental.EndDate.ToString("dd MMM yyyy")</small></div><div><strong>@rental.CustomerName</strong><span>@rental.CustomerEmail · @rental.Address</span><small>@rental.OrderNumber</small></div><span class="fleet-status">@(rental.AssignmentStatus == 2 ? "Aktif" : rental.AssignmentStatus == 3 ? "Tamamlandı" : "Rezerve")</span></article>}</div>}
+</section>
+
+<section class="detail-section"><div class="section-heading"><div><span class="eyebrow">ARIZA / SERVİS</span><h2>Arıza geçmişi</h2></div><b>@Model.FaultHistory.Count kayıt</b></div>
+@if(Model.FaultHistory.Count == 0){<div class="empty">Bu kit için arıza kaydı yok.</div>}else{<div class="fault-cards">@foreach(var fault in Model.FaultHistory){<article><div><small>@fault.Number · @fault.OpenedAt.ToString("dd.MM.yyyy")</small><h3>@fault.Category</h3><p>@fault.Description</p>@foreach(var note in fault.StatusNotes){<span>@note</span>}</div><b>Seviye @fault.Severity</b></article>}</div>}
+</section>
+
+<section class="detail-section"><div class="section-heading"><div><span class="eyebrow">DURUM HAREKETLERİ</span><h2>Kit yaşam döngüsü</h2></div></div><div class="timeline">@foreach(var item in Model.StatusHistory){<article><i></i><div><strong>@StatusName(item.NewStatus)</strong><span>@item.Reason</span><small>@item.OccurredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></div></article>}</div></section>

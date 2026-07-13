@@ -1,0 +1,18 @@
+@model LoginViewModel
+@{ ViewData["Title"] = "Giriş"; }
+<section class="login-card">
+    <div class="eyebrow">OPERASYON PORTALI</div>
+    <h1>Eğitim kiti kiralama süreçlerini tek yerden yönetin.</h1>
+    <p>Operasyon ekibi ve TACEV kullanıcıları için güvenli kiralama ve servis portalı.</p>
+    <form method="post">
+        <label asp-for="Email">E-posta</label>
+        <input asp-for="Email" autocomplete="username" />
+        <span asp-validation-for="Email"></span>
+        <label asp-for="Password">Parola</label>
+        <input asp-for="Password" autocomplete="current-password" />
+        <span asp-validation-for="Password"></span>
+        @if (Model.Error is not null) { <div class="error">@Model.Error</div> }
+        <button type="submit">Giriş yap</button>
+    </form>
+    <small>Yönetici: admin@kitrental.local / Admin12345!<br />TACEV: kadikoy@tacev.demo / Tacev12345!</small>
+</section>

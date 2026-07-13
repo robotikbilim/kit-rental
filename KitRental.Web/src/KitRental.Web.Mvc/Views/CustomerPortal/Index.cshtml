@@ -1,0 +1,58 @@
+@model CustomerPortalViewModel
+@{ ViewData["Title"] = "Kitlerim"; }
+@functions {
+    string UnitStatus(int value) => value switch { 1 => "Hazır", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimat yolunda", 5 => "Kullanımınızda", 6 => "Geri gönderiliyor", 7 => "Kontrolde", 8 => "Serviste", _ => "İşlemde" };
+    string OrderStatus(int value) => value switch { 2 => "Onay bekliyor", 3 => "Onaylandı", 4 => "Hazırlanıyor", 5 => "Kargoya hazır", 6 => "Teslimat yolunda", 7 => "Teslim edildi", 8 => "Kiralama aktif", 9 => "İade bekleniyor", 10 => "İade yolunda", 11 => "Kontrolde", 13 => "Tamamlandı", 14 => "Reddedildi", 15 => "İptal edildi", _ => "Taslak" };
+    string FaultStatus(int value) => value switch { 1 => "Kayıt açıldı", 2 => "İnceleniyor", 3 => "Bilgi bekleniyor", 4 => "Kitin gönderilmesi bekleniyor", 5 => "Serviste", 6 => "Geri gönderiliyor", 7 => "Çözüldü", 8 => "Kapatıldı", _ => "İşlemde" };
+}
+<div class="portal-heading">
+    <div><span class="eyebrow">TACEV KİRALAMA PORTALI</span><h1>Merhaba, @Model.CustomerName</h1><p>Kitlerinizi, kiralama taleplerinizi ve servis süreçlerinizi tek ekrandan takip edin.</p></div>
+    <a class="primary-action" asp-action="NewRequest">+ Yeni kiralama talebi</a>
+</div>
+@if (TempData["Success"] is string message) { <div class="success-banner">@message</div> }
+<section class="metrics portal-metrics">
+    <article><span>Kullanımınızdaki kit</span><strong>@Model.ActiveKitCount</strong></article>
+    <article><span>Onay bekleyen talep</span><strong>@Model.PendingRequestCount</strong></article>
+    <article><span>Açık arıza kaydı</span><strong>@Model.OpenFaultCount</strong></article>
+</section>
+
+<section class="portal-section">
+    <div class="section-heading"><div><span class="eyebrow">KİRALANAN ÜRÜNLER</span><h2>Kitlerim</h2></div></div>
+    <div class="portal-kit-grid">
+    @foreach (var kit in Model.Kits.Where(item => item.AssignmentStatus is 1 or 2))
+    {
+        <article class="portal-kit-card">
+            <img src="@(kit.ImageUrl ?? "/images/kit-placeholder.svg")" alt="@kit.KitName" />
+            <div><small>@kit.KitSku</small><h3>@kit.KitName</h3><strong class="serial-number">@kit.SerialNumber</strong>
+                <p>@kit.StartDate.ToString("dd.MM.yyyy") – @kit.EndDate.ToString("dd.MM.yyyy")</p>
+                <span class="fleet-status status-@kit.UnitStatus">@UnitStatus(kit.UnitStatus)</span>
+                @if (kit.OpenFaultCount > 0) { <span class="portal-alert">@kit.OpenFaultCount açık arıza</span> }
+            </div>
+            @if (kit.AssignmentStatus == 2) { <a class="secondary-action" asp-action="NewFault" asp-route-assignmentId="@kit.AssignmentId">Arıza bildir</a> }
+        </article>
+    }
+    </div>
+    @if (!Model.Kits.Any(item => item.AssignmentStatus is 1 or 2)) { <div class="empty">Aktif veya hazırlanmakta olan kiralık kitiniz bulunmuyor.</div> }
+</section>
+
+<section class="portal-section">
+    <div class="section-heading"><div><span class="eyebrow">TALEP TAKİBİ</span><h2>Kiralama taleplerim</h2></div><a class="row-link" asp-action="NewRequest">Yeni talep oluştur →</a></div>
+    <div class="table-scroll"><table><thead><tr><th>Talep</th><th>Kitler</th><th>Dönem</th><th>Oluşturulma</th><th>Durum</th></tr></thead><tbody>
+    @foreach (var order in Model.Orders) { <tr><td><strong>@order.OrderNumber</strong></td><td>@string.Join(", ", order.Lines.Select(line => $"{line.ProductName} × {line.Quantity}"))</td><td>@order.StartDate.ToString("dd.MM.yyyy") – @order.EndDate.ToString("dd.MM.yyyy")</td><td>@order.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td><td><span class="badge order-status-@order.Status">@OrderStatus(order.Status)</span></td></tr> }
+    </tbody></table></div>
+    @if (Model.Orders.Count == 0) { <div class="empty">Henüz kiralama talebiniz yok.</div> }
+</section>
+
+<section class="portal-section" id="faults">
+    <div class="section-heading"><div><span class="eyebrow">SERVİS TAKİBİ</span><h2>Arıza kayıtlarım</h2></div><a class="secondary-action" asp-action="NewFault">Arıza bildir</a></div>
+    <div class="portal-fault-grid">
+    @foreach (var fault in Model.Faults)
+    {
+        <a asp-action="Fault" asp-route-id="@fault.Id" class="portal-fault-card">
+            <div><small>@fault.Number · @fault.SerialNumber</small><h3>@fault.KitName</h3><p>@fault.Description</p></div>
+            <div><span class="fault-stage status-@fault.Status">@FaultStatus(fault.Status)</span><small>@fault.OpenedAt.ToLocalTime().ToString("dd.MM.yyyy")</small></div>
+        </a>
+    }
+    </div>
+    @if (Model.Faults.Count == 0) { <div class="empty">Henüz arıza kaydınız yok.</div> }
+</section>

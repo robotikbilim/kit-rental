@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/KitRental.Web.Mvc/KitRental.Web.Mvc.csproj" />
+  <Project Path="tests/KitRental.Web.Tests/KitRental.Web.Tests.csproj" />
+</Solution>

@@ -1,0 +1,13 @@
+@model DashboardViewModel
+@{ ViewData["Title"] = "Genel Bakış"; }
+<div class="page-heading"><div><span class="eyebrow">CANLI OPERASYON</span><h1>Genel Bakış</h1></div><span class="status-dot">Sistem çalışıyor</span></div>
+@if (Model is null) { <div class="empty">Core servisine ulaşılamadı.</div> }
+else {
+<div class="metrics">
+    <article><span>Müşteriler</span><strong>@Model.Customers</strong></article>
+    <article><span>Fiziksel birimler</span><strong>@Model.ProductUnits</strong></article>
+    <article><span>Aktif siparişler</span><strong>@Model.ActiveOrders</strong></article>
+    <article><span>Açık arızalar</span><strong>@Model.OpenFaults</strong></article>
+    <article><span>Bakımda</span><strong>@Model.UnitsInMaintenance</strong></article>
+</div>
+}
