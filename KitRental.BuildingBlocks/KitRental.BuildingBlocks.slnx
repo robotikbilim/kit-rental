@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/KitRental.SharedKernel/KitRental.SharedKernel.csproj" />
+    <Project Path="src/KitRental.Contracts/KitRental.Contracts.csproj" />
+    <Project Path="src/KitRental.Security/KitRental.Security.csproj" />
+    <Project Path="src/KitRental.Observability/KitRental.Observability.csproj" />
+  </Folder>
+  <Project Path="tests/KitRental.BuildingBlocks.Tests/KitRental.BuildingBlocks.Tests.csproj" />
+</Solution>

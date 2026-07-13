@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/KitRental.Identity.Api/KitRental.Identity.Api.csproj" />
+    <Project Path="src/KitRental.Identity.Application/KitRental.Identity.Application.csproj" />
+    <Project Path="src/KitRental.Identity.Domain/KitRental.Identity.Domain.csproj" />
+    <Project Path="src/KitRental.Identity.Infrastructure/KitRental.Identity.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/KitRental.Identity.UnitTests/KitRental.Identity.UnitTests.csproj" />
+    <Project Path="tests/KitRental.Identity.IntegrationTests/KitRental.Identity.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

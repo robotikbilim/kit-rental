@@ -1,0 +1,15 @@
+@model PortalFaultRequestPageViewModel
+@{ ViewData["Title"] = "Arıza Bildir"; }
+<div class="form-shell">
+    <div class="form-heading"><a asp-action="Index" asp-fragment="faults">← Arıza kayıtlarıma dön</a><span class="eyebrow">TEKNİK DESTEK</span><h1>Arıza bildir</h1><p>Kit üzerindeki sorunu ayrıntılı açıklayın. Servis ekibinin tüm güncellemelerini portalda görebilirsiniz.</p></div>
+    @if (Model.ActiveKits.Count == 0) { <div class="empty">Arıza kaydı oluşturabileceğiniz aktif bir kit bulunmuyor.</div> }
+    else {
+    <form class="catalog-form" asp-action="NewFault" method="post">
+        <div asp-validation-summary="All" class="error"></div><div class="form-grid">
+            <div class="field wide"><label asp-for="Form.AssignmentId">Arızalı kit</label><select name="AssignmentId">@foreach (var kit in Model.ActiveKits) { <option value="@kit.AssignmentId" selected="@(kit.AssignmentId == Model.Form.AssignmentId ? "selected" : null)">@kit.KitName — @kit.SerialNumber</option> }</select></div>
+            <div class="field"><label asp-for="Form.Category"></label><input name="Category" value="@Model.Form.Category" placeholder="Örn. Sensör, motor, güç, mekanik" /></div>
+            <div class="field"><label asp-for="Form.Severity"></label><select name="Severity"><option value="1">Düşük — kullanıma engel değil</option><option value="2" selected="@(Model.Form.Severity == 2 ? "selected" : null)">Orta — kısmi kullanım</option><option value="3" selected="@(Model.Form.Severity == 3 ? "selected" : null)">Yüksek — kullanılamıyor</option><option value="4" selected="@(Model.Form.Severity == 4 ? "selected" : null)">Kritik — güvenlik riski</option></select></div>
+            <div class="field wide"><label asp-for="Form.Description"></label><textarea name="Description" rows="7" placeholder="Sorunun ne zaman başladığını, hangi koşullarda tekrarlandığını ve varsa denediğiniz adımları yazın.">@Model.Form.Description</textarea><small>Detaylı açıklama servis sürecini hızlandırır.</small></div>
+        </div><div class="form-actions"><a class="secondary-action" asp-action="Index">Vazgeç</a><button class="primary-action" type="submit">Arıza kaydı oluştur</button></div>
+    </form> }
+</div>

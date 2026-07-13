@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\KitRental.Identity.Domain\KitRental.Identity.Domain.csproj" />
+    <ProjectReference Include="..\..\..\KitRental.BuildingBlocks\src\KitRental.Security\KitRental.Security.csproj" />
+  </ItemGroup>
+</Project>

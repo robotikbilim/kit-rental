@@ -1,0 +1,208 @@
+@{
+    ViewData["Title"] = "Komponent Bul";
+}
+
+<section class="workshop-finder" aria-labelledby="finder-title">
+    <header class="finder-heading">
+        <span class="eyebrow">ATÖLYE • HIZLI STOK BULUCU</span>
+        <h1 id="finder-title">Hangi rafta, kaç adet var?</h1>
+        <p>Komponent adını yazmaya başlayın ve listeden ürünü seçin.</p>
+    </header>
+
+    <div class="component-search" id="component-search">
+        <div class="search-input-wrap">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m21 21-4.5-4.5m2.5-5A7.5 7.5 0 1 1 4 11.5a7.5 7.5 0 0 1 15 0Z" /></svg>
+            <input id="component-query" type="search" autocomplete="off" autofocus
+                   placeholder="Örn. DC Motor, Arduino, sensör..."
+                   aria-label="Komponent adı"
+                   aria-autocomplete="list" aria-controls="component-suggestions" aria-expanded="false" />
+            <span class="search-loader" id="search-loader" aria-hidden="true"></span>
+        </div>
+        <div class="suggestions" id="component-suggestions" role="listbox" hidden></div>
+    </div>
+
+    <div class="finder-prompt" id="finder-prompt">
+        <img src="~/images/component-placeholder.svg" alt="" />
+        <strong>Aradığınız komponenti saniyeler içinde bulun</strong>
+        <span>En az iki harf yazın; tam ad ve görseliyle eşleşen ürünler listelensin.</span>
+    </div>
+
+    <article class="component-result" id="component-result" hidden aria-live="polite">
+        <div class="component-overview">
+            <div class="result-image-wrap">
+                <img id="result-image" src="~/images/component-placeholder.svg" alt="" />
+            </div>
+            <div class="result-identity">
+                <span class="result-sku" id="result-sku"></span>
+                <h2 id="result-name"></h2>
+                <span class="stock-state" id="stock-state"></span>
+            </div>
+            <div class="stock-total">
+                <span>Toplam stok</span>
+                <strong id="total-stock">0</strong>
+                <small id="stock-unit"></small>
+            </div>
+        </div>
+
+        <div class="location-section">
+            <div class="location-heading">
+                <div><span class="eyebrow">RAF DAĞILIMI</span><h3>Komponentin bulunduğu yerler</h3></div>
+                <span id="location-count"></span>
+            </div>
+            <div class="location-grid" id="location-grid"></div>
+        </div>
+    </article>
+
+    <div class="finder-error" id="finder-error" hidden>Bilgiler alınamadı. Lütfen tekrar deneyin.</div>
+</section>
+
+<script>
+(() => {
+    const input = document.getElementById('component-query');
+    const suggestions = document.getElementById('component-suggestions');
+    const loader = document.getElementById('search-loader');
+    const prompt = document.getElementById('finder-prompt');
+    const result = document.getElementById('component-result');
+    const error = document.getElementById('finder-error');
+    const placeholder = '@Url.Content("~/images/component-placeholder.svg")';
+    let timer;
+    let request;
+    let activeIndex = -1;
+
+    const imageUrl = value => value && value.trim() ? value : placeholder;
+    const formatQuantity = value => new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 3 }).format(value);
+
+    input.addEventListener('input', () => {
+        clearTimeout(timer);
+        const query = input.value.trim();
+        if (query.length < 2) {
+            closeSuggestions();
+            return;
+        }
+        timer = setTimeout(() => search(query), 220);
+    });
+
+    input.addEventListener('keydown', event => {
+        const options = [...suggestions.querySelectorAll('[role="option"]')];
+        if (!options.length) return;
+        if (event.key === 'ArrowDown') { event.preventDefault(); activeIndex = (activeIndex + 1) % options.length; }
+        else if (event.key === 'ArrowUp') { event.preventDefault(); activeIndex = (activeIndex - 1 + options.length) % options.length; }
+        else if (event.key === 'Enter' && activeIndex >= 0) { event.preventDefault(); options[activeIndex].click(); return; }
+        else if (event.key === 'Escape') { closeSuggestions(); return; }
+        else return;
+        options.forEach((option, index) => option.classList.toggle('active', index === activeIndex));
+        options[activeIndex].scrollIntoView({ block: 'nearest' });
+    });
+
+    document.addEventListener('click', event => {
+        if (!document.getElementById('component-search').contains(event.target)) closeSuggestions();
+    });
+
+    async function search(query) {
+        request?.abort();
+        request = new AbortController();
+        loader.classList.add('visible');
+        error.hidden = true;
+        try {
+            const response = await fetch(`/Workshop/Search?query=${encodeURIComponent(query)}`, { signal: request.signal });
+            if (!response.ok) throw new Error();
+            renderSuggestions(await response.json());
+        } catch (exception) {
+            if (exception.name !== 'AbortError') showError();
+        } finally {
+            loader.classList.remove('visible');
+        }
+    }
+
+    function renderSuggestions(items) {
+        suggestions.replaceChildren();
+        activeIndex = -1;
+        if (!items.length) {
+            const empty = document.createElement('div');
+            empty.className = 'suggestion-empty';
+            empty.textContent = 'Eşleşen komponent bulunamadı.';
+            suggestions.appendChild(empty);
+        } else {
+            items.forEach(item => {
+                const option = document.createElement('button');
+                option.type = 'button';
+                option.className = 'suggestion-item';
+                option.setAttribute('role', 'option');
+                option.innerHTML = '<img><span class="suggestion-copy"><strong></strong><small></small></span><span class="suggestion-stock"><b></b><small></small></span>';
+                const img = option.querySelector('img');
+                img.src = imageUrl(item.imageUrl);
+                img.alt = '';
+                img.onerror = () => img.src = placeholder;
+                option.querySelector('.suggestion-copy strong').textContent = item.name;
+                option.querySelector('.suggestion-copy small').textContent = item.sku;
+                option.querySelector('.suggestion-stock b').textContent = formatQuantity(item.totalStock);
+                option.querySelector('.suggestion-stock small').textContent = item.unitOfMeasure;
+                option.addEventListener('click', () => selectComponent(item));
+                suggestions.appendChild(option);
+            });
+        }
+        suggestions.hidden = false;
+        input.setAttribute('aria-expanded', 'true');
+    }
+
+    async function selectComponent(item) {
+        input.value = item.name;
+        closeSuggestions();
+        loader.classList.add('visible');
+        try {
+            const response = await fetch(`/Workshop/Component?id=${encodeURIComponent(item.id)}`);
+            if (!response.ok) throw new Error();
+            renderResult(await response.json());
+        } catch { showError(); }
+        finally { loader.classList.remove('visible'); }
+    }
+
+    function renderResult(item) {
+        error.hidden = true;
+        prompt.hidden = true;
+        result.hidden = false;
+        document.getElementById('result-name').textContent = item.name;
+        document.getElementById('result-sku').textContent = item.sku;
+        document.getElementById('total-stock').textContent = formatQuantity(item.totalStock);
+        document.getElementById('stock-unit').textContent = item.unitOfMeasure;
+        const state = document.getElementById('stock-state');
+        state.textContent = item.isLowStock ? 'Stok kritik seviyede' : 'Stok seviyesi yeterli';
+        state.className = `stock-state ${item.isLowStock ? 'low' : 'ok'}`;
+        const image = document.getElementById('result-image');
+        image.src = imageUrl(item.imageUrl);
+        image.alt = `${item.name} görseli`;
+        image.onerror = () => image.src = placeholder;
+        document.getElementById('location-count').textContent = `${item.locations.length} lokasyon`;
+        const grid = document.getElementById('location-grid');
+        grid.replaceChildren();
+        if (!item.locations.length) {
+            const empty = document.createElement('div');
+            empty.className = 'location-empty';
+            empty.textContent = 'Bu komponent için rafta stok bulunmuyor.';
+            grid.appendChild(empty);
+        } else {
+            item.locations.forEach(location => {
+                const card = document.createElement('article');
+                card.className = 'location-card';
+                card.innerHTML = '<div class="location-code"></div><div class="location-route"></div><div class="location-quantity"><strong></strong><span></span></div>';
+                card.querySelector('.location-code').textContent = location.locationCode;
+                card.querySelector('.location-route').textContent = `${location.warehouse} • Koridor ${location.aisle} • Raf ${location.rack} • Göz ${location.shelf}`;
+                card.querySelector('.location-quantity strong').textContent = formatQuantity(location.quantity);
+                card.querySelector('.location-quantity span').textContent = item.unitOfMeasure;
+                grid.appendChild(card);
+            });
+        }
+    }
+
+    function closeSuggestions() {
+        suggestions.hidden = true;
+        input.setAttribute('aria-expanded', 'false');
+        activeIndex = -1;
+    }
+
+    function showError() {
+        closeSuggestions();
+        error.hidden = false;
+    }
+})();
+</script>

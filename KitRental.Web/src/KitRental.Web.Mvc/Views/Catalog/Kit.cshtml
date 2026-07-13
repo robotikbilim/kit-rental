@@ -1,0 +1,9 @@
+@model KitDetailPageViewModel
+@{ ViewData["Title"] = Model.Kit.Name; }
+@if (TempData["Success"] is string message) { <div class="success-banner">@message</div> }
+<a class="back-link" asp-action="Kits">← Eğitim Kitleri</a>
+<div class="detail-hero"><div class="detail-image"><img src="@(Model.Kit.ImageUrl ?? Url.Content("~/images/catalog/kit.svg"))" alt="@Model.Kit.Name" /></div><div><span class="eyebrow">@Model.Kit.Sku</span><h1>@Model.Kit.Name</h1><p>@Model.Kit.Description</p></div></div>
+<section class="detail-section"><div class="section-heading"><div><span class="eyebrow">BOM / REÇETE</span><h2>Bir kit için gereken komponentler</h2></div>@if(Model.Bom is not null){<span class="version-badge">Sürüm @Model.Bom.Version</span>}</div>
+@if (Model.Bom is null) { <div class="empty">Bu kit için reçete bulunmuyor.</div> }
+else { <div class="bom-table">@foreach(var line in Model.Bom.Lines){<a asp-action="Component" asp-route-id="@line.ComponentId"><div><strong>@line.ComponentName</strong><span>@line.ComponentSku</span></div><div><b>@line.Quantity.ToString("0.###")</b> @line.UnitOfMeasure</div></a>}</div> }
+</section>

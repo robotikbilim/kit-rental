@@ -1,0 +1,54 @@
+@model ManufacturingDashboardViewModel
+@{ ViewData["Title"] = "Üretilebilir Kitler"; }
+<div class="manufacturing-heading">
+    <div><span class="eyebrow">REÇETE + CANLI KOMPONENT STOĞU</span><h1>Kaç kit üretebiliriz?</h1><p>Aktif reçetelerdeki ihtiyaçlar, tüm raflardaki kullanılabilir komponent stoklarıyla karşılaştırılarak hesaplanır.</p></div>
+    <div class="calculation-note"><strong>Hesaplama</strong><span>Her komponent için stok ÷ reçete miktarı</span><small>En düşük sonuç üretilebilir adedi belirler.</small></div>
+</div>
+
+<section class="metrics manufacturing-metrics">
+    <article><span>Toplam üretilebilir kit</span><strong>@Model.TotalBuildable</strong></article>
+    <article><span>Üretilebilen model</span><strong>@Model.BuildableModelCount</strong></article>
+    <article><span>Stok nedeniyle bekleyen</span><strong>@Model.BlockedModelCount</strong></article>
+    <article><span>Düşük stok komponenti</span><strong>@Model.LowStockComponentCount</strong></article>
+</section>
+
+<div class="manufacturing-toolbar">
+    <div><span class="eyebrow">ÜRETİM KAPASİTESİ</span><h2>Eğitim kitleri</h2></div>
+    <label class="capacity-filter"><span>Kit ara</span><input id="kit-capacity-search" type="search" placeholder="Kit adı veya SKU" /></label>
+</div>
+
+<section class="capacity-grid" id="capacity-grid">
+@foreach (var kit in Model.Kits.OrderByDescending(item => item.BuildableQuantity).ThenBy(item => item.ProductName))
+{
+    var bottlenecks = kit.Components.Where(item => item.IsBottleneck).ToArray();
+    <article class="capacity-card @(kit.BuildableQuantity == 0 ? "blocked" : null)" data-search="@($"{kit.ProductName} {kit.ProductSku}".ToLowerInvariant())">
+        <div class="capacity-summary">
+            <img src="@(kit.ProductImageUrl ?? "/images/catalog/kit.svg")" alt="@kit.ProductName" />
+            <div class="capacity-title"><small>@kit.ProductSku · Reçete v@(kit.BomVersion)</small><h3>@kit.ProductName</h3><p>Darboğaz: @string.Join(", ", bottlenecks.Select(item => item.ComponentName))</p></div>
+            <div class="capacity-number"><span>Üretilebilir</span><strong>@kit.BuildableQuantity</strong><small>adet kit</small></div>
+        </div>
+        <details class="capacity-details" open="@(kit.BuildableQuantity == 0 ? "open" : null)">
+            <summary>Komponent hesabını göster <span>@kit.Components.Count kalem</span></summary>
+            <div class="table-scroll"><table class="capacity-table"><thead><tr><th>Komponent</th><th>1 kit için</th><th>Mevcut stok</th><th>Desteklediği kit</th><th>Sonraki kit için eksik</th></tr></thead><tbody>
+            @foreach (var component in kit.Components.OrderBy(item => item.SupportsKitCount))
+            {
+                <tr class="@(component.IsBottleneck ? "bottleneck-row" : null)">
+                    <td><div class="capacity-component"><img src="@(component.ImageUrl ?? "/images/component-placeholder.svg")" alt="" /><div><strong>@component.ComponentName</strong><small>@component.ComponentSku</small></div>@if (component.IsBottleneck) { <span>Darboğaz</span> } @if (component.IsLowStock) { <span class="low">Düşük stok</span> }</div></td>
+                    <td><strong>@component.RequiredPerKit.ToString("0.##")</strong> @component.UnitOfMeasure</td>
+                    <td><strong>@component.AvailableStock.ToString("0.##")</strong> @component.UnitOfMeasure</td>
+                    <td><strong>@component.SupportsKitCount</strong> kit</td>
+                    <td>@if (component.MissingForNextKit > 0) { <span class="missing-stock">@component.MissingForNextKit.ToString("0.##") @component.UnitOfMeasure eksik</span> } else { <span class="stock-ok">Yeterli</span> }</td>
+                </tr>
+            }
+            </tbody></table></div>
+        </details>
+    </article>
+}
+</section>
+@if (Model.Kits.Count == 0) { <div class="empty">Aktif reçetesi bulunan eğitim kiti yok. Önce eğitim kiti reçetesi oluşturun.</div> }
+<div class="empty" id="capacity-empty" hidden>Aramanızla eşleşen eğitim kiti bulunamadı.</div>
+
+<script>
+(() => { const input=document.querySelector('#kit-capacity-search'), cards=[...document.querySelectorAll('.capacity-card')], empty=document.querySelector('#capacity-empty');
+ input.addEventListener('input',()=>{const query=input.value.trim().toLocaleLowerCase('tr-TR');let visible=0;cards.forEach(card=>{const show=!query||card.dataset.search.includes(query);card.hidden=!show;if(show)visible++;});empty.hidden=visible!==0;}); })();
+</script>

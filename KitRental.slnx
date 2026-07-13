@@ -1,0 +1,31 @@
+<Solution>
+  <Folder Name="/BuildingBlocks/">
+    <Project Path="KitRental.BuildingBlocks/src/KitRental.SharedKernel/KitRental.SharedKernel.csproj" />
+    <Project Path="KitRental.BuildingBlocks/src/KitRental.Contracts/KitRental.Contracts.csproj" />
+    <Project Path="KitRental.BuildingBlocks/src/KitRental.Security/KitRental.Security.csproj" />
+    <Project Path="KitRental.BuildingBlocks/src/KitRental.Observability/KitRental.Observability.csproj" />
+    <Project Path="KitRental.BuildingBlocks/tests/KitRental.BuildingBlocks.Tests/KitRental.BuildingBlocks.Tests.csproj" />
+  </Folder>
+  <Folder Name="/Core/">
+    <Project Path="KitRental.Core/src/KitRental.Core.Domain/KitRental.Core.Domain.csproj" />
+    <Project Path="KitRental.Core/src/KitRental.Core.Application/KitRental.Core.Application.csproj" />
+    <Project Path="KitRental.Core/src/KitRental.Core.Infrastructure/KitRental.Core.Infrastructure.csproj" />
+    <Project Path="KitRental.Core/src/KitRental.Core.Api/KitRental.Core.Api.csproj" />
+    <Project Path="KitRental.Core/tests/KitRental.Core.UnitTests/KitRental.Core.UnitTests.csproj" />
+    <Project Path="KitRental.Core/tests/KitRental.Core.IntegrationTests/KitRental.Core.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/Identity/">
+    <Project Path="KitRental.Identity/src/KitRental.Identity.Domain/KitRental.Identity.Domain.csproj" />
+    <Project Path="KitRental.Identity/src/KitRental.Identity.Application/KitRental.Identity.Application.csproj" />
+    <Project Path="KitRental.Identity/src/KitRental.Identity.Infrastructure/KitRental.Identity.Infrastructure.csproj" />
+    <Project Path="KitRental.Identity/src/KitRental.Identity.Api/KitRental.Identity.Api.csproj" />
+    <Project Path="KitRental.Identity/tests/KitRental.Identity.UnitTests/KitRental.Identity.UnitTests.csproj" />
+    <Project Path="KitRental.Identity/tests/KitRental.Identity.IntegrationTests/KitRental.Identity.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/Edge/">
+    <Project Path="KitRental.Gateway/src/KitRental.ApiGateway/KitRental.ApiGateway.csproj" />
+    <Project Path="KitRental.Gateway/tests/KitRental.ApiGateway.Tests/KitRental.ApiGateway.Tests.csproj" />
+    <Project Path="KitRental.Web/src/KitRental.Web.Mvc/KitRental.Web.Mvc.csproj" />
+    <Project Path="KitRental.Web/tests/KitRental.Web.Tests/KitRental.Web.Tests.csproj" />
+  </Folder>
+</Solution>

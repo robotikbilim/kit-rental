@@ -1,0 +1,17 @@
+@model IReadOnlyCollection<ProductModelCatalogViewModel>
+@{ ViewData["Title"] = "Eğitim Kitleri"; }
+<div class="catalog-heading">
+    <div><span class="eyebrow">ÜRÜN VE ÜRETİM</span><h1>Eğitim Kitleri</h1><p>Kitleri, görsellerini ve üretim reçetelerini yönetin.</p></div>
+    <a class="primary-action" asp-action="CreateKit">+ Yeni eğitim kiti</a>
+</div>
+@if (TempData["Success"] is string message) { <div class="success-banner">@message</div> }
+<div class="catalog-grid">
+@foreach (var kit in Model)
+{
+    <a class="catalog-card" asp-action="Kit" asp-route-id="@kit.Id">
+        <div class="catalog-image"><img src="@(kit.ImageUrl ?? Url.Content("~/images/catalog/kit.svg"))" alt="@kit.Name" onerror="this.src='@Url.Content("~/images/catalog/kit.svg")'" /></div>
+        <div class="catalog-card-body"><span>@kit.Sku</span><h2>@kit.Name</h2><p>@(kit.Description ?? "Eğitim kiti reçete ve stok bilgilerini görüntüleyin.")</p><strong>Detayı ve reçeteyi aç →</strong></div>
+    </a>
+}
+</div>
+@if (Model.Count == 0) { <div class="empty">Henüz eğitim kiti yok. İlk kitinizi reçetesiyle birlikte ekleyin.</div> }

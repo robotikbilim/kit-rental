@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\KitRental.Core.Domain\KitRental.Core.Domain.csproj" />
+  </ItemGroup>
+</Project>

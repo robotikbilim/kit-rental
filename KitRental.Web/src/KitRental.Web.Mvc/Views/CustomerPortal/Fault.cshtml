@@ -1,0 +1,11 @@
+@model PortalFaultViewModel
+@{ ViewData["Title"] = $"Arıza {Model.Number}"; }
+@functions { string StatusName(int value) => value switch { 1 => "Kayıt açıldı", 2 => "İnceleniyor", 3 => "Bilgi bekleniyor", 4 => "Kitin gönderilmesi bekleniyor", 5 => "Serviste", 6 => "Geri gönderiliyor", 7 => "Çözüldü", 8 => "Kapatıldı", _ => "İşlemde" }; }
+<a class="back-link" asp-action="Index" asp-fragment="faults">← Arıza kayıtlarıma dön</a>
+<div class="fault-detail-hero"><div><span class="eyebrow">@Model.Number</span><h1>@Model.KitName</h1><p><strong>@Model.SerialNumber</strong> · @Model.Category</p></div><span class="fault-stage status-@Model.Status">@StatusName(Model.Status)</span></div>
+<section class="detail-section"><span class="eyebrow">BİLDİRİLEN SORUN</span><h2>Arıza açıklaması</h2><p class="fault-description">@Model.Description</p><small>@Model.OpenedAt.ToLocalTime().ToString("dd MMMM yyyy HH:mm") tarihinde oluşturuldu.</small></section>
+<section class="detail-section"><span class="eyebrow">SÜREÇ TAKİBİ</span><h2>Servis zaman çizelgesi</h2><div class="service-timeline">
+    <article class="done"><i></i><div><strong>Kayıt açıldı</strong><span>Arıza bildiriminiz servis ekibine iletildi.</span><small>@Model.OpenedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></div></article>
+    @foreach (var evt in Model.History) { <article class="done"><i></i><div><strong>@StatusName(evt.Current)</strong><span>@evt.Note</span><small>@evt.OccurredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></div></article> }
+</div></section>
+@if (Model.Shipments.Count > 0) { <section class="detail-section"><span class="eyebrow">KARGO</span><h2>Gönderim ve geri teslimat</h2><div class="shipment-grid">@foreach (var shipment in Model.Shipments) { <article><span>@(shipment.Type is 2 or 4 ? "Servise gönderim" : "Size geri gönderim")</span><h3>@shipment.Carrier</h3><strong>@shipment.TrackingNumber</strong><p>@(shipment.Status == 3 ? "Teslim edildi" : shipment.Status == 2 ? "Taşımada" : "Gönderi oluşturuldu")</p>@foreach (var evt in shipment.Events) { <small>@evt.OccurredAt.ToLocalTime().ToString("dd.MM HH:mm") · @evt.Location — @evt.Description</small> }</article> }</div></section> }
