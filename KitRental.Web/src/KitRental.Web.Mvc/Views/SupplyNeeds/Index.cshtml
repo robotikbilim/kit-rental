@@ -1,0 +1,47 @@
+@model SupplyNeedIndexPageViewModel
+@{ ViewData["Title"] = "İhtiyaç Listeleri"; }
+<div class="catalog-heading"><div><span class="eyebrow">TEDARİK PLANLAMA</span><h1>İhtiyaç Listeleri</h1><p>Gelen miktarları teyit edin ve komponent stoklarına işleyin.</p></div><a class="primary-action" asp-action="Create">+ Yeni ihtiyaç listesi</a></div>
+@if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
+@if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
+@if (Model.Lists.Count == 0)
+{
+    <div class="empty">Henüz ihtiyaç listesi oluşturulmadı.</div>
+}
+else
+{
+    <div class="supply-need-list">
+    @foreach (var list in Model.Lists)
+    {
+        <article class="supply-need-card status-@list.Status">
+            <header><div><span class="eyebrow">İHTİYAÇ LİSTESİ</span><h2>@list.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</h2><small>@list.Lines.Count komponent kalemi</small></div><span class="supply-status">@(list.Status == 1 ? "Bekleniyor" : "Tedarik edildi")</span></header>
+            @if (list.Status == 1)
+            {
+                <form asp-action="Complete" asp-route-id="@list.Id" method="post" class="supply-confirm-form">
+                    <div class="supply-confirm-heading"><div><strong>Tedarik teyidi</strong><small>Tüm satırları işaretleyin ve gerçekte gelen miktarı yazın.</small></div><div class="field"><label for="location-@list.Id">Stok konumu</label><select id="location-@list.Id" name="StorageLocationId" required>@if (Model.StorageLocations.Count == 0) { <option value="@Guid.Empty">Tedarik kabul konumu otomatik oluşturulsun</option> } else { <option value="">Depo / raf seçin</option>@foreach (var location in Model.StorageLocations) { <option value="@location.Id">@location.Code — @location.Warehouse / @location.Aisle-@location.Rack-@location.Shelf</option> } }</select></div></div>
+                    <div class="supply-check-lines">
+                    @{ var lineIndex = 0; }
+                    @foreach (var line in list.Lines)
+                    {
+                        <div class="supply-check-line"><input type="hidden" name="Lines[@lineIndex].ComponentId" value="@line.ComponentId" /><label class="supply-checkbox"><input type="checkbox" name="Lines[@lineIndex].Confirmed" value="true" /><span><strong>@line.ComponentName</strong><small>@line.ComponentSku · İstenen: @line.Quantity.ToString("0.###") @line.UnitOfMeasure</small></span></label><div class="field supplied-quantity"><label for="supplied-@list.Id-@lineIndex">Gelen miktar</label><input id="supplied-@list.Id-@lineIndex" name="Lines[@lineIndex].SuppliedQuantity" type="number" min="0.001" step="0.001" value="@line.Quantity" required /><small>@line.UnitOfMeasure</small></div></div>
+                        lineIndex++;
+                    }
+                    </div>
+                    <div class="supply-confirm-actions"><span><b class="confirmed-count">0</b> / @list.Lines.Count komponent teyit edildi</span><button type="submit" class="primary-action complete-supply-button" disabled>Tümünü tedarik edildi olarak işaretle ve stoğa ekle</button></div>
+                </form>
+            }
+            else
+            {
+                <div class="supply-need-lines">@foreach (var line in list.Lines) { <div><span><strong>@line.ComponentName</strong><small>@line.ComponentSku</small></span><span class="supply-quantities"><small>İstenen: @line.Quantity.ToString("0.###") @line.UnitOfMeasure</small><b>Gelen: @line.SuppliedQuantity?.ToString("0.###") @line.UnitOfMeasure</b></span></div> }</div>
+            }
+            <footer><div>@if (list.Status == 1) { <small class="block-muted">Son güncelleme: @list.UpdatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small> } else { <strong class="stock-added-note">✓ Gelen miktarlar stoğa eklendi</strong> }</div><div class="record-actions">@if (list.Status == 1) { <a asp-action="Edit" asp-route-id="@list.Id">Düzenle</a> }<form asp-action="Delete" asp-route-id="@list.Id" method="post" onsubmit="return confirm('Bu ihtiyaç listesini silmek istediğinize emin misiniz?');"><button type="submit">Sil</button></form></div></footer>
+        </article>
+    }
+    </div>
+}
+<script>
+document.querySelectorAll('.supply-confirm-form').forEach(form => {
+ const boxes=[...form.querySelectorAll('input[type="checkbox"]')], count=form.querySelector('.confirmed-count'), button=form.querySelector('.complete-supply-button'), location=form.querySelector('select[name="StorageLocationId"]');
+ const update=()=>{const checked=boxes.filter(box=>box.checked).length;count.textContent=checked;boxes.forEach(box=>box.closest('.supply-check-line').classList.toggle('confirmed',box.checked));button.disabled=checked!==boxes.length||!location.value;};
+ boxes.forEach(box=>box.addEventListener('change',update));location.addEventListener('change',update);update();
+});
+</script>

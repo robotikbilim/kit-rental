@@ -9,6 +9,7 @@ using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Support;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Warehouse;
+using KitRental.Core.Domain.Procurement;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -31,6 +32,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
     public DbSet<ComponentStock> ComponentStocks => Set<ComponentStock>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<BillOfMaterials> BillsOfMaterials => Set<BillOfMaterials>();
+    public DbSet<SupplyNeedList> SupplyNeedLists => Set<SupplyNeedList>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +50,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         ConfigureComponentStock(modelBuilder.Entity<ComponentStock>());
         ConfigureStockMovement(modelBuilder.Entity<StockMovement>());
         ConfigureBillOfMaterials(modelBuilder.Entity<BillOfMaterials>());
+        ConfigureSupplyNeedList(modelBuilder.Entity<SupplyNeedList>());
     }
 
     private static void ConfigureProductModel(EntityTypeBuilder<ProductModel> builder)
@@ -297,6 +300,27 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             lines.HasIndex(line => line.ComponentId);
         });
         builder.Navigation(bom => bom.Lines).HasField("_lines").UsePropertyAccessMode(PropertyAccessMode.Field);
+        AddRowVersion(builder);
+    }
+
+    private static void ConfigureSupplyNeedList(EntityTypeBuilder<SupplyNeedList> builder)
+    {
+        builder.ToTable("SupplyNeedLists");
+        builder.HasKey(item => item.Id);
+        builder.HasIndex(item => new { item.Status, item.CreatedAt });
+        builder.OwnsMany(item => item.Lines, lines =>
+        {
+            lines.ToTable("SupplyNeedLines");
+            lines.WithOwner().HasForeignKey("SupplyNeedListId");
+            lines.HasKey(line => line.Id);
+            lines.Property(line => line.Id).ValueGeneratedNever();
+            lines.Property(line => line.Quantity).HasPrecision(18, 3);
+            lines.Property(line => line.SuppliedQuantity).HasPrecision(18, 3);
+            lines.HasOne<Component>().WithMany().HasForeignKey(line => line.ComponentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            lines.HasIndex(line => line.ComponentId);
+        });
+        builder.Navigation(item => item.Lines).HasField("_lines").UsePropertyAccessMode(PropertyAccessMode.Field);
         AddRowVersion(builder);
     }
 

@@ -9,6 +9,7 @@ using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Support;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Warehouse;
+using KitRental.Core.Domain.Procurement;
 
 namespace KitRental.Core.Infrastructure.Persistence;
 
@@ -29,6 +30,7 @@ public sealed class InMemoryCoreRepository : ICoreRepository
     private readonly Dictionary<(Guid ComponentId, Guid LocationId), ComponentStock> _componentStocks = [];
     private readonly List<StockMovement> _stockMovements = [];
     private readonly Dictionary<Guid, BillOfMaterials> _boms = [];
+    private readonly Dictionary<Guid, SupplyNeedList> _supplyNeedLists = [];
 
     public Task AddProductModelAsync(ProductModel model, CancellationToken cancellationToken)
     {
@@ -412,6 +414,29 @@ public sealed class InMemoryCoreRepository : ICoreRepository
     public Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        return Task.CompletedTask;
+    }
+
+    public Task AddSupplyNeedListAsync(SupplyNeedList list, CancellationToken cancellationToken)
+    {
+        lock (_gate) _supplyNeedLists.Add(list.Id, list);
+        return Task.CompletedTask;
+    }
+
+    public Task<SupplyNeedList?> GetSupplyNeedListAsync(Guid id, CancellationToken cancellationToken)
+    {
+        lock (_gate) return Task.FromResult(_supplyNeedLists.GetValueOrDefault(id));
+    }
+
+    public Task<IReadOnlyCollection<SupplyNeedList>> GetSupplyNeedListsAsync(CancellationToken cancellationToken)
+    {
+        lock (_gate) return Task.FromResult<IReadOnlyCollection<SupplyNeedList>>(
+            _supplyNeedLists.Values.OrderByDescending(item => item.CreatedAt).ToArray());
+    }
+
+    public Task RemoveSupplyNeedListAsync(SupplyNeedList list, CancellationToken cancellationToken)
+    {
+        lock (_gate) _supplyNeedLists.Remove(list.Id);
         return Task.CompletedTask;
     }
 

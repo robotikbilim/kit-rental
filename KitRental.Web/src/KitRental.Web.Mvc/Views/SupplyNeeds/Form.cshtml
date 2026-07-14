@@ -1,0 +1,26 @@
+@model SupplyNeedFormPageViewModel
+@{ ViewData["Title"] = Model.IsEdit ? "İhtiyaç Listesini Düzenle" : "Yeni İhtiyaç Listesi"; }
+<div class="form-shell form-shell-wide">
+    <div class="form-heading"><a asp-action="Index">← İhtiyaç listeleri</a><span class="eyebrow">TEDARİK TALEBİ</span><h1>@(Model.IsEdit ? "İhtiyaç listesini düzenle" : "Yeni ihtiyaç listesi")</h1><p>Tedarikçiden talep edilecek komponentleri ve miktarlarını ekleyin.</p></div>
+    <form method="post" class="catalog-form" id="supply-need-form">
+        <div asp-validation-summary="All" class="error"></div>
+        <div class="section-heading"><div><h2>Komponent ihtiyaçları</h2><p>Her komponenti yalnızca bir kez ekleyin.</p></div><button type="button" class="secondary-action" id="add-supply-line">+ Komponent ekle</button></div>
+        <div class="recipe-lines" id="supply-lines">
+        @for (var index = 0; index < Model.Form.Lines.Count; index++)
+        {
+            <div class="recipe-line supply-line"><span class="line-number">@(index + 1)</span><div class="field"><label>Komponent</label><select name="Lines[@index].ComponentId" required><option value="">Komponent seçin</option>@foreach (var component in Model.Components) { <option value="@component.Id" selected="@(component.Id == Model.Form.Lines[index].ComponentId)">@component.Name — @component.Sku</option> }</select></div><div class="field quantity-field"><label>Adet / miktar</label><input name="Lines[@index].Quantity" value="@Model.Form.Lines[index].Quantity" type="number" min="0.001" step="0.001" required /></div><button type="button" class="remove-line" aria-label="Satırı kaldır">×</button></div>
+        }
+        </div>
+        <div class="form-actions"><a asp-action="Index" class="secondary-action">Vazgeç</a><button type="submit" class="primary-action">@(Model.IsEdit ? "Değişiklikleri kaydet" : "İhtiyaç listesini oluştur")</button></div>
+    </form>
+</div>
+<template id="supply-line-template"><div class="recipe-line supply-line"><span class="line-number"></span><div class="field"><label>Komponent</label><select required><option value="">Komponent seçin</option>@foreach (var component in Model.Components) { <option value="@component.Id">@component.Name — @component.Sku</option> }</select></div><div class="field quantity-field"><label>Adet / miktar</label><input type="number" min="0.001" step="0.001" value="1" required /></div><button type="button" class="remove-line" aria-label="Satırı kaldır">×</button></div></template>
+<script>
+(() => {
+ const lines=document.getElementById('supply-lines'), template=document.getElementById('supply-line-template');
+ const renumber=()=>[...lines.querySelectorAll('.supply-line')].forEach((row,i)=>{row.querySelector('.line-number').textContent=i+1;row.querySelector('select').name=`Lines[${i}].ComponentId`;row.querySelector('input').name=`Lines[${i}].Quantity`;});
+ document.getElementById('add-supply-line').addEventListener('click',()=>{lines.appendChild(template.content.cloneNode(true));renumber();});
+ lines.addEventListener('click',e=>{if(!e.target.classList.contains('remove-line'))return;e.target.closest('.supply-line').remove();renumber();});
+ renumber();
+})();
+</script>

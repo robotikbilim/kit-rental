@@ -8,6 +8,7 @@ using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Support;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Warehouse;
+using KitRental.Core.Domain.Procurement;
 
 namespace KitRental.Core.Application.Abstractions;
 
@@ -54,6 +55,10 @@ public interface ICoreRepository
     Task AddBillOfMaterialsAsync(BillOfMaterials bom, CancellationToken cancellationToken);
     Task<BillOfMaterials?> GetActiveBillOfMaterialsAsync(Guid productModelId, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<BillOfMaterials>> GetActiveBillOfMaterialsAsync(CancellationToken cancellationToken);
+    Task AddSupplyNeedListAsync(SupplyNeedList list, CancellationToken cancellationToken);
+    Task<SupplyNeedList?> GetSupplyNeedListAsync(Guid id, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<SupplyNeedList>> GetSupplyNeedListsAsync(CancellationToken cancellationToken);
+    Task RemoveSupplyNeedListAsync(SupplyNeedList list, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
     Task<bool> TryCreateReservationAsync(
         ProductUnit unit,

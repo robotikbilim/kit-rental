@@ -10,6 +10,7 @@ using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Support;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Warehouse;
+using KitRental.Core.Domain.Procurement;
 using Microsoft.EntityFrameworkCore;
 
 namespace KitRental.Core.Infrastructure.Persistence;
@@ -202,7 +203,6 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
 
     public async Task ApplyStockMovementsAsync(IReadOnlyCollection<StockMovement> movements, CancellationToken cancellationToken)
     {
-        await using var transaction = await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
         foreach (var movement in movements)
         {
             var stock = await dbContext.ComponentStocks.SingleOrDefaultAsync(
@@ -217,7 +217,6 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
             await dbContext.StockMovements.AddAsync(movement, cancellationToken);
         }
         await dbContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task AddBillOfMaterialsAsync(BillOfMaterials bom, CancellationToken cancellationToken)
@@ -251,6 +250,23 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken) =>
         await dbContext.SaveChangesAsync(cancellationToken);
+
+    public Task AddSupplyNeedListAsync(SupplyNeedList list, CancellationToken cancellationToken) =>
+        dbContext.SupplyNeedLists.AddAsync(list, cancellationToken).AsTask();
+
+    public Task<SupplyNeedList?> GetSupplyNeedListAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.SupplyNeedLists.Include(item => item.Lines)
+            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyCollection<SupplyNeedList>> GetSupplyNeedListsAsync(CancellationToken cancellationToken) =>
+        await dbContext.SupplyNeedLists.Include(item => item.Lines)
+            .OrderByDescending(item => item.CreatedAt).ToArrayAsync(cancellationToken);
+
+    public Task RemoveSupplyNeedListAsync(SupplyNeedList list, CancellationToken cancellationToken)
+    {
+        dbContext.SupplyNeedLists.Remove(list);
+        return Task.CompletedTask;
+    }
 
     public Task<bool> TryCreateReservationAsync(
         ProductUnit unit,

@@ -52,6 +52,38 @@ public sealed record ProductModelCatalogViewModel(Guid Id, string Name, string S
 public sealed record ComponentCatalogViewModel(
     Guid Id, string Name, string Sku, string UnitOfMeasure, decimal MinimumStock, string? ImageUrl,
     decimal TotalStock, bool IsLowStock);
+public sealed record SupplyNeedLineViewModel(Guid ComponentId, string ComponentName, string ComponentSku,
+    string UnitOfMeasure, decimal Quantity, decimal? SuppliedQuantity);
+public sealed record SupplyNeedListViewModel(Guid Id, int Status, DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt, IReadOnlyCollection<SupplyNeedLineViewModel> Lines);
+public sealed class SupplyNeedLineInputViewModel
+{
+    [Required] public Guid ComponentId { get; set; }
+    [Range(0.001, 999999)] public decimal Quantity { get; set; } = 1;
+}
+public sealed class SupplyNeedInputViewModel
+{
+    public Guid Id { get; set; }
+    public List<SupplyNeedLineInputViewModel> Lines { get; set; } = [new()];
+}
+public sealed record SupplyNeedFormPageViewModel(SupplyNeedInputViewModel Form,
+    IReadOnlyCollection<ComponentCatalogViewModel> Components, bool IsEdit);
+public sealed record StorageLocationViewModel(Guid Id, string Code, string Warehouse, string Aisle,
+    string Rack, string Shelf);
+public sealed class CompleteSupplyNeedLineViewModel
+{
+    public Guid ComponentId { get; set; }
+    public bool Confirmed { get; set; }
+    [Range(0.001, 999999)] public decimal SuppliedQuantity { get; set; }
+}
+public sealed class CompleteSupplyNeedViewModel
+{
+    public Guid Id { get; set; }
+    public Guid StorageLocationId { get; set; }
+    public List<CompleteSupplyNeedLineViewModel> Lines { get; set; } = [];
+}
+public sealed record SupplyNeedIndexPageViewModel(IReadOnlyCollection<SupplyNeedListViewModel> Lists,
+    IReadOnlyCollection<StorageLocationViewModel> StorageLocations);
 public sealed record BomLineViewModel(Guid ComponentId, string ComponentName, string ComponentSku, decimal Quantity, string UnitOfMeasure);
 public sealed record BomViewModel(Guid Id, Guid ProductModelId, string ProductName, string ProductSku, int Version,
     IReadOnlyCollection<BomLineViewModel> Lines);

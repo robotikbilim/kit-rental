@@ -61,6 +61,37 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public async Task<IReadOnlyCollection<ComponentCatalogViewModel>> GetComponentsAsync(CancellationToken cancellationToken) =>
         await GetAsync<ComponentCatalogViewModel[]>("/core/api/components", cancellationToken) ?? [];
 
+    public async Task<IReadOnlyCollection<SupplyNeedListViewModel>> GetSupplyNeedsAsync(
+        CancellationToken cancellationToken) =>
+        await GetAsync<SupplyNeedListViewModel[]>("/core/api/supply-needs", cancellationToken) ?? [];
+
+    public Task<SupplyNeedListViewModel?> GetSupplyNeedAsync(Guid id, CancellationToken cancellationToken) =>
+        GetAsync<SupplyNeedListViewModel>($"/core/api/supply-needs/{id}", cancellationToken);
+
+    public Task<ApiCommandResult<SupplyNeedListViewModel>> CreateSupplyNeedAsync(SupplyNeedInputViewModel model,
+        CancellationToken cancellationToken) => PostAsync<SupplyNeedListViewModel>("/core/api/supply-needs",
+        new { lines = model.Lines.Select(line => new { line.ComponentId, line.Quantity }).ToArray() }, cancellationToken);
+
+    public Task<ApiCommandResult<SupplyNeedListViewModel>> UpdateSupplyNeedAsync(Guid id,
+        SupplyNeedInputViewModel model, CancellationToken cancellationToken) => SendAsync<SupplyNeedListViewModel>(
+        HttpMethod.Put, $"/core/api/supply-needs/{id}",
+        new { lines = model.Lines.Select(line => new { line.ComponentId, line.Quantity }).ToArray() }, cancellationToken);
+
+    public Task<ApiCommandResult<SupplyNeedListViewModel>> CompleteSupplyNeedAsync(Guid id,
+        CompleteSupplyNeedViewModel model, CancellationToken cancellationToken) =>
+        PostAsync<SupplyNeedListViewModel>($"/core/api/supply-needs/{id}/complete", new
+        {
+            model.StorageLocationId,
+            lines = model.Lines.Select(line => new { line.ComponentId, Quantity = line.SuppliedQuantity }).ToArray()
+        }, cancellationToken);
+
+    public Task<ApiCommandResult<object>> DeleteSupplyNeedAsync(Guid id, CancellationToken cancellationToken) =>
+        SendAsync<object>(HttpMethod.Delete, $"/core/api/supply-needs/{id}", null, cancellationToken);
+
+    public async Task<IReadOnlyCollection<StorageLocationViewModel>> GetStorageLocationsAsync(
+        CancellationToken cancellationToken) =>
+        await GetAsync<StorageLocationViewModel[]>("/core/api/storage-locations", cancellationToken) ?? [];
+
     public async Task<IReadOnlyCollection<ProductModelCatalogViewModel>> GetProductModelsAsync(CancellationToken cancellationToken) =>
         await GetAsync<ProductModelCatalogViewModel[]>("/core/api/product-models", cancellationToken) ?? [];
 
