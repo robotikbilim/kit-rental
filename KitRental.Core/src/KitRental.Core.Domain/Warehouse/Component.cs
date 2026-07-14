@@ -40,6 +40,16 @@ public sealed class Component
         return new Component(id, name.Trim(), sku.Trim().ToUpperInvariant(), unitOfMeasure.Trim(), minimumStock, normalizedImageUrl);
     }
 
+    public void Update(string name, string sku, string unitOfMeasure, decimal minimumStock, string? imageUrl)
+    {
+        var updated = Create(Id, name, sku, unitOfMeasure, minimumStock, imageUrl);
+        Name = updated.Name;
+        Sku = updated.Sku;
+        UnitOfMeasure = updated.UnitOfMeasure;
+        MinimumStock = updated.MinimumStock;
+        ImageUrl = updated.ImageUrl;
+    }
+
     private static string? NormalizeImageUrl(string? imageUrl)
     {
         if (string.IsNullOrWhiteSpace(imageUrl))

@@ -1,0 +1,15 @@
+@model EditKitViewModel
+@{ ViewData["Title"] = "Eğitim Setini Güncelle"; }
+<div class="form-shell">
+    <div class="form-heading"><a asp-action="Kits">← Eğitim Kitleri</a><span class="eyebrow">GÜNCELLE</span><h1>Eğitim setini güncelle</h1></div>
+    <form method="post" class="catalog-form">
+        <div asp-validation-summary="All" class="error"></div>
+        <div class="form-grid">
+            <div class="field wide"><label asp-for="Name">Eğitim seti adı</label><input asp-for="Name" /></div>
+            <div class="field"><label asp-for="Sku">SKU / ürün kodu</label><input asp-for="Sku" /></div>
+            <div class="field wide"><label asp-for="Description">Açıklama</label><textarea asp-for="Description" rows="3"></textarea></div>
+            <div class="field wide"><label asp-for="ImageUrl"></label><input asp-for="ImageUrl" /></div>
+        </div>
+        <div class="form-actions"><a asp-action="Kits" class="secondary-action">Vazgeç</a><button class="primary-action" type="submit">Değişiklikleri kaydet</button></div>
+    </form>
+</div>

@@ -29,6 +29,14 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
     public async Task<IReadOnlyCollection<ProductModel>> GetProductModelsAsync(CancellationToken cancellationToken) =>
         await dbContext.ProductModels.OrderBy(model => model.Name).ToArrayAsync(cancellationToken);
 
+    public async Task RemoveProductModelAsync(ProductModel model, CancellationToken cancellationToken)
+    {
+        var boms = await dbContext.BillsOfMaterials.Where(item => item.ProductModelId == model.Id)
+            .ToArrayAsync(cancellationToken);
+        dbContext.BillsOfMaterials.RemoveRange(boms);
+        dbContext.ProductModels.Remove(model);
+    }
+
     public async Task AddProductUnitAsync(ProductUnit unit, CancellationToken cancellationToken)
     {
         if (await dbContext.ProductUnits.AnyAsync(
@@ -43,6 +51,12 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
 
     public async Task<IReadOnlyCollection<ProductUnit>> GetProductUnitsAsync(CancellationToken cancellationToken) =>
         await dbContext.ProductUnits.Include(unit => unit.History).OrderBy(unit => unit.SerialNumber).ToArrayAsync(cancellationToken);
+
+    public Task RemoveProductUnitAsync(ProductUnit unit, CancellationToken cancellationToken)
+    {
+        dbContext.ProductUnits.Remove(unit);
+        return Task.CompletedTask;
+    }
 
     public async Task AddCustomerAsync(Customer customer, CancellationToken cancellationToken)
     {
@@ -148,6 +162,12 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
 
     public async Task<IReadOnlyCollection<Component>> GetComponentsAsync(CancellationToken cancellationToken) =>
         await dbContext.Components.OrderBy(component => component.Name).ToArrayAsync(cancellationToken);
+
+    public Task RemoveComponentAsync(Component component, CancellationToken cancellationToken)
+    {
+        dbContext.Components.Remove(component);
+        return Task.CompletedTask;
+    }
 
     public async Task AddStorageLocationAsync(StorageLocation location, CancellationToken cancellationToken)
     {

@@ -1,0 +1,16 @@
+@model EditComponentViewModel
+@{ ViewData["Title"] = "Komponenti Güncelle"; }
+<div class="form-shell">
+    <div class="form-heading"><a asp-action="Components">← Komponentler</a><span class="eyebrow">GÜNCELLE</span><h1>Komponenti güncelle</h1></div>
+    <form method="post" class="catalog-form">
+        <div asp-validation-summary="All" class="error"></div>
+        <div class="form-grid">
+            <div class="field wide"><label asp-for="Name">Komponent adı</label><input asp-for="Name" /></div>
+            <div class="field"><label asp-for="Sku">SKU / stok kodu</label><input asp-for="Sku" /></div>
+            <div class="field"><label asp-for="UnitOfMeasure"></label><input asp-for="UnitOfMeasure" /></div>
+            <div class="field"><label asp-for="MinimumStock"></label><input asp-for="MinimumStock" type="number" min="0" step="0.001" /></div>
+            <div class="field wide"><label asp-for="ImageUrl"></label><input asp-for="ImageUrl" /></div>
+        </div>
+        <div class="form-actions"><a asp-action="Components" class="secondary-action">Vazgeç</a><button class="primary-action" type="submit">Değişiklikleri kaydet</button></div>
+    </form>
+</div>

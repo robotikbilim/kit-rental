@@ -114,6 +114,60 @@ public sealed class CatalogController(KitRentalApiClient apiClient) : Controller
         return RedirectToAction(nameof(Component), new { id = result.Data.Id });
     }
 
+    [HttpGet]
+    public async Task<IActionResult> EditKit(Guid id, CancellationToken cancellationToken)
+    {
+        var kit = await apiClient.GetProductModelAsync(id, cancellationToken);
+        return kit is null ? NotFound() : View(new EditKitViewModel { Id = kit.Id, Name = kit.Name, Sku = kit.Sku,
+            Description = kit.Description, ImageUrl = kit.ImageUrl });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditKit(Guid id, EditKitViewModel model, CancellationToken cancellationToken)
+    {
+        model.Id = id;
+        if (!ModelState.IsValid) return View(model);
+        var result = await apiClient.UpdateKitAsync(id, model, cancellationToken);
+        if (!result.IsSuccess) { ModelState.AddModelError(string.Empty, result.Error ?? "Eğitim seti güncellenemedi."); return View(model); }
+        TempData["Success"] = "Eğitim seti güncellendi.";
+        return RedirectToAction(nameof(Kits));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteKit(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await apiClient.DeleteKitAsync(id, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess ? "Eğitim seti silindi." : result.Error;
+        return RedirectToAction(nameof(Kits));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> EditComponent(Guid id, CancellationToken cancellationToken)
+    {
+        var item = await apiClient.GetComponentLocatorAsync(id, cancellationToken);
+        return item is null ? NotFound() : View(new EditComponentViewModel { Id = item.Id, Name = item.Name,
+            Sku = item.Sku, UnitOfMeasure = item.UnitOfMeasure, MinimumStock = item.MinimumStock, ImageUrl = item.ImageUrl });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditComponent(Guid id, EditComponentViewModel model, CancellationToken cancellationToken)
+    {
+        model.Id = id;
+        if (!ModelState.IsValid) return View(model);
+        var result = await apiClient.UpdateComponentAsync(id, model, cancellationToken);
+        if (!result.IsSuccess) { ModelState.AddModelError(string.Empty, result.Error ?? "Komponent güncellenemedi."); return View(model); }
+        TempData["Success"] = "Komponent güncellendi.";
+        return RedirectToAction(nameof(Components));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteComponent(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await apiClient.DeleteComponentAsync(id, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess ? "Komponent silindi." : result.Error;
+        return RedirectToAction(nameof(Components));
+    }
+
     private async Task<CreateKitPageViewModel> KitPageAsync(CreateKitViewModel form, CancellationToken cancellationToken) =>
         new(form, await apiClient.GetComponentsAsync(cancellationToken));
 

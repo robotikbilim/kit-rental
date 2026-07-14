@@ -22,6 +22,27 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public async Task<IReadOnlyCollection<ProductUnitViewModel>> GetProductUnitsAsync(CancellationToken cancellationToken) =>
         await GetAsync<ProductUnitViewModel[]>("/core/api/product-units", cancellationToken) ?? [];
 
+    public Task<InventoryPageViewModel?> GetInventoryAsync(InventoryFilterViewModel filter,
+        CancellationToken cancellationToken)
+    {
+        var parameters = new List<string>
+        {
+            $"page={Math.Max(1, filter.Page)}",
+            $"pageSize={Math.Clamp(filter.PageSize, 10, 100)}"
+        };
+        if (!string.IsNullOrWhiteSpace(filter.Query))
+            parameters.Add($"query={Uri.EscapeDataString(filter.Query.Trim())}");
+        if (filter.ProductModelId.HasValue)
+            parameters.Add($"productModelId={filter.ProductModelId.Value}");
+        if (filter.Status.HasValue)
+            parameters.Add($"status={filter.Status.Value}");
+        if (filter.CreatedFrom.HasValue)
+            parameters.Add($"createdFrom={filter.CreatedFrom.Value:yyyy-MM-dd}");
+        if (filter.CreatedTo.HasValue)
+            parameters.Add($"createdTo={filter.CreatedTo.Value:yyyy-MM-dd}");
+        return GetAsync<InventoryPageViewModel>($"/core/api/inventory?{string.Join('&', parameters)}", cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<PortalOrderViewModel>> GetOrdersAsync(CancellationToken cancellationToken) =>
         await GetAsync<PortalOrderViewModel[]>("/core/api/order-summaries", cancellationToken) ?? [];
 
@@ -53,6 +74,11 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CreateComponentViewModel model,
         CancellationToken cancellationToken) =>
         PostAsync<ComponentCatalogViewModel>("/core/api/components", model, cancellationToken);
+
+    public Task<ApiCommandResult<ComponentCatalogViewModel>> UpdateComponentAsync(Guid id, EditComponentViewModel model,
+        CancellationToken cancellationToken) => SendAsync<ComponentCatalogViewModel>(HttpMethod.Put, $"/core/api/components/{id}", model, cancellationToken);
+    public Task<ApiCommandResult<object>> DeleteComponentAsync(Guid id, CancellationToken cancellationToken) =>
+        SendAsync<object>(HttpMethod.Delete, $"/core/api/components/{id}", null, cancellationToken);
 
     public Task<ApiCommandResult<ProductModelCatalogViewModel>> CreateKitAsync(
         CreateKitViewModel model,
@@ -105,6 +131,11 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => PostAsync<ProductUnitViewModel[]>("/core/api/product-units/bulk",
             new { model.ProductModelId, model.Quantity }, cancellationToken);
 
+    public Task<ApiCommandResult<ProductUnitViewModel>> UpdatePhysicalKitAsync(Guid id, EditPhysicalKitViewModel model,
+        CancellationToken cancellationToken) => SendAsync<ProductUnitViewModel>(HttpMethod.Put, $"/core/api/product-units/{id}", model, cancellationToken);
+    public Task<ApiCommandResult<object>> DeletePhysicalKitAsync(Guid id, CancellationToken cancellationToken) =>
+        SendAsync<object>(HttpMethod.Delete, $"/core/api/product-units/{id}", null, cancellationToken);
+
     public Task<ApiCommandResult<RentPhysicalKitResultViewModel>> RentPhysicalKitAsync(RentPhysicalKitViewModel model,
         CancellationToken cancellationToken) => PostAsync<RentPhysicalKitResultViewModel>(
             $"/core/api/physical-kits/{model.ProductUnitId}/rent", model, cancellationToken);
@@ -124,6 +155,11 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.StartDate,
             model.EndDate
         }, cancellationToken);
+
+    public Task<ApiCommandResult<ProductModelCatalogViewModel>> UpdateKitAsync(Guid id, EditKitViewModel model,
+        CancellationToken cancellationToken) => SendAsync<ProductModelCatalogViewModel>(HttpMethod.Put, $"/core/api/product-models/{id}", model, cancellationToken);
+    public Task<ApiCommandResult<object>> DeleteKitAsync(Guid id, CancellationToken cancellationToken) =>
+        SendAsync<object>(HttpMethod.Delete, $"/core/api/product-models/{id}", null, cancellationToken);
 
     public Task<CustomerPortalViewModel?> GetCustomerPortalAsync(CancellationToken cancellationToken) =>
         GetAsync<CustomerPortalViewModel>("/core/api/customer-portal", cancellationToken);
@@ -161,13 +197,21 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         return await response.Content.ReadFromJsonAsync<T>(cancellationToken);
     }
 
-    private async Task<ApiCommandResult<T>> PostAsync<T>(string path, object body, CancellationToken cancellationToken)
+    private Task<ApiCommandResult<T>> PostAsync<T>(string path, object body, CancellationToken cancellationToken) =>
+        SendAsync<T>(HttpMethod.Post, path, body, cancellationToken);
+
+    private async Task<ApiCommandResult<T>> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) };
+        using var request = new HttpRequestMessage(method, path);
+        if (body is not null) request.Content = JsonContent.Create(body);
         await AddAuthorizationAsync(request);
         using var response = await client.SendAsync(request, cancellationToken);
         if (response.IsSuccessStatusCode)
-            return new ApiCommandResult<T>(true, await response.Content.ReadFromJsonAsync<T>(cancellationToken), null);
+        {
+            var data = response.StatusCode == System.Net.HttpStatusCode.NoContent
+                ? default : await response.Content.ReadFromJsonAsync<T>(cancellationToken);
+            return new ApiCommandResult<T>(true, data, null);
+        }
         var problem = await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ProblemDetails>(cancellationToken);
         return new ApiCommandResult<T>(false, default, problem?.Detail ?? "İşlem tamamlanamadı.");
     }

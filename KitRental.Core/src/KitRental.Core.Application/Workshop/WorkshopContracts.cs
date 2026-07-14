@@ -10,6 +10,9 @@ public sealed record CreateComponentCommand(
     string? ImageUrl,
     Guid ActorId);
 
+public sealed record UpdateComponentCommand(Guid Id, string Name, string Sku, string UnitOfMeasure,
+    decimal MinimumStock, string? ImageUrl, Guid ActorId);
+
 public sealed record CreateStorageLocationCommand(
     string Code,
     string Warehouse,

@@ -26,6 +26,36 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
         return MapComponent(component, 0);
     }
 
+    public async Task<ComponentResponse> UpdateComponentAsync(UpdateComponentCommand command, CancellationToken cancellationToken)
+    {
+        var component = await repository.GetComponentAsync(command.Id, cancellationToken)
+            ?? throw new ResourceNotFoundException("Komponent bulunamadı.");
+        if ((await repository.GetComponentsAsync(cancellationToken)).Any(item => item.Id != component.Id &&
+            item.Sku.Equals(command.Sku.Trim(), StringComparison.OrdinalIgnoreCase)))
+            throw new ConflictException("component.sku_not_unique", "Bu SKU başka bir komponentte kullanılıyor.");
+        var previous = component.Sku;
+        component.Update(command.Name, command.Sku, command.UnitOfMeasure, command.MinimumStock, command.ImageUrl);
+        await AuditAsync(command.ActorId, nameof(Component), component.Id, "Updated", previous, component.Sku, cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+        var total = (await repository.GetComponentStocksAsync(component.Id, null, cancellationToken)).Sum(item => item.Quantity);
+        return MapComponent(component, total);
+    }
+
+    public async Task DeleteComponentAsync(Guid id, Guid actorId, CancellationToken cancellationToken)
+    {
+        var component = await repository.GetComponentAsync(id, cancellationToken)
+            ?? throw new ResourceNotFoundException("Komponent bulunamadı.");
+        var isInRecipe = (await repository.GetActiveBillOfMaterialsAsync(cancellationToken))
+            .Any(bom => bom.Lines.Any(line => line.ComponentId == id));
+        var hasStockHistory = (await repository.GetStockMovementsAsync(id, cancellationToken)).Count > 0 ||
+            (await repository.GetComponentStocksAsync(id, null, cancellationToken)).Count > 0;
+        if (isInRecipe || hasStockHistory)
+            throw new ConflictException("component.in_use", "Reçetede veya stok hareketlerinde kullanılan komponent silinemez.");
+        await repository.RemoveComponentAsync(component, cancellationToken);
+        await AuditAsync(actorId, nameof(Component), id, "Deleted", component.Sku, null, cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<ComponentResponse>> GetComponentsAsync(bool lowStockOnly, CancellationToken cancellationToken)
     {
         var components = await repository.GetComponentsAsync(cancellationToken);

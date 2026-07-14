@@ -153,6 +153,19 @@ api.MapGet("/product-models", async (InventoryService service, CancellationToken
 api.MapGet("/product-models/{productModelId:guid}", async (Guid productModelId, InventoryService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetModelAsync(productModelId, cancellationToken)));
 
+api.MapPut("/product-models/{productModelId:guid}", async (Guid productModelId, UpdateProductModelRequest request,
+    ClaimsPrincipal user, InventoryService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateModelAsync(new UpdateProductModelCommand(productModelId, request.Name, request.Sku,
+        request.Description, request.ImageUrl, user.GetRequiredUserId()), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
+api.MapDelete("/product-models/{productModelId:guid}", async (Guid productModelId, ClaimsPrincipal user,
+    InventoryService service, CancellationToken cancellationToken) =>
+{
+    await service.DeleteModelAsync(productModelId, user.GetRequiredUserId(), cancellationToken);
+    return Results.NoContent();
+}).RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
 api.MapPost("/product-units", async (CreateProductUnitRequest request, ClaimsPrincipal user, InventoryService service, CancellationToken cancellationToken) =>
 {
     var result = await service.CreateUnitAsync(
@@ -170,6 +183,24 @@ api.MapPost("/product-units/bulk", async (CreateProductUnitsRequest request, Cla
 
 api.MapGet("/product-units", async (InventoryService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetUnitsAsync(cancellationToken)));
+
+api.MapGet("/inventory", async (string? query, Guid? productModelId, ProductUnitStatus? status,
+    DateOnly? createdFrom, DateOnly? createdTo, int? page, int? pageSize, InventoryService service,
+    CancellationToken cancellationToken) => Results.Ok(await service.GetInventoryAsync(query, productModelId,
+        status, createdFrom, createdTo, page ?? 1, pageSize ?? 20, cancellationToken)));
+
+api.MapPut("/product-units/{id:guid}", async (Guid id, UpdateProductUnitRequest request, ClaimsPrincipal user,
+    InventoryService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateUnitAsync(new UpdateProductUnitCommand(id, request.SerialNumber, request.QrCode,
+        user.GetRequiredUserId()), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
+
+api.MapDelete("/product-units/{id:guid}", async (Guid id, ClaimsPrincipal user, InventoryService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteUnitAsync(id, user.GetRequiredUserId(), cancellationToken);
+    return Results.NoContent();
+}).RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
 
 api.MapGet("/physical-kits/dashboard", async (PhysicalKitService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetDashboardAsync(cancellationToken)))
@@ -280,6 +311,19 @@ api.MapGet("/product-models/{productModelId:guid}/bom", async (Guid productModel
     return bom is null ? Results.NoContent() : Results.Ok(bom);
 })
     .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
+
+api.MapPut("/components/{componentId:guid}", async (Guid componentId, UpdateComponentRequest request,
+    ClaimsPrincipal user, WorkshopService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateComponentAsync(new UpdateComponentCommand(componentId, request.Name, request.Sku,
+        request.UnitOfMeasure, request.MinimumStock, request.ImageUrl, user.GetRequiredUserId()), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
+
+api.MapDelete("/components/{componentId:guid}", async (Guid componentId, ClaimsPrincipal user,
+    WorkshopService service, CancellationToken cancellationToken) =>
+{
+    await service.DeleteComponentAsync(componentId, user.GetRequiredUserId(), cancellationToken);
+    return Results.NoContent();
+}).RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
 
 api.MapGet("/physical-kits/models", async (PhysicalKitService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetModelSummariesAsync(cancellationToken)))
@@ -420,14 +464,17 @@ static Guid GetRequiredCustomerId(ClaimsPrincipal user) => user.GetCustomerId()
     ?? throw new ForbiddenException("Bu işlem için bir müşteri hesabına bağlı olmalısınız.");
 
 public sealed record CreateProductModelRequest(string Name, string Sku, string? Description = null, string? ImageUrl = null);
+public sealed record UpdateProductModelRequest(string Name, string Sku, string? Description = null, string? ImageUrl = null);
 public sealed record CreateProductUnitRequest(Guid ProductModelId, string? SerialNumber = null, string? QrCode = null);
 public sealed record CreateProductUnitsRequest(Guid ProductModelId, int Quantity);
+public sealed record UpdateProductUnitRequest(string SerialNumber, string QrCode);
 public sealed record RentPhysicalKitRequest(string CustomerName, string Email, string Phone, string AddressLine,
     string District, string City, string PostalCode, DateOnly StartDate, DateOnly EndDate);
 public sealed record BulkRentPhysicalKitsRequest(IReadOnlyCollection<Guid> ProductUnitIds, string CustomerName,
     string Email, string Phone, string AddressLine, string District, string City, string PostalCode,
     DateOnly StartDate, DateOnly EndDate);
 public sealed record CreateComponentRequest(string Name, string Sku, string UnitOfMeasure, decimal MinimumStock, string? ImageUrl = null);
+public sealed record UpdateComponentRequest(string Name, string Sku, string UnitOfMeasure, decimal MinimumStock, string? ImageUrl = null);
 public sealed record CreateStorageLocationRequest(string Code, string Warehouse, string Aisle, string Rack, string Shelf);
 public sealed record RecordComponentStockRequest(Guid ComponentId, Guid StorageLocationId, decimal Quantity, string Reference);
 public sealed record TransferComponentStockRequest(Guid ComponentId, Guid FromStorageLocationId, Guid ToStorageLocationId, decimal Quantity, string Reference);

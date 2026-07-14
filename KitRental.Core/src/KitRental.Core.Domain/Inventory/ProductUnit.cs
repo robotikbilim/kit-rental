@@ -58,6 +58,14 @@ public sealed class ProductUnit
         return unit;
     }
 
+    public void UpdateIdentifiers(string serialNumber, string qrCode)
+    {
+        if (string.IsNullOrWhiteSpace(serialNumber) || string.IsNullOrWhiteSpace(qrCode))
+            throw new DomainException("product_unit.identifiers_required", "Seri numarası ve QR kod zorunludur.");
+        SerialNumber = serialNumber.Trim().ToUpperInvariant();
+        QrCode = qrCode.Trim().ToUpperInvariant();
+    }
+
     public void Reserve(Guid actorId, DateTimeOffset occurredAt) =>
         TransitionTo(ProductUnitStatus.Reserved, actorId, occurredAt, "Kiralama için rezerve edildi.", ProductUnitStatus.Available);
 

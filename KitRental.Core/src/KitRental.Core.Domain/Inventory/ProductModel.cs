@@ -46,4 +46,13 @@ public sealed class ProductModel
         return new ProductModel(id, name.Trim(), sku.Trim().ToUpperInvariant(),
             string.IsNullOrWhiteSpace(description) ? null : description.Trim(), normalizedImageUrl);
     }
+
+    public void Update(string name, string sku, string? description, string? imageUrl)
+    {
+        var updated = Create(Id, name, sku, description, imageUrl);
+        Name = updated.Name;
+        Sku = updated.Sku;
+        Description = updated.Description;
+        ImageUrl = updated.ImageUrl;
+    }
 }

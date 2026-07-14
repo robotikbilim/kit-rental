@@ -1,0 +1,14 @@
+@model EditPhysicalKitViewModel
+@{ ViewData["Title"] = "Fiziksel Kiti Güncelle"; }
+<div class="form-shell">
+    <div class="form-heading"><a asp-action="Units" asp-route-id="@Model.ProductModelId">← Fiziksel kitler</a><span class="eyebrow">GÜNCELLE</span><h1>Fiziksel kiti güncelle</h1></div>
+    <form method="post" class="catalog-form">
+        <input asp-for="ProductModelId" type="hidden" />
+        <div asp-validation-summary="All" class="error"></div>
+        <div class="form-grid">
+            <div class="field wide"><label asp-for="SerialNumber"></label><input asp-for="SerialNumber" /></div>
+            <div class="field wide"><label asp-for="QrCode"></label><input asp-for="QrCode" /></div>
+        </div>
+        <div class="form-actions"><a asp-action="Units" asp-route-id="@Model.ProductModelId" class="secondary-action">Vazgeç</a><button class="primary-action" type="submit">Değişiklikleri kaydet</button></div>
+    </form>
+</div>

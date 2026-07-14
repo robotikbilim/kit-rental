@@ -62,6 +62,34 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
     }
 
     [HttpGet]
+    public async Task<IActionResult> Edit(Guid id, CancellationToken cancellationToken)
+    {
+        var detail = await apiClient.GetPhysicalKitAsync(id, cancellationToken);
+        return detail is null ? NotFound() : View(new EditPhysicalKitViewModel { Id = id,
+            ProductModelId = detail.Kit.ProductModelId, SerialNumber = detail.Kit.SerialNumber, QrCode = detail.Kit.QrCode });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(Guid id, EditPhysicalKitViewModel model, CancellationToken cancellationToken)
+    {
+        model.Id = id;
+        if (!ModelState.IsValid) return View(model);
+        var result = await apiClient.UpdatePhysicalKitAsync(id, model, cancellationToken);
+        if (!result.IsSuccess) { ModelState.AddModelError(string.Empty, result.Error ?? "Fiziksel kit güncellenemedi."); return View(model); }
+        TempData["Success"] = "Fiziksel kit güncellendi.";
+        return RedirectToAction(nameof(Units), new { id = model.ProductModelId });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delete(Guid id, Guid productModelId, string filter, int page,
+        CancellationToken cancellationToken)
+    {
+        var result = await apiClient.DeletePhysicalKitAsync(id, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess ? "Fiziksel kit silindi." : result.Error;
+        return RedirectToAction(nameof(Units), new { id = productModelId, filter, page });
+    }
+
+    [HttpGet]
     public IActionResult Qr(string value)
     {
         if (string.IsNullOrWhiteSpace(value) || value.Length > 200) return BadRequest();

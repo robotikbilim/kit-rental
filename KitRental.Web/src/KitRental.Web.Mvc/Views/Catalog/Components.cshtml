@@ -1,18 +1,17 @@
 @model IReadOnlyCollection<ComponentCatalogViewModel>
 @{ ViewData["Title"] = "Komponentler"; }
-<div class="catalog-heading">
-    <div><span class="eyebrow">ATÖLYE KATALOĞU</span><h1>Komponentler</h1><p>@Model.Count komponent kartı ve güncel stok seviyesi.</p></div>
-    <a class="primary-action" asp-action="CreateComponent">+ Yeni komponent</a>
-</div>
+<div class="catalog-heading"><div><span class="eyebrow">ATÖLYE KATALOĞU</span><h1>Komponentler</h1><p>@Model.Count komponent kartı ve güncel stok seviyesi.</p></div><a class="primary-action" asp-action="CreateComponent">+ Yeni komponent</a></div>
 @if (TempData["Success"] is string message) { <div class="success-banner">@message</div> }
+@if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 <div class="component-catalog-grid">
 @foreach (var component in Model)
 {
-    <a class="component-catalog-card" asp-action="Component" asp-route-id="@component.Id">
-        <img src="@(component.ImageUrl ?? Url.Content("~/images/component-placeholder.svg"))" alt="@component.Name" onerror="this.src='@Url.Content("~/images/component-placeholder.svg")'" />
-        <div><span>@component.Sku</span><h2>@component.Name</h2><small>Minimum: @component.MinimumStock.ToString("0.###") @component.UnitOfMeasure</small></div>
+    <article class="component-catalog-card">
+        <img src="@(component.ImageUrl ?? Url.Content("~/images/component-placeholder.svg"))" alt="@component.Name" />
+        <div><span>@component.Sku</span><h2><a asp-action="Component" asp-route-id="@component.Id">@component.Name</a></h2><small>Minimum: @component.MinimumStock.ToString("0.###") @component.UnitOfMeasure</small></div>
         <div class="catalog-stock @(component.IsLowStock ? "critical" : "")"><strong>@component.TotalStock.ToString("0.###")</strong><span>@component.UnitOfMeasure</span></div>
-    </a>
+        <div class="record-actions"><a asp-action="EditComponent" asp-route-id="@component.Id">Güncelle</a><form asp-action="DeleteComponent" asp-route-id="@component.Id" method="post" onsubmit="return confirm('Bu komponenti silmek istediğinize emin misiniz?');"><button type="submit">Sil</button></form></div>
+    </article>
 }
 </div>
 @if (Model.Count == 0) { <div class="empty">Henüz komponent kartı yok.</div> }

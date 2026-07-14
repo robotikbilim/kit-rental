@@ -16,9 +16,11 @@ public interface ICoreRepository
     Task AddProductModelAsync(ProductModel model, CancellationToken cancellationToken);
     Task<ProductModel?> GetProductModelAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<ProductModel>> GetProductModelsAsync(CancellationToken cancellationToken);
+    Task RemoveProductModelAsync(ProductModel model, CancellationToken cancellationToken);
     Task AddProductUnitAsync(ProductUnit unit, CancellationToken cancellationToken);
     Task<ProductUnit?> GetProductUnitAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<ProductUnit>> GetProductUnitsAsync(CancellationToken cancellationToken);
+    Task RemoveProductUnitAsync(ProductUnit unit, CancellationToken cancellationToken);
     Task AddCustomerAsync(Customer customer, CancellationToken cancellationToken);
     Task<Customer?> GetCustomerAsync(Guid id, CancellationToken cancellationToken);
     Task<Customer?> FindCustomerByEmailAsync(string email, CancellationToken cancellationToken);
@@ -42,6 +44,7 @@ public interface ICoreRepository
     Task AddComponentAsync(Component component, CancellationToken cancellationToken);
     Task<Component?> GetComponentAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<Component>> GetComponentsAsync(CancellationToken cancellationToken);
+    Task RemoveComponentAsync(Component component, CancellationToken cancellationToken);
     Task AddStorageLocationAsync(StorageLocation location, CancellationToken cancellationToken);
     Task<StorageLocation?> GetStorageLocationAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<StorageLocation>> GetStorageLocationsAsync(CancellationToken cancellationToken);

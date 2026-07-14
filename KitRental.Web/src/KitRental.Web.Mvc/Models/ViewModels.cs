@@ -15,6 +15,22 @@ public sealed record LoginApiResponse(string AccessToken, DateTimeOffset Expires
 public sealed record UserApiResponse(Guid Id, string Email, string DisplayName, int Role, Guid? CustomerId);
 public sealed record DashboardViewModel(int Customers, int ProductUnits, int ActiveOrders, int OpenFaults, int UnitsInMaintenance);
 public sealed record ProductUnitViewModel(Guid Id, Guid ProductModelId, string SerialNumber, string QrCode, int Status);
+public sealed record InventoryItemViewModel(Guid Id, Guid ProductModelId, string ProductModelName,
+    string ProductModelSku, string SerialNumber, string QrCode, int Status, DateTimeOffset CreatedAt);
+public sealed record InventoryPageViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
+    IReadOnlyCollection<InventoryItemViewModel> Items);
+public sealed class InventoryFilterViewModel
+{
+    public string? Query { get; set; }
+    public Guid? ProductModelId { get; set; }
+    public int? Status { get; set; }
+    [DataType(DataType.Date)] public DateOnly? CreatedFrom { get; set; }
+    [DataType(DataType.Date)] public DateOnly? CreatedTo { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 20;
+}
+public sealed record InventoryScreenViewModel(InventoryPageViewModel Result, InventoryFilterViewModel Filter,
+    IReadOnlyCollection<ProductModelCatalogViewModel> ProductModels);
 public sealed record OrderViewModel(Guid Id, string OrderNumber, Guid CustomerId, PeriodViewModel Period, int Status, IReadOnlyCollection<OrderLineViewModel> Lines);
 public sealed record PeriodViewModel(DateOnly StartDate, DateOnly EndDate);
 public sealed record OrderLineViewModel(Guid Id, Guid ProductModelId, int Quantity);
@@ -40,7 +56,7 @@ public sealed record BomLineViewModel(Guid ComponentId, string ComponentName, st
 public sealed record BomViewModel(Guid Id, Guid ProductModelId, string ProductName, string ProductSku, int Version,
     IReadOnlyCollection<BomLineViewModel> Lines);
 
-public sealed class CreateComponentViewModel
+public class CreateComponentViewModel
 {
     [Required, StringLength(200)] public string Name { get; set; } = string.Empty;
     [Required, StringLength(80)] public string Sku { get; set; } = string.Empty;
@@ -66,6 +82,15 @@ public sealed class CreateKitBomLineViewModel
 }
 
 public sealed record CreateKitPageViewModel(CreateKitViewModel Form, IReadOnlyCollection<ComponentCatalogViewModel> Components);
+public sealed class EditComponentViewModel : CreateComponentViewModel { public Guid Id { get; set; } }
+public sealed class EditKitViewModel
+{
+    public Guid Id { get; set; }
+    [Required, StringLength(200)] public string Name { get; set; } = string.Empty;
+    [Required, StringLength(80)] public string Sku { get; set; } = string.Empty;
+    [StringLength(2000)] public string? Description { get; set; }
+    [Url, Display(Name = "Görsel adresi")] public string? ImageUrl { get; set; }
+}
 public sealed record KitDetailPageViewModel(ProductModelCatalogViewModel Kit, BomViewModel? Bom);
 public sealed class EditRecipeViewModel
 {
@@ -109,6 +134,13 @@ public sealed class CreatePhysicalKitViewModel
 }
 public sealed record CreatePhysicalKitPageViewModel(CreatePhysicalKitViewModel Form,
     IReadOnlyCollection<ProductModelCatalogViewModel> KitModels);
+public sealed class EditPhysicalKitViewModel
+{
+    public Guid Id { get; set; }
+    public Guid ProductModelId { get; set; }
+    [Required, StringLength(100), Display(Name = "Seri numarası")] public string SerialNumber { get; set; } = string.Empty;
+    [Required, StringLength(200), Display(Name = "QR kod")] public string QrCode { get; set; } = string.Empty;
+}
 public sealed record PhysicalKitLabelViewModel(Guid Id, string KitName, string KitSku, string SerialNumber, string QrCode);
 public sealed record PhysicalKitLabelsPageViewModel(DateTimeOffset CreatedAt,
     IReadOnlyCollection<PhysicalKitLabelViewModel> Labels, string? BackUrl = null);

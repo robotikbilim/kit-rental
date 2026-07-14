@@ -61,6 +61,17 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         lock (_gate) return Task.FromResult<IReadOnlyCollection<ProductModel>>(_models.Values.OrderBy(item => item.Name).ToArray());
     }
 
+    public Task RemoveProductModelAsync(ProductModel model, CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            _models.Remove(model.Id);
+            foreach (var id in _boms.Values.Where(item => item.ProductModelId == model.Id).Select(item => item.Id).ToArray())
+                _boms.Remove(id);
+        }
+        return Task.CompletedTask;
+    }
+
     public Task AddProductUnitAsync(ProductUnit unit, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -94,6 +105,12 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         {
             return Task.FromResult<IReadOnlyCollection<ProductUnit>>(_units.Values.ToArray());
         }
+    }
+
+    public Task RemoveProductUnitAsync(ProductUnit unit, CancellationToken cancellationToken)
+    {
+        lock (_gate) _units.Remove(unit.Id);
+        return Task.CompletedTask;
     }
 
     public Task AddCustomerAsync(Customer customer, CancellationToken cancellationToken)
@@ -279,6 +296,12 @@ public sealed class InMemoryCoreRepository : ICoreRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
         lock (_gate) return Task.FromResult<IReadOnlyCollection<Component>>(_components.Values.OrderBy(item => item.Name).ToArray());
+    }
+
+    public Task RemoveComponentAsync(Component component, CancellationToken cancellationToken)
+    {
+        lock (_gate) _components.Remove(component.Id);
+        return Task.CompletedTask;
     }
 
     public Task AddStorageLocationAsync(StorageLocation location, CancellationToken cancellationToken)

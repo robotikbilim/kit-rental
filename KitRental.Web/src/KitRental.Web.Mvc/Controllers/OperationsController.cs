@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using KitRental.Web.Mvc.Services;
+using KitRental.Web.Mvc.Models;
 
 namespace KitRental.Web.Mvc.Controllers;
 
@@ -10,8 +11,19 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     public async Task<IActionResult> Dashboard(CancellationToken cancellationToken) =>
         View(await apiClient.GetDashboardAsync(cancellationToken));
 
-    public async Task<IActionResult> Inventory(CancellationToken cancellationToken) =>
-        View(await apiClient.GetProductUnitsAsync(cancellationToken));
+    public async Task<IActionResult> Inventory([FromQuery] InventoryFilterViewModel filter,
+        CancellationToken cancellationToken)
+    {
+        if (filter.CreatedFrom.HasValue && filter.CreatedTo.HasValue && filter.CreatedFrom > filter.CreatedTo)
+        {
+            ModelState.AddModelError(nameof(filter.CreatedTo), "Bitiş tarihi başlangıç tarihinden önce olamaz.");
+            filter.CreatedTo = null;
+        }
+        var result = await apiClient.GetInventoryAsync(filter, cancellationToken)
+            ?? new InventoryPageViewModel(1, filter.PageSize, 0, 1, []);
+        return View(new InventoryScreenViewModel(result, filter,
+            await apiClient.GetProductModelsAsync(cancellationToken)));
+    }
 
     public async Task<IActionResult> Orders(CancellationToken cancellationToken) =>
         View(await apiClient.GetOrdersAsync(cancellationToken));

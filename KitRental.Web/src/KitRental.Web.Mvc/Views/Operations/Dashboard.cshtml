@@ -4,10 +4,10 @@
 @if (Model is null) { <div class="empty">Core servisine ulaşılamadı.</div> }
 else {
 <div class="metrics">
-    <article><span>Müşteriler</span><strong>@Model.Customers</strong></article>
-    <article><span>Fiziksel birimler</span><strong>@Model.ProductUnits</strong></article>
-    <article><span>Aktif siparişler</span><strong>@Model.ActiveOrders</strong></article>
-    <article><span>Açık arızalar</span><strong>@Model.OpenFaults</strong></article>
-    <article><span>Bakımda</span><strong>@Model.UnitsInMaintenance</strong></article>
+    <a class="metric-card" asp-action="Orders" aria-label="Müşterileri siparişler sayfasında görüntüle"><span>Müşteriler</span><strong>@Model.Customers</strong><small>Siparişlere git →</small></a>
+    <a class="metric-card" asp-action="Inventory" aria-label="Fiziksel birimleri envanter sayfasında görüntüle"><span>Fiziksel birimler</span><strong>@Model.ProductUnits</strong><small>Envantere git →</small></a>
+    <a class="metric-card" asp-action="Orders" aria-label="Aktif siparişleri görüntüle"><span>Aktif siparişler</span><strong>@Model.ActiveOrders</strong><small>Siparişlere git →</small></a>
+    <a class="metric-card" asp-action="Faults" aria-label="Açık arızaları görüntüle"><span>Açık arızalar</span><strong>@Model.OpenFaults</strong><small>Arızalara git →</small></a>
+    <a class="metric-card" asp-action="Inventory" aria-label="Bakımdaki fiziksel birimleri görüntüle"><span>Bakımda</span><strong>@Model.UnitsInMaintenance</strong><small>Envantere git →</small></a>
 </div>
 }

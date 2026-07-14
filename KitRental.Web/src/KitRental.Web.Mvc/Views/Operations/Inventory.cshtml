@@ -1,6 +1,45 @@
-@model IReadOnlyCollection<ProductUnitViewModel>
-@{ ViewData["Title"] = "Envanter"; }
-<div class="page-heading"><div><span class="eyebrow">FİZİKSEL TAKİP</span><h1>Envanter</h1></div></div>
-<table><thead><tr><th>Seri numarası</th><th>QR kod</th><th>Model</th><th>Durum</th></tr></thead>
-<tbody>@foreach (var item in Model) { <tr><td>@item.SerialNumber</td><td>@item.QrCode</td><td>@item.ProductModelId</td><td><span class="badge">@item.Status</span></td></tr> }</tbody></table>
-@if (Model.Count == 0) { <div class="empty">Henüz fiziksel ürün birimi yok.</div> }
+@model InventoryScreenViewModel
+@{
+    ViewData["Title"] = "Envanter";
+    string StatusName(int status) => status switch { 1 => "Kiralanmaya hazır", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimat yolunda", 5 => "Kiralanmış", 6 => "İade yolunda", 7 => "Kontrolde", 8 => "Bakımda", 9 => "Karantinada", 10 => "Kayıp", 11 => "Emekli", _ => "Bilinmiyor" };
+    var firstItem = Model.Result.TotalCount == 0 ? 0 : (Model.Result.Page - 1) * Model.Result.PageSize + 1;
+    var lastItem = Math.Min(Model.Result.Page * Model.Result.PageSize, Model.Result.TotalCount);
+}
+<div class="page-heading"><div><span class="eyebrow">FİZİKSEL TAKİP</span><h1>Envanter</h1><p class="block-muted">Fiziksel kitleri, kaynak eğitim setlerini ve güncel durumlarını takip edin.</p></div><a class="primary-action" asp-controller="PhysicalKits" asp-action="Create">+ Fiziksel kit oluştur</a></div>
+
+<nav class="inventory-quick-filters" aria-label="Hızlı durum filtreleri">
+    <a class="@(!Model.Filter.Status.HasValue ? "active" : null)" asp-action="Inventory" asp-route-query="@Model.Filter.Query" asp-route-productModelId="@Model.Filter.ProductModelId" asp-route-createdFrom="@Model.Filter.CreatedFrom" asp-route-createdTo="@Model.Filter.CreatedTo" asp-route-pageSize="@Model.Filter.PageSize">Tümü</a>
+    <a class="@(Model.Filter.Status == 1 ? "active" : null)" asp-action="Inventory" asp-route-status="1" asp-route-query="@Model.Filter.Query" asp-route-productModelId="@Model.Filter.ProductModelId" asp-route-createdFrom="@Model.Filter.CreatedFrom" asp-route-createdTo="@Model.Filter.CreatedTo" asp-route-pageSize="@Model.Filter.PageSize">Kiralanmaya hazır</a>
+    <a class="@(Model.Filter.Status == 5 ? "active" : null)" asp-action="Inventory" asp-route-status="5" asp-route-query="@Model.Filter.Query" asp-route-productModelId="@Model.Filter.ProductModelId" asp-route-createdFrom="@Model.Filter.CreatedFrom" asp-route-createdTo="@Model.Filter.CreatedTo" asp-route-pageSize="@Model.Filter.PageSize">Kiralanmış</a>
+    <a class="@(Model.Filter.Status == 8 ? "active" : null)" asp-action="Inventory" asp-route-status="8" asp-route-query="@Model.Filter.Query" asp-route-productModelId="@Model.Filter.ProductModelId" asp-route-createdFrom="@Model.Filter.CreatedFrom" asp-route-createdTo="@Model.Filter.CreatedTo" asp-route-pageSize="@Model.Filter.PageSize">Bakımda</a>
+</nav>
+
+<form method="get" class="inventory-filter-form">
+    <div class="field inventory-search"><label for="Query">Seri no, QR veya eğitim kiti</label><input id="Query" name="Query" value="@Model.Filter.Query" placeholder="Hızlı ara..." /></div>
+    <div class="field"><label for="ProductModelId">Eğitim kiti</label><select id="ProductModelId" name="ProductModelId"><option value="">Tüm eğitim kitleri</option>@foreach (var kit in Model.ProductModels) { <option value="@kit.Id" selected="@(Model.Filter.ProductModelId == kit.Id)">@kit.Name (@kit.Sku)</option> }</select></div>
+    <div class="field"><label for="Status">Durum</label><select id="Status" name="Status"><option value="">Tüm durumlar</option>@for (var status = 1; status <= 11; status++) { <option value="@status" selected="@(Model.Filter.Status == status)">@StatusName(status)</option> }</select></div>
+    <div class="field"><label for="CreatedFrom">Oluşturulma başlangıcı</label><input id="CreatedFrom" name="CreatedFrom" type="date" value="@Model.Filter.CreatedFrom?.ToString("yyyy-MM-dd")" /></div>
+    <div class="field"><label for="CreatedTo">Oluşturulma bitişi</label><input id="CreatedTo" name="CreatedTo" type="date" value="@Model.Filter.CreatedTo?.ToString("yyyy-MM-dd")" /></div>
+    <div class="field inventory-page-size"><label for="PageSize">Sayfa boyutu</label><select id="PageSize" name="PageSize">@foreach (var size in new[] { 10, 20, 50, 100 }) { <option value="@size" selected="@(Model.Filter.PageSize == size)">@size</option> }</select></div>
+    <div class="inventory-filter-actions"><a class="secondary-action" asp-action="Inventory">Temizle</a><button class="primary-action" type="submit">Filtrele</button></div>
+</form>
+<div asp-validation-summary="All" class="error"></div>
+
+@if (Model.Result.Items.Count == 0)
+{
+    <div class="empty">Filtrelere uygun fiziksel kit bulunamadı.</div>
+}
+else
+{
+    <div class="table-scroll"><table class="inventory-table"><thead><tr><th>Seri numarası</th><th>QR kod</th><th>Eğitim kiti</th><th>Oluşturulma tarihi</th><th>Durum</th><th></th></tr></thead><tbody>
+    @foreach (var item in Model.Result.Items)
+    {
+        <tr><td><code class="unit-serial">@item.SerialNumber</code></td><td><span class="unit-qr">@item.QrCode</span></td><td><strong>@item.ProductModelName</strong><small class="block-muted">@item.ProductModelSku</small></td><td>@item.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td><td><span class="fleet-status status-@item.Status">@StatusName(item.Status)</span></td><td><a class="row-link" asp-controller="PhysicalKits" asp-action="Details" asp-route-id="@item.Id">Detay →</a></td></tr>
+    }
+    </tbody></table></div>
+    <footer class="pagination-shell"><span>@firstItem–@lastItem / @Model.Result.TotalCount kayıt</span><nav class="pagination" aria-label="Envanter sayfaları">
+        @if (Model.Result.Page > 1) { <a asp-action="Inventory" asp-route-page="@(Model.Result.Page - 1)" asp-route-pageSize="@Model.Result.PageSize" asp-route-query="@Model.Filter.Query" asp-route-productModelId="@Model.Filter.ProductModelId" asp-route-status="@Model.Filter.Status" asp-route-createdFrom="@Model.Filter.CreatedFrom" asp-route-createdTo="@Model.Filter.CreatedTo">←</a> }
+        @for (var pageNumber = Math.Max(1, Model.Result.Page - 2); pageNumber <= Math.Min(Model.Result.TotalPages, Model.Result.Page + 2); pageNumber++) { <a class="@(pageNumber == Model.Result.Page ? "active" : null)" asp-action="Inventory" asp-route-page="@pageNumber" asp-route-pageSize="@Model.Result.PageSize" asp-route-query="@Model.Filter.Query" asp-route-productModelId="@Model.Filter.ProductModelId" asp-route-status="@Model.Filter.Status" asp-route-createdFrom="@Model.Filter.CreatedFrom" asp-route-createdTo="@Model.Filter.CreatedTo">@pageNumber</a> }
+        @if (Model.Result.Page < Model.Result.TotalPages) { <a asp-action="Inventory" asp-route-page="@(Model.Result.Page + 1)" asp-route-pageSize="@Model.Result.PageSize" asp-route-query="@Model.Filter.Query" asp-route-productModelId="@Model.Filter.ProductModelId" asp-route-status="@Model.Filter.Status" asp-route-createdFrom="@Model.Filter.CreatedFrom" asp-route-createdTo="@Model.Filter.CreatedTo">→</a> }
+    </nav></footer>
+}
