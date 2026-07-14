@@ -13,6 +13,8 @@ namespace KitRental.Core.Application.Operations;
 
 public sealed record AddressCommand(string Title, string ContactName, string Phone, string Line1, string District, string City, string PostalCode);
 public sealed record CreateCustomerCommand(string Name, string Email, AddressCommand Address, Guid ActorId);
+public sealed record UpdateCustomerCommand(Guid CustomerId, string Name, string Email, bool IsActive, Guid ActorId);
+public sealed record CustomerAddressCommand(Guid CustomerId, Guid? AddressId, AddressCommand Address, Guid ActorId);
 public sealed record OrderLineCommand(Guid ProductModelId, int Quantity);
 public sealed record CreateOrderCommand(Guid CustomerId, Guid AddressId, DateOnly StartDate, DateOnly EndDate, IReadOnlyCollection<OrderLineCommand> Lines, Guid ActorId);
 public sealed record CreateShipmentCommand(Guid OrderId, Guid? FaultTicketId, ShipmentType Type, string Carrier, string TrackingNumber, Guid ActorId);
@@ -76,6 +78,70 @@ public sealed class OperationsService(ICoreRepository repository, TimeProvider t
 
     public Task<IReadOnlyCollection<Customer>> GetCustomersAsync(CancellationToken cancellationToken) =>
         repository.GetCustomersAsync(cancellationToken);
+
+    public Task<Customer?> GetCustomerAsync(Guid customerId, CancellationToken cancellationToken) =>
+        repository.GetCustomerAsync(customerId, cancellationToken);
+
+    public async Task<Customer> UpdateCustomerAsync(UpdateCustomerCommand command, CancellationToken cancellationToken)
+    {
+        var customer = await repository.GetCustomerAsync(command.CustomerId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+        var duplicate = await repository.FindCustomerByEmailAsync(command.Email, cancellationToken);
+        if (duplicate is not null && duplicate.Id != customer.Id)
+            throw new ConflictException("customer.email_not_unique", "Müşteri e-posta adresi benzersiz olmalıdır.");
+        var previous = $"{customer.Name}|{customer.Email}|{customer.IsActive}";
+        customer.Update(command.Name, command.Email);
+        customer.SetActive(command.IsActive);
+        await repository.SaveChangesAsync(cancellationToken);
+        await AuditAsync(command.ActorId, nameof(Customer), customer.Id, "Updated", previous,
+            $"{customer.Name}|{customer.Email}|{customer.IsActive}", cancellationToken);
+        return customer;
+    }
+
+    public async Task<Customer> SetCustomerActiveAsync(Guid customerId, bool isActive, Guid actorId,
+        CancellationToken cancellationToken)
+    {
+        var customer = await repository.GetCustomerAsync(customerId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+        customer.SetActive(isActive);
+        await repository.SaveChangesAsync(cancellationToken);
+        await AuditAsync(actorId, nameof(Customer), customer.Id, isActive ? "Activated" : "Deactivated",
+            (!isActive).ToString(), isActive.ToString(), cancellationToken);
+        return customer;
+    }
+
+    public async Task<Address> AddCustomerAddressAsync(CustomerAddressCommand command, CancellationToken cancellationToken)
+    {
+        var customer = await repository.GetCustomerAsync(command.CustomerId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+        var address = customer.AddAddress(command.Address.Title, command.Address.ContactName, command.Address.Phone,
+            command.Address.Line1, command.Address.District, command.Address.City, command.Address.PostalCode);
+        await repository.SaveChangesAsync(cancellationToken);
+        await AuditAsync(command.ActorId, nameof(Customer), customer.Id, "AddressAdded", null, address.Title, cancellationToken);
+        return address;
+    }
+
+    public async Task<Address> UpdateCustomerAddressAsync(CustomerAddressCommand command, CancellationToken cancellationToken)
+    {
+        var customer = await repository.GetCustomerAsync(command.CustomerId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+        var address = customer.UpdateAddress(command.AddressId ?? Guid.Empty, command.Address.Title,
+            command.Address.ContactName, command.Address.Phone, command.Address.Line1, command.Address.District,
+            command.Address.City, command.Address.PostalCode);
+        await repository.SaveChangesAsync(cancellationToken);
+        await AuditAsync(command.ActorId, nameof(Customer), customer.Id, "AddressUpdated", null, address.Title, cancellationToken);
+        return address;
+    }
+
+    public async Task RemoveCustomerAddressAsync(Guid customerId, Guid addressId, Guid actorId,
+        CancellationToken cancellationToken)
+    {
+        var customer = await repository.GetCustomerAsync(customerId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+        customer.RemoveAddress(addressId);
+        await repository.SaveChangesAsync(cancellationToken);
+        await AuditAsync(actorId, nameof(Customer), customer.Id, "AddressRemoved", addressId.ToString(), null, cancellationToken);
+    }
 
     public async Task<RentalOrder> CreateOrderAsync(CreateOrderCommand command, CancellationToken cancellationToken)
     {

@@ -429,6 +429,42 @@ api.MapGet("/customers", async (OperationsService service, CancellationToken can
     Results.Ok(await service.GetCustomersAsync(cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
 
+api.MapGet("/customers/{customerId:guid}", async (Guid customerId, OperationsService service, CancellationToken cancellationToken) =>
+    await service.GetCustomerAsync(customerId, cancellationToken) is { } customer ? Results.Ok(customer) : Results.NotFound())
+    .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
+api.MapPut("/customers/{customerId:guid}", async (Guid customerId, UpdateCustomerRequest request, ClaimsPrincipal user,
+    OperationsService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateCustomerAsync(new UpdateCustomerCommand(customerId, request.Name, request.Email,
+        request.IsActive, user.GetRequiredUserId()), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
+api.MapDelete("/customers/{customerId:guid}", async (Guid customerId, ClaimsPrincipal user, OperationsService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.SetCustomerActiveAsync(customerId, false, user.GetRequiredUserId(), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
+api.MapPost("/customers/{customerId:guid}/addresses", async (Guid customerId, AddressRequest request, ClaimsPrincipal user,
+    OperationsService service, CancellationToken cancellationToken) =>
+    Results.Created($"/api/customers/{customerId}/addresses", await service.AddCustomerAddressAsync(
+        new CustomerAddressCommand(customerId, null, new AddressCommand(request.Title, request.ContactName, request.Phone,
+            request.Line1, request.District, request.City, request.PostalCode), user.GetRequiredUserId()), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
+api.MapPut("/customers/{customerId:guid}/addresses/{addressId:guid}", async (Guid customerId, Guid addressId,
+    AddressRequest request, ClaimsPrincipal user, OperationsService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.UpdateCustomerAddressAsync(new CustomerAddressCommand(customerId, addressId,
+        new AddressCommand(request.Title, request.ContactName, request.Phone, request.Line1, request.District,
+            request.City, request.PostalCode), user.GetRequiredUserId()), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
+api.MapDelete("/customers/{customerId:guid}/addresses/{addressId:guid}", async (Guid customerId, Guid addressId,
+    ClaimsPrincipal user, OperationsService service, CancellationToken cancellationToken) =>
+{
+    await service.RemoveCustomerAddressAsync(customerId, addressId, user.GetRequiredUserId(), cancellationToken);
+    return Results.NoContent();
+}).RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
 api.MapPost("/orders", async (CreateOrderRequest request, ClaimsPrincipal user, OperationsService service, CancellationToken cancellationToken) =>
 {
     EnsureCustomerScope(user, request.CustomerId);
@@ -569,6 +605,7 @@ public sealed record CreateKitRequest(string Name, string Sku, string? Descripti
     IReadOnlyCollection<BillOfMaterialsLineRequest> Lines);
 public sealed record AddressRequest(string Title, string ContactName, string Phone, string Line1, string District, string City, string PostalCode);
 public sealed record CreateCustomerRequest(string Name, string Email, AddressRequest Address);
+public sealed record UpdateCustomerRequest(string Name, string Email, bool IsActive);
 public sealed record OrderLineRequest(Guid ProductModelId, int Quantity);
 public sealed record CreateOrderRequest(Guid CustomerId, Guid AddressId, DateOnly StartDate, DateOnly EndDate, IReadOnlyCollection<OrderLineRequest> Lines);
 public sealed record OrderTransitionRequest(RentalOrderStatus Target);

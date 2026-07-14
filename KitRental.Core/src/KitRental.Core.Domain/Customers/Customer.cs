@@ -57,6 +57,18 @@ public sealed class Customer
         return new Customer(id, name.Trim(), email.Trim().ToLowerInvariant());
     }
 
+    public void Update(string name, string email)
+    {
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email))
+            throw new DomainException("customer.required_fields", "Müşteri adı ve e-posta zorunludur.");
+        if (!email.Contains('@', StringComparison.Ordinal))
+            throw new DomainException("customer.invalid_email", "Geçerli bir müşteri e-postası girilmelidir.");
+        Name = name.Trim();
+        Email = email.Trim().ToLowerInvariant();
+    }
+
+    public void SetActive(bool isActive) => IsActive = isActive;
+
     public Address AddAddress(
         string title,
         string contactName,
@@ -75,6 +87,26 @@ public sealed class Customer
             Guid.NewGuid(), title.Trim(), contactName.Trim(), phone.Trim(), line1.Trim(), district.Trim(), city.Trim(), postalCode.Trim());
         _addresses.Add(address);
         return address;
+    }
+
+    public Address UpdateAddress(Guid addressId, string title, string contactName, string phone,
+        string line1, string district, string city, string postalCode)
+    {
+        if (new[] { title, contactName, phone, line1, district, city }.Any(string.IsNullOrWhiteSpace))
+            throw new DomainException("address.required_fields", "Adres başlığı, iletişim ve konum alanları zorunludur.");
+        var index = _addresses.FindIndex(item => item.Id == addressId);
+        if (index < 0) throw new DomainException("address.not_found", "Müşteri adresi bulunamadı.");
+        var address = new Address(addressId, title.Trim(), contactName.Trim(), phone.Trim(), line1.Trim(),
+            district.Trim(), city.Trim(), postalCode.Trim());
+        _addresses[index] = address;
+        return address;
+    }
+
+    public void RemoveAddress(Guid addressId)
+    {
+        var address = _addresses.SingleOrDefault(item => item.Id == addressId)
+            ?? throw new DomainException("address.not_found", "Müşteri adresi bulunamadı.");
+        _addresses.Remove(address);
     }
 
     public AddressSnapshot SnapshotAddress(Guid addressId)

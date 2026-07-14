@@ -1,0 +1,41 @@
+@model CustomersPageViewModel
+@{ ViewData["Title"] = "Müşteriler ve Sipariş Adresleri"; }
+<div class="customer-heading">
+    <div><span class="eyebrow">MÜŞTERİ YÖNETİMİ</span><h1>Müşteriler ve sipariş adresleri</h1><p>Müşteri kartlarını, ilgili kişi hesaplarını ve siparişlerde kullanılacak teslimat adreslerini tek yerden yönetin.</p></div>
+    <a class="primary-action" asp-action="Create">+ Yeni müşteri</a>
+</div>
+@if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
+@if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
+<div class="customer-metrics">
+    <article><span>Toplam müşteri</span><strong>@Model.Customers.Count</strong></article>
+    <article><span>Aktif müşteri</span><strong>@Model.ActiveCount</strong></article>
+    <article><span>Kayıtlı adres</span><strong>@Model.AddressCount</strong></article>
+</div>
+<form class="customer-search" method="get"><input type="search" name="query" value="@Model.Query" placeholder="Müşteri, e-posta, şehir veya ilçe ara…" aria-label="Müşteri ara" /><button class="secondary-action" type="submit">Ara</button>@if (!string.IsNullOrEmpty(Model.Query)) { <a asp-action="Index">Temizle</a> }</form>
+@if (Model.Customers.Count == 0) { <div class="empty">Aramanızla eşleşen müşteri bulunamadı.</div> }
+else
+{
+<div class="customer-list">
+@foreach (var customer in Model.Customers)
+{
+    var contacts = Model.Accounts.Where(item => item.CustomerId == customer.Id).ToArray();
+    <article class="customer-card @(!customer.IsActive ? "inactive" : null)">
+        <header>
+            <div class="customer-avatar">@string.Concat(customer.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(x => x[0])).ToUpperInvariant()</div>
+            <div class="customer-identity"><div><h2>@customer.Name</h2><span class="customer-state">@(customer.IsActive ? "Aktif" : "Pasif")</span></div><a href="mailto:@customer.Email">@customer.Email</a><small>@customer.Addresses.Count sipariş adresi · @contacts.Length ilgili kişi</small></div>
+            <div class="customer-actions"><a asp-action="Edit" asp-route-id="@customer.Id">Müşteriyi düzenle</a>@if (customer.IsActive) { <form asp-action="Delete" asp-route-id="@customer.Id" method="post" onsubmit="return confirm('Müşteri pasife alınsın mı? Geçmiş siparişler korunacaktır.');"><button type="submit">Pasife al</button></form> }</div>
+        </header>
+        <div class="contact-section">
+            <div class="address-heading"><div><span>İLGİLİ KİŞİ HESAPLARI</span><strong>Müşteri portalı kullanıcıları</strong></div><a asp-action="CreateContactAccount" asp-route-customerId="@customer.Id">+ Hesap oluştur</a></div>
+            @if (contacts.Length == 0) { <div class="address-empty">Bu müşteriye bağlı ilgili kişi hesabı bulunmuyor.</div> }
+            else { <div class="contact-list">@foreach (var contact in contacts) { <div><span class="contact-avatar">@contact.DisplayName[0]</span><span><strong>@contact.DisplayName</strong><a href="mailto:@contact.Email">@contact.Email</a></span><small class="@(contact.IsActive ? "active" : null)">@(contact.IsActive ? "Aktif" : "Pasif")</small></div> }</div> }
+        </div>
+        <div class="address-section">
+            <div class="address-heading"><div><span>SİPARİŞ ADRESLERİ</span><strong>Teslimat noktaları</strong></div><a asp-action="CreateAddress" asp-route-customerId="@customer.Id">+ Adres ekle</a></div>
+            @if (customer.Addresses.Count == 0) { <div class="address-empty">Henüz sipariş adresi yok. Yeni sipariş oluşturabilmek için adres ekleyin.</div> }
+            else { <div class="address-grid">@foreach (var address in customer.Addresses) { <section class="address-card"><div class="address-pin">⌖</div><div class="address-copy"><strong>@address.Title</strong><span>@address.ContactName · @address.Phone</span><p>@address.Line1<br />@address.District / @address.City @address.PostalCode</p></div><div class="address-actions"><a asp-action="EditAddress" asp-route-customerId="@customer.Id" asp-route-id="@address.Id">Düzenle</a><form asp-action="DeleteAddress" asp-route-customerId="@customer.Id" asp-route-id="@address.Id" method="post" onsubmit="return confirm('Bu sipariş adresi silinsin mi?');"><button type="submit">Sil</button></form></div></section> }</div> }
+        </div>
+    </article>
+}
+</div>
+}

@@ -12,7 +12,7 @@ public sealed class LoginViewModel
 }
 
 public sealed record LoginApiResponse(string AccessToken, DateTimeOffset ExpiresAt, UserApiResponse User);
-public sealed record UserApiResponse(Guid Id, string Email, string DisplayName, int Role, Guid? CustomerId);
+public sealed record UserApiResponse(Guid Id, string Email, string DisplayName, int Role, Guid? CustomerId, bool IsActive = true);
 public sealed record DashboardViewModel(
     int Customers,
     int ProductUnits,
@@ -274,8 +274,48 @@ public sealed record PortalOrderLineViewModel(Guid ProductModelId, string Produc
 public sealed record PortalOrderViewModel(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName, int Status,
     DateOnly StartDate, DateOnly EndDate, DateTimeOffset CreatedAt, IReadOnlyCollection<PortalOrderLineViewModel> Lines,
     int AssignedKitCount = 0);
-public sealed record OrderCustomerViewModel(Guid Id, string Name, string Email,
+public sealed record OrderCustomerViewModel(Guid Id, string Name, string Email, bool IsActive,
     IReadOnlyCollection<PortalAddressViewModel> Addresses);
+public sealed record CustomersPageViewModel(IReadOnlyCollection<OrderCustomerViewModel> Customers,
+    IReadOnlyCollection<UserApiResponse> Accounts, string Query)
+{
+    public int ActiveCount => Customers.Count(item => item.IsActive);
+    public int AddressCount => Customers.Sum(item => item.Addresses.Count);
+}
+public sealed class CustomerContactAccountViewModel
+{
+    [Required] public Guid CustomerId { get; set; }
+    public string CustomerName { get; set; } = string.Empty;
+    [Required, StringLength(100), Display(Name = "Ad")] public string FirstName { get; set; } = string.Empty;
+    [Required, StringLength(100), Display(Name = "Soyad")] public string LastName { get; set; } = string.Empty;
+    [Required, EmailAddress, StringLength(320), Display(Name = "Kullanıcı adı (e-posta)")] public string Username { get; set; } = string.Empty;
+    [Required, MinLength(10), DataType(DataType.Password), Display(Name = "Şifre")] public string Password { get; set; } = string.Empty;
+}
+public sealed class CustomerInputViewModel
+{
+    public Guid Id { get; set; }
+    [Required, StringLength(250), Display(Name = "Müşteri / kurum adı")] public string Name { get; set; } = string.Empty;
+    [Required, EmailAddress, StringLength(320), Display(Name = "E-posta adresi")] public string Email { get; set; } = string.Empty;
+    [Display(Name = "Aktif müşteri")] public bool IsActive { get; set; } = true;
+}
+public sealed class CustomerAddressInputViewModel
+{
+    public Guid CustomerId { get; set; }
+    public Guid Id { get; set; }
+    public string CustomerName { get; set; } = string.Empty;
+    [Required, StringLength(100), Display(Name = "Adres başlığı")] public string Title { get; set; } = string.Empty;
+    [Required, StringLength(160), Display(Name = "İletişim kişisi")] public string ContactName { get; set; } = string.Empty;
+    [Required, Phone, StringLength(40), Display(Name = "Telefon")] public string Phone { get; set; } = string.Empty;
+    [Required, StringLength(500), Display(Name = "Açık adres")] public string Line1 { get; set; } = string.Empty;
+    [Required, StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
+    [Required, StringLength(120), Display(Name = "Şehir")] public string City { get; set; } = string.Empty;
+    [StringLength(20), Display(Name = "Posta kodu")] public string PostalCode { get; set; } = string.Empty;
+}
+public sealed class CreateCustomerViewModel
+{
+    public CustomerInputViewModel Customer { get; set; } = new();
+    public CustomerAddressInputViewModel Address { get; set; } = new() { Title = "Merkez" };
+}
 public sealed class AdminOrderInputViewModel
 {
     [Required, Display(Name = "Müşteri")] public Guid CustomerId { get; set; }

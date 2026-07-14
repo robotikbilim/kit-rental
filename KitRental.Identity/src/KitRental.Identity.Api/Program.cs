@@ -97,7 +97,8 @@ api.MapGet("/auth/me", (ClaimsPrincipal user) => Results.Ok(new
 
 api.MapGet("/users", async (IdentityService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetUsersAsync(cancellationToken)))
-    .RequireAuthorization(policy => policy.RequireRole(UserRole.SystemAdmin.ToString()));
+    .RequireAuthorization(policy => policy.RequireRole(
+        UserRole.SystemAdmin.ToString(), UserRole.OperationsManager.ToString()));
 
 api.MapPost("/users", async (CreateUserRequest request, IdentityService service, CancellationToken cancellationToken) =>
 {
@@ -105,7 +106,8 @@ api.MapPost("/users", async (CreateUserRequest request, IdentityService service,
         new CreateUserCommand(request.Email, request.DisplayName, request.Password, request.Role, request.CustomerId),
         cancellationToken);
     return Results.Created($"/api/users/{result.Id}", result);
-}).RequireAuthorization(policy => policy.RequireRole(UserRole.SystemAdmin.ToString()));
+}).RequireAuthorization(policy => policy.RequireRole(
+    UserRole.SystemAdmin.ToString(), UserRole.OperationsManager.ToString()));
 
 app.MapHealthChecks("/health");
 app.Run();

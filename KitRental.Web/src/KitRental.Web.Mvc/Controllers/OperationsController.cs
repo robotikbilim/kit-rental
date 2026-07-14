@@ -38,7 +38,7 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]
     public async Task<IActionResult> CreateOrder(CancellationToken cancellationToken)
     {
-        var customers = await apiClient.GetCustomersAsync(cancellationToken);
+        var customers = (await apiClient.GetCustomersAsync(cancellationToken)).Where(item => item.IsActive).ToArray();
         var model = new AdminOrderInputViewModel
         {
             CustomerId = customers.FirstOrDefault()?.Id ?? Guid.Empty,
@@ -70,7 +70,7 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             ModelState.AddModelError(string.Empty, result.Error ?? "Sipariş oluşturulamadı.");
         }
         return View(new AdminOrderPageViewModel(model,
-            await apiClient.GetCustomersAsync(cancellationToken),
+            (await apiClient.GetCustomersAsync(cancellationToken)).Where(item => item.IsActive).ToArray(),
             await apiClient.GetProductModelsAsync(cancellationToken)));
     }
 

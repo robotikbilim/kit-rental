@@ -44,7 +44,7 @@ else
             <a class="metric-card metric-rented" asp-action="Inventory" asp-route-status="5"><span>Şu anda kirada</span><strong>@Model.RentedKits</strong><small>Kiradaki kitlere git →</small></a>
             <a class="metric-card metric-available" asp-action="Inventory" asp-route-status="1"><span>Kiralanabilir kit</span><strong>@Model.AvailableKits</strong><small>Hazır kitlere git →</small></a>
             <a class="metric-card" asp-action="Inventory"><span>Toplam fiziksel kit</span><strong>@Model.ProductUnits</strong><small>Tüm kitlere git →</small></a>
-            <a class="metric-card" asp-action="Orders"><span>Müşteri</span><strong>@Model.Customers</strong><small>Siparişlere git →</small></a>
+            <a class="metric-card" asp-controller="Customers" asp-action="Index"><span>Müşteri</span><strong>@Model.Customers</strong><small>Müşterilere git →</small></a>
         </div>
     </section>
 }

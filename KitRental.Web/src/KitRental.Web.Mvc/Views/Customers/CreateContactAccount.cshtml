@@ -1,0 +1,11 @@
+@model CustomerContactAccountViewModel
+@{ ViewData["Title"] = "İlgili Kişi Hesabı Oluştur"; }
+<div class="form-shell customer-form-shell">
+    <div class="form-heading"><a asp-action="Index">← Müşterilere dön</a><span class="eyebrow">@Model.CustomerName</span><h1>İlgili kişi hesabı oluştur</h1><p>Bu hesapla ilgili kişi müşteri portalına giriş yapabilir, kitlerini ve taleplerini görüntüleyebilir.</p></div>
+    <form class="catalog-form" asp-action="CreateContactAccount" method="post">
+        <input asp-for="CustomerId" type="hidden" /><input asp-for="CustomerName" type="hidden" /><div asp-validation-summary="All" class="error"></div>
+        <div class="form-section"><div class="form-grid"><div class="field"><label asp-for="FirstName"></label><input asp-for="FirstName" autocomplete="given-name" /></div><div class="field"><label asp-for="LastName"></label><input asp-for="LastName" autocomplete="family-name" /></div><div class="field wide"><label asp-for="Username"></label><input asp-for="Username" autocomplete="username" /><small class="field-help">Giriş kullanıcı adı olarak geçerli bir e-posta adresi kullanılır.</small></div><div class="field wide"><label asp-for="Password"></label><input asp-for="Password" autocomplete="new-password" /><small class="field-help">En az 10 karakter olmalıdır.</small></div></div></div>
+        <div class="account-role-note"><strong>Hesap yetkisi: Müşteri hesap yöneticisi</strong><span>Yalnızca @Model.CustomerName verilerine erişebilir.</span></div>
+        <div class="form-actions"><a class="secondary-action" asp-action="Index">Vazgeç</a><button class="primary-action" type="submit">Hesabı oluştur</button></div>
+    </form>
+</div>

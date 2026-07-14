@@ -36,6 +36,10 @@
                         <a asp-controller="StorageLocations" asp-action="Index">Raf Düzeni</a>
                         <a asp-controller="SupplyNeeds" asp-action="Index">İhtiyaç Listeleri</a>
                         <a asp-controller="Workshop" asp-action="Index">Komponent Bul</a>
+                        @if (User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager"))
+                        {
+                            <a asp-controller="Customers" asp-action="Index">Müşteriler</a>
+                        }
                         <a asp-controller="Operations" asp-action="Orders">Siparişler</a>
                         <a asp-controller="Operations" asp-action="Faults">Arızalar</a>
                     }

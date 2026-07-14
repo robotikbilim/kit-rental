@@ -50,6 +50,56 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) =>
         await GetAsync<OrderCustomerViewModel[]>("/core/api/customers", cancellationToken) ?? [];
 
+    public async Task<IReadOnlyCollection<UserApiResponse>> GetUsersAsync(CancellationToken cancellationToken) =>
+        await GetAsync<UserApiResponse[]>("/identity/api/users", cancellationToken) ?? [];
+
+    public Task<ApiCommandResult<UserApiResponse>> CreateCustomerContactAccountAsync(
+        CustomerContactAccountViewModel model, CancellationToken cancellationToken) =>
+        PostAsync<UserApiResponse>("/identity/api/users", new
+        {
+            email = model.Username,
+            displayName = $"{model.FirstName.Trim()} {model.LastName.Trim()}",
+            model.Password,
+            role = 5,
+            model.CustomerId
+        }, cancellationToken);
+
+    public Task<OrderCustomerViewModel?> GetCustomerAsync(Guid id, CancellationToken cancellationToken) =>
+        GetAsync<OrderCustomerViewModel>($"/core/api/customers/{id}", cancellationToken);
+
+    public Task<ApiCommandResult<OrderCustomerViewModel>> CreateCustomerAsync(CreateCustomerViewModel model,
+        CancellationToken cancellationToken) => PostAsync<OrderCustomerViewModel>("/core/api/customers", new
+        {
+            model.Customer.Name, model.Customer.Email,
+            address = new { model.Address.Title, model.Address.ContactName, model.Address.Phone, model.Address.Line1,
+                model.Address.District, model.Address.City, model.Address.PostalCode }
+        }, cancellationToken);
+
+    public Task<ApiCommandResult<OrderCustomerViewModel>> UpdateCustomerAsync(CustomerInputViewModel model,
+        CancellationToken cancellationToken) => SendAsync<OrderCustomerViewModel>(HttpMethod.Put,
+            $"/core/api/customers/{model.Id}", new { model.Name, model.Email, model.IsActive }, cancellationToken);
+
+    public Task<ApiCommandResult<OrderCustomerViewModel>> DeleteCustomerAsync(Guid id,
+        CancellationToken cancellationToken) => SendAsync<OrderCustomerViewModel>(HttpMethod.Delete,
+            $"/core/api/customers/{id}", null, cancellationToken);
+
+    public Task<ApiCommandResult<PortalAddressViewModel>> CreateCustomerAddressAsync(CustomerAddressInputViewModel model,
+        CancellationToken cancellationToken) => PostAsync<PortalAddressViewModel>(
+            $"/core/api/customers/{model.CustomerId}/addresses", AddressBody(model), cancellationToken);
+
+    public Task<ApiCommandResult<PortalAddressViewModel>> UpdateCustomerAddressAsync(CustomerAddressInputViewModel model,
+        CancellationToken cancellationToken) => SendAsync<PortalAddressViewModel>(HttpMethod.Put,
+            $"/core/api/customers/{model.CustomerId}/addresses/{model.Id}", AddressBody(model), cancellationToken);
+
+    public Task<ApiCommandResult<object>> DeleteCustomerAddressAsync(Guid customerId, Guid addressId,
+        CancellationToken cancellationToken) => SendAsync<object>(HttpMethod.Delete,
+            $"/core/api/customers/{customerId}/addresses/{addressId}", null, cancellationToken);
+
+    private static object AddressBody(CustomerAddressInputViewModel model) => new
+    {
+        model.Title, model.ContactName, model.Phone, model.Line1, model.District, model.City, model.PostalCode
+    };
+
     public Task<ApiCommandResult<OrderViewModel>> CreateOrderAsync(AdminOrderInputViewModel model,
         CancellationToken cancellationToken) => PostAsync<OrderViewModel>("/core/api/orders", new
         {
