@@ -232,28 +232,54 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
     public async Task SaveChangesAsync(CancellationToken cancellationToken) =>
         await dbContext.SaveChangesAsync(cancellationToken);
 
-    public async Task<bool> TryCreateReservationAsync(
+    public Task<bool> TryCreateReservationAsync(
         ProductUnit unit,
         RentalAssignment assignment,
         Guid actorId,
         DateTimeOffset occurredAt,
+        CancellationToken cancellationToken) =>
+        TryCreateReservationsAsync([unit], [assignment], actorId, occurredAt, cancellationToken);
+
+    public async Task<bool> TryCreateReservationsAsync(
+        IReadOnlyCollection<ProductUnit> units,
+        IReadOnlyCollection<RentalAssignment> assignments,
+        Guid actorId,
+        DateTimeOffset occurredAt,
         CancellationToken cancellationToken)
     {
+        var unitIds = units.Select(item => item.Id).ToArray();
+        var assignmentUnitIds = assignments.Select(item => item.ProductUnitId).ToArray();
+        if (units.Count == 0 || units.Count != assignments.Count ||
+            unitIds.Distinct().Count() != units.Count || assignmentUnitIds.Distinct().Count() != assignments.Count ||
+            !unitIds.ToHashSet().SetEquals(assignmentUnitIds))
+            throw new ArgumentException("Fiziksel kit ve kiralama atamaları birebir eşleşmelidir.");
+
         await using var transaction = await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        var candidates = await dbContext.RentalAssignments
-            .Where(existing =>
-                existing.ProductUnitId == assignment.ProductUnitId &&
-                (existing.Status == RentalAssignmentStatus.Reserved || existing.Status == RentalAssignmentStatus.Active))
+        var databaseUnits = await dbContext.ProductUnits
+            .Where(item => unitIds.Contains(item.Id))
+            .Select(item => new { item.Id, item.Status })
             .ToArrayAsync(cancellationToken);
-        if (candidates.Any(existing => existing.Period.Overlaps(assignment.Period)))
+        if (databaseUnits.Length != units.Count || databaseUnits.Any(item => item.Status != ProductUnitStatus.Available))
         {
             await transaction.RollbackAsync(cancellationToken);
             return false;
         }
 
-        if (unit.Status == ProductUnitStatus.Available)
+        var candidates = await dbContext.RentalAssignments
+            .Where(existing =>
+                unitIds.Contains(existing.ProductUnitId) &&
+                (existing.Status == RentalAssignmentStatus.Reserved || existing.Status == RentalAssignmentStatus.Active))
+            .ToArrayAsync(cancellationToken);
+        var requestedPeriods = assignments.ToDictionary(item => item.ProductUnitId, item => item.Period);
+        if (candidates.Any(existing => existing.Period.Overlaps(requestedPeriods[existing.ProductUnitId])))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return false;
+        }
+
+        foreach (var unit in units)
             unit.Reserve(actorId, occurredAt);
-        await dbContext.RentalAssignments.AddAsync(assignment, cancellationToken);
+        await dbContext.RentalAssignments.AddRangeAsync(assignments, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return true;

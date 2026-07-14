@@ -6,6 +6,7 @@ using KitRental.Core.Domain.Inventory;
 using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Support;
+using KitRental.SharedKernel;
 
 namespace KitRental.Core.Application.PhysicalKits;
 
@@ -139,6 +140,8 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
             throw new ConflictException("physical_kit.not_available", "Yalnızca kiralanabilir durumdaki bir kit kiralanabilir.");
         _ = await repository.GetProductModelAsync(unit.ProductModelId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kit modeli bulunamadı.");
+        if ((await GetFaultyUnitIdsAsync(cancellationToken)).Contains(unit.Id))
+            throw new ConflictException("physical_kit.has_open_fault", "Açık arıza kaydı bulunan bir kit kiralanamaz.");
 
         var customer = await repository.FindCustomerByEmailAsync(command.Email, cancellationToken);
         if (customer is null)
@@ -174,6 +177,87 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
             "Rented", ProductUnitStatus.Available.ToString(), unit.Status.ToString(), now), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return new RentPhysicalKitResponse(unit.Id, customer.Id, order.Id, assignment.Id, order.OrderNumber, unit.SerialNumber, unit.Status);
+    }
+
+    public async Task<BulkRentPhysicalKitsResponse> RentManyAsync(BulkRentPhysicalKitsCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (command.ProductUnitIds.Count == 0)
+            throw new DomainException("physical_kit.selection_required", "Kiralamak için en az bir fiziksel kit seçilmelidir.");
+        if (command.ProductUnitIds.Count > 100)
+            throw new DomainException("physical_kit.selection_limit", "Tek işlemde en fazla 100 fiziksel kit kiralanabilir.");
+
+        var unitIds = command.ProductUnitIds.Distinct().ToArray();
+        if (unitIds.Length != command.ProductUnitIds.Count)
+            throw new DomainException("physical_kit.duplicate_selection", "Aynı fiziksel kit birden fazla kez seçilemez.");
+
+        var units = new List<ProductUnit>(unitIds.Length);
+        foreach (var unitId in unitIds)
+        {
+            var unit = await repository.GetProductUnitAsync(unitId, cancellationToken)
+                ?? throw new ResourceNotFoundException("Seçilen fiziksel kitlerden biri bulunamadı.");
+            if (unit.Status != ProductUnitStatus.Available)
+                throw new ConflictException("physical_kit.not_available",
+                    $"{unit.SerialNumber} seri numaralı kit artık kiralanabilir durumda değil.");
+            _ = await repository.GetProductModelAsync(unit.ProductModelId, cancellationToken)
+                ?? throw new ResourceNotFoundException("Seçilen kitlerden birinin ürün modeli bulunamadı.");
+            units.Add(unit);
+        }
+
+        var faultyUnitIds = await GetFaultyUnitIdsAsync(cancellationToken);
+        var faultyUnit = units.FirstOrDefault(unit => faultyUnitIds.Contains(unit.Id));
+        if (faultyUnit is not null)
+            throw new ConflictException("physical_kit.has_open_fault",
+                $"{faultyUnit.SerialNumber} seri numaralı kitin açık arıza kaydı bulunuyor.");
+
+        var customer = await repository.FindCustomerByEmailAsync(command.Email, cancellationToken);
+        if (customer is null)
+        {
+            customer = Customer.Create(Guid.NewGuid(), command.CustomerName, command.Email);
+            await repository.AddCustomerAsync(customer, cancellationToken);
+        }
+
+        var address = customer.AddAddress("Kiralama adresi", command.CustomerName, command.Phone,
+            command.AddressLine, command.District, command.City, command.PostalCode);
+        var now = timeProvider.GetUtcNow();
+        var period = new RentalPeriod(command.StartDate, command.EndDate);
+        var order = RentalOrder.Create(Guid.NewGuid(), $"KR-{now:yyyyMMdd}-{Guid.NewGuid():N}"[..20],
+            customer.Id, period, customer.SnapshotAddress(address.Id), now);
+        var linesByModel = units.GroupBy(unit => unit.ProductModelId)
+            .ToDictionary(group => group.Key, group => order.AddLine(group.Key, group.Count()));
+        order.Submit(command.ActorId, now);
+        order.Approve(command.ActorId, now);
+        await repository.AddOrderAsync(order, cancellationToken);
+
+        var assignments = units.Select(unit => RentalAssignment.Create(Guid.NewGuid(),
+            linesByModel[unit.ProductModelId].Id, customer.Id, unit.Id, period, now, command.ActorId)).ToArray();
+        if (!await repository.TryCreateReservationsAsync(units, assignments, command.ActorId, now, cancellationToken))
+            throw new ConflictException("rental_assignment.overlap",
+                "Seçilen kitlerden biri başka bir işlem tarafından kiralandı. Listeyi yenileyip tekrar deneyin.");
+
+        order.StartPreparation(command.ActorId, now);
+        foreach (var unit in units)
+            unit.StartPreparation(command.ActorId, now);
+        order.MarkReadyToShip(command.ActorId, now);
+        order.Dispatch(command.ActorId, now);
+        foreach (var unit in units)
+            unit.Dispatch(command.ActorId, now);
+        order.ConfirmDelivery(command.ActorId, now);
+        foreach (var unit in units)
+            unit.ConfirmDelivery(command.ActorId, now);
+        order.ActivateRental(command.ActorId, now);
+        foreach (var assignment in assignments)
+            assignment.Activate();
+
+        foreach (var unit in units)
+            await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(ProductUnit),
+                unit.Id, "BulkRented", ProductUnitStatus.Available.ToString(), unit.Status.ToString(), now), cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+
+        var assignmentByUnit = assignments.ToDictionary(item => item.ProductUnitId);
+        var items = units.OrderBy(item => item.SerialNumber).Select(unit => new BulkRentPhysicalKitItemResponse(
+            unit.Id, assignmentByUnit[unit.Id].Id, unit.SerialNumber, unit.Status)).ToArray();
+        return new BulkRentPhysicalKitsResponse(customer.Id, order.Id, order.OrderNumber, items.Length, items);
     }
 
     private async Task<PhysicalKitListItemResponse> MapListItemAsync(ProductUnit unit, ProductModel model,

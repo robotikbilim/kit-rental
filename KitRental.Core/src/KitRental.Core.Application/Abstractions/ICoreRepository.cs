@@ -58,4 +58,10 @@ public interface ICoreRepository
         Guid actorId,
         DateTimeOffset occurredAt,
         CancellationToken cancellationToken);
+    Task<bool> TryCreateReservationsAsync(
+        IReadOnlyCollection<ProductUnit> units,
+        IReadOnlyCollection<RentalAssignment> assignments,
+        Guid actorId,
+        DateTimeOffset occurredAt,
+        CancellationToken cancellationToken);
 }

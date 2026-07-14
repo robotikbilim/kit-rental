@@ -130,6 +130,32 @@ public sealed class RentPhysicalKitViewModel
 }
 public sealed record RentPhysicalKitResultViewModel(Guid ProductUnitId, Guid CustomerId, Guid OrderId,
     Guid AssignmentId, string OrderNumber, string SerialNumber, int Status);
+public sealed class PhysicalKitSelectionViewModel
+{
+    public Guid ProductModelId { get; set; }
+    public string Filter { get; set; } = "available";
+    public List<Guid> ProductUnitIds { get; set; } = [];
+}
+public sealed class BulkRentPhysicalKitsViewModel
+{
+    public Guid ProductModelId { get; set; }
+    public string KitName { get; set; } = string.Empty;
+    [MinLength(1)] public List<Guid> ProductUnitIds { get; set; } = [];
+    public List<string> SerialNumbers { get; set; } = [];
+    [Required, Display(Name = "Kiralayan kişi / kurum")] public string CustomerName { get; set; } = string.Empty;
+    [Required, EmailAddress, Display(Name = "E-posta")] public string Email { get; set; } = string.Empty;
+    [Required, Phone, Display(Name = "Telefon")] public string Phone { get; set; } = string.Empty;
+    [Required, Display(Name = "Açık adres")] public string AddressLine { get; set; } = string.Empty;
+    [Required, Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
+    [Required, Display(Name = "Şehir")] public string City { get; set; } = string.Empty;
+    [Display(Name = "Posta kodu")] public string PostalCode { get; set; } = string.Empty;
+    [Required, DataType(DataType.Date), Display(Name = "Başlangıç")] public DateOnly StartDate { get; set; }
+    [Required, DataType(DataType.Date), Display(Name = "Bitiş")] public DateOnly EndDate { get; set; }
+}
+public sealed record BulkRentPhysicalKitsResultViewModel(Guid CustomerId, Guid OrderId, string OrderNumber,
+    int KitCount, IReadOnlyCollection<BulkRentPhysicalKitItemViewModel> Kits);
+public sealed record BulkRentPhysicalKitItemViewModel(Guid ProductUnitId, Guid AssignmentId, string SerialNumber,
+    int Status);
 
 public sealed record PortalAddressViewModel(Guid Id, string Title, string ContactName, string Phone, string Line1,
     string District, string City, string PostalCode);

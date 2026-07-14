@@ -105,4 +105,66 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
         TempData["Success"] = $"Kiralama kaydedildi. Sipariş: {result.Data!.OrderNumber}";
         return RedirectToAction(nameof(Details), new { id = model.ProductUnitId });
     }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> PrepareBulkRent(PhysicalKitSelectionViewModel selection,
+        CancellationToken cancellationToken)
+    {
+        selection.ProductUnitIds = selection.ProductUnitIds.Distinct().ToList();
+        if (selection.ProductUnitIds.Count == 0)
+        {
+            TempData["Error"] = "Toplu kiralama için en az bir fiziksel kit seçin.";
+            return RedirectToAction(nameof(Units), new { id = selection.ProductModelId, filter = "available" });
+        }
+        if (selection.ProductUnitIds.Count > 100)
+        {
+            TempData["Error"] = "Tek işlemde en fazla 100 fiziksel kit kiralanabilir.";
+            return RedirectToAction(nameof(Units), new { id = selection.ProductModelId, filter = "available" });
+        }
+
+        var details = new List<PhysicalKitDetailViewModel>();
+        foreach (var unitId in selection.ProductUnitIds)
+        {
+            var detail = await apiClient.GetPhysicalKitAsync(unitId, cancellationToken);
+            if (detail is null || detail.Kit.ProductModelId != selection.ProductModelId || detail.Kit.Status != 1)
+            {
+                TempData["Error"] = "Seçilen kitlerden biri artık kiralanabilir değil. Liste yenilendi.";
+                return RedirectToAction(nameof(Units), new { id = selection.ProductModelId, filter = "available" });
+            }
+            details.Add(detail);
+        }
+
+        return View("BulkRent", new BulkRentPhysicalKitsViewModel
+        {
+            ProductModelId = selection.ProductModelId,
+            ProductUnitIds = details.Select(item => item.Kit.Id).ToList(),
+            SerialNumbers = details.Select(item => item.Kit.SerialNumber).Order().ToList(),
+            KitName = details[0].Kit.KitName,
+            StartDate = DateOnly.FromDateTime(DateTime.Today),
+            EndDate = DateOnly.FromDateTime(DateTime.Today.AddMonths(1))
+        });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> BulkRent(BulkRentPhysicalKitsViewModel model, CancellationToken cancellationToken)
+    {
+        model.ProductUnitIds = model.ProductUnitIds.Distinct().ToList();
+        if (model.ProductUnitIds.Count == 0)
+            ModelState.AddModelError(nameof(model.ProductUnitIds), "En az bir fiziksel kit seçilmelidir.");
+        if (model.ProductUnitIds.Count > 100)
+            ModelState.AddModelError(nameof(model.ProductUnitIds), "Tek işlemde en fazla 100 fiziksel kit kiralanabilir.");
+        if (model.EndDate < model.StartDate)
+            ModelState.AddModelError(nameof(model.EndDate), "Bitiş tarihi başlangıçtan önce olamaz.");
+        if (!ModelState.IsValid) return View(model);
+
+        var result = await apiClient.BulkRentPhysicalKitsAsync(model, cancellationToken);
+        if (!result.IsSuccess || result.Data is null)
+        {
+            ModelState.AddModelError(string.Empty, result.Error ?? "Toplu kiralama kaydedilemedi.");
+            return View(model);
+        }
+
+        TempData["Success"] = $"{result.Data.KitCount} kit toplu olarak kiralandı. Sipariş: {result.Data.OrderNumber}";
+        return RedirectToAction(nameof(Units), new { id = model.ProductModelId, filter = "available" });
+    }
 }

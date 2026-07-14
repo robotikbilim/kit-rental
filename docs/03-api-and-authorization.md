@@ -74,6 +74,7 @@ Core `/api` grubunun tamamı Bearer authentication gerektirir.
 | `GET/POST /api/product-units` | Okuma: giriş; yazma: depo | Seri numaralı fiziksel kitler |
 | `GET /api/physical-kits/*` | Depo rolleri | Liste, dashboard ve geçmiş detayı |
 | `POST /api/physical-kits/{id}/rent` | Operasyon rolleri | Seri numaralı kiti hızlı kiralama |
+| `POST /api/physical-kits/bulk-rent` | Operasyon rolleri | Seçilen fiziksel kitleri tek sipariş altında toplu kiralama |
 | `GET/POST /api/components` | Depo rolleri | Komponent kataloğu ve düşük stok |
 | `GET /api/components/search` | Depo rolleri | Ad/SKU autocomplete araması |
 | `GET /api/components/{id}/locator` | Depo rolleri | Raf bazlı miktar ve görsel |

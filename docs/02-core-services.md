@@ -68,8 +68,9 @@ Amaç: fiziksel kitlerin operasyon ekranlarına uygun toplu görünümünü, det
 | `GetListAsync` | Model adı/görseli, seri numarası, QR kod, durum ve aktif kiralama özetini birleştirir. |
 | `GetDetailAsync` | Birim durum geçmişi, tüm kiralama geçmişi ve bu birime bağlı arıza geçmişini getirir. |
 | `RentAsync` | E-posta ile müşteri bulur veya oluşturur; adres, sipariş ve atamayı üretir; fiziksel kiti rezerve eder. |
+| `RentManyAsync` | Seçilen kiralanabilir kitleri tek müşteri, adres, dönem ve sipariş altında toplu olarak rezerve edip aktifleştirir. |
 
-Hızlı kiralama use-case'i müşteri, teslimat adresi, sipariş ve seri numaralı atamayı tek uygulama operasyonunda koordine eder.
+Hızlı ve toplu kiralama use-case'leri müşteri, teslimat adresi, sipariş ve seri numaralı atamaları tek uygulama operasyonunda koordine eder. Toplu işlem en fazla 100 benzersiz kit kabul eder; açık arızası veya uygun olmayan durumu bulunan tek bir kit varsa işlem reddedilir. Rezervasyonlar `TryCreateReservationsAsync` ile aynı transaction içinde topluca kontrol edilir ve kaydedilir.
 
 ## CustomerPortalService
 

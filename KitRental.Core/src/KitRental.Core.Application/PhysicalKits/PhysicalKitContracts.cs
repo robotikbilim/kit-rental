@@ -31,3 +31,10 @@ public sealed record RentPhysicalKitCommand(Guid ProductUnitId, string CustomerN
     string AddressLine, string District, string City, string PostalCode, DateOnly StartDate, DateOnly EndDate, Guid ActorId);
 public sealed record RentPhysicalKitResponse(Guid ProductUnitId, Guid CustomerId, Guid OrderId, Guid AssignmentId,
     string OrderNumber, string SerialNumber, ProductUnitStatus Status);
+public sealed record BulkRentPhysicalKitsCommand(IReadOnlyCollection<Guid> ProductUnitIds, string CustomerName,
+    string Email, string Phone, string AddressLine, string District, string City, string PostalCode,
+    DateOnly StartDate, DateOnly EndDate, Guid ActorId);
+public sealed record BulkRentPhysicalKitItemResponse(Guid ProductUnitId, Guid AssignmentId, string SerialNumber,
+    ProductUnitStatus Status);
+public sealed record BulkRentPhysicalKitsResponse(Guid CustomerId, Guid OrderId, string OrderNumber, int KitCount,
+    IReadOnlyCollection<BulkRentPhysicalKitItemResponse> Kits);

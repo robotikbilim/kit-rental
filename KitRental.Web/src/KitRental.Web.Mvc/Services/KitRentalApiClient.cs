@@ -109,6 +109,22 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => PostAsync<RentPhysicalKitResultViewModel>(
             $"/core/api/physical-kits/{model.ProductUnitId}/rent", model, cancellationToken);
 
+    public Task<ApiCommandResult<BulkRentPhysicalKitsResultViewModel>> BulkRentPhysicalKitsAsync(
+        BulkRentPhysicalKitsViewModel model, CancellationToken cancellationToken) =>
+        PostAsync<BulkRentPhysicalKitsResultViewModel>("/core/api/physical-kits/bulk-rent", new
+        {
+            model.ProductUnitIds,
+            model.CustomerName,
+            model.Email,
+            model.Phone,
+            model.AddressLine,
+            model.District,
+            model.City,
+            model.PostalCode,
+            model.StartDate,
+            model.EndDate
+        }, cancellationToken);
+
     public Task<CustomerPortalViewModel?> GetCustomerPortalAsync(CancellationToken cancellationToken) =>
         GetAsync<CustomerPortalViewModel>("/core/api/customer-portal", cancellationToken);
 

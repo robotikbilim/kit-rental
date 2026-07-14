@@ -1,0 +1,47 @@
+@model BulkRentPhysicalKitsViewModel
+@{ ViewData["Title"] = "Toplu Kit Kirala"; }
+<div class="form-shell form-shell-wide">
+    <div class="form-heading">
+        <a asp-action="Units" asp-route-id="@Model.ProductModelId" asp-route-filter="available">← Kiralanabilir kitlere dön</a>
+        <span class="eyebrow">TOPLU KİRALAMA</span>
+        <h1>@Model.KitName</h1>
+        <p><strong>@Model.ProductUnitIds.Count fiziksel kit</strong> aynı sipariş ve kiralama dönemiyle kiracıya teslim edilmiş olarak kaydedilecek.</p>
+    </div>
+    <form class="catalog-form" asp-action="BulkRent" method="post">
+        <input type="hidden" asp-for="ProductModelId" />
+        <input type="hidden" asp-for="KitName" />
+        @for (var index = 0; index < Model.ProductUnitIds.Count; index++)
+        {
+            <input type="hidden" name="ProductUnitIds[@index]" value="@Model.ProductUnitIds[index]" />
+        }
+        @for (var index = 0; index < Model.SerialNumbers.Count; index++)
+        {
+            <input type="hidden" name="SerialNumbers[@index]" value="@Model.SerialNumbers[index]" />
+        }
+        <div asp-validation-summary="ModelOnly" class="error"></div>
+        <section class="form-section bulk-rent-kits">
+            <h2>Seçilen fiziksel kitler</h2>
+            <div class="selected-serials">
+                @foreach (var serialNumber in Model.SerialNumbers)
+                {
+                    <code>@serialNumber</code>
+                }
+            </div>
+            <span asp-validation-for="ProductUnitIds"></span>
+        </section>
+        <section class="form-section"><h2>Kiracı bilgileri</h2><div class="form-grid">
+            <div class="field"><label asp-for="CustomerName"></label><input asp-for="CustomerName" /><span asp-validation-for="CustomerName"></span></div>
+            <div class="field"><label asp-for="Email"></label><input asp-for="Email" /><span asp-validation-for="Email"></span></div>
+            <div class="field"><label asp-for="Phone"></label><input asp-for="Phone" /><span asp-validation-for="Phone"></span></div>
+            <div class="field"><label asp-for="City"></label><input asp-for="City" /><span asp-validation-for="City"></span></div>
+            <div class="field"><label asp-for="District"></label><input asp-for="District" /><span asp-validation-for="District"></span></div>
+            <div class="field"><label asp-for="PostalCode"></label><input asp-for="PostalCode" /></div>
+            <div class="field wide"><label asp-for="AddressLine"></label><textarea asp-for="AddressLine" rows="3"></textarea><span asp-validation-for="AddressLine"></span></div>
+        </div></section>
+        <section class="form-section"><h2>Kiralama dönemi</h2><div class="form-grid">
+            <div class="field"><label asp-for="StartDate"></label><input asp-for="StartDate" /><span asp-validation-for="StartDate"></span></div>
+            <div class="field"><label asp-for="EndDate"></label><input asp-for="EndDate" /><span asp-validation-for="EndDate"></span></div>
+        </div></section>
+        <div class="form-actions"><a class="secondary-action" asp-action="Units" asp-route-id="@Model.ProductModelId" asp-route-filter="available">Vazgeç</a><button class="primary-action" type="submit">@Model.ProductUnitIds.Count kiti kirala ve teslim et</button></div>
+    </form>
+</div>

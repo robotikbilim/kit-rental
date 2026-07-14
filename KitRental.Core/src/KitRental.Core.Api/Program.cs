@@ -183,6 +183,14 @@ api.MapGet("/physical-kits/lookup", async (string identifier, PhysicalKitService
     Results.Ok(await service.LookupAsync(identifier, cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
 
+api.MapPost("/physical-kits/bulk-rent", async (BulkRentPhysicalKitsRequest request, ClaimsPrincipal user,
+    PhysicalKitService service, CancellationToken cancellationToken) =>
+    Results.Created("/api/physical-kits", await service.RentManyAsync(new BulkRentPhysicalKitsCommand(
+        request.ProductUnitIds, request.CustomerName, request.Email, request.Phone, request.AddressLine,
+        request.District, request.City, request.PostalCode, request.StartDate, request.EndDate,
+        user.GetRequiredUserId()), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
 api.MapGet("/physical-kits/{id:guid}", async (Guid id, PhysicalKitService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetDetailAsync(id, cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
@@ -416,6 +424,9 @@ public sealed record CreateProductUnitRequest(Guid ProductModelId, string? Seria
 public sealed record CreateProductUnitsRequest(Guid ProductModelId, int Quantity);
 public sealed record RentPhysicalKitRequest(string CustomerName, string Email, string Phone, string AddressLine,
     string District, string City, string PostalCode, DateOnly StartDate, DateOnly EndDate);
+public sealed record BulkRentPhysicalKitsRequest(IReadOnlyCollection<Guid> ProductUnitIds, string CustomerName,
+    string Email, string Phone, string AddressLine, string District, string City, string PostalCode,
+    DateOnly StartDate, DateOnly EndDate);
 public sealed record CreateComponentRequest(string Name, string Sku, string UnitOfMeasure, decimal MinimumStock, string? ImageUrl = null);
 public sealed record CreateStorageLocationRequest(string Code, string Warehouse, string Aisle, string Rack, string Shelf);
 public sealed record RecordComponentStockRequest(Guid ComponentId, Guid StorageLocationId, decimal Quantity, string Reference);

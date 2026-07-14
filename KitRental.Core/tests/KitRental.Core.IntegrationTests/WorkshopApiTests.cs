@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using KitRental.Core.Application.CustomerPortal;
 using KitRental.Core.Application.Inventory;
+using KitRental.Core.Application.PhysicalKits;
 using KitRental.Core.Application.Workshop;
 using KitRental.Security;
 using Microsoft.AspNetCore.Hosting;
@@ -151,6 +153,42 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
         var invalid = await _client.PostAsJsonAsync("/api/product-units/bulk",
             new { ProductModelId = model.Id, Quantity = 201 }, cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, invalid.StatusCode);
+    }
+
+    [Fact]
+    public async Task BulkRentPhysicalKits_CreatesOneOrderAndActivatesEverySelectedKit()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var model = await PostAsync<ProductModelResponse>("/api/product-models",
+            new CreateProductModelRequest("Toplu Kiralama Test Kiti", $"KIT-{Guid.NewGuid():N}"), cancellationToken);
+        var units = await PostAsync<ProductUnitResponse[]>("/api/product-units/bulk",
+            new { ProductModelId = model.Id, Quantity = 3 }, cancellationToken);
+
+        var rental = await PostAsync<BulkRentPhysicalKitsResponse>("/api/physical-kits/bulk-rent",
+            new BulkRentPhysicalKitsRequest(units.Select(item => item.Id).ToArray(), "TACEV Toplu Test",
+                $"bulk-{Guid.NewGuid():N}@example.com", "02165550000", "Bilim Sokak 1", "Kadıköy",
+                "İstanbul", "34000", new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1)), cancellationToken);
+
+        Assert.Equal(3, rental.KitCount);
+        Assert.Equal(3, rental.Kits.Count);
+        Assert.Equal(3, rental.Kits.Select(item => item.AssignmentId).Distinct().Count());
+        Assert.All(rental.Kits, item => Assert.Equal(KitRental.Core.Domain.Inventory.ProductUnitStatus.WithCustomer, item.Status));
+
+        var orders = await _client.GetFromJsonAsync<PortalOrderResponse[]>("/api/order-summaries", cancellationToken);
+        var order = orders!.Single(item => item.Id == rental.OrderId);
+        Assert.Single(order.Lines);
+        Assert.Equal(3, order.Lines.Single().Quantity);
+
+        foreach (var unit in units)
+        {
+            var detail = await _client.GetFromJsonAsync<PhysicalKitDetailResponse>(
+                $"/api/physical-kits/{unit.Id}", cancellationToken);
+            Assert.Equal(rental.OrderNumber, detail!.RentalHistory.Single().OrderNumber);
+        }
+
+        var available = await _client.GetFromJsonAsync<PhysicalKitUnitPageResponse>(
+            $"/api/physical-kits/models/{model.Id}/units?filter=available&page=1&pageSize=20", cancellationToken);
+        Assert.Equal(0, available!.TotalCount);
     }
 
     [Fact]

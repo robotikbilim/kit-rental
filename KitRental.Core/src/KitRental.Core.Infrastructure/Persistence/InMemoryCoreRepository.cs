@@ -397,27 +397,37 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         RentalAssignment assignment,
         Guid actorId,
         DateTimeOffset occurredAt,
+        CancellationToken cancellationToken) =>
+        TryCreateReservationsAsync([unit], [assignment], actorId, occurredAt, cancellationToken);
+
+    public Task<bool> TryCreateReservationsAsync(
+        IReadOnlyCollection<ProductUnit> units,
+        IReadOnlyCollection<RentalAssignment> assignments,
+        Guid actorId,
+        DateTimeOffset occurredAt,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var unitIds = units.Select(item => item.Id).ToHashSet();
+        var assignmentUnitIds = assignments.Select(item => item.ProductUnitId).ToArray();
+        if (units.Count == 0 || units.Count != assignments.Count ||
+            unitIds.Count != units.Count || assignmentUnitIds.Distinct().Count() != assignments.Count ||
+            !unitIds.SetEquals(assignmentUnitIds))
+            throw new ArgumentException("Fiziksel kit ve kiralama atamaları birebir eşleşmelidir.");
+
         lock (_gate)
         {
-            var overlaps = _assignments.Any(existing =>
-                existing.ProductUnitId == assignment.ProductUnitId &&
-                existing.BlocksAvailability &&
-                existing.Period.Overlaps(assignment.Period));
+            var requestedPeriods = assignments.ToDictionary(item => item.ProductUnitId, item => item.Period);
+            var overlaps = units.Any(item => item.Status != ProductUnitStatus.Available) ||
+                _assignments.Any(existing => unitIds.Contains(existing.ProductUnitId) && existing.BlocksAvailability &&
+                    existing.Period.Overlaps(requestedPeriods[existing.ProductUnitId]));
 
             if (overlaps)
-            {
                 return Task.FromResult(false);
-            }
 
-            if (unit.Status == ProductUnitStatus.Available)
-            {
+            foreach (var unit in units)
                 unit.Reserve(actorId, occurredAt);
-            }
-
-            _assignments.Add(assignment);
+            _assignments.AddRange(assignments);
             return Task.FromResult(true);
         }
     }

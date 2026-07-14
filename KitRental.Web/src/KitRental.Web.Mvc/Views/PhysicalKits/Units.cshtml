@@ -7,6 +7,8 @@
     var lastItem = Math.Min(Model.Page * Model.PageSize, Model.TotalCount);
 }
 <a class="back-link" asp-action="Index">← Eğitim seti stoklarına dön</a>
+@if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
+@if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 <header class="unit-list-heading">
     <div class="unit-list-kit"><img src="@(Model.ImageUrl ?? "/images/catalog/kit.svg")" alt="@Model.KitName" /><div><span class="eyebrow">@Model.KitSku</span><h1>@Model.KitName</h1><p>@FilterName() · @Model.TotalCount kayıt</p></div></div>
     <div class="unit-list-actions">
@@ -20,10 +22,20 @@
 }
 else
 {
-    <div class="table-scroll unit-table-wrap"><table><thead><tr><th>Seri numarası</th><th>QR kod</th><th>Durum</th><th>Mevcut kiracı</th><th></th></tr></thead><tbody>
+    <form asp-action="PrepareBulkRent" method="post" id="bulk-rent-selection-form">
+    <input type="hidden" name="ProductModelId" value="@Model.ProductModelId" />
+    <input type="hidden" name="Filter" value="@Model.Filter" />
+    @if (Model.Filter == "available")
+    {
+        <div class="bulk-selection-bar">
+            <span><strong id="selected-kit-count">0</strong> fiziksel kit seçildi</span>
+            <button class="primary-action" id="bulk-rent-button" type="submit" disabled>Seçilenleri toplu kirala</button>
+        </div>
+    }
+    <div class="table-scroll unit-table-wrap"><table><thead><tr>@if (Model.Filter == "available") { <th class="unit-select-cell"><input id="select-all-kits" type="checkbox" aria-label="Bu sayfadaki tüm kitleri seç" /></th> }<th>Seri numarası</th><th>QR kod</th><th>Durum</th><th>Mevcut kiracı</th><th></th></tr></thead><tbody>
     @foreach (var kit in Model.Items)
     {
-        <tr><td><code class="unit-serial">@kit.SerialNumber</code></td><td><span class="unit-qr">@kit.QrCode</span></td><td><span class="fleet-status status-@kit.Status">@StatusName(kit.Status)</span></td><td>@if(kit.CurrentRental is null){<span>—</span>}else{<strong>@kit.CurrentRental.CustomerName</strong><small class="block-muted">@kit.CurrentRental.City · @kit.CurrentRental.StartDate.ToString("dd.MM.yyyy")–@kit.CurrentRental.EndDate.ToString("dd.MM.yyyy")</small>}</td><td><a class="row-link" asp-action="Details" asp-route-id="@kit.Id">Geçmiş →</a></td></tr>
+        <tr>@if (Model.Filter == "available") { <td class="unit-select-cell"><input class="kit-selection" type="checkbox" name="ProductUnitIds" value="@kit.Id" aria-label="@kit.SerialNumber seri numaralı kiti seç" /></td> }<td><code class="unit-serial">@kit.SerialNumber</code></td><td><span class="unit-qr">@kit.QrCode</span></td><td><span class="fleet-status status-@kit.Status">@StatusName(kit.Status)</span></td><td>@if(kit.CurrentRental is null){<span>—</span>}else{<strong>@kit.CurrentRental.CustomerName</strong><small class="block-muted">@kit.CurrentRental.City · @kit.CurrentRental.StartDate.ToString("dd.MM.yyyy")–@kit.CurrentRental.EndDate.ToString("dd.MM.yyyy")</small>}</td><td><a class="row-link" asp-action="Details" asp-route-id="@kit.Id">Geçmiş →</a></td></tr>
     }
     </tbody></table></div>
     <footer class="pagination-shell">
@@ -35,4 +47,26 @@ else
             @if (Model.Page < Model.TotalPages) { <a asp-action="Units" asp-route-id="@Model.ProductModelId" asp-route-filter="@Model.Filter" asp-route-page="@(Model.Page + 1)">→</a> }
         </nav>
     </footer>
+    </form>
+    @if (Model.Filter == "available")
+    {
+        <script>
+        (() => {
+            const all = document.querySelector('#select-all-kits');
+            const boxes = [...document.querySelectorAll('.kit-selection')];
+            const count = document.querySelector('#selected-kit-count');
+            const button = document.querySelector('#bulk-rent-button');
+            const update = () => {
+                const selected = boxes.filter(box => box.checked).length;
+                count.textContent = selected;
+                button.disabled = selected === 0;
+                all.checked = selected === boxes.length && boxes.length > 0;
+                all.indeterminate = selected > 0 && selected < boxes.length;
+            };
+            all.addEventListener('change', () => { boxes.forEach(box => box.checked = all.checked); update(); });
+            boxes.forEach(box => box.addEventListener('change', update));
+            update();
+        })();
+        </script>
+    }
 }
