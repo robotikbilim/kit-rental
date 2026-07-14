@@ -1,5 +1,8 @@
 @model CustomerPortalViewModel
-@{ ViewData["Title"] = "Kitlerim"; }
+@{
+    ViewData["Title"] = "Kitlerim";
+    var visibleKits = Model.Kits.Where(item => item.AssignmentStatus is 1 or 2).ToArray();
+}
 @functions {
     string UnitStatus(int value) => value switch { 1 => "Hazır", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimat yolunda", 5 => "Kullanımınızda", 6 => "Geri gönderiliyor", 7 => "Kontrolde", 8 => "Serviste", _ => "İşlemde" };
     string OrderStatus(int value) => value switch { 2 => "Onay bekliyor", 3 => "Onaylandı", 4 => "Hazırlanıyor", 5 => "Kargoya hazır", 6 => "Teslimat yolunda", 7 => "Teslim edildi", 8 => "Kiralama aktif", 9 => "İade bekleniyor", 10 => "İade yolunda", 11 => "Kontrolde", 13 => "Tamamlandı", 14 => "Reddedildi", 15 => "İptal edildi", _ => "Taslak" };
@@ -17,22 +20,33 @@
 </section>
 
 <section class="portal-section">
-    <div class="section-heading"><div><span class="eyebrow">KİRALANAN ÜRÜNLER</span><h2>Kitlerim</h2></div></div>
-    <div class="portal-kit-grid">
-    @foreach (var kit in Model.Kits.Where(item => item.AssignmentStatus is 1 or 2))
+    <div class="section-heading"><div><span class="eyebrow">KİRALANAN ÜRÜNLER</span><h2>Kitlerim</h2></div><b class="portal-kit-count">@visibleKits.Length kit</b></div>
+    @if (visibleKits.Length > 0)
     {
-        <article class="portal-kit-card">
-            <img src="@(kit.ImageUrl ?? "/images/kit-placeholder.svg")" alt="@kit.KitName" />
-            <div><small>@kit.KitSku</small><h3>@kit.KitName</h3><strong class="serial-number">@kit.SerialNumber</strong>
-                <p>@kit.StartDate.ToString("dd.MM.yyyy") – @kit.EndDate.ToString("dd.MM.yyyy")</p>
-                <span class="fleet-status status-@kit.UnitStatus">@UnitStatus(kit.UnitStatus)</span>
-                @if (kit.OpenFaultCount > 0) { <span class="portal-alert">@kit.OpenFaultCount açık arıza</span> }
-            </div>
-            @if (kit.AssignmentStatus == 2) { <div class="portal-kit-actions"><a class="secondary-action" asp-action="Kit" asp-route-id="@kit.ProductUnitId">Kit detayı</a><a class="secondary-action fault-action" asp-action="NewFault" asp-route-assignmentId="@kit.AssignmentId">Arıza bildir</a></div> }
-        </article>
+        <div class="table-scroll portal-kit-table-wrap" id="portal-kit-table" data-page-size="5">
+            <table class="portal-kit-table">
+                <thead><tr><th>Kit</th><th>Seri numarası</th><th>Kiralama dönemi</th><th>Durum</th><th>Arıza</th><th><span class="visually-hidden">İşlemler</span></th></tr></thead>
+                <tbody>
+                @foreach (var kit in visibleKits)
+                {
+                    <tr>
+                        <td><div class="table-kit"><img src="@(kit.ImageUrl ?? "/images/kit-placeholder.svg")" alt="" /><div><strong>@kit.KitName</strong><small>@kit.KitSku</small></div></div></td>
+                        <td><code class="unit-serial">@kit.SerialNumber</code></td>
+                        <td><span class="portal-kit-period">@kit.StartDate.ToString("dd.MM.yyyy")<small>@kit.EndDate.ToString("dd.MM.yyyy") tarihine kadar</small></span></td>
+                        <td><span class="fleet-status status-@kit.UnitStatus">@UnitStatus(kit.UnitStatus)</span></td>
+                        <td>@if (kit.OpenFaultCount > 0) { <span class="portal-alert">@kit.OpenFaultCount açık arıza</span> } else { <span class="portal-no-fault">Arıza yok</span> }</td>
+                        <td>@if (kit.AssignmentStatus == 2) { <div class="portal-table-actions"><a class="row-link" asp-action="Kit" asp-route-id="@kit.ProductUnitId">Detay</a><a class="row-link fault-link" asp-action="NewFault" asp-route-assignmentId="@kit.AssignmentId">Arıza bildir</a></div> }</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <footer class="pagination-shell portal-kit-pagination" id="portal-kit-pagination">
+            <span id="portal-kit-page-summary"></span>
+            <nav class="pagination" id="portal-kit-page-buttons" aria-label="Kitlerim sayfaları"></nav>
+        </footer>
     }
-    </div>
-    @if (!Model.Kits.Any(item => item.AssignmentStatus is 1 or 2)) { <div class="empty">Aktif veya hazırlanmakta olan kiralık kitiniz bulunmuyor.</div> }
+    else { <div class="empty">Aktif veya hazırlanmakta olan kiralık kitiniz bulunmuyor.</div> }
 </section>
 
 <section class="portal-section">
@@ -42,6 +56,7 @@
     </tbody></table></div>
     @if (Model.Orders.Count == 0) { <div class="empty">Henüz kiralama talebiniz yok.</div> }
 </section>
+<script src="~/js/customer-portal-kits.js"></script>
 
 <section class="portal-section" id="faults">
     <div class="section-heading"><div><span class="eyebrow">SERVİS TAKİBİ</span><h2>Arıza kayıtlarım</h2></div><a class="secondary-action" asp-action="NewFault">Arıza bildir</a></div>
