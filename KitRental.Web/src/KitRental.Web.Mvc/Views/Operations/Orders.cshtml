@@ -6,7 +6,7 @@
         2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Gönderim bekliyor",
         5 => "Kargoya hazır", 6 => "Kargoya verildi", 7 => "Teslim edildi",
         8 => "Aktif kiralama", 9 => "İade bekleniyor", 10 => "İade yolunda", 11 => "Kontrolde",
-        13 => "Teslim edildi / kilitli", 14 => "Reddedildi", 15 => "İptal", _ => "Taslak"
+        13 => "Teslim edildi", 14 => "Reddedildi", 15 => "İptal", _ => "Taslak"
     };
     var canManageOrders = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager");
 }
@@ -28,7 +28,7 @@
 }
 else
 {
-    <div class="table-scroll"><table class="orders-table"><thead><tr><th>Sipariş</th><th>Müşteri</th><th>Talep edilen kitler</th><th>Fiziksel kit</th><th>Dönem</th><th>Durum</th><th>Sonraki işlem</th></tr></thead><tbody>
+    <div class="table-scroll"><table class="orders-table"><thead><tr><th>Sipariş</th><th>Müşteri</th><th>Talep edilen kitler</th><th>Fiziksel kit</th><th>Dönem</th><th>Durum</th><th>Aksiyon</th></tr></thead><tbody>
     @foreach (var item in Model)
     {
         var requestedKitCount = item.Lines.Sum(line => line.Quantity);
@@ -39,30 +39,7 @@ else
             <td><span class="order-kit-count @(item.AssignedKitCount == requestedKitCount ? "complete" : null)">@item.AssignedKitCount / @requestedKitCount</span><small class="block-muted">oluşturuldu</small></td>
             <td>@item.StartDate.ToString("dd.MM.yyyy") — @item.EndDate.ToString("dd.MM.yyyy")</td>
             <td><span class="badge order-status-@item.Status">@StatusName(item.Status)</span></td>
-            <td>
-                <div class="order-row-actions"><a class="row-link" asp-action="OrderDetails" asp-route-id="@item.Id">Detay →</a>
-                @if (canManageOrders && item.Status == 2)
-                {
-                    <form asp-action="UpdateOrderStatus" asp-route-id="@item.Id" method="post"><input type="hidden" name="target" value="3" /><button class="table-action order-next-action" type="submit">İncele ve onayla →</button></form>
-                }
-                else if (canManageOrders && item.Status == 3 && item.AssignedKitCount == requestedKitCount)
-                {
-                    <form asp-action="UpdateOrderStatus" asp-route-id="@item.Id" method="post"><input type="hidden" name="target" value="4" /><button class="table-action order-next-action" type="submit">Kiraya ver / gönderime hazırla →</button></form>
-                }
-                else if (canManageOrders && item.Status is 4 or 5)
-                {
-                    <form asp-action="UpdateOrderStatus" asp-route-id="@item.Id" method="post"><input type="hidden" name="target" value="6" /><button class="table-action order-next-action" type="submit">Kargoya verildi yap →</button></form>
-                }
-                else if (canManageOrders && item.Status == 6)
-                {
-                    <form asp-action="UpdateOrderStatus" asp-route-id="@item.Id" method="post"><input type="hidden" name="target" value="7" /><button class="table-action order-next-action" type="submit">Teslim et ve kilitle →</button></form>
-                }
-                else if (item.Status == 13)
-                {
-                    <span class="order-complete-note">✓ Sipariş kilitli</span>
-                }
-                </div>
-            </td>
+            <td><a class="row-link" asp-action="OrderDetails" asp-route-id="@item.Id">Detay →</a></td>
         </tr>
     }
     </tbody></table></div>

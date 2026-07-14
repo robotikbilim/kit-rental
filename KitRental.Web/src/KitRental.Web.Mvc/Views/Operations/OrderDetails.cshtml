@@ -4,7 +4,7 @@
     var requestedCount = Model.Lines.Sum(line => line.Quantity);
     var allKitsCreated = Model.Kits.Count == requestedCount;
     var canManage = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager");
-    string OrderStatus(int status) => status switch { 2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Gönderim bekliyor", 5 => "Kargoya hazır", 6 => "Kargoya verildi", 13 => "Teslim edildi / kilitli", _ => "İşlemde" };
+    string OrderStatus(int status) => status switch { 2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Gönderim bekliyor", 5 => "Kargoya hazır", 6 => "Kargoya verildi", 13 => "Teslim edildi", _ => "İşlemde" };
     string KitStatus(int status) => status switch { 2 => "Rezerve", 3 => "Gönderim bekliyor", 4 => "Kargoya verildi", 5 => "Teslim edildi / kirada", _ => "Hazırlanıyor" };
 }
 <div class="order-detail-heading">
