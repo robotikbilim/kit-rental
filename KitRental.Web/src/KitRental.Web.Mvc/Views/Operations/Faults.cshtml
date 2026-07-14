@@ -1,9 +1,80 @@
-@model IReadOnlyCollection<FaultViewModel>
-@{ ViewData["Title"] = "Arızalar"; }
-<div class="page-heading"><div><span class="eyebrow">SERVİS &amp; DESTEK</span><h1>Arıza Kayıtları</h1></div></div>
-@functions { string StatusName(int value) => value switch { 1 => "Açık", 2 => "İnceleniyor", 3 => "Müşteri bilgisi bekleniyor", 4 => "Kit bekleniyor", 5 => "Serviste", 6 => "Geri gönderiliyor", 7 => "Çözüldü", 8 => "Kapalı", _ => "İşlemde" }; }
+@model FaultScreenViewModel
+@{
+    ViewData["Title"] = "Arızalar";
+    string StatusName(int value) => value switch
+    {
+        1 => "Açık",
+        2 => "İnceleniyor",
+        3 => "Müşteri bilgisi bekleniyor",
+        4 => "Kit bekleniyor",
+        5 => "Onarım Aşamasında",
+        6 => "Kargoya Verildi",
+        7 => "Problem Çözüldü",
+        8 => "Tekrar Gönderildi",
+        _ => "İşlemde"
+    };
+    string SeverityName(int value) => value switch
+    {
+        1 => "Düşük", 2 => "Orta", 3 => "Yüksek", 4 => "Kritik", _ => "-"
+    };
+    var firstItem = Model.Result.TotalCount == 0 ? 0 : (Model.Result.Page - 1) * Model.Result.PageSize + 1;
+    var lastItem = Math.Min(Model.Result.Page * Model.Result.PageSize, Model.Result.TotalCount);
+    var canUpdateFaults = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager") || User.IsInRole("ServiceTechnician");
+}
+<div class="page-heading">
+    <div><span class="eyebrow">SERVİS &amp; DESTEK</span><h1>Arıza Kayıtları</h1><p class="block-muted">Arızaları bildiren kişi, neden ve servis aşamasına göre takip edin.</p></div>
+</div>
 @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
-<div class="table-scroll"><table><thead><tr><th>Numara</th><th>Kategori</th><th>Açıklama</th><th>Önem</th><th>Durum</th><th>Süreç güncelle</th></tr></thead>
-<tbody>@foreach (var item in Model) { <tr><td><strong>@item.Number</strong></td><td>@item.Category</td><td>@item.Description</td><td>@item.Severity</td><td><span class="badge">@StatusName(item.Status)</span></td><td>@if (item.Status is not (7 or 8)) { <form class="fault-update-form" asp-action="UpdateFault" asp-route-id="@item.Id" method="post"><select name="status"><option value="2">İnceleniyor</option><option value="3">Müşteri bilgisi bekleniyor</option><option value="4">Kitin gönderilmesi bekleniyor</option><option value="5">Serviste</option><option value="6">Geri gönderiliyor</option><option value="7">Çözüldü</option><option value="8">Kapatıldı</option></select><input name="note" required placeholder="Müşterinin göreceği süreç notu" /><button class="table-action" type="submit">Güncelle</button></form> }</td></tr> }</tbody></table></div>
-@if (Model.Count == 0) { <div class="empty">Açık arıza kaydı yok.</div> }
+
+<form method="get" class="fault-filter-form">
+    <div class="field fault-search"><label for="Query">Kayıt, kişi, telefon veya neden</label><input id="Query" name="Query" value="@Model.Filter.Query" placeholder="Hızlı ara..." /></div>
+    <div class="field"><label for="Status">Durum</label><select id="Status" name="Status"><option value="">Tüm durumlar</option>@foreach (var status in new[] { 1, 2, 5, 7, 6, 8, 3, 4 }) { <option value="@status" selected="@(Model.Filter.Status == status)">@StatusName(status)</option> }</select></div>
+    <div class="field"><label for="Severity">Önem</label><select id="Severity" name="Severity"><option value="">Tüm önem seviyeleri</option>@for (var severity = 1; severity <= 4; severity++) { <option value="@severity" selected="@(Model.Filter.Severity == severity)">@SeverityName(severity)</option> }</select></div>
+    <div class="field"><label for="OpenedFrom">Başlangıç</label><input id="OpenedFrom" name="OpenedFrom" type="date" value="@Model.Filter.OpenedFrom?.ToString("yyyy-MM-dd")" /></div>
+    <div class="field"><label for="OpenedTo">Bitiş</label><input id="OpenedTo" name="OpenedTo" type="date" value="@Model.Filter.OpenedTo?.ToString("yyyy-MM-dd")" /></div>
+    <div class="field"><label for="PageSize">Sayfa boyutu</label><select id="PageSize" name="PageSize">@foreach (var size in new[] { 10, 20, 50, 100 }) { <option value="@size" selected="@(Model.Filter.PageSize == size)">@size</option> }</select></div>
+    <div class="fault-filter-actions"><a class="secondary-action" asp-action="Faults">Temizle</a><button class="primary-action" type="submit">Filtrele</button></div>
+</form>
+<div asp-validation-summary="All" class="error"></div>
+
+@if (Model.Result.Items.Count == 0)
+{
+    <div class="empty">Filtrelere uygun arıza kaydı bulunamadı.</div>
+}
+else
+{
+    <div class="table-scroll"><table class="fault-table"><thead><tr><th>Kayıt</th><th>Bildiren kişi</th><th>Arıza nedeni</th><th>Önem</th><th>Durum</th><th>Süreç güncelle</th></tr></thead><tbody>
+    @foreach (var item in Model.Result.Items)
+    {
+        <tr>
+            <td><strong>@item.Number</strong><small class="block-muted">@item.OpenedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></td>
+            <td><strong>@item.ReporterName</strong><a class="fault-phone" href="tel:@item.ReporterPhone">@item.ReporterPhone</a><small class="block-muted">@item.CustomerName</small></td>
+            <td><span class="fault-category">@item.Category</span><p>@item.Description</p></td>
+            <td><span class="fault-severity severity-@item.Severity">@SeverityName(item.Severity)</span></td>
+            <td><span class="fault-stage status-@item.Status">@StatusName(item.Status)</span></td>
+            <td>
+                @if (canUpdateFaults && item.Status != 8)
+                {
+                    <form class="fault-update-form" asp-action="UpdateFault" asp-route-id="@item.Id" method="post">
+                        <select name="status" aria-label="Yeni arıza durumu">
+                            <option value="2">İnceleniyor</option>
+                            <option value="5">Onarım Aşamasında</option>
+                            <option value="7">Problem Çözüldü</option>
+                            <option value="6">Kargoya Verildi</option>
+                            <option value="8">Tekrar Gönderildi</option>
+                        </select>
+                        <input name="note" required placeholder="Müşterinin göreceği süreç notu" />
+                        <button class="table-action" type="submit">Güncelle</button>
+                    </form>
+                }
+            </td>
+        </tr>
+    }
+    </tbody></table></div>
+    <footer class="pagination-shell"><span>@firstItem–@lastItem / @Model.Result.TotalCount kayıt</span><nav class="pagination" aria-label="Arıza kayıtları sayfaları">
+        @if (Model.Result.Page > 1) { <a asp-action="Faults" asp-route-page="@(Model.Result.Page - 1)" asp-route-pageSize="@Model.Result.PageSize" asp-route-query="@Model.Filter.Query" asp-route-status="@Model.Filter.Status" asp-route-severity="@Model.Filter.Severity" asp-route-openedFrom="@Model.Filter.OpenedFrom" asp-route-openedTo="@Model.Filter.OpenedTo">←</a> }
+        @for (var pageNumber = Math.Max(1, Model.Result.Page - 2); pageNumber <= Math.Min(Model.Result.TotalPages, Model.Result.Page + 2); pageNumber++) { <a class="@(pageNumber == Model.Result.Page ? "active" : null)" asp-action="Faults" asp-route-page="@pageNumber" asp-route-pageSize="@Model.Result.PageSize" asp-route-query="@Model.Filter.Query" asp-route-status="@Model.Filter.Status" asp-route-severity="@Model.Filter.Severity" asp-route-openedFrom="@Model.Filter.OpenedFrom" asp-route-openedTo="@Model.Filter.OpenedTo">@pageNumber</a> }
+        @if (Model.Result.Page < Model.Result.TotalPages) { <a asp-action="Faults" asp-route-page="@(Model.Result.Page + 1)" asp-route-pageSize="@Model.Result.PageSize" asp-route-query="@Model.Filter.Query" asp-route-status="@Model.Filter.Status" asp-route-severity="@Model.Filter.Severity" asp-route-openedFrom="@Model.Filter.OpenedFrom" asp-route-openedTo="@Model.Filter.OpenedTo">→</a> }
+    </nav></footer>
+}

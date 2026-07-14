@@ -1,13 +1,50 @@
 @model DashboardViewModel
 @{ ViewData["Title"] = "Genel Bakış"; }
-<div class="page-heading"><div><span class="eyebrow">CANLI OPERASYON</span><h1>Genel Bakış</h1></div><span class="status-dot">Sistem çalışıyor</span></div>
-@if (Model is null) { <div class="empty">Core servisine ulaşılamadı.</div> }
-else {
-<div class="metrics">
-    <a class="metric-card" asp-action="Orders" aria-label="Müşterileri siparişler sayfasında görüntüle"><span>Müşteriler</span><strong>@Model.Customers</strong><small>Siparişlere git →</small></a>
-    <a class="metric-card" asp-action="Inventory" aria-label="Fiziksel birimleri envanter sayfasında görüntüle"><span>Fiziksel birimler</span><strong>@Model.ProductUnits</strong><small>Envantere git →</small></a>
-    <a class="metric-card" asp-action="Orders" aria-label="Aktif siparişleri görüntüle"><span>Aktif siparişler</span><strong>@Model.ActiveOrders</strong><small>Siparişlere git →</small></a>
-    <a class="metric-card" asp-action="Faults" aria-label="Açık arızaları görüntüle"><span>Açık arızalar</span><strong>@Model.OpenFaults</strong><small>Arızalara git →</small></a>
-    <a class="metric-card" asp-action="Inventory" aria-label="Bakımdaki fiziksel birimleri görüntüle"><span>Bakımda</span><strong>@Model.UnitsInMaintenance</strong><small>Envantere git →</small></a>
+<div class="page-heading">
+    <div><span class="eyebrow">CANLI OPERASYON</span><h1>Genel Bakış</h1></div>
+    <span class="status-dot">Sistem çalışıyor</span>
 </div>
+@if (Model is null)
+{
+    <div class="empty">Core servisine ulaşılamadı.</div>
+}
+else
+{
+    <section class="dashboard-group dashboard-group-general">
+        <header class="dashboard-group-heading">
+            <div><span class="eyebrow">GÜNLÜK OPERASYON</span><h2>Genel hızlı erişimler</h2></div>
+            <p>Bekleyen işleri ve hareket halindeki kitleri tek bakışta takip edin.</p>
+        </header>
+        <div class="metrics dashboard-metrics">
+            <a class="metric-card" asp-action="Orders"><span>Onay bekleyen sipariş</span><strong>@Model.OrdersAwaitingApproval</strong><small>Siparişlere git →</small></a>
+            <a class="metric-card" asp-action="Orders"><span>Aktif sipariş</span><strong>@Model.ActiveOrders</strong><small>Siparişlere git →</small></a>
+            <a class="metric-card" asp-action="Inventory" asp-route-status="3"><span>Hazırlanıyor</span><strong>@Model.PreparingKits</strong><small>Hazırlanan kitlere git →</small></a>
+            <a class="metric-card" asp-action="Inventory"><span>Kargodaki kit</span><strong>@Model.KitsInTransit</strong><small>Envantere git →</small></a>
+        </div>
+    </section>
+
+    <section class="dashboard-group dashboard-group-faults">
+        <header class="dashboard-group-heading">
+            <div><span class="eyebrow">TEKNİK SERVİS</span><h2>Arızalı kit hızlı gösterimleri</h2></div>
+            <p>Arıza, bakım ve yeniden gönderim bekleyen kitlerin güncel özeti.</p>
+        </header>
+        <div class="metrics dashboard-metrics">
+            <a class="metric-card metric-fault" asp-action="Faults"><span>Arızalı kit</span><strong>@Model.FaultyKits</strong><small>Arızalara git →</small></a>
+            <a class="metric-card metric-fault" asp-action="Inventory"><span>Bakımda</span><strong>@Model.UnitsInMaintenance</strong><small>Envantere git →</small></a>
+            <a class="metric-card metric-repaired" asp-action="Faults"><span>Onarıldı, kargo bekliyor</span><strong>@Model.RepairedAwaitingShipment</strong><small>Arıza geçmişine git →</small></a>
+        </div>
+    </section>
+
+    <section class="dashboard-group dashboard-group-reports">
+        <header class="dashboard-group-heading">
+            <div><span class="eyebrow">FİLO ÖZETİ</span><h2>Rapor amaçlı gösterimler</h2></div>
+            <p>Kit kapasitesi ve müşteri portföyünün genel görünümü.</p>
+        </header>
+        <div class="metrics dashboard-metrics">
+            <a class="metric-card metric-rented" asp-action="Inventory" asp-route-status="5"><span>Şu anda kirada</span><strong>@Model.RentedKits</strong><small>Kiradaki kitlere git →</small></a>
+            <a class="metric-card metric-available" asp-action="Inventory" asp-route-status="1"><span>Kiralanabilir kit</span><strong>@Model.AvailableKits</strong><small>Hazır kitlere git →</small></a>
+            <a class="metric-card" asp-action="Inventory"><span>Toplam fiziksel kit</span><strong>@Model.ProductUnits</strong><small>Tüm kitlere git →</small></a>
+            <a class="metric-card" asp-action="Orders"><span>Müşteri</span><strong>@Model.Customers</strong><small>Siparişlere git →</small></a>
+        </div>
+    </section>
 }

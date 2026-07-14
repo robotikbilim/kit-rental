@@ -73,7 +73,7 @@ public sealed class ProductUnit
         TransitionTo(ProductUnitStatus.Available, actorId, occurredAt, "Rezervasyon serbest bırakıldı.", ProductUnitStatus.Reserved);
 
     public void StartPreparation(Guid actorId, DateTimeOffset occurredAt) =>
-        TransitionTo(ProductUnitStatus.Preparing, actorId, occurredAt, "Depo hazırlığı başladı.", ProductUnitStatus.Reserved);
+        TransitionTo(ProductUnitStatus.Preparing, actorId, occurredAt, "Kit kiraya verildi; gönderim bekliyor.", ProductUnitStatus.Reserved);
 
     public void Dispatch(Guid actorId, DateTimeOffset occurredAt) =>
         TransitionTo(ProductUnitStatus.OutboundInTransit, actorId, occurredAt, "Çıkış kargosuna verildi.", ProductUnitStatus.Preparing);

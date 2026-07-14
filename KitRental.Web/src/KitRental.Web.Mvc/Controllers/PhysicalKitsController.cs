@@ -109,6 +109,18 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
     }
 
     [HttpGet]
+    public async Task<IActionResult> OrderLabels(Guid orderId, CancellationToken cancellationToken)
+    {
+        var order = await apiClient.GetOrderDetailAsync(orderId, cancellationToken);
+        if (order is null || order.Kits.Count == 0)
+            return RedirectToAction("OrderDetails", "Operations", new { id = orderId });
+        var labels = order.Kits.Select(kit => new PhysicalKitLabelViewModel(kit.Id, kit.ProductName,
+            kit.ProductSku, kit.SerialNumber, kit.QrCode)).ToArray();
+        var backUrl = Url.Action("OrderDetails", "Operations", new { id = orderId });
+        return View("Labels", new PhysicalKitLabelsPageViewModel(DateTimeOffset.Now, labels, backUrl));
+    }
+
+    [HttpGet]
     public async Task<IActionResult> Rent(Guid id, CancellationToken cancellationToken)
     {
         var detail = await apiClient.GetPhysicalKitAsync(id, cancellationToken);

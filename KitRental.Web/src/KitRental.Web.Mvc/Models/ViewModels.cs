@@ -13,7 +13,20 @@ public sealed class LoginViewModel
 
 public sealed record LoginApiResponse(string AccessToken, DateTimeOffset ExpiresAt, UserApiResponse User);
 public sealed record UserApiResponse(Guid Id, string Email, string DisplayName, int Role, Guid? CustomerId);
-public sealed record DashboardViewModel(int Customers, int ProductUnits, int ActiveOrders, int OpenFaults, int UnitsInMaintenance);
+public sealed record DashboardViewModel(
+    int Customers,
+    int ProductUnits,
+    int RentedKits,
+    int AvailableKits,
+    int FaultyKits,
+    int RepairedAwaitingShipment,
+    int PreparingKits,
+    int KitsInTransit,
+    int KitsUnderInspection,
+    int UnitsInMaintenance,
+    int ActiveOrders,
+    int OrdersAwaitingApproval,
+    int OverdueOrders);
 public sealed record ProductUnitViewModel(Guid Id, Guid ProductModelId, string SerialNumber, string QrCode, int Status);
 public sealed record InventoryItemViewModel(Guid Id, Guid ProductModelId, string ProductModelName,
     string ProductModelSku, string SerialNumber, string QrCode, int Status, DateTimeOffset CreatedAt);
@@ -34,7 +47,22 @@ public sealed record InventoryScreenViewModel(InventoryPageViewModel Result, Inv
 public sealed record OrderViewModel(Guid Id, string OrderNumber, Guid CustomerId, PeriodViewModel Period, int Status, IReadOnlyCollection<OrderLineViewModel> Lines);
 public sealed record PeriodViewModel(DateOnly StartDate, DateOnly EndDate);
 public sealed record OrderLineViewModel(Guid Id, Guid ProductModelId, int Quantity);
-public sealed record FaultViewModel(Guid Id, string Number, Guid CustomerId, string Category, int Severity, string Description, int Status, DateTimeOffset OpenedAt);
+public sealed record FaultViewModel(Guid Id, string Number, Guid CustomerId, string CustomerName,
+    string ReporterName, string ReporterPhone, string Category, int Severity, string Description, int Status,
+    DateTimeOffset OpenedAt);
+public sealed record FaultPageViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
+    IReadOnlyCollection<FaultViewModel> Items);
+public sealed class FaultFilterViewModel
+{
+    public string? Query { get; set; }
+    public int? Status { get; set; }
+    public int? Severity { get; set; }
+    [DataType(DataType.Date)] public DateOnly? OpenedFrom { get; set; }
+    [DataType(DataType.Date)] public DateOnly? OpenedTo { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 20;
+}
+public sealed record FaultScreenViewModel(FaultPageViewModel Result, FaultFilterViewModel Filter);
 public sealed record ComponentSuggestionViewModel(Guid Id, string Name, string Sku, string? ImageUrl, decimal TotalStock, string UnitOfMeasure);
 public sealed record ComponentLocationViewModel(Guid StorageLocationId, string LocationCode, string Warehouse, string Aisle, string Rack, string Shelf, decimal Quantity);
 public sealed record ComponentLocatorViewModel(
@@ -244,7 +272,40 @@ public sealed record PortalKitDetailPageViewModel(PortalKitViewModel Kit,
     IReadOnlyCollection<PortalFaultViewModel> Faults);
 public sealed record PortalOrderLineViewModel(Guid ProductModelId, string ProductName, string ProductSku, int Quantity);
 public sealed record PortalOrderViewModel(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName, int Status,
-    DateOnly StartDate, DateOnly EndDate, DateTimeOffset CreatedAt, IReadOnlyCollection<PortalOrderLineViewModel> Lines);
+    DateOnly StartDate, DateOnly EndDate, DateTimeOffset CreatedAt, IReadOnlyCollection<PortalOrderLineViewModel> Lines,
+    int AssignedKitCount = 0);
+public sealed record OrderCustomerViewModel(Guid Id, string Name, string Email,
+    IReadOnlyCollection<PortalAddressViewModel> Addresses);
+public sealed class AdminOrderInputViewModel
+{
+    [Required, Display(Name = "Müşteri")] public Guid CustomerId { get; set; }
+    [Required, Display(Name = "Teslimat adresi")] public Guid AddressId { get; set; }
+    [Required, DataType(DataType.Date), Display(Name = "Başlangıç tarihi")] public DateOnly StartDate { get; set; }
+    [Required, DataType(DataType.Date), Display(Name = "Bitiş tarihi")] public DateOnly EndDate { get; set; }
+    public List<PortalRentalLineInputViewModel> Lines { get; set; } = [new()];
+}
+public sealed record AdminOrderPageViewModel(AdminOrderInputViewModel Form,
+    IReadOnlyCollection<OrderCustomerViewModel> Customers,
+    IReadOnlyCollection<ProductModelCatalogViewModel> ProductModels);
+public sealed record OrderKitViewModel(Guid ProductUnitId, Guid AssignmentId, Guid ProductModelId,
+    string SerialNumber, int Status);
+public sealed record OrderKitPreparationViewModel(Guid OrderId, int CreatedCount,
+    IReadOnlyCollection<OrderKitViewModel> Kits);
+public sealed record OrderDetailLineViewModel(Guid Id, Guid ProductModelId, string ProductName, string ProductSku,
+    int Quantity, int CreatedKitCount);
+public sealed record OrderDetailKitViewModel(Guid Id, Guid OrderLineId, Guid ProductModelId, string ProductName,
+    string ProductSku, string SerialNumber, string QrCode, int Status);
+public sealed record OrderDetailViewModel(Guid Id, string OrderNumber, string CustomerName, int Status,
+    DateOnly StartDate, DateOnly EndDate, DateTimeOffset CreatedAt,
+    IReadOnlyCollection<OrderDetailLineViewModel> Lines, IReadOnlyCollection<OrderDetailKitViewModel> Kits);
+public sealed class PrepareOrderKitsViewModel
+{
+    public Guid OrderId { get; set; }
+    public string OrderNumber { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
+    public List<PortalRentalLineInputViewModel> Lines { get; set; } = [new()];
+    public IReadOnlyCollection<ProductModelCatalogViewModel> ProductModels { get; set; } = [];
+}
 public sealed record PortalFaultStatusViewModel(int Previous, int Current, DateTimeOffset OccurredAt, string Note);
 public sealed record PortalShipmentEventViewModel(int Status, DateTimeOffset OccurredAt, string Location, string Description);
 public sealed record PortalShipmentViewModel(int Type, string Carrier, string TrackingNumber, int Status,

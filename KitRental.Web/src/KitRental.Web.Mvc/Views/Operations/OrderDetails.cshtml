@@ -1,0 +1,65 @@
+@model OrderDetailViewModel
+@{
+    ViewData["Title"] = $"Sipariş {Model.OrderNumber}";
+    var requestedCount = Model.Lines.Sum(line => line.Quantity);
+    var allKitsCreated = Model.Kits.Count == requestedCount;
+    var canManage = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager");
+    string OrderStatus(int status) => status switch { 2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Gönderim bekliyor", 5 => "Kargoya hazır", 6 => "Kargoya verildi", 13 => "Teslim edildi / kilitli", _ => "İşlemde" };
+    string KitStatus(int status) => status switch { 2 => "Rezerve", 3 => "Gönderim bekliyor", 4 => "Kargoya verildi", 5 => "Teslim edildi / kirada", _ => "Hazırlanıyor" };
+}
+<div class="order-detail-heading">
+    <div><a class="back-link" asp-action="Orders">← Siparişlere dön</a><span class="eyebrow">@Model.OrderNumber</span><h1>@Model.CustomerName</h1><p>@Model.StartDate.ToString("dd.MM.yyyy") — @Model.EndDate.ToString("dd.MM.yyyy")</p></div>
+    <div class="order-detail-status"><span class="badge order-status-@Model.Status">@OrderStatus(Model.Status)</span><strong>@Model.Kits.Count / @requestedCount</strong><small>fiziksel kit oluşturuldu</small></div>
+</div>
+@if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
+@if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
+
+<section class="detail-section order-request-lines">
+    <div class="section-heading"><div><span class="eyebrow">TALEP LİSTESİ</span><h2>İstenen kitler ve manuel oluşturma</h2><p>Ürün ve adetleri düzenleyin; onayladığınızda siparişin tüm fiziksel kitleri tek seferde oluşturulur.</p></div>@if (canManage && Model.Status == 3 && Model.Kits.Count == 0) { <a class="primary-action" asp-action="PrepareOrderKits" asp-route-id="@Model.Id">Ürünleri düzenle ve kitleri oluştur →</a> }</div>
+    <div class="order-line-cards">
+    @foreach (var line in Model.Lines)
+    {
+        var remaining = line.Quantity - line.CreatedKitCount;
+        <article class="@(remaining == 0 ? "complete" : null)">
+            <div><span>@line.ProductSku</span><h3>@line.ProductName</h3><p>Talep: <b>@line.Quantity</b> · Oluşturulan: <b>@line.CreatedKitCount</b></p></div>
+            @if (remaining == 0)
+            {
+                <span class="line-complete">✓ Tamamlandı</span>
+            }
+            else
+            {
+                <span class="line-pending">@remaining adet oluşturulacak</span>
+            }
+        </article>
+    }
+    </div>
+</section>
+
+@if (canManage && Model.Status == 2)
+{
+    <div class="order-detail-next"><p>Siparişi inceledikten sonra fiziksel kit oluşturma adımı açılır.</p><form asp-action="UpdateOrderStatus" asp-route-id="@Model.Id" method="post"><input type="hidden" name="target" value="3" /><input type="hidden" name="returnToDetails" value="true" /><button class="primary-action" type="submit">Siparişi onayla →</button></form></div>
+}
+else if (canManage && Model.Status == 3 && allKitsCreated)
+{
+    <div class="order-detail-next"><p>Tüm fiziksel kitler oluşturuldu ve siparişe rezerve edildi.</p><form asp-action="UpdateOrderStatus" asp-route-id="@Model.Id" method="post"><input type="hidden" name="target" value="4" /><input type="hidden" name="returnToDetails" value="true" /><button class="primary-action" type="submit">Kitleri kiraya ver / gönderime hazırla →</button></form></div>
+}
+else if (canManage && Model.Status is 4 or 5)
+{
+    <div class="order-detail-next"><p>Siparişe bağlı kitler gönderim bekliyor.</p><form asp-action="UpdateOrderStatus" asp-route-id="@Model.Id" method="post"><input type="hidden" name="target" value="6" /><input type="hidden" name="returnToDetails" value="true" /><button class="primary-action" type="submit">Kargoya verildi yap →</button></form></div>
+}
+else if (canManage && Model.Status == 6)
+{
+    <div class="order-detail-next"><p>Teslimat doğrulandığında sipariş tamamlanır ve kilitlenir.</p><form asp-action="UpdateOrderStatus" asp-route-id="@Model.Id" method="post"><input type="hidden" name="target" value="7" /><input type="hidden" name="returnToDetails" value="true" /><button class="primary-action" type="submit">Teslim et ve siparişi kilitle →</button></form></div>
+}
+
+<section class="detail-section">
+    <div class="section-heading"><div><span class="eyebrow">SİPARİŞE BAĞLI FİZİKSEL KİTLER</span><h2>Seri numaraları ve QR kodları</h2></div>@if (Model.Kits.Count > 0) { <a class="primary-action" asp-controller="PhysicalKits" asp-action="OrderLabels" asp-route-orderId="@Model.Id">QR etiketlerini yazdır</a> }</div>
+    @if (Model.Kits.Count == 0)
+    {
+        <div class="empty">Bu sipariş için henüz fiziksel kit oluşturulmadı.</div>
+    }
+    else
+    {
+        <div class="table-scroll"><table class="order-kits-table"><thead><tr><th>Kit</th><th>Seri numarası</th><th>QR kod</th><th>Durum</th><th></th></tr></thead><tbody>@foreach (var kit in Model.Kits) { <tr><td><strong>@kit.ProductName</strong><small class="block-muted">@kit.ProductSku</small></td><td><code class="unit-serial">@kit.SerialNumber</code></td><td><span class="unit-qr">@kit.QrCode</span></td><td><span class="fleet-status status-@kit.Status">@KitStatus(kit.Status)</span></td><td><a class="row-link" asp-controller="PhysicalKits" asp-action="Details" asp-route-id="@kit.Id">Kit detayı →</a></td></tr> }</tbody></table></div>
+    }
+</section>

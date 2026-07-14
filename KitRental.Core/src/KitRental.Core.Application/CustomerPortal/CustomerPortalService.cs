@@ -63,14 +63,19 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
     {
         var customers = (await repository.GetCustomersAsync(cancellationToken)).ToDictionary(item => item.Id);
         var models = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(item => item.Id);
-        return (await repository.GetOrdersAsync(customerId, cancellationToken)).Select(order =>
-            new PortalOrderResponse(order.Id, order.OrderNumber, order.CustomerId,
+        var result = new List<PortalOrderResponse>();
+        foreach (var order in await repository.GetOrdersAsync(customerId, cancellationToken))
+        {
+            var assignedKitCount = (await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken)).Count;
+            result.Add(new PortalOrderResponse(order.Id, order.OrderNumber, order.CustomerId,
                 customers.TryGetValue(order.CustomerId, out var customer) ? customer.Name : "Müşteri",
                 order.Status, order.Period.StartDate, order.Period.EndDate, order.CreatedAt,
                 order.Lines.Select(line => new PortalOrderLineResponse(line.ProductModelId,
                     models.TryGetValue(line.ProductModelId, out var model) ? model.Name : "Eğitim kiti",
-                    models.TryGetValue(line.ProductModelId, out model) ? model.Sku : "-", line.Quantity)).ToArray()))
-            .ToArray();
+                    models.TryGetValue(line.ProductModelId, out model) ? model.Sku : "-", line.Quantity)).ToArray(),
+                assignedKitCount));
+        }
+        return result;
     }
 
     public Task<RentalOrder> CreateRentalRequestAsync(CreatePortalRentalRequestCommand command,

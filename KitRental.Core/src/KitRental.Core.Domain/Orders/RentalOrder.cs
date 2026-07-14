@@ -80,12 +80,24 @@ public sealed class RentalOrder
         return line;
     }
 
+    public void ReplaceLines(IReadOnlyCollection<(Guid ProductModelId, int Quantity)> lines)
+    {
+        if (Status != RentalOrderStatus.Approved || lines.Count == 0)
+            throw new DomainException("order.lines_not_editable", "Yalnızca onaylanmış ve henüz hazırlanmamış siparişin kitleri düzenlenebilir.");
+        if (lines.Any(line => line.ProductModelId == Guid.Empty || line.Quantity <= 0))
+            throw new DomainException("order_line.invalid", "Ürün modeli ve pozitif adet zorunludur.");
+        _lines.Clear();
+        foreach (var line in lines)
+            _lines.Add(new RentalOrderLine(Guid.NewGuid(), line.ProductModelId, line.Quantity));
+    }
+
     public void Submit(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.PendingApproval, actorId, now, "Onaya gönderildi.", RentalOrderStatus.Draft);
     public void Approve(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.Approved, actorId, now, "Sipariş onaylandı.", RentalOrderStatus.PendingApproval);
     public void StartPreparation(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.Preparing, actorId, now, "Hazırlık başladı.", RentalOrderStatus.Approved);
     public void MarkReadyToShip(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.ReadyToShip, actorId, now, "Kargoya hazır.", RentalOrderStatus.Preparing);
     public void Dispatch(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.OutboundInTransit, actorId, now, "Çıkış kargosunda.", RentalOrderStatus.ReadyToShip);
     public void ConfirmDelivery(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.Delivered, actorId, now, "Teslimat doğrulandı.", RentalOrderStatus.OutboundInTransit);
+    public void LockAfterDelivery(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.Completed, actorId, now, "Teslimat tamamlandı; sipariş kilitlendi.", RentalOrderStatus.Delivered);
     public void ActivateRental(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.RentalActive, actorId, now, "Kiralama aktifleştirildi.", RentalOrderStatus.Delivered);
     public void RequestReturn(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.AwaitingReturn, actorId, now, "İade süreci başlatıldı.", RentalOrderStatus.RentalActive, RentalOrderStatus.Overdue);
     public void StartReturnShipment(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.ReturnInTransit, actorId, now, "İade kargosunda.", RentalOrderStatus.AwaitingReturn);

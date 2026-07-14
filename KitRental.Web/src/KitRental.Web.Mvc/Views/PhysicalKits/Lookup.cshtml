@@ -1,7 +1,7 @@
 @model PhysicalKitLookupPageViewModel
 @{
     ViewData["Title"] = "Kit Geçmişi Sorgula";
-    string StatusName(int status) => status switch { 1 => "Kiralanabilir", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimatta", 5 => "Kirada", 6 => "İade yolunda", 7 => "Kontrolde", 8 => "Serviste", 9 => "Karantina", 10 => "Kayıp", 11 => "Emekli", _ => "Bilinmiyor" };
+    string StatusName(int status) => status switch { 1 => "Kiralanabilir", 2 => "Rezerve", 3 => "Gönderim bekliyor", 4 => "Kargoya verildi", 5 => "Teslim edildi / kirada", 6 => "İade yolunda", 7 => "Kontrolde", 8 => "Serviste", 9 => "Karantina", 10 => "Kayıp", 11 => "Emekli", _ => "Bilinmiyor" };
 }
 <div class="lookup-shell">
     <header class="lookup-heading">

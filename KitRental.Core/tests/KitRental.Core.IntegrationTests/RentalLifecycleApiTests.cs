@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using KitRental.Core.Application.Inventory;
+using KitRental.Core.Application.Operations;
 using KitRental.Core.Application.Rentals;
 using KitRental.Core.Domain.Inventory;
 using KitRental.Core.Domain.Logistics;
@@ -84,6 +85,47 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
         Assert.Contains(unit.SerialNumber, report, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task OrderScreenFlow_AdvancesOrderAndAssignedUnitThroughDelivery()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var model = await PostAsync<ProductModelResponse>(
+            "/api/product-models", new CreateProductModelRequest("Sipariş Akış Seti", $"OF-{Guid.NewGuid():N}"), cancellationToken);
+        var customer = await PostAsync<CustomerResponse>(
+            "/api/customers",
+            new CreateCustomerRequest("Akış Test Okulu", $"flow-{Guid.NewGuid():N}@example.com",
+                new AddressRequest("Okul", "Teslim Alan", "5550007788", "Test Sokak 1", "Çankaya", "Ankara", "06000")),
+            cancellationToken);
+        var start = new DateOnly(2026, 10, 1);
+        var end = new DateOnly(2026, 10, 15);
+        var order = await PostAsync<OrderResponse>("/api/orders",
+            new CreateOrderRequest(customer.Id, customer.Addresses.Single().Id, start, end,
+                [new OrderLineRequest(model.Id, 1)]), cancellationToken);
+
+        order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions",
+            new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
+        var prepared = await PostAsync<OrderKitPreparationResponse>($"/api/orders/{order.Id}/kits",
+            new { lines = new[] { new { productModelId = model.Id, quantity = 2 } } }, cancellationToken);
+        Assert.Equal(2, prepared.CreatedCount);
+        Assert.All(prepared.Kits, kit => Assert.Equal(ProductUnitStatus.Reserved, kit.Status));
+        order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions",
+            new OrderTransitionRequest(RentalOrderStatus.Preparing), cancellationToken);
+        Assert.Equal(RentalOrderStatus.Preparing, order.Status);
+        var units = await _client.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
+        Assert.All(units!.Where(item => prepared.Kits.Any(kit => kit.ProductUnitId == item.Id)),
+            item => Assert.Equal(ProductUnitStatus.Preparing, item.Status));
+        order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions",
+            new OrderTransitionRequest(RentalOrderStatus.OutboundInTransit), cancellationToken);
+        Assert.Equal(RentalOrderStatus.OutboundInTransit, order.Status);
+        order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions",
+            new OrderTransitionRequest(RentalOrderStatus.Delivered), cancellationToken);
+        Assert.Equal(RentalOrderStatus.Completed, order.Status);
+
+        units = await _client.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
+        Assert.All(units!.Where(item => prepared.Kits.Any(kit => kit.ProductUnitId == item.Id)),
+            item => Assert.Equal(ProductUnitStatus.WithCustomer, item.Status));
+    }
+
     private async Task<T> PostAsync<T>(string path, object body, CancellationToken cancellationToken)
     {
         var response = await _client.PostAsJsonAsync(path, body, cancellationToken);
@@ -93,7 +135,7 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
 
     private sealed record CustomerResponse(Guid Id, IReadOnlyCollection<AddressResponse> Addresses);
     private sealed record AddressResponse(Guid Id);
-    private sealed record OrderResponse(Guid Id, IReadOnlyCollection<OrderLineResponse> Lines);
+    private sealed record OrderResponse(Guid Id, RentalOrderStatus Status, IReadOnlyCollection<OrderLineResponse> Lines);
     private sealed record OrderLineResponse(Guid Id);
     private sealed record ShipmentResponse(Guid Id);
     private sealed record InspectionResponse(Guid Id);

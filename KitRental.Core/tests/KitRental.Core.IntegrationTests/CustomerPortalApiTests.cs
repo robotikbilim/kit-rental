@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using KitRental.Core.Application.CustomerPortal;
 using KitRental.Core.Application.Inventory;
+using KitRental.Core.Application.Operations;
 using KitRental.Core.Application.PhysicalKits;
 using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Support;
@@ -46,6 +47,13 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var fault = await customer.PostAsJsonAsync("/api/customer-portal/faults", new PortalFaultRequest(
             rental.AssignmentId, "Motor", FaultSeverity.High, "Sol motor yük altında dönmüyor."), cancellationToken);
         fault.EnsureSuccessStatusCode();
+        var createdFault = (await fault.Content.ReadFromJsonAsync<CreatedFaultResponse>(cancellationToken))!;
+
+        var faultPage = await admin.GetFromJsonAsync<FaultPageResponse>(
+            "/api/faults/search?page=1&pageSize=10&status=1&query=02165550000", cancellationToken);
+        var listedFault = Assert.Single(faultPage!.Items, item => item.Id == createdFault.Id);
+        Assert.Equal("TACEV Test Merkezi", listedFault.ReporterName);
+        Assert.Equal("02165550000", listedFault.ReporterPhone);
 
         overview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
         Assert.Contains(overview!.Orders, item => item.Status == RentalOrderStatus.PendingApproval);
@@ -68,4 +76,6 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<T>(cancellationToken))!;
     }
+
+    private sealed record CreatedFaultResponse(Guid Id);
 }

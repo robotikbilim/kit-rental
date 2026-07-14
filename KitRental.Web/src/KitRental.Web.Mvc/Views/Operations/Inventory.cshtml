@@ -1,7 +1,7 @@
 @model InventoryScreenViewModel
 @{
     ViewData["Title"] = "Envanter";
-    string StatusName(int status) => status switch { 1 => "Kiralanmaya hazır", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimat yolunda", 5 => "Kiralanmış", 6 => "İade yolunda", 7 => "Kontrolde", 8 => "Bakımda", 9 => "Karantinada", 10 => "Kayıp", 11 => "Emekli", _ => "Bilinmiyor" };
+    string StatusName(int status) => status switch { 1 => "Kiralanmaya hazır", 2 => "Rezerve", 3 => "Gönderim bekliyor", 4 => "Kargoya verildi", 5 => "Teslim edildi / kirada", 6 => "İade yolunda", 7 => "Kontrolde", 8 => "Bakımda", 9 => "Karantinada", 10 => "Kayıp", 11 => "Emekli", _ => "Bilinmiyor" };
     var firstItem = Model.Result.TotalCount == 0 ? 0 : (Model.Result.Page - 1) * Model.Result.PageSize + 1;
     var lastItem = Math.Min(Model.Result.Page * Model.Result.PageSize, Model.Result.TotalCount);
 }

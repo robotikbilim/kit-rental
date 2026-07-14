@@ -1,9 +1,69 @@
 @model IReadOnlyCollection<PortalOrderViewModel>
-@{ ViewData["Title"] = "Siparişler"; }
-@functions { string StatusName(int value) => value switch { 2 => "Onay bekliyor", 3 => "Onaylandı", 4 => "Hazırlanıyor", 5 => "Kargoya hazır", 6 => "Teslimat yolunda", 7 => "Teslim edildi", 8 => "Aktif kiralama", 9 => "İade bekleniyor", 10 => "İade yolunda", 11 => "Kontrolde", 13 => "Tamamlandı", 14 => "Reddedildi", 15 => "İptal", _ => "Taslak" }; }
-<div class="page-heading"><div><span class="eyebrow">KİRALAMA AKIŞI</span><h1>Siparişler</h1><p class="block-muted">Müşterilerin portal üzerinden gönderdiği talepler burada onay bekler.</p></div><span class="request-counter">@Model.Count(item => item.Status == 2) yeni talep</span></div>
+@{
+    ViewData["Title"] = "Siparişler";
+    string StatusName(int value) => value switch
+    {
+        2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Gönderim bekliyor",
+        5 => "Kargoya hazır", 6 => "Kargoya verildi", 7 => "Teslim edildi",
+        8 => "Aktif kiralama", 9 => "İade bekleniyor", 10 => "İade yolunda", 11 => "Kontrolde",
+        13 => "Teslim edildi / kilitli", 14 => "Reddedildi", 15 => "İptal", _ => "Taslak"
+    };
+    var canManageOrders = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager");
+}
+<div class="page-heading orders-heading">
+    <div><span class="eyebrow">KİRALAMA AKIŞI</span><h1>Siparişler</h1><p class="block-muted">Siparişi onaylayın, siparişe özel kitleri üretin ve teslimata kadar yönetin.</p></div>
+    <div class="orders-heading-actions"><span class="request-counter">@Model.Count(item => item.Status == 2) yeni talep</span>@if (canManageOrders) { <a class="primary-action" asp-action="CreateOrder">+ Sipariş oluştur</a> }</div>
+</div>
+
+<div class="order-flow order-flow-six" aria-label="Sipariş durum akışı">
+    <span><b>1</b>Sipariş</span><i>→</i><span><b>2</b>Onay</span><i>→</i><span><b>3</b>Kitleri oluştur / rezerve et</span><i>→</i><span><b>4</b>Gönderime hazırla</span><i>→</i><span><b>5</b>Kargoya ver</span><i>→</i><span><b>6</b>Teslim et / kilitle</span>
+</div>
+
 @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
-<div class="table-scroll"><table><thead><tr><th>Sipariş</th><th>Müşteri</th><th>Talep edilen kitler</th><th>Dönem</th><th>Durum</th><th>İşlem</th></tr></thead>
-<tbody>@foreach (var item in Model) { <tr class="@(item.Status == 2 ? "pending-order" : null)"><td><strong>@item.OrderNumber</strong><small class="block-muted">@item.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></td><td>@item.CustomerName</td><td>@string.Join(", ", item.Lines.Select(line => $"{line.ProductName} × {line.Quantity}"))</td><td>@item.StartDate.ToString("dd.MM.yyyy") — @item.EndDate.ToString("dd.MM.yyyy")</td><td><span class="badge order-status-@item.Status">@StatusName(item.Status)</span></td><td>@if (item.Status == 2) { <form asp-action="ApproveOrder" asp-route-id="@item.Id" method="post"><button class="table-action" type="submit">Onayla</button></form> }</td></tr> }</tbody></table></div>
-@if (Model.Count == 0) { <div class="empty">Henüz sipariş yok.</div> }
+
+@if (Model.Count == 0)
+{
+    <div class="empty">Henüz sipariş yok.</div>
+}
+else
+{
+    <div class="table-scroll"><table class="orders-table"><thead><tr><th>Sipariş</th><th>Müşteri</th><th>Talep edilen kitler</th><th>Fiziksel kit</th><th>Dönem</th><th>Durum</th><th>Sonraki işlem</th></tr></thead><tbody>
+    @foreach (var item in Model)
+    {
+        var requestedKitCount = item.Lines.Sum(line => line.Quantity);
+        <tr class="@(item.Status == 2 ? "pending-order" : null)">
+            <td><strong>@item.OrderNumber</strong><small class="block-muted">@item.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></td>
+            <td>@item.CustomerName</td>
+            <td>@string.Join(", ", item.Lines.Select(line => $"{line.ProductName} × {line.Quantity}"))</td>
+            <td><span class="order-kit-count @(item.AssignedKitCount == requestedKitCount ? "complete" : null)">@item.AssignedKitCount / @requestedKitCount</span><small class="block-muted">oluşturuldu</small></td>
+            <td>@item.StartDate.ToString("dd.MM.yyyy") — @item.EndDate.ToString("dd.MM.yyyy")</td>
+            <td><span class="badge order-status-@item.Status">@StatusName(item.Status)</span></td>
+            <td>
+                <div class="order-row-actions"><a class="row-link" asp-action="OrderDetails" asp-route-id="@item.Id">Detay →</a>
+                @if (canManageOrders && item.Status == 2)
+                {
+                    <form asp-action="UpdateOrderStatus" asp-route-id="@item.Id" method="post"><input type="hidden" name="target" value="3" /><button class="table-action order-next-action" type="submit">İncele ve onayla →</button></form>
+                }
+                else if (canManageOrders && item.Status == 3 && item.AssignedKitCount == requestedKitCount)
+                {
+                    <form asp-action="UpdateOrderStatus" asp-route-id="@item.Id" method="post"><input type="hidden" name="target" value="4" /><button class="table-action order-next-action" type="submit">Kiraya ver / gönderime hazırla →</button></form>
+                }
+                else if (canManageOrders && item.Status is 4 or 5)
+                {
+                    <form asp-action="UpdateOrderStatus" asp-route-id="@item.Id" method="post"><input type="hidden" name="target" value="6" /><button class="table-action order-next-action" type="submit">Kargoya verildi yap →</button></form>
+                }
+                else if (canManageOrders && item.Status == 6)
+                {
+                    <form asp-action="UpdateOrderStatus" asp-route-id="@item.Id" method="post"><input type="hidden" name="target" value="7" /><button class="table-action order-next-action" type="submit">Teslim et ve kilitle →</button></form>
+                }
+                else if (item.Status == 13)
+                {
+                    <span class="order-complete-note">✓ Sipariş kilitli</span>
+                }
+                </div>
+            </td>
+        </tr>
+    }
+    </tbody></table></div>
+}

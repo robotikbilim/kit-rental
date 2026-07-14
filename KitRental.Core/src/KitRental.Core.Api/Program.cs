@@ -447,6 +447,19 @@ api.MapPost("/orders/{orderId:guid}/transitions", async (Guid orderId, OrderTran
     Results.Ok(await service.TransitionOrderAsync(orderId, request.Target, user.GetRequiredUserId(), cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
 
+api.MapGet("/orders/{orderId:guid}/detail", async (Guid orderId, OperationsService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetOrderDetailAsync(orderId, cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(
+        "SystemAdmin", "OperationsManager", "WarehouseStaff", "ServiceTechnician", "Auditor"));
+
+api.MapPost("/orders/{orderId:guid}/kits", async (Guid orderId, CreateOrderKitsRequest request, ClaimsPrincipal user,
+    OperationsService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.CreateAndReserveOrderKitsAsync(
+        orderId, request.Lines.Select(line => new OrderKitLineCommand(line.ProductModelId, line.Quantity)).ToArray(),
+        user.GetRequiredUserId(), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
 api.MapPost("/rental-assignments", async (CreateRentalAssignmentRequest request, ClaimsPrincipal user, RentalAssignmentService service, CancellationToken cancellationToken) =>
 {
     var result = await service.CreateAsync(
@@ -483,6 +496,14 @@ api.MapPost("/faults", async (OpenFaultRequest request, ClaimsPrincipal user, Op
 
 api.MapGet("/faults", async (ClaimsPrincipal user, OperationsService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetFaultTicketsAsync(user.GetCustomerId(), cancellationToken)));
+
+api.MapGet("/faults/search", async (string? query, FaultStatus? status, FaultSeverity? severity,
+    DateOnly? openedFrom, DateOnly? openedTo, int page, int pageSize, OperationsService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetFaultPageAsync(
+        new FaultPageQuery(query, status, severity, openedFrom, openedTo, page, pageSize), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(
+        "SystemAdmin", "OperationsManager", "WarehouseStaff", "ServiceTechnician", "Auditor"));
 
 api.MapPost("/faults/{ticketId:guid}/status", async (Guid ticketId, FaultStatusRequest request, ClaimsPrincipal user, OperationsService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.ChangeFaultStatusAsync(ticketId, request.Status, user.GetRequiredUserId(), request.Note, cancellationToken)))
@@ -551,6 +572,7 @@ public sealed record CreateCustomerRequest(string Name, string Email, AddressReq
 public sealed record OrderLineRequest(Guid ProductModelId, int Quantity);
 public sealed record CreateOrderRequest(Guid CustomerId, Guid AddressId, DateOnly StartDate, DateOnly EndDate, IReadOnlyCollection<OrderLineRequest> Lines);
 public sealed record OrderTransitionRequest(RentalOrderStatus Target);
+public sealed record CreateOrderKitsRequest(IReadOnlyCollection<OrderLineRequest> Lines);
 public sealed record CreateRentalAssignmentRequest(Guid OrderLineId, Guid CustomerId, Guid ProductUnitId, DateOnly StartDate, DateOnly EndDate);
 public sealed record CreateShipmentRequest(Guid OrderId, Guid? FaultTicketId, ShipmentType Type, string Carrier, string TrackingNumber);
 public sealed record ShipmentEventRequest(ShipmentStatus Status, DateTimeOffset OccurredAt, string Location, string Description);

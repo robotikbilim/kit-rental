@@ -46,8 +46,40 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public async Task<IReadOnlyCollection<PortalOrderViewModel>> GetOrdersAsync(CancellationToken cancellationToken) =>
         await GetAsync<PortalOrderViewModel[]>("/core/api/order-summaries", cancellationToken) ?? [];
 
-    public async Task<IReadOnlyCollection<FaultViewModel>> GetFaultsAsync(CancellationToken cancellationToken) =>
-        await GetAsync<FaultViewModel[]>("/core/api/faults", cancellationToken) ?? [];
+    public async Task<IReadOnlyCollection<OrderCustomerViewModel>> GetCustomersAsync(
+        CancellationToken cancellationToken) =>
+        await GetAsync<OrderCustomerViewModel[]>("/core/api/customers", cancellationToken) ?? [];
+
+    public Task<ApiCommandResult<OrderViewModel>> CreateOrderAsync(AdminOrderInputViewModel model,
+        CancellationToken cancellationToken) => PostAsync<OrderViewModel>("/core/api/orders", new
+        {
+            model.CustomerId,
+            model.AddressId,
+            model.StartDate,
+            model.EndDate,
+            lines = model.Lines.Select(line => new { line.ProductModelId, line.Quantity }).ToArray()
+        }, cancellationToken);
+
+    public Task<FaultPageViewModel?> GetFaultsAsync(FaultFilterViewModel filter,
+        CancellationToken cancellationToken)
+    {
+        var parameters = new List<string>
+        {
+            $"page={Math.Max(1, filter.Page)}",
+            $"pageSize={Math.Clamp(filter.PageSize, 10, 100)}"
+        };
+        if (!string.IsNullOrWhiteSpace(filter.Query))
+            parameters.Add($"query={Uri.EscapeDataString(filter.Query.Trim())}");
+        if (filter.Status.HasValue)
+            parameters.Add($"status={filter.Status.Value}");
+        if (filter.Severity.HasValue)
+            parameters.Add($"severity={filter.Severity.Value}");
+        if (filter.OpenedFrom.HasValue)
+            parameters.Add($"openedFrom={filter.OpenedFrom.Value:yyyy-MM-dd}");
+        if (filter.OpenedTo.HasValue)
+            parameters.Add($"openedTo={filter.OpenedTo.Value:yyyy-MM-dd}");
+        return GetAsync<FaultPageViewModel>($"/core/api/faults/search?{string.Join('&', parameters)}", cancellationToken);
+    }
 
     public async Task<IReadOnlyCollection<ComponentSuggestionViewModel>> SearchComponentsAsync(
         string query,
@@ -218,8 +250,20 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => PostAsync<FaultViewModel>("/core/api/customer-portal/faults",
             new { model.AssignmentId, model.Category, model.Severity, model.Description }, cancellationToken);
 
-    public Task<ApiCommandResult<OrderViewModel>> ApproveOrderAsync(Guid orderId, CancellationToken cancellationToken) =>
-        PostAsync<OrderViewModel>($"/core/api/orders/{orderId}/transitions", new { target = 3 }, cancellationToken);
+    public Task<ApiCommandResult<OrderViewModel>> UpdateOrderStatusAsync(Guid orderId, int target,
+        CancellationToken cancellationToken) =>
+        PostAsync<OrderViewModel>($"/core/api/orders/{orderId}/transitions", new { target }, cancellationToken);
+
+    public Task<OrderDetailViewModel?> GetOrderDetailAsync(Guid orderId, CancellationToken cancellationToken) =>
+        GetAsync<OrderDetailViewModel>($"/core/api/orders/{orderId}/detail", cancellationToken);
+
+    public Task<ApiCommandResult<OrderKitPreparationViewModel>> CreateOrderKitsAsync(Guid orderId,
+        IReadOnlyCollection<PortalRentalLineInputViewModel> lines,
+        CancellationToken cancellationToken) =>
+        PostAsync<OrderKitPreparationViewModel>($"/core/api/orders/{orderId}/kits", new
+        {
+            lines = lines.Select(line => new { line.ProductModelId, line.Quantity }).ToArray()
+        }, cancellationToken);
 
     public Task<ApiCommandResult<FaultViewModel>> ChangeFaultStatusAsync(Guid faultId, int status, string note,
         CancellationToken cancellationToken) => PostAsync<FaultViewModel>($"/core/api/faults/{faultId}/status",

@@ -20,7 +20,39 @@ public sealed record AddShipmentEventCommand(Guid ShipmentId, ShipmentStatus Sta
 public sealed record OpenFaultCommand(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId, string Category, FaultSeverity Severity, string Description, Guid ActorId);
 public sealed record InspectionItemCommand(string Name, bool IsPresent, bool IsDamaged, string Note);
 public sealed record CompleteInspectionCommand(Guid OrderId, Guid ProductUnitId, IReadOnlyCollection<InspectionItemCommand> Items, decimal DamageCharge, ProductUnitStatus Outcome, Guid ActorId);
-public sealed record DashboardResponse(int Customers, int ProductUnits, int ActiveOrders, int OpenFaults, int UnitsInMaintenance);
+public sealed record FaultPageQuery(string? Query, FaultStatus? Status, FaultSeverity? Severity,
+    DateOnly? OpenedFrom, DateOnly? OpenedTo, int Page = 1, int PageSize = 20);
+public sealed record FaultListItemResponse(Guid Id, string Number, Guid CustomerId, string CustomerName,
+    string ReporterName, string ReporterPhone, string Category, FaultSeverity Severity, string Description,
+    FaultStatus Status, DateTimeOffset OpenedAt);
+public sealed record FaultPageResponse(int Page, int PageSize, int TotalCount, int TotalPages,
+    IReadOnlyCollection<FaultListItemResponse> Items);
+public sealed record OrderKitResponse(Guid ProductUnitId, Guid AssignmentId, Guid ProductModelId,
+    string SerialNumber, ProductUnitStatus Status);
+public sealed record OrderKitPreparationResponse(Guid OrderId, int CreatedCount,
+    IReadOnlyCollection<OrderKitResponse> Kits);
+public sealed record OrderKitLineCommand(Guid ProductModelId, int Quantity);
+public sealed record OrderDetailLineResponse(Guid Id, Guid ProductModelId, string ProductName, string ProductSku,
+    int Quantity, int CreatedKitCount);
+public sealed record OrderDetailKitResponse(Guid Id, Guid OrderLineId, Guid ProductModelId, string ProductName,
+    string ProductSku, string SerialNumber, string QrCode, ProductUnitStatus Status);
+public sealed record OrderDetailResponse(Guid Id, string OrderNumber, string CustomerName, RentalOrderStatus Status,
+    DateOnly StartDate, DateOnly EndDate, DateTimeOffset CreatedAt,
+    IReadOnlyCollection<OrderDetailLineResponse> Lines, IReadOnlyCollection<OrderDetailKitResponse> Kits);
+public sealed record DashboardResponse(
+    int Customers,
+    int ProductUnits,
+    int RentedKits,
+    int AvailableKits,
+    int FaultyKits,
+    int RepairedAwaitingShipment,
+    int PreparingKits,
+    int KitsInTransit,
+    int KitsUnderInspection,
+    int UnitsInMaintenance,
+    int ActiveOrders,
+    int OrdersAwaitingApproval,
+    int OverdueOrders);
 
 public sealed class OperationsService(ICoreRepository repository, TimeProvider timeProvider)
 {
@@ -77,17 +109,149 @@ public sealed class OperationsService(ICoreRepository repository, TimeProvider t
     public Task<IReadOnlyCollection<RentalOrder>> GetOrdersAsync(Guid? customerId, CancellationToken cancellationToken) =>
         repository.GetOrdersAsync(customerId, cancellationToken);
 
+    public async Task<OrderDetailResponse> GetOrderDetailAsync(Guid orderId, CancellationToken cancellationToken)
+    {
+        var order = await repository.GetOrderAsync(orderId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
+        var customer = await repository.GetCustomerAsync(order.CustomerId, cancellationToken);
+        var models = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(item => item.Id);
+        var assignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
+        var assignmentCounts = assignments.GroupBy(item => item.OrderLineId)
+            .ToDictionary(group => group.Key, group => group.Count());
+        var lines = order.Lines.Select(line => new OrderDetailLineResponse(line.Id, line.ProductModelId,
+            models.TryGetValue(line.ProductModelId, out var model) ? model.Name : "Eğitim kiti",
+            models.TryGetValue(line.ProductModelId, out model) ? model.Sku : "-", line.Quantity,
+            assignmentCounts.GetValueOrDefault(line.Id))).ToArray();
+        var kits = new List<OrderDetailKitResponse>();
+        foreach (var assignment in assignments)
+        {
+            var unit = await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken);
+            if (unit is null) continue;
+            models.TryGetValue(unit.ProductModelId, out var model);
+            kits.Add(new OrderDetailKitResponse(unit.Id, assignment.OrderLineId, unit.ProductModelId,
+                model?.Name ?? "Eğitim kiti", model?.Sku ?? "-", unit.SerialNumber, unit.QrCode, unit.Status));
+        }
+        return new OrderDetailResponse(order.Id, order.OrderNumber, customer?.Name ?? "Müşteri", order.Status,
+            order.Period.StartDate, order.Period.EndDate, order.CreatedAt, lines,
+            kits.OrderBy(item => item.ProductName).ThenBy(item => item.SerialNumber).ToArray());
+    }
+
+    public async Task<OrderKitPreparationResponse> CreateAndReserveOrderKitsAsync(Guid orderId,
+        IReadOnlyCollection<OrderKitLineCommand> requestedLines, Guid actorId,
+        CancellationToken cancellationToken)
+    {
+        var order = await repository.GetOrderAsync(orderId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
+        if (order.Status != RentalOrderStatus.Approved)
+            throw new ConflictException("order.not_approved", "Fiziksel kitler yalnızca onaylanmış sipariş için oluşturulabilir.");
+
+        var existingAssignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
+        if (existingAssignments.Count > 0)
+            throw new ConflictException("order.kits_already_created", "Bu siparişin fiziksel kitleri daha önce oluşturulmuş.");
+        var lines = requestedLines
+            .Where(line => line.ProductModelId != Guid.Empty && line.Quantity > 0)
+            .GroupBy(line => line.ProductModelId)
+            .Select(group => new OrderKitLineCommand(group.Key, group.Sum(line => line.Quantity)))
+            .ToArray();
+        if (lines.Length == 0)
+            throw new ConflictException("order.lines_required", "En az bir kit ve adet seçilmelidir.");
+        if (lines.Sum(line => line.Quantity) > 200)
+            throw new ConflictException("order.kit_limit_exceeded", "Tek siparişte en fazla 200 fiziksel kit oluşturulabilir.");
+        foreach (var requestedLine in lines)
+            _ = await repository.GetProductModelAsync(requestedLine.ProductModelId, cancellationToken)
+                ?? throw new ResourceNotFoundException("Seçilen eğitim kitlerinden biri bulunamadı.");
+        order.ReplaceLines(lines.Select(line => (line.ProductModelId, line.Quantity)).ToArray());
+
+        var now = timeProvider.GetUtcNow();
+        var units = new List<ProductUnit>();
+        var assignments = new List<RentalAssignment>();
+        foreach (var line in order.Lines)
+        {
+            for (var index = 0; index < line.Quantity; index++)
+            {
+                var serialNumber = $"ORD-{now:yyyyMMdd}-{Guid.NewGuid():N}".ToUpperInvariant();
+                var unit = ProductUnit.Create(Guid.NewGuid(), line.ProductModelId, serialNumber,
+                    $"KITRENTAL:{serialNumber}", actorId, now);
+                await repository.AddProductUnitAsync(unit, cancellationToken);
+                units.Add(unit);
+                assignments.Add(RentalAssignment.Create(Guid.NewGuid(), line.Id, order.CustomerId, unit.Id,
+                    order.Period, now, actorId));
+            }
+        }
+
+        if (!await repository.TryCreateReservationsAsync(units, assignments, actorId, now, cancellationToken))
+        {
+            foreach (var unit in units)
+                await repository.RemoveProductUnitAsync(unit, cancellationToken);
+            await repository.SaveChangesAsync(cancellationToken);
+            throw new ConflictException("order.kit_reservation_failed", "Sipariş kitleri rezerve edilemedi.");
+        }
+
+        foreach (var unit in units)
+            await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId, nameof(ProductUnit), unit.Id,
+                "CreatedForOrder", null, order.OrderNumber, now), cancellationToken);
+        await AuditAsync(actorId, nameof(RentalOrder), order.Id, "OrderKitsCreated", null,
+            units.Count.ToString(), cancellationToken);
+        var assignmentByUnit = assignments.ToDictionary(item => item.ProductUnitId);
+        return new OrderKitPreparationResponse(order.Id, units.Count, units.Select(unit =>
+            new OrderKitResponse(unit.Id, assignmentByUnit[unit.Id].Id, unit.ProductModelId,
+                unit.SerialNumber, unit.Status)).ToArray());
+    }
+
     public async Task<RentalOrder> TransitionOrderAsync(Guid orderId, RentalOrderStatus target, Guid actorId, CancellationToken cancellationToken)
     {
         var order = await repository.GetOrderAsync(orderId, cancellationToken)
             ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
         var now = timeProvider.GetUtcNow();
         var previous = order.Status;
+        var assignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
+        if (target is RentalOrderStatus.Preparing or RentalOrderStatus.OutboundInTransit or RentalOrderStatus.Delivered)
+        {
+            var requestedKitCount = order.Lines.Sum(line => line.Quantity);
+            if (assignments.Count != requestedKitCount)
+                throw new ConflictException("order.kits_incomplete",
+                    $"Siparişin {requestedKitCount} fiziksel kitinin tamamı oluşturulup rezerve edilmelidir.");
+        }
         switch (target)
         {
             case RentalOrderStatus.Approved: order.Approve(actorId, now); break;
-            case RentalOrderStatus.Preparing: order.StartPreparation(actorId, now); break;
+            case RentalOrderStatus.Preparing:
+                order.StartPreparation(actorId, now);
+                foreach (var assignment in assignments)
+                {
+                    var unit = await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken);
+                    if (unit?.Status == ProductUnitStatus.Reserved)
+                        unit.StartPreparation(actorId, now);
+                    if (assignment.Status == RentalAssignmentStatus.Reserved)
+                        assignment.Activate();
+                }
+                break;
             case RentalOrderStatus.ReadyToShip: order.MarkReadyToShip(actorId, now); break;
+            case RentalOrderStatus.OutboundInTransit:
+                if (order.Status == RentalOrderStatus.Preparing)
+                    order.MarkReadyToShip(actorId, now);
+                order.Dispatch(actorId, now);
+                foreach (var assignment in assignments)
+                {
+                    var unit = await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken);
+                    if (unit?.Status == ProductUnitStatus.Reserved)
+                        unit.StartPreparation(actorId, now);
+                    if (unit?.Status == ProductUnitStatus.Preparing)
+                        unit.Dispatch(actorId, now);
+                }
+                break;
+            case RentalOrderStatus.Delivered:
+                order.ConfirmDelivery(actorId, now);
+                foreach (var assignment in assignments)
+                {
+                    var unit = await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken);
+                    if (unit?.Status == ProductUnitStatus.OutboundInTransit)
+                        unit.ConfirmDelivery(actorId, now);
+                    if (assignment.Status == RentalAssignmentStatus.Reserved)
+                        assignment.Activate();
+                }
+                order.LockAfterDelivery(actorId, now);
+                break;
             case RentalOrderStatus.AwaitingReturn: order.RequestReturn(actorId, now); break;
             default: throw new ConflictException("order.unsupported_transition", "Bu durum geçişi ilgili süreç üzerinden yapılmalıdır.");
         }
@@ -108,8 +272,10 @@ public sealed class OperationsService(ICoreRepository repository, TimeProvider t
             foreach (var assignment in assignments)
             {
                 var unit = await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken);
-                unit?.StartPreparation(command.ActorId, now);
-                unit?.Dispatch(command.ActorId, now);
+                if (unit?.Status == ProductUnitStatus.Reserved)
+                    unit.StartPreparation(command.ActorId, now);
+                if (unit?.Status == ProductUnitStatus.Preparing)
+                    unit.Dispatch(command.ActorId, now);
             }
         }
         else if (command.Type == ShipmentType.Return)
@@ -189,6 +355,56 @@ public sealed class OperationsService(ICoreRepository repository, TimeProvider t
     public Task<IReadOnlyCollection<FaultTicket>> GetFaultTicketsAsync(Guid? customerId, CancellationToken cancellationToken) =>
         repository.GetFaultTicketsAsync(customerId, cancellationToken);
 
+    public async Task<FaultPageResponse> GetFaultPageAsync(FaultPageQuery query,
+        CancellationToken cancellationToken)
+    {
+        var customers = (await repository.GetCustomersAsync(cancellationToken)).ToDictionary(item => item.Id);
+        var orders = (await repository.GetOrdersAsync(null, cancellationToken)).ToDictionary(item => item.Id);
+        var items = (await repository.GetFaultTicketsAsync(null, cancellationToken)).Select(ticket =>
+        {
+            customers.TryGetValue(ticket.CustomerId, out var customer);
+            orders.TryGetValue(ticket.OrderId, out var order);
+            var reporterName = order?.DeliveryAddress.ContactName
+                ?? customer?.Addresses.FirstOrDefault()?.ContactName
+                ?? customer?.Name
+                ?? "-";
+            var reporterPhone = order?.DeliveryAddress.Phone
+                ?? customer?.Addresses.FirstOrDefault()?.Phone
+                ?? "-";
+            return new FaultListItemResponse(ticket.Id, ticket.Number, ticket.CustomerId,
+                customer?.Name ?? "Müşteri", reporterName, reporterPhone, ticket.Category, ticket.Severity,
+                ticket.Description, ticket.Status, ticket.OpenedAt);
+        });
+
+        if (!string.IsNullOrWhiteSpace(query.Query))
+        {
+            var term = query.Query.Trim();
+            items = items.Where(item =>
+                item.Number.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                item.CustomerName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                item.ReporterName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                item.ReporterPhone.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                item.Category.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                item.Description.Contains(term, StringComparison.OrdinalIgnoreCase));
+        }
+        if (query.Status.HasValue)
+            items = items.Where(item => item.Status == query.Status.Value);
+        if (query.Severity.HasValue)
+            items = items.Where(item => item.Severity == query.Severity.Value);
+        if (query.OpenedFrom.HasValue)
+            items = items.Where(item => DateOnly.FromDateTime(item.OpenedAt.Date) >= query.OpenedFrom.Value);
+        if (query.OpenedTo.HasValue)
+            items = items.Where(item => DateOnly.FromDateTime(item.OpenedAt.Date) <= query.OpenedTo.Value);
+
+        var page = Math.Max(1, query.Page);
+        var pageSize = Math.Clamp(query.PageSize, 10, 100);
+        var ordered = items.OrderByDescending(item => item.OpenedAt).ToArray();
+        var totalPages = Math.Max(1, (int)Math.Ceiling(ordered.Length / (double)pageSize));
+        page = Math.Min(page, totalPages);
+        return new FaultPageResponse(page, pageSize, ordered.Length, totalPages,
+            ordered.Skip((page - 1) * pageSize).Take(pageSize).ToArray());
+    }
+
     public async Task<FaultTicket> ChangeFaultStatusAsync(Guid ticketId, FaultStatus status, Guid actorId, string note, CancellationToken cancellationToken)
     {
         var ticket = await repository.GetFaultTicketAsync(ticketId, cancellationToken)
@@ -223,12 +439,35 @@ public sealed class OperationsService(ICoreRepository repository, TimeProvider t
         var units = await repository.GetProductUnitsAsync(cancellationToken);
         var orders = await repository.GetOrdersAsync(null, cancellationToken);
         var faults = await repository.GetFaultTicketsAsync(null, cancellationToken);
+        var openFaultUnitIds = faults
+            .Where(ticket => ticket.Status is not (FaultStatus.Resolved or FaultStatus.Closed))
+            .Select(ticket => ticket.ProductUnitId)
+            .ToHashSet();
+        var repairedUnitIds = faults
+            .Where(ticket => ticket.Status is FaultStatus.Resolved or FaultStatus.Closed)
+            .Select(ticket => ticket.ProductUnitId)
+            .ToHashSet();
+        var faultyUnitIds = units
+            .Where(unit => unit.Status is ProductUnitStatus.InMaintenance or ProductUnitStatus.Quarantined)
+            .Select(unit => unit.Id)
+            .Concat(openFaultUnitIds)
+            .ToHashSet();
+
         return new DashboardResponse(
             customers.Count,
             units.Count,
+            units.Count(unit => unit.Status == ProductUnitStatus.WithCustomer),
+            units.Count(unit => unit.Status == ProductUnitStatus.Available && !faultyUnitIds.Contains(unit.Id)),
+            faultyUnitIds.Count,
+            units.Count(unit => repairedUnitIds.Contains(unit.Id) && !openFaultUnitIds.Contains(unit.Id) &&
+                unit.Status is ProductUnitStatus.Reserved or ProductUnitStatus.Preparing),
+            units.Count(unit => unit.Status == ProductUnitStatus.Preparing),
+            units.Count(unit => unit.Status is ProductUnitStatus.OutboundInTransit or ProductUnitStatus.ReturnInTransit),
+            units.Count(unit => unit.Status == ProductUnitStatus.UnderInspection),
+            units.Count(unit => unit.Status == ProductUnitStatus.InMaintenance),
             orders.Count(order => order.Status is not (RentalOrderStatus.Completed or RentalOrderStatus.Cancelled or RentalOrderStatus.Rejected)),
-            faults.Count(ticket => ticket.Status is not (FaultStatus.Resolved or FaultStatus.Closed)),
-            units.Count(unit => unit.Status == ProductUnitStatus.InMaintenance));
+            orders.Count(order => order.Status == RentalOrderStatus.PendingApproval),
+            orders.Count(order => order.Status == RentalOrderStatus.Overdue));
     }
 
     private async Task AuditAsync(
