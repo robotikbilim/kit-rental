@@ -1,53 +1,32 @@
-@model PhysicalKitDashboardViewModel?
-@{
-    ViewData["Title"] = "Fiziksel Kitler";
-    string StatusName(int status) => status switch { 1 => "Kiralanabilir", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimatta", 5 => "Kirada", 6 => "İade yolunda", 7 => "Kontrolde", 8 => "Serviste", 9 => "Karantina", 10 => "Kayıp", 11 => "Emekli", _ => "Bilinmiyor" };
-}
-<div class="catalog-heading">
-    <div><span class="eyebrow">KİRALAMA STOĞU</span><h1>Seri numaralı kitler</h1><p>Her fiziksel kiti, mevcut kiracısını ve operasyon durumunu tek ekrandan izleyin.</p></div>
-    <div class="recipe-actions"><a class="secondary-action" asp-action="Lookup">⌕ Kit geçmişi sorgula</a><a class="primary-action" asp-action="Create">+ Fiziksel kit ekle</a></div>
+@model IReadOnlyCollection<PhysicalKitModelSummaryViewModel>
+@{ ViewData["Title"] = "Fiziksel Kit Stoğu"; }
+<div class="catalog-heading kit-stock-heading">
+    <div><span class="eyebrow">EĞİTİM SETİ BAZLI STOK</span><h1>Fiziksel kit stoğu</h1><p>Her eğitim setinden üretilen, kiralanabilir ve arızalı fiziksel kit sayılarını izleyin.</p></div>
+    <div class="recipe-actions"><a class="secondary-action" asp-action="Lookup">⌕ Kit geçmişi sorgula</a><a class="primary-action" asp-action="Create">+ Fiziksel kit oluştur</a></div>
 </div>
 @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
-@if (Model is null) { <div class="empty">Fiziksel kit verileri alınamadı.</div> }
+@if (Model.Count == 0)
+{
+    <div class="empty">Henüz tanımlanmış eğitim seti bulunmuyor.</div>
+}
 else
 {
-    <section class="metrics fleet-metrics">
-        <article><span>Toplam fiziksel kit</span><strong>@Model.Total</strong></article>
-        <article class="metric-ready"><span>Kiralanabilir hazır</span><strong>@Model.Available</strong></article>
-        <article class="metric-rented"><span>Şu anda kirada</span><strong>@Model.Rented</strong></article>
-        <article><span>Rezerve / hazırlanıyor</span><strong>@Model.Reserved</strong></article>
-        <article><span>Yolda</span><strong>@Model.InTransit</strong></article>
-        <article><span>Servis / kontrol</span><strong>@Model.ServiceOrInspection</strong></article>
-    </section>
-
-    <section class="fleet-section">
-        <div class="section-heading"><div><span class="eyebrow">AKTİF KİRALAMALAR</span><h2>Şu anda kirada olan kitler</h2></div><b>@Model.Rented adet</b></div>
-        <div class="fleet-grid">
-        @foreach (var kit in Model.RentedKits)
-        {
-            <a class="fleet-card" asp-action="Details" asp-route-id="@kit.Id">
-                <img src="@(kit.ImageUrl ?? "/images/kit-placeholder.svg")" alt="@kit.KitName" />
-                <div><small>@kit.KitSku</small><h3>@kit.KitName</h3><code>@kit.SerialNumber</code>
-                    @if (kit.CurrentRental is not null) { <p><strong>@kit.CurrentRental.CustomerName</strong><br />@kit.CurrentRental.City · @kit.CurrentRental.EndDate.ToString("dd.MM.yyyy") tarihine kadar</p> }
-                </div><span class="fleet-status rented">Kirada</span>
-            </a>
-        }
-        @if (Model.RentedKits.Count == 0) { <div class="empty">Şu anda kirada kit yok.</div> }
-        </div>
-    </section>
-
-    <section class="fleet-section">
-        <div class="section-heading"><div><span class="eyebrow">HAZIR STOK</span><h2>Kiralanabilir kitler ve seri numaraları</h2></div><b>@Model.Available adet</b></div>
-        <div class="serial-cloud">
-        @foreach (var kit in Model.AvailableKits) { <a asp-action="Details" asp-route-id="@kit.Id"><strong>@kit.SerialNumber</strong><span>@kit.KitName</span></a> }
-        </div>
-    </section>
-
-    <section class="fleet-section">
-        <div class="section-heading"><div><span class="eyebrow">TÜM ENVANTER</span><h2>Fiziksel kit listesi</h2></div></div>
-        <div class="table-scroll"><table><thead><tr><th>Kit</th><th>Seri / QR</th><th>Durum</th><th>Mevcut kiracı</th><th></th></tr></thead><tbody>
-        @foreach (var kit in Model.AllKits)
-        {<tr><td><div class="table-kit"><img src="@(kit.ImageUrl ?? "/images/kit-placeholder.svg")" alt="" /><div><strong>@kit.KitName</strong><small>@kit.KitSku</small></div></div></td><td><code>@kit.SerialNumber</code><small class="block-muted">@kit.QrCode</small></td><td><span class="fleet-status status-@kit.Status">@StatusName(kit.Status)</span></td><td>@(kit.CurrentRental?.CustomerName ?? "—")</td><td><a class="row-link" asp-action="Details" asp-route-id="@kit.Id">Detay →</a></td></tr>}
-        </tbody></table></div>
+    <section class="kit-model-grid">
+    @foreach (var kit in Model)
+    {
+        <article class="kit-model-stock-card">
+            <div class="kit-model-image"><img src="@(kit.ImageUrl ?? "/images/catalog/kit.svg")" alt="@kit.KitName" /></div>
+            <div class="kit-model-identity"><span>@kit.KitSku</span><h2>@kit.KitName</h2></div>
+            <div class="kit-stock-counts">
+                <a asp-action="Units" asp-route-id="@kit.ProductModelId" asp-route-filter="all"><span>Toplam üretilen</span><strong>@kit.Total</strong><small>Seri numaralarını gör →</small></a>
+                <a class="available" asp-action="Units" asp-route-id="@kit.ProductModelId" asp-route-filter="available"><span>Kiralanabilir</span><strong>@kit.Available</strong><small>Hazır kitleri gör →</small></a>
+                <a class="faulty" asp-action="Units" asp-route-id="@kit.ProductModelId" asp-route-filter="faulty"><span>Arızalı</span><strong>@kit.Faulty</strong><small>Arızalı kitleri gör →</small></a>
+            </div>
+            <div class="kit-model-actions">
+                @if (kit.Total > 0) { <a asp-action="Labels" asp-route-id="@kit.ProductModelId" asp-route-filter="all">QR etiketlerini yazdır</a> }
+                else { <span>Henüz fiziksel kit oluşturulmamış</span> }
+            </div>
+        </article>
+    }
     </section>
 }

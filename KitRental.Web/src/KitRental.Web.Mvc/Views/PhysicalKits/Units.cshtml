@@ -1,0 +1,38 @@
+@model PhysicalKitUnitPageViewModel
+@{
+    ViewData["Title"] = $"{Model.KitName} Fiziksel Kitleri";
+    string StatusName(int status) => status switch { 1 => "Kiralanabilir", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimatta", 5 => "Kirada", 6 => "İade yolunda", 7 => "Kontrolde", 8 => "Serviste", 9 => "Karantina", 10 => "Kayıp", 11 => "Emekli", _ => "Bilinmiyor" };
+    string FilterName() => Model.Filter switch { "available" => "Kiralanabilir kitler", "faulty" => "Arızalı kitler", _ => "Tüm fiziksel kitler" };
+    var firstItem = Model.TotalCount == 0 ? 0 : (Model.Page - 1) * Model.PageSize + 1;
+    var lastItem = Math.Min(Model.Page * Model.PageSize, Model.TotalCount);
+}
+<a class="back-link" asp-action="Index">← Eğitim seti stoklarına dön</a>
+<header class="unit-list-heading">
+    <div class="unit-list-kit"><img src="@(Model.ImageUrl ?? "/images/catalog/kit.svg")" alt="@Model.KitName" /><div><span class="eyebrow">@Model.KitSku</span><h1>@Model.KitName</h1><p>@FilterName() · @Model.TotalCount kayıt</p></div></div>
+    <div class="unit-list-actions">
+        <nav class="stock-filter" aria-label="Fiziksel kit filtresi"><a class="@(Model.Filter == "all" ? "active" : null)" asp-action="Units" asp-route-id="@Model.ProductModelId" asp-route-filter="all">Tümü</a><a class="@(Model.Filter == "available" ? "active" : null)" asp-action="Units" asp-route-id="@Model.ProductModelId" asp-route-filter="available">Kiralanabilir</a><a class="@(Model.Filter == "faulty" ? "active" : null)" asp-action="Units" asp-route-id="@Model.ProductModelId" asp-route-filter="faulty">Arızalı</a></nav>
+        @if (Model.TotalCount > 0) { <a class="primary-action" asp-action="Labels" asp-route-id="@Model.ProductModelId" asp-route-filter="@Model.Filter">QR etiketlerini yazdır</a> }
+    </div>
+</header>
+@if (Model.Items.Count == 0)
+{
+    <div class="empty">Bu filtreye uygun fiziksel kit bulunmuyor.</div>
+}
+else
+{
+    <div class="table-scroll unit-table-wrap"><table><thead><tr><th>Seri numarası</th><th>QR kod</th><th>Durum</th><th>Mevcut kiracı</th><th></th></tr></thead><tbody>
+    @foreach (var kit in Model.Items)
+    {
+        <tr><td><code class="unit-serial">@kit.SerialNumber</code></td><td><span class="unit-qr">@kit.QrCode</span></td><td><span class="fleet-status status-@kit.Status">@StatusName(kit.Status)</span></td><td>@if(kit.CurrentRental is null){<span>—</span>}else{<strong>@kit.CurrentRental.CustomerName</strong><small class="block-muted">@kit.CurrentRental.City · @kit.CurrentRental.StartDate.ToString("dd.MM.yyyy")–@kit.CurrentRental.EndDate.ToString("dd.MM.yyyy")</small>}</td><td><a class="row-link" asp-action="Details" asp-route-id="@kit.Id">Geçmiş →</a></td></tr>
+    }
+    </tbody></table></div>
+    <footer class="pagination-shell">
+        <span>@firstItem–@lastItem / @Model.TotalCount kayıt</span>
+        <nav class="pagination" aria-label="Sayfalar">
+            @if (Model.Page > 1) { <a asp-action="Units" asp-route-id="@Model.ProductModelId" asp-route-filter="@Model.Filter" asp-route-page="@(Model.Page - 1)">←</a> }
+            @for (var pageNumber = Math.Max(1, Model.Page - 2); pageNumber <= Math.Min(Model.TotalPages, Model.Page + 2); pageNumber++)
+            { <a class="@(pageNumber == Model.Page ? "active" : null)" asp-action="Units" asp-route-id="@Model.ProductModelId" asp-route-filter="@Model.Filter" asp-route-page="@pageNumber">@pageNumber</a> }
+            @if (Model.Page < Model.TotalPages) { <a asp-action="Units" asp-route-id="@Model.ProductModelId" asp-route-filter="@Model.Filter" asp-route-page="@(Model.Page + 1)">→</a> }
+        </nav>
+    </footer>
+}

@@ -5,6 +5,7 @@ using KitRental.Core.Domain.Customers;
 using KitRental.Core.Domain.Inventory;
 using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Rentals;
+using KitRental.Core.Domain.Support;
 
 namespace KitRental.Core.Application.PhysicalKits;
 
@@ -35,6 +36,59 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
             result.Add(await MapListItemAsync(unit, model, cancellationToken));
         }
         return result.OrderBy(item => item.KitName).ThenBy(item => item.SerialNumber).ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<PhysicalKitModelSummaryResponse>> GetModelSummariesAsync(
+        CancellationToken cancellationToken)
+    {
+        var units = await repository.GetProductUnitsAsync(cancellationToken);
+        var faultyUnitIds = await GetFaultyUnitIdsAsync(cancellationToken);
+        return (await repository.GetProductModelsAsync(cancellationToken)).Select(model =>
+        {
+            var modelUnits = units.Where(unit => unit.ProductModelId == model.Id).ToArray();
+            return new PhysicalKitModelSummaryResponse(model.Id, model.Name, model.Sku, model.ImageUrl,
+                modelUnits.Length,
+                modelUnits.Count(unit => unit.Status == ProductUnitStatus.Available && !IsFaulty(unit, faultyUnitIds)),
+                modelUnits.Count(unit => IsFaulty(unit, faultyUnitIds)));
+        }).OrderBy(item => item.KitName).ToArray();
+    }
+
+    public async Task<PhysicalKitUnitPageResponse> GetModelUnitsAsync(Guid productModelId, string? filter,
+        int page, int pageSize, CancellationToken cancellationToken)
+    {
+        var model = await repository.GetProductModelAsync(productModelId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Eğitim kiti bulunamadı.");
+        var normalizedFilter = NormalizeFilter(filter);
+        var faultyUnitIds = await GetFaultyUnitIdsAsync(cancellationToken);
+        var units = (await repository.GetProductUnitsAsync(cancellationToken))
+            .Where(unit => unit.ProductModelId == productModelId)
+            .Where(unit => MatchesFilter(unit, normalizedFilter, faultyUnitIds))
+            .OrderBy(unit => unit.SerialNumber)
+            .ToArray();
+        var validPageSize = Math.Clamp(pageSize, 10, 100);
+        var totalPages = Math.Max(1, (int)Math.Ceiling(units.Length / (double)validPageSize));
+        var validPage = Math.Clamp(page, 1, totalPages);
+        var items = new List<PhysicalKitListItemResponse>();
+        foreach (var unit in units.Skip((validPage - 1) * validPageSize).Take(validPageSize))
+            items.Add(await MapListItemAsync(unit, model, cancellationToken));
+        return new PhysicalKitUnitPageResponse(model.Id, model.Name, model.Sku, model.ImageUrl, normalizedFilter,
+            validPage, validPageSize, units.Length, totalPages, items);
+    }
+
+    public async Task<IReadOnlyCollection<PhysicalKitListItemResponse>> GetModelUnitsForLabelsAsync(
+        Guid productModelId, string? filter, CancellationToken cancellationToken)
+    {
+        var model = await repository.GetProductModelAsync(productModelId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Eğitim kiti bulunamadı.");
+        var normalizedFilter = NormalizeFilter(filter);
+        var faultyUnitIds = await GetFaultyUnitIdsAsync(cancellationToken);
+        var units = (await repository.GetProductUnitsAsync(cancellationToken))
+            .Where(unit => unit.ProductModelId == productModelId && MatchesFilter(unit, normalizedFilter, faultyUnitIds))
+            .OrderBy(unit => unit.SerialNumber).ToArray();
+        var items = new List<PhysicalKitListItemResponse>(units.Length);
+        foreach (var unit in units)
+            items.Add(await MapListItemAsync(unit, model, cancellationToken));
+        return items;
     }
 
     public async Task<PhysicalKitDetailResponse> GetDetailAsync(Guid id, CancellationToken cancellationToken)
@@ -139,4 +193,26 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
         return new PhysicalKitListItemResponse(unit.Id, model.Id, model.Name, model.Sku, model.ImageUrl,
             unit.SerialNumber, unit.QrCode, unit.Status, current);
     }
+
+    private async Task<HashSet<Guid>> GetFaultyUnitIdsAsync(CancellationToken cancellationToken) =>
+        (await repository.GetFaultTicketsAsync(null, cancellationToken))
+            .Where(ticket => ticket.Status is not (FaultStatus.Resolved or FaultStatus.Closed))
+            .Select(ticket => ticket.ProductUnitId).ToHashSet();
+
+    private static bool IsFaulty(ProductUnit unit, IReadOnlySet<Guid> faultyUnitIds) =>
+        unit.Status is ProductUnitStatus.InMaintenance or ProductUnitStatus.Quarantined || faultyUnitIds.Contains(unit.Id);
+
+    private static string NormalizeFilter(string? filter) => filter?.Trim().ToLowerInvariant() switch
+    {
+        "available" => "available",
+        "faulty" => "faulty",
+        _ => "all"
+    };
+
+    private static bool MatchesFilter(ProductUnit unit, string filter, IReadOnlySet<Guid> faultyUnitIds) => filter switch
+    {
+        "available" => unit.Status == ProductUnitStatus.Available && !IsFaulty(unit, faultyUnitIds),
+        "faulty" => IsFaulty(unit, faultyUnitIds),
+        _ => true
+    };
 }

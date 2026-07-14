@@ -267,7 +267,24 @@ api.MapPost("/product-models/{productModelId:guid}/bom", async (Guid productMode
 }).RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
 
 api.MapGet("/product-models/{productModelId:guid}/bom", async (Guid productModelId, WorkshopService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.GetActiveBomAsync(productModelId, cancellationToken)))
+{
+    var bom = await service.GetActiveBomAsync(productModelId, cancellationToken);
+    return bom is null ? Results.NoContent() : Results.Ok(bom);
+})
+    .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
+
+api.MapGet("/physical-kits/models", async (PhysicalKitService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetModelSummariesAsync(cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
+
+api.MapGet("/physical-kits/models/{productModelId:guid}/units", async (Guid productModelId, string? filter,
+    int? page, int? pageSize, PhysicalKitService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetModelUnitsAsync(productModelId, filter, page ?? 1, pageSize ?? 20, cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
+
+api.MapGet("/physical-kits/models/{productModelId:guid}/labels", async (Guid productModelId, string? filter,
+    PhysicalKitService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetModelUnitsForLabelsAsync(productModelId, filter, cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
 
 api.MapGet("/manufacturing/buildable-kits", async (WorkshopService service, CancellationToken cancellationToken) =>

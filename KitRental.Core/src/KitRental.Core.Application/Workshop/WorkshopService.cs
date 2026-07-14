@@ -221,13 +221,14 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
             mapped.Version, mapped.Lines);
     }
 
-    public async Task<BillOfMaterialsResponse> GetActiveBomAsync(Guid productModelId, CancellationToken cancellationToken)
+    public async Task<BillOfMaterialsResponse?> GetActiveBomAsync(Guid productModelId, CancellationToken cancellationToken)
     {
-        
-        var bom = await repository.GetActiveBillOfMaterialsAsync(productModelId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Ürün modeli için aktif reçete bulunamadı.");
         var product = await repository.GetProductModelAsync(productModelId, cancellationToken)
             ?? throw new ResourceNotFoundException("Ürün modeli bulunamadı.");
+        var bom = await repository.GetActiveBillOfMaterialsAsync(productModelId, cancellationToken);
+        if (bom is null)
+            return null;
+
         var components = (await repository.GetComponentsAsync(cancellationToken)).ToDictionary(item => item.Id);
         return MapBom(bom, product, components);
     }

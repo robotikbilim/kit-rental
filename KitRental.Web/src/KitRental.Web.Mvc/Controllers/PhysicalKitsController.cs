@@ -11,7 +11,15 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
 {
     [HttpGet]
     public async Task<IActionResult> Index(CancellationToken cancellationToken) =>
-        View(await apiClient.GetPhysicalKitDashboardAsync(cancellationToken));
+        View(await apiClient.GetPhysicalKitModelSummariesAsync(cancellationToken));
+
+    [HttpGet]
+    public async Task<IActionResult> Units(Guid id, string filter = "all", int page = 1,
+        CancellationToken cancellationToken = default)
+    {
+        var model = await apiClient.GetPhysicalKitUnitsAsync(id, filter, page, 20, cancellationToken);
+        return model is null ? NotFound() : View(model);
+    }
 
     [HttpGet]
     public async Task<IActionResult> Details(Guid id, CancellationToken cancellationToken)
@@ -59,6 +67,17 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
         if (string.IsNullOrWhiteSpace(value) || value.Length > 200) return BadRequest();
         var image = PngByteQRCodeHelper.GetQRCode(value, QRCodeGenerator.ECCLevel.Q, 8);
         return File(image, "image/png");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Labels(Guid id, string filter = "all", CancellationToken cancellationToken = default)
+    {
+        var units = await apiClient.GetPhysicalKitLabelsAsync(id, filter, cancellationToken);
+        if (units.Count == 0) return RedirectToAction(nameof(Units), new { id, filter });
+        var labels = units.Select(unit => new PhysicalKitLabelViewModel(unit.Id, unit.KitName, unit.KitSku,
+            unit.SerialNumber, unit.QrCode)).ToArray();
+        var backUrl = Url.Action(nameof(Units), new { id, filter });
+        return View(new PhysicalKitLabelsPageViewModel(DateTimeOffset.Now, labels, backUrl));
     }
 
     [HttpGet]

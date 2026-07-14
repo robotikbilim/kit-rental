@@ -51,7 +51,7 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Null(kit.BomVersion);
         Assert.Empty(kit.Lines);
         var missingBom = await _client.GetAsync($"/api/product-models/{kit.Id}/bom", cancellationToken);
-        Assert.Equal(System.Net.HttpStatusCode.NotFound, missingBom.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.NoContent, missingBom.StatusCode);
 
         await PostAsync<BillOfMaterialsResponse>($"/api/product-models/{kit.Id}/bom",
             new CreateBillOfMaterialsRequest(1, [new BillOfMaterialsLineRequest(component.Id, 2)]), cancellationToken);
@@ -62,6 +62,21 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
             $"/api/product-models/{kit.Id}/bom", cancellationToken);
         Assert.Equal(2, activeBom!.Version);
         Assert.Equal(4, activeBom.Lines.Single().Quantity);
+    }
+
+    [Fact]
+    public async Task GetRecipe_DistinguishesARecipeLessKitFromAnUnknownKit()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var kit = await PostAsync<KitCatalogResponse>("/api/kits",
+            new CreateKitRequest("Reçetesiz Detay Kiti", $"KIT-{Guid.NewGuid():N}", null, null, 1, []),
+            cancellationToken);
+
+        var recipeLessKit = await _client.GetAsync($"/api/product-models/{kit.Id}/bom", cancellationToken);
+        var unknownKit = await _client.GetAsync($"/api/product-models/{Guid.NewGuid()}/bom", cancellationToken);
+
+        Assert.Equal(System.Net.HttpStatusCode.NoContent, recipeLessKit.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, unknownKit.StatusCode);
     }
 
     [Fact]
@@ -110,12 +125,28 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
             new CreateProductModelRequest("Toplu Üretim Test Kiti", $"KIT-{Guid.NewGuid():N}"), cancellationToken);
 
         var units = await PostAsync<ProductUnitResponse[]>("/api/product-units/bulk",
-            new { ProductModelId = model.Id, Quantity = 8 }, cancellationToken);
+            new { ProductModelId = model.Id, Quantity = 23 }, cancellationToken);
 
-        Assert.Equal(8, units.Length);
-        Assert.Equal(8, units.Select(item => item.SerialNumber).Distinct().Count());
-        Assert.Equal(8, units.Select(item => item.QrCode).Distinct().Count());
+        Assert.Equal(23, units.Length);
+        Assert.Equal(23, units.Select(item => item.SerialNumber).Distinct().Count());
+        Assert.Equal(23, units.Select(item => item.QrCode).Distinct().Count());
         Assert.All(units, item => Assert.Equal($"KITRENTAL:{item.SerialNumber}", item.QrCode));
+
+        var summaries = await _client.GetFromJsonAsync<KitRental.Core.Application.PhysicalKits.PhysicalKitModelSummaryResponse[]>(
+            "/api/physical-kits/models", cancellationToken);
+        var page = await _client.GetFromJsonAsync<KitRental.Core.Application.PhysicalKits.PhysicalKitUnitPageResponse>(
+            $"/api/physical-kits/models/{model.Id}/units?filter=available&page=2&pageSize=10", cancellationToken);
+        var labels = await _client.GetFromJsonAsync<KitRental.Core.Application.PhysicalKits.PhysicalKitListItemResponse[]>(
+            $"/api/physical-kits/models/{model.Id}/labels?filter=all", cancellationToken);
+
+        var summary = summaries!.Single(item => item.ProductModelId == model.Id);
+        Assert.Equal(23, summary.Total);
+        Assert.Equal(23, summary.Available);
+        Assert.Equal(0, summary.Faulty);
+        Assert.Equal(2, page!.Page);
+        Assert.Equal(3, page.TotalPages);
+        Assert.Equal(10, page.Items.Count);
+        Assert.Equal(23, labels!.Length);
 
         var invalid = await _client.PostAsJsonAsync("/api/product-units/bulk",
             new { ProductModelId = model.Id, Quantity = 201 }, cancellationToken);

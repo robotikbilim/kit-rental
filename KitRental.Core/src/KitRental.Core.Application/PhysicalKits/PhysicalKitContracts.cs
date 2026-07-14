@@ -11,6 +11,11 @@ public sealed record PhysicalKitListItemResponse(Guid Id, Guid ProductModelId, s
 public sealed record PhysicalKitDashboardResponse(int Total, int Available, int Rented, int Reserved, int InTransit,
     int ServiceOrInspection, IReadOnlyCollection<PhysicalKitListItemResponse> AvailableKits,
     IReadOnlyCollection<PhysicalKitListItemResponse> RentedKits, IReadOnlyCollection<PhysicalKitListItemResponse> AllKits);
+public sealed record PhysicalKitModelSummaryResponse(Guid ProductModelId, string KitName, string KitSku,
+    string? ImageUrl, int Total, int Available, int Faulty);
+public sealed record PhysicalKitUnitPageResponse(Guid ProductModelId, string KitName, string KitSku, string? ImageUrl,
+    string Filter, int Page, int PageSize, int TotalCount, int TotalPages,
+    IReadOnlyCollection<PhysicalKitListItemResponse> Items);
 public sealed record PhysicalKitStatusEventResponse(ProductUnitStatus? PreviousStatus, ProductUnitStatus NewStatus,
     DateTimeOffset OccurredAt, string Reason);
 public sealed record PhysicalKitRentalHistoryResponse(Guid AssignmentId, string OrderNumber, RentalOrderStatus OrderStatus,

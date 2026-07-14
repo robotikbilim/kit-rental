@@ -79,6 +79,21 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<PhysicalKitDashboardViewModel?> GetPhysicalKitDashboardAsync(CancellationToken cancellationToken) =>
         GetAsync<PhysicalKitDashboardViewModel>("/core/api/physical-kits/dashboard", cancellationToken);
 
+    public async Task<IReadOnlyCollection<PhysicalKitModelSummaryViewModel>> GetPhysicalKitModelSummariesAsync(
+        CancellationToken cancellationToken) =>
+        await GetAsync<PhysicalKitModelSummaryViewModel[]>("/core/api/physical-kits/models", cancellationToken) ?? [];
+
+    public Task<PhysicalKitUnitPageViewModel?> GetPhysicalKitUnitsAsync(Guid productModelId, string filter, int page,
+        int pageSize, CancellationToken cancellationToken) => GetAsync<PhysicalKitUnitPageViewModel>(
+            $"/core/api/physical-kits/models/{productModelId}/units?filter={Uri.EscapeDataString(filter)}&page={page}&pageSize={pageSize}",
+            cancellationToken);
+
+    public async Task<IReadOnlyCollection<PhysicalKitListItemViewModel>> GetPhysicalKitLabelsAsync(Guid productModelId,
+        string filter, CancellationToken cancellationToken) =>
+        await GetAsync<PhysicalKitListItemViewModel[]>(
+            $"/core/api/physical-kits/models/{productModelId}/labels?filter={Uri.EscapeDataString(filter)}",
+            cancellationToken) ?? [];
+
     public Task<PhysicalKitDetailViewModel?> GetPhysicalKitAsync(Guid id, CancellationToken cancellationToken) =>
         GetAsync<PhysicalKitDetailViewModel>($"/core/api/physical-kits/{id}", cancellationToken);
 
@@ -124,6 +139,8 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var response = await client.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
+            return default;
+        if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
             return default;
         return await response.Content.ReadFromJsonAsync<T>(cancellationToken);
     }

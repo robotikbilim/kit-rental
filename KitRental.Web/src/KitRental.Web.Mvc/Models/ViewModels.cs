@@ -84,6 +84,11 @@ public sealed record PhysicalKitListItemViewModel(Guid Id, Guid ProductModelId, 
 public sealed record PhysicalKitDashboardViewModel(int Total, int Available, int Rented, int Reserved, int InTransit,
     int ServiceOrInspection, IReadOnlyCollection<PhysicalKitListItemViewModel> AvailableKits,
     IReadOnlyCollection<PhysicalKitListItemViewModel> RentedKits, IReadOnlyCollection<PhysicalKitListItemViewModel> AllKits);
+public sealed record PhysicalKitModelSummaryViewModel(Guid ProductModelId, string KitName, string KitSku,
+    string? ImageUrl, int Total, int Available, int Faulty);
+public sealed record PhysicalKitUnitPageViewModel(Guid ProductModelId, string KitName, string KitSku, string? ImageUrl,
+    string Filter, int Page, int PageSize, int TotalCount, int TotalPages,
+    IReadOnlyCollection<PhysicalKitListItemViewModel> Items);
 public sealed record PhysicalKitStatusEventViewModel(int? PreviousStatus, int NewStatus, DateTimeOffset OccurredAt, string Reason);
 public sealed record PhysicalKitRentalHistoryViewModel(Guid AssignmentId, string OrderNumber, int OrderStatus,
     int AssignmentStatus, string CustomerName, string CustomerEmail, string Address, DateOnly StartDate,
@@ -106,7 +111,7 @@ public sealed record CreatePhysicalKitPageViewModel(CreatePhysicalKitViewModel F
     IReadOnlyCollection<ProductModelCatalogViewModel> KitModels);
 public sealed record PhysicalKitLabelViewModel(Guid Id, string KitName, string KitSku, string SerialNumber, string QrCode);
 public sealed record PhysicalKitLabelsPageViewModel(DateTimeOffset CreatedAt,
-    IReadOnlyCollection<PhysicalKitLabelViewModel> Labels);
+    IReadOnlyCollection<PhysicalKitLabelViewModel> Labels, string? BackUrl = null);
 public sealed class RentPhysicalKitViewModel
 {
     public Guid ProductUnitId { get; set; }

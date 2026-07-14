@@ -3,7 +3,7 @@
 <div class="labels-page">
     <header class="labels-heading print-hidden">
         <div><span class="eyebrow">OLUŞTURMA TAMAMLANDI</span><h1>@Model.Labels.Count fiziksel kit hazır</h1><p>Her kit için benzersiz seri numarası ve QR kod oluşturuldu. Etiketleri A4 sayfaya yazdırabilirsiniz.</p></div>
-        <div class="labels-actions"><a class="secondary-action" asp-action="Index">Fiziksel kitlere dön</a><button class="primary-action" type="button" onclick="window.print()">Etiketleri yazdır</button></div>
+        <div class="labels-actions"><a class="secondary-action" href="@(Model.BackUrl ?? Url.Action("Index"))">Fiziksel kitlere dön</a><button class="primary-action" type="button" onclick="window.print()">Etiketleri yazdır</button></div>
     </header>
     <div class="labels-print-meta print-only"><strong>KitRental Fiziksel Kit Etiketleri</strong><span>@Model.CreatedAt.ToString("dd.MM.yyyy HH:mm") · @Model.Labels.Count adet</span></div>
     <section class="label-grid">
