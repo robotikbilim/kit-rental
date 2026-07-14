@@ -97,9 +97,9 @@ Her uygulamanın bağımsız Dockerfile'ı vardır; böylece tek repository içi
 
 Davranış:
 
-- Pull request'te dört Dockerfile yalnız build edilerek doğrulanır, registry'ye push edilmez.
-- `main` push'unda `latest`, branch ve commit SHA etiketleri yayımlanır.
-- `v*` etiketi semver tag'leri üretir.
+- Workflow yalnız `main` dalına merge/push tamamlandığında çalışır; pull request ve Git tag event'lerinde çalışmaz.
+- Dört image yalnız `main` etiketiyle yayımlanır (`ghcr.io/robotikbilim/kit-rental-*:main`).
+- `latest`, semver ve commit SHA etiketleri üretilmez.
 - GitHub Actions cache her image için ayrı scope kullanır.
 - Image'lara SBOM ve provenance eklenir; yayınlarda provenance attestation registry'ye gönderilir.
 

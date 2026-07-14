@@ -1,81 +1,52 @@
 services:
-  mongo:
-    image: mongo:8.0
-    ports: ["27017:27017"]
+    
+  kit.rental.web:
+    image: ghcr.io/robotikbilim/kit-rental-web:sha256-90ab47df9275efabd8888e1504cb206340ffdba8e9f9ec267a5ae831494ac7e0
+    container_name: kit_rental_web
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    expose:
+      - "93"
+    restart: always
+    networks:
+      - external-net
     volumes:
-      - mongo-data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
+      - /root/projects/shared/nginx/ssl/ca-root.crt:/usr/local/share/ca-certificates/sectigo-root.crt:ro
+      - /root/projects/shared/nginx/ssl/ca-intermediate.crt:/usr/local/share/ca-certificates/sectigo-intermediate.crt:ro
 
-  mssql:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+  kit.rental.gateway:
+    image: ghcr.io/robotikbilim/kit-rental-gateway:sha256-a00acacc82a437f3c43afd7e61af641f3139b8be16541e659309dead89c1b8cc
+    container_name: kit_rental_gateway
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${KIT_RENTAL_SQL_PASSWORD:-KitRental_Local_2026!}
-    ports: ["1433:1433"]
-    volumes:
-      - mssql-data:/var/opt/mssql
-    healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '$$MSSQL_SA_PASSWORD' -C -Q 'SELECT 1' || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
+      - ASPNETCORE_ENVIRONMENT=Production
+    expose:
+      - "92"
+    restart: always
+    networks:
+      - external-net
 
-  identity:
-    build:
-      context: .
-      dockerfile: KitRental.Identity/src/KitRental.Identity.Api/Dockerfile
+  kit.rental.core:
+    image: ghcr.io/robotikbilim/kit-rental-core:sha256-474d5c18fc8d68fedb63502ac44de71410fa09e0d25700eb5e516cd84074f65d
+    container_name: kit_rental_core
     environment:
-      ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://+:8080
-      Security__TokenSecret: ${KIT_RENTAL_TOKEN_SECRET:-development-only-secret-change-before-production-2026}
-      Mongo__ConnectionString: mongodb://mongo:27017
-      Mongo__Database: KitRentalIdentity
-    ports: ["5101:8080"]
-    depends_on:
-      mongo:
-        condition: service_healthy
+      - ASPNETCORE_ENVIRONMENT=Production
+    expose:
+      - "91"
+    restart: always
+    networks:
+      - external-net
 
-  core:
-    build:
-      context: .
-      dockerfile: KitRental.Core/src/KitRental.Core.Api/Dockerfile
+  kit.rental.identity:
+    image: ghcr.io/robotikbilim/kit-rental-identity:sha256-0a7733c238b80fd3845ca904a1a412b7b6e2c59d54fd7841789d67741107ba22
+    container_name: kit_rental_identity
     environment:
-      ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://+:8080
-      Security__TokenSecret: ${KIT_RENTAL_TOKEN_SECRET:-development-only-secret-change-before-production-2026}
-      ConnectionStrings__CoreDatabase: Server=mssql,1433;Database=KitRentalCore;User Id=sa;Password=${KIT_RENTAL_SQL_PASSWORD:-KitRental_Local_2026!};TrustServerCertificate=True
-    ports: ["5102:8080"]
-    depends_on:
-      mssql:
-        condition: service_healthy
-
-  gateway:
-    build:
-      context: .
-      dockerfile: KitRental.Gateway/src/KitRental.ApiGateway/Dockerfile
-    environment:
-      ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://+:8080
-      Services__Identity: http://identity:8080
-      Services__Core: http://core:8080
-    ports: ["5100:8080"]
-    depends_on: [identity, core]
-
-  web:
-    build:
-      context: .
-      dockerfile: KitRental.Web/src/KitRental.Web.Mvc/Dockerfile
-    environment:
-      ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://+:8080
-      GatewayUrl: http://gateway:8080
-    ports: ["5200:8080"]
-    depends_on: [gateway]
-
-volumes:
-  mongo-data:
-  mssql-data:
+      - ASPNETCORE_ENVIRONMENT=Production
+    expose:
+      - "90"
+    restart: always
+    networks:
+      - external-net
+  
+networks:
+  external-net:
+    external: true
