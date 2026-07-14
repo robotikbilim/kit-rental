@@ -2,6 +2,7 @@ using KitRental.Web.Mvc.Models;
 using KitRental.Web.Mvc.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using QRCoder;
 
 namespace KitRental.Web.Mvc.Controllers;
 
@@ -20,6 +21,17 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
     }
 
     [HttpGet]
+    public async Task<IActionResult> Lookup(string? identifier, CancellationToken cancellationToken)
+    {
+        var value = identifier?.Trim() ?? string.Empty;
+        if (value.Length == 0)
+            return View(new PhysicalKitLookupPageViewModel(string.Empty, false, null, null));
+        var result = await apiClient.LookupPhysicalKitAsync(value, cancellationToken);
+        return View(new PhysicalKitLookupPageViewModel(value, true, result,
+            result is null ? "Bu seri numarası veya QR kodla eşleşen fiziksel kit bulunamadı." : null));
+    }
+
+    [HttpGet]
     public async Task<IActionResult> Create(CancellationToken cancellationToken) =>
         View(new CreatePhysicalKitPageViewModel(new CreatePhysicalKitViewModel(),
             await apiClient.GetProductModelsAsync(cancellationToken)));
@@ -29,14 +41,24 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
     {
         var kits = await apiClient.GetProductModelsAsync(cancellationToken);
         if (!ModelState.IsValid) return View(new CreatePhysicalKitPageViewModel(model, kits));
-        var result = await apiClient.CreatePhysicalKitAsync(model, cancellationToken);
+        var result = await apiClient.CreatePhysicalKitsAsync(model, cancellationToken);
         if (!result.IsSuccess || result.Data is null)
         {
             ModelState.AddModelError(string.Empty, result.Error ?? "Fiziksel kit eklenemedi.");
             return View(new CreatePhysicalKitPageViewModel(model, kits));
         }
-        TempData["Success"] = $"{result.Data.SerialNumber} seri numaralı kit stoğa eklendi.";
-        return RedirectToAction(nameof(Details), new { id = result.Data.Id });
+        var selectedKit = kits.Single(kit => kit.Id == model.ProductModelId);
+        var labels = result.Data.Select(unit => new PhysicalKitLabelViewModel(unit.Id, selectedKit.Name,
+            selectedKit.Sku, unit.SerialNumber, unit.QrCode)).ToArray();
+        return View("Labels", new PhysicalKitLabelsPageViewModel(DateTimeOffset.Now, labels));
+    }
+
+    [HttpGet]
+    public IActionResult Qr(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length > 200) return BadRequest();
+        var image = PngByteQRCodeHelper.GetQRCode(value, QRCodeGenerator.ECCLevel.Q, 8);
+        return File(image, "image/png");
     }
 
     [HttpGet]

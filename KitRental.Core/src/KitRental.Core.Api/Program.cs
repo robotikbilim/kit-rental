@@ -161,6 +161,13 @@ api.MapPost("/product-units", async (CreateProductUnitRequest request, ClaimsPri
     return Results.Created($"/api/product-units/{result.Id}", result);
 }).RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
 
+api.MapPost("/product-units/bulk", async (CreateProductUnitsRequest request, ClaimsPrincipal user, InventoryService service, CancellationToken cancellationToken) =>
+{
+    var result = await service.CreateUnitsAsync(
+        new CreateProductUnitsCommand(request.ProductModelId, request.Quantity, user.GetRequiredUserId()), cancellationToken);
+    return Results.Created("/api/product-units", result);
+}).RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
+
 api.MapGet("/product-units", async (InventoryService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetUnitsAsync(cancellationToken)));
 
@@ -170,6 +177,10 @@ api.MapGet("/physical-kits/dashboard", async (PhysicalKitService service, Cancel
 
 api.MapGet("/physical-kits", async (PhysicalKitService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetListAsync(cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
+
+api.MapGet("/physical-kits/lookup", async (string identifier, PhysicalKitService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.LookupAsync(identifier, cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
 
 api.MapGet("/physical-kits/{id:guid}", async (Guid id, PhysicalKitService service, CancellationToken cancellationToken) =>
@@ -384,7 +395,8 @@ static Guid GetRequiredCustomerId(ClaimsPrincipal user) => user.GetCustomerId()
     ?? throw new ForbiddenException("Bu işlem için bir müşteri hesabına bağlı olmalısınız.");
 
 public sealed record CreateProductModelRequest(string Name, string Sku, string? Description = null, string? ImageUrl = null);
-public sealed record CreateProductUnitRequest(Guid ProductModelId, string SerialNumber, string QrCode);
+public sealed record CreateProductUnitRequest(Guid ProductModelId, string? SerialNumber = null, string? QrCode = null);
+public sealed record CreateProductUnitsRequest(Guid ProductModelId, int Quantity);
 public sealed record RentPhysicalKitRequest(string CustomerName, string Email, string Phone, string AddressLine,
     string District, string City, string PostalCode, DateOnly StartDate, DateOnly EndDate);
 public sealed record CreateComponentRequest(string Name, string Sku, string UnitOfMeasure, decimal MinimumStock, string? ImageUrl = null);

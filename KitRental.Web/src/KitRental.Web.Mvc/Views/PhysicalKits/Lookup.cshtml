@@ -1,0 +1,64 @@
+@model PhysicalKitLookupPageViewModel
+@{
+    ViewData["Title"] = "Kit Geçmişi Sorgula";
+    string StatusName(int status) => status switch { 1 => "Kiralanabilir", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimatta", 5 => "Kirada", 6 => "İade yolunda", 7 => "Kontrolde", 8 => "Serviste", 9 => "Karantina", 10 => "Kayıp", 11 => "Emekli", _ => "Bilinmiyor" };
+}
+<div class="lookup-shell">
+    <header class="lookup-heading">
+        <span class="eyebrow">FİZİKSEL KİT İZLENEBİLİRLİĞİ</span>
+        <h1>Kit geçmişini sorgula</h1>
+        <p>Seri numarasını yazın veya mobil cihazınızla kit üzerindeki QR kodu okutun.</p>
+    </header>
+
+    <form class="lookup-search" method="get" asp-action="Lookup" id="lookup-form">
+        <label for="identifier">Seri numarası veya QR kod</label>
+        <div class="lookup-input-row">
+            <div class="lookup-input-wrap">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V4a1 1 0 0 1 1-1h3M17 3h3a1 1 0 0 1 1 1v3M21 17v3a1 1 0 0 1-1 1h-3M7 21H4a1 1 0 0 1-1-1v-3M7 12h10" /></svg>
+                <input id="identifier" name="identifier" value="@Model.Identifier" autocomplete="off" autocapitalize="characters" spellcheck="false" autofocus placeholder="Örn. KR-20260714-..." />
+            </div>
+            <button class="scan-action" type="button" id="scan-qr">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7V5h2M17 5h2v2M19 17v2h-2M7 19H5v-2M8 9h3v3H8zM14 9h2v2h-2zM9 15h2M14 14h2v2h-2z" /></svg>
+                QR okut
+            </button>
+            <button class="primary-action lookup-submit" type="submit">Sorgula</button>
+        </div>
+    </form>
+
+    <section class="qr-scanner" id="qr-scanner" hidden aria-live="polite">
+        <div class="scanner-viewport"><video id="scanner-video" playsinline muted></video><div class="scanner-frame"></div></div>
+        <div class="scanner-copy"><strong>QR kodu çerçevenin içine getirin</strong><span id="scanner-status">Kamera hazırlanıyor…</span></div>
+        <button type="button" class="secondary-action" id="stop-scanner">Kamerayı kapat</button>
+    </section>
+
+    @if (Model.Error is not null)
+    {
+        <div class="lookup-not-found"><strong>Kit bulunamadı</strong><span>@Model.Error</span><small>Numarayı kontrol edip tekrar deneyin.</small></div>
+    }
+    else if (Model.Result is { } result)
+    {
+        <div class="lookup-result-label"><span>SONUÇ</span><a asp-action="Details" asp-route-id="@result.Kit.Id">Tam detay sayfasını aç →</a></div>
+        <section class="detail-hero fleet-hero lookup-kit-hero">
+            <div class="detail-image"><img src="@(result.Kit.ImageUrl ?? "/images/catalog/kit.svg")" alt="@result.Kit.KitName" /></div>
+            <div><span class="eyebrow">@result.Kit.KitSku</span><h1>@result.Kit.KitName</h1><p>Seri: <strong>@result.Kit.SerialNumber</strong><br />QR: @result.Kit.QrCode</p><span class="fleet-status status-@result.Kit.Status">@StatusName(result.Kit.Status)</span></div>
+            <div class="lookup-totals"><span><strong>@result.RentalHistory.Count</strong> kiralama</span><span><strong>@result.FaultHistory.Count</strong> arıza</span><span><strong>@result.StatusHistory.Count</strong> durum hareketi</span></div>
+        </section>
+
+        <section class="detail-section"><div class="section-heading"><div><span class="eyebrow">KİRALAMA GEÇMİŞİ</span><h2>Kime, nereye ve ne zaman?</h2></div><b>@result.RentalHistory.Count kayıt</b></div>
+        @if(result.RentalHistory.Count == 0){<div class="empty">Bu kit daha önce kiralanmamış.</div>}else{<div class="history-list">@foreach(var rental in result.RentalHistory){<article><div class="history-date">@rental.StartDate.ToString("dd MMM")<small>@rental.EndDate.ToString("dd MMM yyyy")</small></div><div><strong>@rental.CustomerName</strong><span>@rental.CustomerEmail · @rental.Address</span><small>@rental.OrderNumber</small></div><span class="fleet-status">@(rental.AssignmentStatus == 2 ? "Aktif" : rental.AssignmentStatus == 3 ? "Tamamlandı" : "Rezerve")</span></article>}</div>}
+        </section>
+
+        <section class="detail-section"><div class="section-heading"><div><span class="eyebrow">ARIZA / SERVİS</span><h2>Arıza geçmişi</h2></div><b>@result.FaultHistory.Count kayıt</b></div>
+        @if(result.FaultHistory.Count == 0){<div class="empty">Bu kit için arıza kaydı yok.</div>}else{<div class="fault-cards">@foreach(var fault in result.FaultHistory){<article><div><small>@fault.Number · @fault.OpenedAt.ToString("dd.MM.yyyy")</small><h3>@fault.Category</h3><p>@fault.Description</p>@foreach(var note in fault.StatusNotes){<span>@note</span>}</div><b>Seviye @fault.Severity</b></article>}</div>}
+        </section>
+
+        <section class="detail-section"><div class="section-heading"><div><span class="eyebrow">DURUM HAREKETLERİ</span><h2>Kit yaşam döngüsü</h2></div><b>@result.StatusHistory.Count kayıt</b></div>
+            <div class="timeline">@foreach(var item in result.StatusHistory){<article><i></i><div><strong>@StatusName(item.NewStatus)</strong><span>@item.Reason</span><small>@item.OccurredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></div></article>}</div>
+        </section>
+    }
+    else if (!Model.HasSearched)
+    {
+        <div class="lookup-prompt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v6h-6v-2" /></svg><strong>Sorgulamaya hazır</strong><span>Kitin seri numarasını girin veya QR kodunu kameraya gösterin.</span></div>
+    }
+</div>
+<script src="~/js/kit-lookup.js"></script>

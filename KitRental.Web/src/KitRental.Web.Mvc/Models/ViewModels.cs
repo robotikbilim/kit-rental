@@ -56,7 +56,7 @@ public sealed class CreateKitViewModel
     [StringLength(2000)] public string? Description { get; set; }
     [Url, Display(Name = "Görsel adresi")] public string? ImageUrl { get; set; }
     [Range(1, 999), Display(Name = "Reçete sürümü")] public int BomVersion { get; set; } = 1;
-    public List<CreateKitBomLineViewModel> Lines { get; set; } = [new()];
+    public List<CreateKitBomLineViewModel> Lines { get; set; } = [];
 }
 
 public sealed class CreateKitBomLineViewModel
@@ -67,6 +67,15 @@ public sealed class CreateKitBomLineViewModel
 
 public sealed record CreateKitPageViewModel(CreateKitViewModel Form, IReadOnlyCollection<ComponentCatalogViewModel> Components);
 public sealed record KitDetailPageViewModel(ProductModelCatalogViewModel Kit, BomViewModel? Bom);
+public sealed class EditRecipeViewModel
+{
+    public Guid ProductModelId { get; set; }
+    public string ProductName { get; set; } = string.Empty;
+    [Range(1, 999), Display(Name = "Reçete sürümü")] public int Version { get; set; } = 1;
+    public List<CreateKitBomLineViewModel> Lines { get; set; } = [];
+}
+public sealed record EditRecipePageViewModel(EditRecipeViewModel Form,
+    IReadOnlyCollection<ComponentCatalogViewModel> Components, bool HasExistingRecipe);
 public sealed record ApiCommandResult<T>(bool IsSuccess, T? Data, string? Error);
 
 public sealed record PhysicalKitCurrentRentalViewModel(string CustomerName, string City, DateOnly StartDate, DateOnly EndDate);
@@ -85,15 +94,19 @@ public sealed record PhysicalKitDetailViewModel(PhysicalKitListItemViewModel Kit
     IReadOnlyCollection<PhysicalKitRentalHistoryViewModel> RentalHistory,
     IReadOnlyCollection<PhysicalKitFaultHistoryViewModel> FaultHistory,
     IReadOnlyCollection<PhysicalKitStatusEventViewModel> StatusHistory);
+public sealed record PhysicalKitLookupPageViewModel(string Identifier, bool HasSearched,
+    PhysicalKitDetailViewModel? Result, string? Error);
 
 public sealed class CreatePhysicalKitViewModel
 {
     [Required, Display(Name = "Eğitim kiti")] public Guid ProductModelId { get; set; }
-    [Required, StringLength(100), Display(Name = "Seri numarası")] public string SerialNumber { get; set; } = string.Empty;
-    [Required, StringLength(100), Display(Name = "QR kod")] public string QrCode { get; set; } = string.Empty;
+    [Range(1, 200), Display(Name = "Oluşturulacak kit adedi")] public int Quantity { get; set; } = 1;
 }
 public sealed record CreatePhysicalKitPageViewModel(CreatePhysicalKitViewModel Form,
     IReadOnlyCollection<ProductModelCatalogViewModel> KitModels);
+public sealed record PhysicalKitLabelViewModel(Guid Id, string KitName, string KitSku, string SerialNumber, string QrCode);
+public sealed record PhysicalKitLabelsPageViewModel(DateTimeOffset CreatedAt,
+    IReadOnlyCollection<PhysicalKitLabelViewModel> Labels);
 public sealed class RentPhysicalKitViewModel
 {
     public Guid ProductUnitId { get; set; }

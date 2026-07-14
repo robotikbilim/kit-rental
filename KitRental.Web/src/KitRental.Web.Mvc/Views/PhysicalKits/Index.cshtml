@@ -5,7 +5,7 @@
 }
 <div class="catalog-heading">
     <div><span class="eyebrow">KİRALAMA STOĞU</span><h1>Seri numaralı kitler</h1><p>Her fiziksel kiti, mevcut kiracısını ve operasyon durumunu tek ekrandan izleyin.</p></div>
-    <a class="primary-action" asp-action="Create">+ Fiziksel kit ekle</a>
+    <div class="recipe-actions"><a class="secondary-action" asp-action="Lookup">⌕ Kit geçmişi sorgula</a><a class="primary-action" asp-action="Create">+ Fiziksel kit ekle</a></div>
 </div>
 @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
 @if (Model is null) { <div class="empty">Fiziksel kit verileri alınamadı.</div> }

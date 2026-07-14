@@ -1,20 +1,22 @@
-@model CreateKitPageViewModel
-@{ ViewData["Title"] = "Yeni Eğitim Kiti"; }
+@model EditRecipePageViewModel
+@{ ViewData["Title"] = Model.HasExistingRecipe ? "Reçeteyi Güncelle" : "Reçete Ekle"; }
 <div class="form-shell form-shell-wide">
-    <div class="form-heading"><a asp-action="Kits">← Eğitim Kitleri</a><span class="eyebrow">KİT TANIMI</span><h1>Yeni eğitim kiti</h1><p>Kit bilgilerini kaydedin. Üretim reçetesini şimdi tanımlayabilir veya daha sonra kit detayından ekleyebilirsiniz.</p></div>
-    <form method="post" class="catalog-form" id="kit-form">
+    <div class="form-heading">
+        <a asp-action="Kit" asp-route-id="@Model.Form.ProductModelId">← Kit detayına dön</a>
+        <span class="eyebrow">BOM / REÇETE</span>
+        <h1>@(Model.HasExistingRecipe ? "Reçeteyi güncelle" : "Reçete ekle")</h1>
+        <p><strong>@Model.Form.ProductName</strong> için komponent ve miktarları belirleyin. Güncelleme önceki reçeteyi koruyarak yeni ve aktif bir sürüm oluşturur.</p>
+    </div>
+    <form method="post" class="catalog-form">
         <div asp-validation-summary="All" class="error"></div>
-        <section class="form-section"><h2>Kit bilgileri</h2>
-            <div class="form-grid">
-                <div class="field wide"><label for="Name">Eğitim kiti adı</label><input id="Name" name="Name" value="@Model.Form.Name" required placeholder="Örn. Çizgi İzleyen Robot Kiti" /></div>
-                <div class="field"><label for="Sku">SKU / ürün kodu</label><input id="Sku" name="Sku" value="@Model.Form.Sku" required placeholder="KIT-LINE-01" /></div>
-                <input id="BomVersion" name="BomVersion" value="@Model.Form.BomVersion" type="hidden" />
-                <div class="field wide"><label for="Description">Açıklama</label><textarea id="Description" name="Description" rows="3" placeholder="Kitin eğitim amacı ve kapsamı...">@Model.Form.Description</textarea></div>
-                <div class="field wide"><label for="ImageUrl">Görsel adresi</label><input id="ImageUrl" name="ImageUrl" value="@Model.Form.ImageUrl" placeholder="https://.../kit.jpg" /></div>
+        <input name="ProductModelId" value="@Model.Form.ProductModelId" type="hidden" />
+        <input name="ProductName" value="@Model.Form.ProductName" type="hidden" />
+        <section class="form-section">
+            <div class="section-heading">
+                <div><h2>Komponentler</h2><p>Kaydedilecek reçete sürümü: <strong>@Model.Form.Version</strong></p></div>
+                <button type="button" class="secondary-action" id="add-line">+ Komponent ekle</button>
             </div>
-        </section>
-        <section class="form-section recipe-builder">
-            <div class="section-heading"><div><h2>Üretim reçetesi <small>(isteğe bağlı)</small></h2><p>Bir kit üretmek için gereken komponentleri ekleyin veya bu bölümü boş bırakın.</p></div><button type="button" class="secondary-action" id="add-line">+ Komponent ekle</button></div>
+            <input name="Version" value="@Model.Form.Version" type="hidden" />
             <div class="recipe-lines" id="recipe-lines">
             @for (var index = 0; index < Model.Form.Lines.Count; index++)
             {
@@ -27,7 +29,7 @@
             }
             </div>
         </section>
-        <div class="form-actions"><a asp-action="Kits" class="secondary-action">Vazgeç</a><button type="submit" class="primary-action">Eğitim kitini kaydet</button></div>
+        <div class="form-actions"><a asp-action="Kit" asp-route-id="@Model.Form.ProductModelId" class="secondary-action">Vazgeç</a><button type="submit" class="primary-action">Reçeteyi kaydet</button></div>
     </form>
 </div>
 <template id="recipe-template"><div class="recipe-line"><span class="line-number"></span><div class="field"><label>Komponent</label><select required><option value="">Komponent seçin</option>@foreach (var component in Model.Components) { <option value="@component.Id">@component.Name — @component.Sku (stok: @component.TotalStock.ToString("0.###"))</option> }</select></div><div class="field quantity-field"><label>Adet / miktar</label><input type="number" min="0.001" step="0.001" value="1" required /></div><button type="button" class="remove-line" aria-label="Satırı kaldır">×</button></div></template>

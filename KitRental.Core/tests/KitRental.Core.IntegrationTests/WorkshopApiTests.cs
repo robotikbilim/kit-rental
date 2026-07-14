@@ -40,6 +40,89 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
+    public async Task CreateKit_WithoutRecipe_AllowsRecipeToBeAddedAndUpdatedLater()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var component = await PostAsync<ComponentResponse>("/api/components",
+            new CreateComponentRequest("Sonradan Reçete Komponenti", $"CMP-{Guid.NewGuid():N}", "adet", 1), cancellationToken);
+        var kit = await PostAsync<KitCatalogResponse>("/api/kits",
+            new CreateKitRequest("Reçetesiz Eğitim Kiti", $"KIT-{Guid.NewGuid():N}", null, null, 1, []), cancellationToken);
+
+        Assert.Null(kit.BomVersion);
+        Assert.Empty(kit.Lines);
+        var missingBom = await _client.GetAsync($"/api/product-models/{kit.Id}/bom", cancellationToken);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, missingBom.StatusCode);
+
+        await PostAsync<BillOfMaterialsResponse>($"/api/product-models/{kit.Id}/bom",
+            new CreateBillOfMaterialsRequest(1, [new BillOfMaterialsLineRequest(component.Id, 2)]), cancellationToken);
+        await PostAsync<BillOfMaterialsResponse>($"/api/product-models/{kit.Id}/bom",
+            new CreateBillOfMaterialsRequest(2, [new BillOfMaterialsLineRequest(component.Id, 4)]), cancellationToken);
+
+        var activeBom = await _client.GetFromJsonAsync<BillOfMaterialsResponse>(
+            $"/api/product-models/{kit.Id}/bom", cancellationToken);
+        Assert.Equal(2, activeBom!.Version);
+        Assert.Equal(4, activeBom.Lines.Single().Quantity);
+    }
+
+    [Fact]
+    public async Task CreatePhysicalKit_WithoutIdentifiers_GeneratesUniqueSerialAndQrCode()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var model = await PostAsync<ProductModelResponse>("/api/product-models",
+            new CreateProductModelRequest("Otomatik Seri Test Kiti", $"KIT-{Guid.NewGuid():N}"), cancellationToken);
+
+        var first = await PostAsync<ProductUnitResponse>("/api/product-units",
+            new { ProductModelId = model.Id }, cancellationToken);
+        var second = await PostAsync<ProductUnitResponse>("/api/product-units",
+            new { ProductModelId = model.Id }, cancellationToken);
+
+        Assert.StartsWith("KR-", first.SerialNumber, StringComparison.Ordinal);
+        Assert.StartsWith("KR-", second.SerialNumber, StringComparison.Ordinal);
+        Assert.NotEqual(first.SerialNumber, second.SerialNumber);
+        Assert.Equal($"KITRENTAL:{first.SerialNumber}", first.QrCode);
+        Assert.Equal($"KITRENTAL:{second.SerialNumber}", second.QrCode);
+    }
+
+    [Fact]
+    public async Task PhysicalKitLookup_FindsCompleteKitBySerialNumberOrQrCode()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var model = await PostAsync<ProductModelResponse>("/api/product-models",
+            new CreateProductModelRequest("Geçmiş Sorgu Kiti", $"KIT-{Guid.NewGuid():N}"), cancellationToken);
+        var unit = await PostAsync<ProductUnitResponse>("/api/product-units",
+            new { ProductModelId = model.Id }, cancellationToken);
+
+        var bySerial = await _client.GetFromJsonAsync<KitRental.Core.Application.PhysicalKits.PhysicalKitDetailResponse>(
+            $"/api/physical-kits/lookup?identifier={Uri.EscapeDataString(unit.SerialNumber)}", cancellationToken);
+        var byQr = await _client.GetFromJsonAsync<KitRental.Core.Application.PhysicalKits.PhysicalKitDetailResponse>(
+            $"/api/physical-kits/lookup?identifier={Uri.EscapeDataString(unit.QrCode)}", cancellationToken);
+
+        Assert.Equal(unit.Id, bySerial!.Kit.Id);
+        Assert.Equal(unit.Id, byQr!.Kit.Id);
+        Assert.NotEmpty(bySerial.StatusHistory);
+    }
+
+    [Fact]
+    public async Task CreatePhysicalKitsBulk_GeneratesDistinctIdentifiersForEveryUnit()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var model = await PostAsync<ProductModelResponse>("/api/product-models",
+            new CreateProductModelRequest("Toplu Üretim Test Kiti", $"KIT-{Guid.NewGuid():N}"), cancellationToken);
+
+        var units = await PostAsync<ProductUnitResponse[]>("/api/product-units/bulk",
+            new { ProductModelId = model.Id, Quantity = 8 }, cancellationToken);
+
+        Assert.Equal(8, units.Length);
+        Assert.Equal(8, units.Select(item => item.SerialNumber).Distinct().Count());
+        Assert.Equal(8, units.Select(item => item.QrCode).Distinct().Count());
+        Assert.All(units, item => Assert.Equal($"KITRENTAL:{item.SerialNumber}", item.QrCode));
+
+        var invalid = await _client.PostAsJsonAsync("/api/product-units/bulk",
+            new { ProductModelId = model.Id, Quantity = 201 }, cancellationToken);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, invalid.StatusCode);
+    }
+
+    [Fact]
     public async Task ComponentStockAndBom_CalculateBuildableKitAndTrackShelves()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

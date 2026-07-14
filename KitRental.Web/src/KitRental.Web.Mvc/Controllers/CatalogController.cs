@@ -28,8 +28,6 @@ public sealed class CatalogController(KitRentalApiClient apiClient) : Controller
     public async Task<IActionResult> CreateKit(CreateKitViewModel model, CancellationToken cancellationToken)
     {
         model.Lines = model.Lines.Where(line => line.ComponentId != Guid.Empty).ToList();
-        if (model.Lines.Count == 0)
-            ModelState.AddModelError(nameof(model.Lines), "Reçeteye en az bir komponent ekleyin.");
         if (model.Lines.GroupBy(line => line.ComponentId).Any(group => group.Count() > 1))
             ModelState.AddModelError(nameof(model.Lines), "Aynı komponent reçetede birden fazla kez kullanılamaz.");
         if (!ModelState.IsValid)
@@ -40,8 +38,52 @@ public sealed class CatalogController(KitRentalApiClient apiClient) : Controller
             ModelState.AddModelError(string.Empty, result.Error ?? "Eğitim kiti oluşturulamadı.");
             return View(await KitPageAsync(model, cancellationToken));
         }
-        TempData["Success"] = "Eğitim kiti ve reçetesi oluşturuldu.";
+        TempData["Success"] = model.Lines.Count == 0
+            ? "Eğitim kiti oluşturuldu. Reçeteyi daha sonra ekleyebilirsiniz."
+            : "Eğitim kiti ve reçetesi oluşturuldu.";
         return RedirectToAction(nameof(Kit), new { id = result.Data.Id });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> EditRecipe(Guid id, CancellationToken cancellationToken)
+    {
+        var kit = await apiClient.GetProductModelAsync(id, cancellationToken);
+        if (kit is null) return NotFound();
+        var bom = await apiClient.GetBomAsync(id, cancellationToken);
+        var form = new EditRecipeViewModel
+        {
+            ProductModelId = id,
+            ProductName = kit.Name,
+            Version = (bom?.Version ?? 0) + 1,
+            Lines = bom?.Lines.Select(line => new CreateKitBomLineViewModel
+            {
+                ComponentId = line.ComponentId,
+                Quantity = line.Quantity
+            }).ToList() ?? []
+        };
+        return View(await RecipePageAsync(form, bom is not null, cancellationToken));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditRecipe(Guid id, EditRecipeViewModel model, CancellationToken cancellationToken)
+    {
+        model.ProductModelId = id;
+        model.Lines = model.Lines.Where(line => line.ComponentId != Guid.Empty).ToList();
+        if (model.Lines.Count == 0)
+            ModelState.AddModelError(nameof(model.Lines), "Reçeteye en az bir komponent ekleyin.");
+        if (model.Lines.GroupBy(line => line.ComponentId).Any(group => group.Count() > 1))
+            ModelState.AddModelError(nameof(model.Lines), "Aynı komponent reçetede birden fazla kez kullanılamaz.");
+        var existing = await apiClient.GetBomAsync(id, cancellationToken);
+        if (!ModelState.IsValid)
+            return View(await RecipePageAsync(model, existing is not null, cancellationToken));
+        var result = await apiClient.SaveBomAsync(model, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            ModelState.AddModelError(string.Empty, result.Error ?? "Reçete kaydedilemedi.");
+            return View(await RecipePageAsync(model, existing is not null, cancellationToken));
+        }
+        TempData["Success"] = existing is null ? "Reçete oluşturuldu." : $"Reçete sürüm {model.Version} olarak güncellendi.";
+        return RedirectToAction(nameof(Kit), new { id });
     }
 
     [HttpGet]
@@ -74,4 +116,12 @@ public sealed class CatalogController(KitRentalApiClient apiClient) : Controller
 
     private async Task<CreateKitPageViewModel> KitPageAsync(CreateKitViewModel form, CancellationToken cancellationToken) =>
         new(form, await apiClient.GetComponentsAsync(cancellationToken));
+
+    private async Task<EditRecipePageViewModel> RecipePageAsync(EditRecipeViewModel form, bool hasExistingRecipe,
+        CancellationToken cancellationToken)
+    {
+        var kit = await apiClient.GetProductModelAsync(form.ProductModelId, cancellationToken);
+        if (kit is not null) form.ProductName = kit.Name;
+        return new EditRecipePageViewModel(form, await apiClient.GetComponentsAsync(cancellationToken), hasExistingRecipe);
+    }
 }

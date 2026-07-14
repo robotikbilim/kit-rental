@@ -119,6 +119,8 @@ public static class DemoDataSeeder
         }
         await db.SaveChangesAsync(cancellationToken);
 
+        await RobotlukCatalogSeeder.SeedAsync(db, cancellationToken);
+
         var rentalCustomers = new[]
         {
             ("TACEV Kadıköy Eğitim Merkezi", "kadikoy@tacev.demo", "0216 555 10 10", "Eğitim Mah. Atölye Sok. No: 12", "Kadıköy", "İstanbul"),
@@ -143,7 +145,7 @@ public static class DemoDataSeeder
         await db.SaveChangesAsync(cancellationToken);
 
         var kitIndex = 0;
-        foreach (var product in products.Values.OrderBy(item => item.Sku))
+        foreach (var product in kitDefinitions.Select(definition => products[definition.Sku]).OrderBy(item => item.Sku))
         {
             for (var unitIndex = 1; unitIndex <= 3; unitIndex++)
             {

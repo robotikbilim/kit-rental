@@ -100,3 +100,5 @@ Repository'deki varsayılan secret ve parola yalnız yerel geliştirme içindir;
 
 Core seeder başlangıç kataloğunu gerçekçi örneklerle doldurur: komponentler, depo/raf lokasyonları, raf bakiyeleri, eğitim kitleri ve reçeteler. Seeder idempotent tasarlandığı için uygulamanın tekrar başlaması aynı iş anahtarlarını çoğaltmaz.
 
+Seeder ayrıca Robotluk komponent kategorisinden alınan 15 komponenti ve Robotik Bilim markasına ait 4 eğitim setini `RBL-` SKU önekiyle ekler. Bu dış katalog kayıtlarına yapay stok, reçete veya seri numaralı fiziksel kit üretilmez. Görseller `scripts/import-robotluk-images.ps1` ile sitenin crawl gecikmesine uyularak Web projesinin `wwwroot/images/catalog/robotluk` dizinine indirilir. Katalog anlık görüntüsü 14 Temmuz 2026 tarihinde `robotluk.com` üzerinden alınmıştır.
+

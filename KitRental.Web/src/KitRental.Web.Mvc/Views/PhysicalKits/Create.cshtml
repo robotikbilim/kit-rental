@@ -1,14 +1,14 @@
 @model CreatePhysicalKitPageViewModel
 @{ ViewData["Title"] = "Fiziksel Kit Ekle"; }
 <div class="form-shell">
-    <div class="form-heading"><a asp-action="Index">← Fiziksel kitlere dön</a><span class="eyebrow">STOK GİRİŞİ</span><h1>Seri numaralı kit ekle</h1><p>Üretilmiş ya da satın alınmış fiziksel bir kiti kiralama stoğuna kaydedin.</p></div>
+    <div class="form-heading"><a asp-action="Index">← Fiziksel kitlere dön</a><span class="eyebrow">TOPLU STOK GİRİŞİ</span><h1>Fiziksel kit oluştur</h1><p>Kit modelini ve adedi seçin. Her fiziksel kit için benzersiz seri numarası ve QR kod sistem tarafından otomatik oluşturulur.</p></div>
     <form class="catalog-form" asp-action="Create" method="post">
         <div asp-validation-summary="All" class="error"></div>
         <div class="form-grid">
             <div class="field wide"><label for="ProductModelId">Eğitim kiti</label><select id="ProductModelId" name="ProductModelId"><option value="">Kit modeli seçin</option>@foreach(var kit in Model.KitModels){<option value="@kit.Id" selected="@(kit.Id == Model.Form.ProductModelId ? "selected" : null)">@kit.Name (@kit.Sku)</option>}</select></div>
-            <div class="field"><label for="SerialNumber">Seri numarası</label><input id="SerialNumber" name="SerialNumber" value="@Model.Form.SerialNumber" placeholder="Örn. KR-ARD-2026-001" /></div>
-            <div class="field"><label for="QrCode">QR kod</label><input id="QrCode" name="QrCode" value="@Model.Form.QrCode" placeholder="Örn. QR-KR-ARD-001" /></div>
+            <div class="field"><label for="Quantity">Oluşturulacak kit adedi</label><input id="Quantity" name="Quantity" value="@Model.Form.Quantity" type="number" min="1" max="200" inputmode="numeric" required /></div>
+            <div class="field bulk-create-note"><strong>1–200 adet</strong><small>Oluşturma tamamlandığında seri numarası ve QR etiketleri yazdırmaya hazır gösterilir.</small></div>
         </div>
-        <div class="form-actions"><a class="secondary-action" asp-action="Index">Vazgeç</a><button class="primary-action" type="submit">Stoğa ekle</button></div>
+        <div class="form-actions"><a class="secondary-action" asp-action="Index">Vazgeç</a><button class="primary-action" type="submit">Kitleri oluştur ve etiketleri hazırla</button></div>
     </form>
 </div>

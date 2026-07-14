@@ -67,14 +67,28 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             lines = model.Lines.Select(line => new { line.ComponentId, line.Quantity }).ToArray()
         }, cancellationToken);
 
+    public Task<ApiCommandResult<BomViewModel>> SaveBomAsync(
+        EditRecipeViewModel model,
+        CancellationToken cancellationToken) =>
+        PostAsync<BomViewModel>($"/core/api/product-models/{model.ProductModelId}/bom", new
+        {
+            model.Version,
+            lines = model.Lines.Select(line => new { line.ComponentId, line.Quantity }).ToArray()
+        }, cancellationToken);
+
     public Task<PhysicalKitDashboardViewModel?> GetPhysicalKitDashboardAsync(CancellationToken cancellationToken) =>
         GetAsync<PhysicalKitDashboardViewModel>("/core/api/physical-kits/dashboard", cancellationToken);
 
     public Task<PhysicalKitDetailViewModel?> GetPhysicalKitAsync(Guid id, CancellationToken cancellationToken) =>
         GetAsync<PhysicalKitDetailViewModel>($"/core/api/physical-kits/{id}", cancellationToken);
 
-    public Task<ApiCommandResult<ProductUnitViewModel>> CreatePhysicalKitAsync(CreatePhysicalKitViewModel model,
-        CancellationToken cancellationToken) => PostAsync<ProductUnitViewModel>("/core/api/product-units", model, cancellationToken);
+    public Task<PhysicalKitDetailViewModel?> LookupPhysicalKitAsync(string identifier, CancellationToken cancellationToken) =>
+        GetAsync<PhysicalKitDetailViewModel>($"/core/api/physical-kits/lookup?identifier={Uri.EscapeDataString(identifier)}",
+            cancellationToken);
+
+    public Task<ApiCommandResult<ProductUnitViewModel[]>> CreatePhysicalKitsAsync(CreatePhysicalKitViewModel model,
+        CancellationToken cancellationToken) => PostAsync<ProductUnitViewModel[]>("/core/api/product-units/bulk",
+            new { model.ProductModelId, model.Quantity }, cancellationToken);
 
     public Task<ApiCommandResult<RentPhysicalKitResultViewModel>> RentPhysicalKitAsync(RentPhysicalKitViewModel model,
         CancellationToken cancellationToken) => PostAsync<RentPhysicalKitResultViewModel>(

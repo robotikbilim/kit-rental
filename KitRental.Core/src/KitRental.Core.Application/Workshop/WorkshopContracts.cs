@@ -137,7 +137,7 @@ public sealed record KitCatalogResponse(
     string Sku,
     string? Description,
     string? ImageUrl,
-    int BomVersion,
+    int? BomVersion,
     IReadOnlyCollection<BillOfMaterialsLineResponse> Lines);
 
 public sealed record BuildableComponentResponse(

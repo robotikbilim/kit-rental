@@ -66,6 +66,17 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
         return new PhysicalKitDetailResponse(await MapListItemAsync(unit, model, cancellationToken), rentals, faults, status);
     }
 
+    public async Task<PhysicalKitDetailResponse> LookupAsync(string identifier, CancellationToken cancellationToken)
+    {
+        var value = identifier.Trim();
+        var unit = (await repository.GetProductUnitsAsync(cancellationToken)).FirstOrDefault(item =>
+            string.Equals(item.SerialNumber, value, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.QrCode, value, StringComparison.OrdinalIgnoreCase));
+        if (unit is null)
+            throw new ResourceNotFoundException("Bu seri numarası veya QR kodla eşleşen fiziksel kit bulunamadı.");
+        return await GetDetailAsync(unit.Id, cancellationToken);
+    }
+
     public async Task<RentPhysicalKitResponse> RentAsync(RentPhysicalKitCommand command, CancellationToken cancellationToken)
     {
         var unit = await repository.GetProductUnitAsync(command.ProductUnitId, cancellationToken)

@@ -193,12 +193,15 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
             throw new ResourceNotFoundException("Reçetedeki komponentlerden biri bulunamadı.");
 
         var product = ProductModel.Create(Guid.NewGuid(), command.Name, command.Sku, command.Description, command.ImageUrl);
-        var bom = BillOfMaterials.Create(Guid.NewGuid(), product.Id, command.BomVersion,
-            command.Lines.Select(line => (line.ComponentId, line.Quantity)));
+        BillOfMaterials? bom = null;
+        if (command.Lines.Count > 0)
+            bom = BillOfMaterials.Create(Guid.NewGuid(), product.Id, command.BomVersion,
+                command.Lines.Select(line => (line.ComponentId, line.Quantity)));
         try
         {
             await repository.AddProductModelAsync(product, cancellationToken);
-            await repository.AddBillOfMaterialsAsync(bom, cancellationToken);
+            if (bom is not null)
+                await repository.AddBillOfMaterialsAsync(bom, cancellationToken);
         }
         catch (InvalidOperationException exception)
         {
@@ -206,9 +209,13 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
         }
 
         await AuditAsync(command.ActorId, nameof(ProductModel), product.Id, "Created", null, product.Sku, cancellationToken);
-        await AuditAsync(command.ActorId, nameof(BillOfMaterials), bom.Id, "Created", null,
-            $"{product.Sku}/v{bom.Version}", cancellationToken);
+        if (bom is not null)
+            await AuditAsync(command.ActorId, nameof(BillOfMaterials), bom.Id, "Created", null,
+                $"{product.Sku}/v{bom.Version}", cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
+        if (bom is null)
+            return new KitCatalogResponse(product.Id, product.Name, product.Sku, product.Description, product.ImageUrl,
+                null, []);
         var mapped = MapBom(bom, product, components.ToDictionary(item => item.Id));
         return new KitCatalogResponse(product.Id, product.Name, product.Sku, product.Description, product.ImageUrl,
             mapped.Version, mapped.Lines);
@@ -216,6 +223,7 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
 
     public async Task<BillOfMaterialsResponse> GetActiveBomAsync(Guid productModelId, CancellationToken cancellationToken)
     {
+        
         var bom = await repository.GetActiveBillOfMaterialsAsync(productModelId, cancellationToken)
             ?? throw new ResourceNotFoundException("Ürün modeli için aktif reçete bulunamadı.");
         var product = await repository.GetProductModelAsync(productModelId, cancellationToken)
