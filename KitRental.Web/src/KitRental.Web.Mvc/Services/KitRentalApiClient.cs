@@ -85,6 +85,10 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             lines = model.Lines.Select(line => new { line.ComponentId, Quantity = line.SuppliedQuantity }).ToArray()
         }, cancellationToken);
 
+    public Task<ApiCommandResult<SupplyNeedListViewModel>> ApproveSupplyNeedRecommendationAsync(Guid id,
+        CancellationToken cancellationToken) => PostAsync<SupplyNeedListViewModel>(
+        $"/core/api/supply-needs/{id}/approve", new { }, cancellationToken);
+
     public Task<ApiCommandResult<object>> DeleteSupplyNeedAsync(Guid id, CancellationToken cancellationToken) =>
         SendAsync<object>(HttpMethod.Delete, $"/core/api/supply-needs/{id}", null, cancellationToken);
 

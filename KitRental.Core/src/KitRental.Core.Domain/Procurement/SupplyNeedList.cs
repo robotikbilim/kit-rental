@@ -4,6 +4,7 @@ namespace KitRental.Core.Domain.Procurement;
 
 public enum SupplyNeedStatus
 {
+    Recommended = 0,
     Pending = 1,
     Supplied = 2
 }
@@ -33,12 +34,32 @@ public sealed class SupplyNeedList
         if (id == Guid.Empty)
             throw new DomainException("supply_need.id_required", "İhtiyaç listesi kimliği zorunludur.");
         var list = new SupplyNeedList(id, createdAt);
-        list.ReplaceLines(lines, createdAt);
+        list.ReplaceLines(lines, createdAt, false);
+        return list;
+    }
+
+    public static SupplyNeedList CreateRecommendation(Guid id, DateTimeOffset createdAt)
+    {
+        if (id == Guid.Empty)
+            throw new DomainException("supply_need.id_required", "İhtiyaç listesi kimliği zorunludur.");
+        var list = new SupplyNeedList(id, createdAt) { Status = SupplyNeedStatus.Recommended };
+        list.UpdatedAt = createdAt;
         return list;
     }
 
     public void Update(IEnumerable<(Guid ComponentId, decimal Quantity)> lines, DateTimeOffset updatedAt) =>
-        ReplaceLines(lines, updatedAt);
+        ReplaceLines(lines, updatedAt, Status == SupplyNeedStatus.Recommended);
+
+    public void ApproveRecommendation(DateTimeOffset approvedAt)
+    {
+        if (Status != SupplyNeedStatus.Recommended)
+            throw new DomainException("supply_need.not_recommendation", "Yalnızca tavsiye listesi onaylanabilir.");
+        if (_lines.Count == 0)
+            throw new DomainException("supply_need.lines_required", "Onaylanacak tavsiye listesinde en az bir komponent olmalıdır.");
+        Status = SupplyNeedStatus.Pending;
+        CreatedAt = approvedAt;
+        UpdatedAt = approvedAt;
+    }
 
     public void Complete(IEnumerable<(Guid ComponentId, decimal SuppliedQuantity)> suppliedLines,
         DateTimeOffset updatedAt)
@@ -58,10 +79,11 @@ public sealed class SupplyNeedList
         UpdatedAt = updatedAt;
     }
 
-    private void ReplaceLines(IEnumerable<(Guid ComponentId, decimal Quantity)> lines, DateTimeOffset updatedAt)
+    private void ReplaceLines(IEnumerable<(Guid ComponentId, decimal Quantity)> lines, DateTimeOffset updatedAt,
+        bool allowEmpty)
     {
         var materialized = lines.ToArray();
-        if (materialized.Length == 0)
+        if (!allowEmpty && materialized.Length == 0)
             throw new DomainException("supply_need.lines_required", "İhtiyaç listesine en az bir komponent eklenmelidir.");
         if (materialized.Any(line => line.ComponentId == Guid.Empty || line.Quantity <= 0))
             throw new DomainException("supply_need.line_invalid", "Komponent ve adet bilgileri geçerli olmalıdır.");

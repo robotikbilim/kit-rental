@@ -12,6 +12,8 @@ public sealed class SupplyNeedService(ICoreRepository repository, TimeProvider t
     {
         var components = (await repository.GetComponentsAsync(cancellationToken)).ToDictionary(item => item.Id);
         return (await repository.GetSupplyNeedListsAsync(cancellationToken))
+            .OrderBy(item => item.Status == SupplyNeedStatus.Recommended ? 0 : 1)
+            .ThenByDescending(item => item.CreatedAt)
             .Select(item => Map(item, components)).ToArray();
     }
 
@@ -49,6 +51,50 @@ public sealed class SupplyNeedService(ICoreRepository repository, TimeProvider t
         return Map(list, components);
     }
 
+    public async Task<SupplyNeedResponse> ApproveRecommendationAsync(Guid id, Guid actorId,
+        CancellationToken cancellationToken)
+    {
+        var recommendation = await repository.GetSupplyNeedListAsync(id, cancellationToken)
+            ?? throw new ResourceNotFoundException("Tavsiye edilen ihtiyaç listesi bulunamadı.");
+        if (recommendation.Status != SupplyNeedStatus.Recommended)
+            throw new ConflictException("supply_need.not_recommendation", "Bu liste bir tavsiye taslağı değil.");
+        var now = timeProvider.GetUtcNow();
+        recommendation.ApproveRecommendation(now);
+        var nextRecommendation = SupplyNeedList.CreateRecommendation(Guid.NewGuid(), now);
+        await repository.AddSupplyNeedListAsync(nextRecommendation, cancellationToken);
+        await AuditAsync(actorId, recommendation.Id, "RecommendationApproved", null,
+            $"{recommendation.Lines.Count} kalem", cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+        return Map(recommendation,
+            (await repository.GetComponentsAsync(cancellationToken)).ToDictionary(item => item.Id));
+    }
+
+    public async Task RefreshRecommendationAsync(CancellationToken cancellationToken)
+    {
+        var lists = await repository.GetSupplyNeedListsAsync(cancellationToken);
+        var recommendation = lists.FirstOrDefault(item => item.Status == SupplyNeedStatus.Recommended);
+        var now = timeProvider.GetUtcNow();
+        if (recommendation is null)
+        {
+            recommendation = SupplyNeedList.CreateRecommendation(Guid.NewGuid(), now);
+            await repository.AddSupplyNeedListAsync(recommendation, cancellationToken);
+        }
+
+        var pendingComponentIds = lists.Where(item => item.Status == SupplyNeedStatus.Pending)
+            .SelectMany(item => item.Lines).Select(line => line.ComponentId).ToHashSet();
+        var stocks = await repository.GetComponentStocksAsync(null, null, cancellationToken);
+        var totals = stocks.GroupBy(item => item.ComponentId)
+            .ToDictionary(group => group.Key, group => group.Sum(item => item.Quantity));
+        var recommendedLines = (await repository.GetComponentsAsync(cancellationToken))
+            .Where(component => !pendingComponentIds.Contains(component.Id))
+            .Select(component => (Component: component, Missing: component.MinimumStock - totals.GetValueOrDefault(component.Id)))
+            .Where(item => item.Missing > 0)
+            .Select(item => (item.Component.Id, item.Missing))
+            .ToArray();
+        recommendation.Update(recommendedLines, now);
+        await repository.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<SupplyNeedResponse> CompleteAsync(CompleteSupplyNeedCommand command,
         CancellationToken cancellationToken)
     {
@@ -56,6 +102,8 @@ public sealed class SupplyNeedService(ICoreRepository repository, TimeProvider t
             ?? throw new ResourceNotFoundException("İhtiyaç listesi bulunamadı.");
         if (list.Status == SupplyNeedStatus.Supplied)
             throw new ConflictException("supply_need.already_supplied", "Bu ihtiyaç listesi daha önce stoğa işlendi.");
+        if (list.Status == SupplyNeedStatus.Recommended)
+            throw new ConflictException("supply_need.recommendation_not_approved", "Tavsiye listesini önce onaylayın.");
         var storageLocationId = command.StorageLocationId;
         if (storageLocationId == Guid.Empty)
         {
@@ -85,6 +133,8 @@ public sealed class SupplyNeedService(ICoreRepository repository, TimeProvider t
     {
         var list = await repository.GetSupplyNeedListAsync(id, cancellationToken)
             ?? throw new ResourceNotFoundException("İhtiyaç listesi bulunamadı.");
+        if (list.Status == SupplyNeedStatus.Recommended)
+            throw new ConflictException("supply_need.recommendation_required", "Varsayılan tavsiye listesi silinemez.");
         await repository.RemoveSupplyNeedListAsync(list, cancellationToken);
         await AuditAsync(actorId, list.Id, "Deleted", list.Status.ToString(), null, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);

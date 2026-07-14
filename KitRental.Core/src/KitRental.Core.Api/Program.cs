@@ -72,6 +72,7 @@ builder.Services.AddScoped<WorkshopService>();
 builder.Services.AddScoped<PhysicalKitService>();
 builder.Services.AddScoped<CustomerPortalService>();
 builder.Services.AddScoped<SupplyNeedService>();
+builder.Services.AddHostedService<SupplyNeedRecommendationWorker>();
 
 var app = builder.Build();
 if (!useInMemoryPersistence)
@@ -355,6 +356,11 @@ api.MapPost("/supply-needs/{id:guid}/complete", async (Guid id, CompleteSupplyNe
         await service.CompleteAsync(new CompleteSupplyNeedCommand(id, request.StorageLocationId,
             request.Lines.Select(line => new SupplyNeedLineCommand(line.ComponentId, line.Quantity)).ToArray(),
             user.GetRequiredUserId()), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
+
+api.MapPost("/supply-needs/{id:guid}/approve", async (Guid id, ClaimsPrincipal user,
+    SupplyNeedService service, CancellationToken cancellationToken) => Results.Ok(
+        await service.ApproveRecommendationAsync(id, user.GetRequiredUserId(), cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
 
 api.MapDelete("/supply-needs/{id:guid}", async (Guid id, ClaimsPrincipal user, SupplyNeedService service,

@@ -79,6 +79,15 @@ public sealed class SupplyNeedsController(KitRentalApiClient apiClient) : Contro
     }
 
     [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Approve(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await apiClient.ApproveSupplyNeedRecommendationAsync(id, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "Tavsiye onaylandı ve gerçek ihtiyaç listesi siparişine dönüştü." : result.Error;
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         var result = await apiClient.DeleteSupplyNeedAsync(id, cancellationToken);

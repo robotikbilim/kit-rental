@@ -7,21 +7,52 @@ using KitRental.Core.Domain.Procurement;
 using KitRental.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace KitRental.Core.IntegrationTests;
 
 public sealed class SupplyNeedApiTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly HttpClient _client;
+    private readonly WebApplicationFactory<Program> _factory;
 
     public SupplyNeedApiTests(WebApplicationFactory<Program> factory)
     {
-        _client = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Testing")).CreateClient();
+        _factory = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Testing"));
+        _client = _factory.CreateClient();
         var tokens = new TokenService(new TokenOptions("KitRental.Identity", "KitRental",
             "development-only-secret-change-before-production-2026", TimeSpan.FromHours(8)));
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
             tokens.Create(new TokenUser(Guid.NewGuid(), "supply-needs@test.local", "SystemAdmin", null),
                 DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
+    public async Task DailyRecommendation_AddsLowStockComponent_AndApprovalCreatesPendingOrder()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var component = await PostAsync<ComponentResponse>("/api/components",
+            new CreateComponentRequest("Düşük Stok Testi", $"LOW-{Guid.NewGuid():N}", "adet", 25),
+            cancellationToken);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+            await scope.ServiceProvider.GetRequiredService<SupplyNeedService>()
+                .RefreshRecommendationAsync(cancellationToken);
+
+        var lists = await _client.GetFromJsonAsync<SupplyNeedResponse[]>("/api/supply-needs", cancellationToken);
+        var recommendation = lists!.Single(item => item.Status == SupplyNeedStatus.Recommended);
+        var line = recommendation.Lines.Single(item => item.ComponentId == component.Id);
+        Assert.Equal(25, line.Quantity);
+
+        var approval = await _client.PostAsJsonAsync($"/api/supply-needs/{recommendation.Id}/approve",
+            new { }, cancellationToken);
+        approval.EnsureSuccessStatusCode();
+        var order = await approval.Content.ReadFromJsonAsync<SupplyNeedResponse>(cancellationToken);
+        Assert.Equal(SupplyNeedStatus.Pending, order!.Status);
+        Assert.NotEqual(recommendation.CreatedAt, order.CreatedAt);
+
+        lists = await _client.GetFromJsonAsync<SupplyNeedResponse[]>("/api/supply-needs", cancellationToken);
+        Assert.Single(lists!, item => item.Status == SupplyNeedStatus.Recommended);
     }
 
     [Fact]
