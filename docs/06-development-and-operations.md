@@ -27,6 +27,19 @@ dotnet run --project KitRental.Web/src/KitRental.Web.Mvc --urls http://localhost
 
 Sabit `--urls` kullanımı, IDE'nin dinamik HTTPS portlarıyla oluşabilecek “address already in use” hatalarını azaltır. Bir port doluysa `Get-NetTCPConnection -LocalPort <port>` ile kullanan süreç bulunmalıdır.
 
+## Ortam bazlı appsettings
+
+Çalıştırılabilir dört uygulama ortak ayarları `appsettings.json`, ortama özel adresleri ise standart ASP.NET Core dosyalarında tutar:
+
+| Uygulama | Development | Production (Docker ağı) |
+|---|---|---|
+| Identity API | `mongodb://localhost:27017` | `mongodb://mongo:27017` |
+| Core API | `(localdb)\\MSSQLLocalDB` | `mssql:1433` |
+| API Gateway | Yerel Identity/Core HTTPS adresleri | `identity:8080`, `core:8080` |
+| MVC Web | Yerel Gateway HTTPS adresi | `gateway:8080` |
+
+Compose tüm .NET container'larında `ASPNETCORE_ENVIRONMENT=Production` tanımlar. Docker Compose environment değerleri `appsettings.Production.json` değerlerinin üzerinde önceliğe sahiptir; SQL parolası ve token sırrı deployment sırasında secret/environment variable ile verilmelidir.
+
 ## Kalite kontrolleri
 
 ```powershell

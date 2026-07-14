@@ -29,6 +29,7 @@ services:
       context: .
       dockerfile: KitRental.Identity/src/KitRental.Identity.Api/Dockerfile
     environment:
+      ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       Security__TokenSecret: ${KIT_RENTAL_TOKEN_SECRET:-development-only-secret-change-before-production-2026}
       Mongo__ConnectionString: mongodb://mongo:27017
@@ -43,6 +44,7 @@ services:
       context: .
       dockerfile: KitRental.Core/src/KitRental.Core.Api/Dockerfile
     environment:
+      ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       Security__TokenSecret: ${KIT_RENTAL_TOKEN_SECRET:-development-only-secret-change-before-production-2026}
       ConnectionStrings__CoreDatabase: Server=mssql,1433;Database=KitRentalCore;User Id=sa;Password=${KIT_RENTAL_SQL_PASSWORD:-KitRental_Local_2026!};TrustServerCertificate=True
@@ -56,6 +58,7 @@ services:
       context: .
       dockerfile: KitRental.Gateway/src/KitRental.ApiGateway/Dockerfile
     environment:
+      ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       Services__Identity: http://identity:8080
       Services__Core: http://core:8080
@@ -67,6 +70,7 @@ services:
       context: .
       dockerfile: KitRental.Web/src/KitRental.Web.Mvc/Dockerfile
     environment:
+      ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       GatewayUrl: http://gateway:8080
     ports: ["5200:8080"]
