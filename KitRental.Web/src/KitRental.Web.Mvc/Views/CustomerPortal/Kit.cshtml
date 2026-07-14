@@ -1,0 +1,16 @@
+@model PortalKitDetailPageViewModel
+@{
+    ViewData["Title"] = Model.Kit.KitName;
+    string UnitStatus(int value) => value switch { 1 => "Hazır", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimat yolunda", 5 => "Kullanımınızda", 6 => "Geri gönderiliyor", 7 => "Kontrolde", 8 => "Serviste", _ => "İşlemde" };
+    string FaultStatus(int value) => value switch { 1 => "Kayıt açıldı", 2 => "İnceleniyor", 3 => "Bilgi bekleniyor", 4 => "Gönderim bekleniyor", 5 => "Serviste", 6 => "Geri gönderiliyor", 7 => "Çözüldü", 8 => "Kapatıldı", _ => "İşlemde" };
+}
+<a class="back-link" asp-action="Index">← Kitlerime dön</a>
+<section class="portal-kit-detail-hero">
+    <div class="portal-detail-image"><img src="@(Model.Kit.ImageUrl ?? "/images/catalog/kit.svg")" alt="@Model.Kit.KitName" /></div>
+    <div class="portal-detail-copy"><span class="eyebrow">@Model.Kit.KitSku</span><h1>@Model.Kit.KitName</h1><strong class="serial-number">@Model.Kit.SerialNumber</strong><p>@Model.Kit.StartDate.ToString("dd.MM.yyyy") – @Model.Kit.EndDate.ToString("dd.MM.yyyy") · @Model.Kit.OrderNumber</p><span class="fleet-status status-@Model.Kit.UnitStatus">@UnitStatus(Model.Kit.UnitStatus)</span></div>
+    <div class="portal-detail-qr"><img src="@Url.Action("Qr", new { value = Model.Kit.QrCode })" alt="Kit QR kodu" /><small>@Model.Kit.QrCode</small></div>
+</section>
+<div class="portal-fault-cta"><div><span class="eyebrow">TEKNİK DESTEK</span><h2>Bu kitle ilgili bir sorun mu var?</h2><p>Arızayı açıklayın, servis ve geri gönderim sürecini portal üzerinden takip edin.</p></div><a class="primary-action" asp-action="NewFault" asp-route-assignmentId="@Model.Kit.AssignmentId">Bu kit için arıza bildir</a></div>
+<section class="portal-section"><div class="section-heading"><div><span class="eyebrow">ARIZA GEÇMİŞİ</span><h2>Bu kite ait kayıtlar</h2></div><b>@Model.Faults.Count kayıt</b></div>
+@if(Model.Faults.Count == 0){<div class="empty">Bu kit için daha önce arıza kaydı oluşturulmamış.</div>}else{<div class="portal-fault-grid">@foreach(var fault in Model.Faults){<a asp-action="Fault" asp-route-id="@fault.Id" class="portal-fault-card"><div><small>@fault.Number · @fault.OpenedAt.ToLocalTime().ToString("dd.MM.yyyy")</small><h3>@fault.Category</h3><p>@fault.Description</p></div><div><span class="fault-stage status-@fault.Status">@FaultStatus(fault.Status)</span></div></a>}</div>}
+</section>

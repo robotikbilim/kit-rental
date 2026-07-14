@@ -40,7 +40,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 var openFaults = customerFaults.Count(ticket =>
                     ticket.ProductUnitId == unit.Id && ticket.Status is not (FaultStatus.Resolved or FaultStatus.Closed));
                 kits.Add(new PortalKitResponse(unit.Id, assignment.Id, order.Id, order.OrderNumber, model.Name, model.Sku,
-                    model.ImageUrl, unit.SerialNumber, unit.Status, assignment.Status, assignment.Period.StartDate,
+                    model.ImageUrl, unit.SerialNumber, unit.QrCode, unit.Status, assignment.Status, assignment.Period.StartDate,
                     assignment.Period.EndDate, openFaults));
             }
         }

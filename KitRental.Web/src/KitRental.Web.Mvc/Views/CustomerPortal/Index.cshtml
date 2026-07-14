@@ -7,7 +7,7 @@
 }
 <div class="portal-heading">
     <div><span class="eyebrow">TACEV KİRALAMA PORTALI</span><h1>Merhaba, @Model.CustomerName</h1><p>Kitlerinizi, kiralama taleplerinizi ve servis süreçlerinizi tek ekrandan takip edin.</p></div>
-    <a class="primary-action" asp-action="NewRequest">+ Yeni kiralama talebi</a>
+    <div class="recipe-actions"><a class="secondary-action" asp-action="FindKit">▣ QR ile kit bul</a><a class="primary-action" asp-action="NewRequest">+ Yeni kiralama talebi</a></div>
 </div>
 @if (TempData["Success"] is string message) { <div class="success-banner">@message</div> }
 <section class="metrics portal-metrics">
@@ -28,7 +28,7 @@
                 <span class="fleet-status status-@kit.UnitStatus">@UnitStatus(kit.UnitStatus)</span>
                 @if (kit.OpenFaultCount > 0) { <span class="portal-alert">@kit.OpenFaultCount açık arıza</span> }
             </div>
-            @if (kit.AssignmentStatus == 2) { <a class="secondary-action" asp-action="NewFault" asp-route-assignmentId="@kit.AssignmentId">Arıza bildir</a> }
+            @if (kit.AssignmentStatus == 2) { <div class="portal-kit-actions"><a class="secondary-action" asp-action="Kit" asp-route-id="@kit.ProductUnitId">Kit detayı</a><a class="secondary-action fault-action" asp-action="NewFault" asp-route-assignmentId="@kit.AssignmentId">Arıza bildir</a></div> }
         </article>
     }
     </div>

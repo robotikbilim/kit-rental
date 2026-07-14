@@ -2,6 +2,7 @@ using KitRental.Web.Mvc.Models;
 using KitRental.Web.Mvc.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using QRCoder;
 
 namespace KitRental.Web.Mvc.Controllers;
 
@@ -12,6 +13,40 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     {
         var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
         return portal is null ? Forbid() : View(portal);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> FindKit(string? identifier, CancellationToken cancellationToken)
+    {
+        var value = identifier?.Trim() ?? string.Empty;
+        if (value.Length == 0)
+            return View(new PortalKitLookupPageViewModel(string.Empty, false, null));
+        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        if (portal is null) return Forbid();
+        var kit = portal.Kits.FirstOrDefault(item => item.AssignmentStatus == 2 &&
+            (string.Equals(item.SerialNumber, value, StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(item.QrCode, value, StringComparison.OrdinalIgnoreCase)));
+        if (kit is null)
+            return View(new PortalKitLookupPageViewModel(value, true,
+                "Bu kodla eşleşen, hesabınıza ait aktif bir kiralık kit bulunamadı."));
+        return RedirectToAction(nameof(Kit), new { id = kit.ProductUnitId });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Kit(Guid id, CancellationToken cancellationToken)
+    {
+        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        if (portal is null) return Forbid();
+        var kit = portal.Kits.FirstOrDefault(item => item.ProductUnitId == id && item.AssignmentStatus == 2);
+        return kit is null ? NotFound() : View(new PortalKitDetailPageViewModel(kit,
+            portal.Faults.Where(fault => fault.ProductUnitId == id).ToArray()));
+    }
+
+    [HttpGet]
+    public IActionResult Qr(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length > 200) return BadRequest();
+        return File(PngByteQRCodeHelper.GetQRCode(value, QRCodeGenerator.ECCLevel.Q, 8), "image/png");
     }
 
     [HttpGet]

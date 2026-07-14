@@ -161,8 +161,11 @@ public sealed record PortalAddressViewModel(Guid Id, string Title, string Contac
     string District, string City, string PostalCode);
 public sealed record PortalProductModelViewModel(Guid Id, string Name, string Sku, string? Description, string? ImageUrl);
 public sealed record PortalKitViewModel(Guid ProductUnitId, Guid AssignmentId, Guid OrderId, string OrderNumber,
-    string KitName, string KitSku, string? ImageUrl, string SerialNumber, int UnitStatus, int AssignmentStatus,
+    string KitName, string KitSku, string? ImageUrl, string SerialNumber, string QrCode, int UnitStatus, int AssignmentStatus,
     DateOnly StartDate, DateOnly EndDate, int OpenFaultCount);
+public sealed record PortalKitLookupPageViewModel(string Identifier, bool HasSearched, string? Error);
+public sealed record PortalKitDetailPageViewModel(PortalKitViewModel Kit,
+    IReadOnlyCollection<PortalFaultViewModel> Faults);
 public sealed record PortalOrderLineViewModel(Guid ProductModelId, string ProductName, string ProductSku, int Quantity);
 public sealed record PortalOrderViewModel(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName, int Status,
     DateOnly StartDate, DateOnly EndDate, DateTimeOffset CreatedAt, IReadOnlyCollection<PortalOrderLineViewModel> Lines);
