@@ -1,0 +1,16 @@
+@model StorageLocationInputViewModel
+@{ var isEdit = Model.Id != Guid.Empty; ViewData["Title"] = isEdit ? "Rafı Güncelle" : "Yeni Raf"; }
+<div class="form-shell">
+    <div class="form-heading"><a asp-action="Index">← Raf Düzeni</a><span class="eyebrow">@(isEdit ? "GÜNCELLE" : "YENİ KAYIT")</span><h1>@(isEdit ? "Rafı güncelle" : "Yeni raf oluştur")</h1><p>Depodaki fiziksel konumu komponent seçimlerinde kullanılabilir hale getirin.</p></div>
+    <form method="post" class="catalog-form">
+        <div asp-validation-summary="All" class="error"></div>
+        <div class="form-grid">
+            <div class="field"><label asp-for="Code"></label><input asp-for="Code" placeholder="Örn. RAF-A-01-03" /></div>
+            <div class="field"><label asp-for="Warehouse"></label><input asp-for="Warehouse" placeholder="Örn. Ana Depo" /></div>
+            <div class="field"><label asp-for="Aisle"></label><input asp-for="Aisle" placeholder="Örn. A" /></div>
+            <div class="field"><label asp-for="Rack"></label><input asp-for="Rack" placeholder="Örn. 01" /></div>
+            <div class="field"><label asp-for="Shelf"></label><input asp-for="Shelf" placeholder="Örn. 03" /></div>
+        </div>
+        <div class="form-actions"><a asp-action="Index" class="secondary-action">Vazgeç</a><button type="submit" class="primary-action">@(isEdit ? "Değişiklikleri kaydet" : "Rafı kaydet")</button></div>
+    </form>
+</div>

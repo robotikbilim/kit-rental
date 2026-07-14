@@ -246,6 +246,56 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Equal(2, locator.Locations.Count);
     }
 
+    [Fact]
+    public async Task StorageLocations_CanBeManagedAndUsedAsOptionalComponentDefault()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var location = await PostAsync<StorageLocationResponse>("/api/storage-locations",
+            new CreateStorageLocationRequest($"RAF-{Guid.NewGuid():N}", "Ana Depo", "C", "04", "02"),
+            cancellationToken);
+        var component = await PostAsync<ComponentResponse>("/api/components",
+            new CreateComponentRequest("Raflı Komponent", $"CMP-{Guid.NewGuid():N}", "adet", 3, null, location.Id),
+            cancellationToken);
+
+        Assert.Equal(location.Id, component.DefaultStorageLocationId);
+        var locator = await _client.GetFromJsonAsync<ComponentLocatorResponse>(
+            $"/api/components/{component.Id}/locator", cancellationToken);
+        Assert.Equal(location.Id, locator!.Locations.Single().StorageLocationId);
+        Assert.Equal(0, locator.Locations.Single().Quantity);
+
+        var updatedResponse = await _client.PutAsJsonAsync($"/api/storage-locations/{location.Id}",
+            new CreateStorageLocationRequest(location.Code, "Atölye Deposu", "D", "05", "03"), cancellationToken);
+        updatedResponse.EnsureSuccessStatusCode();
+        var updated = (await updatedResponse.Content.ReadFromJsonAsync<StorageLocationResponse>(cancellationToken))!;
+        Assert.Equal("Atölye Deposu", updated.Warehouse);
+
+        var deleteResponse = await _client.DeleteAsync($"/api/storage-locations/{location.Id}", cancellationToken);
+        deleteResponse.EnsureSuccessStatusCode();
+        var components = await _client.GetFromJsonAsync<ComponentResponse[]>("/api/components", cancellationToken);
+        Assert.Null(components!.Single(item => item.Id == component.Id).DefaultStorageLocationId);
+
+        var unknownShelfComponent = await PostAsync<ComponentResponse>("/api/components",
+            new CreateComponentRequest("Rafsız Komponent", $"CMP-{Guid.NewGuid():N}", "adet", 0), cancellationToken);
+        Assert.Null(unknownShelfComponent.DefaultStorageLocationId);
+    }
+
+    [Fact]
+    public async Task DeleteStorageLocation_WithStockHistory_IsRejected()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var location = await PostAsync<StorageLocationResponse>("/api/storage-locations",
+            new CreateStorageLocationRequest($"DOLU-{Guid.NewGuid():N}", "Ana Depo", "E", "01", "01"),
+            cancellationToken);
+        var component = await PostAsync<ComponentResponse>("/api/components",
+            new CreateComponentRequest("Stoklu Komponent", $"CMP-{Guid.NewGuid():N}", "adet", 0), cancellationToken);
+        await PostAsync<StockMovementResponse>("/api/component-stock/receipts",
+            new RecordComponentStockRequest(component.Id, location.Id, 1, "Silme koruması testi"), cancellationToken);
+
+        var response = await _client.DeleteAsync($"/api/storage-locations/{location.Id}", cancellationToken);
+
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, response.StatusCode);
+    }
+
     private async Task<T> PostAsync<T>(string path, object body, CancellationToken cancellationToken)
     {
         var response = await _client.PostAsJsonAsync(path, body, cancellationToken);

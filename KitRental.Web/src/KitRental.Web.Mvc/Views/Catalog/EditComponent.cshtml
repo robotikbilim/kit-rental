@@ -1,15 +1,16 @@
-@model EditComponentViewModel
+@model ComponentFormPageViewModel
 @{ ViewData["Title"] = "Komponenti Güncelle"; }
 <div class="form-shell">
     <div class="form-heading"><a asp-action="Components">← Komponentler</a><span class="eyebrow">GÜNCELLE</span><h1>Komponenti güncelle</h1></div>
     <form method="post" class="catalog-form">
         <div asp-validation-summary="All" class="error"></div>
         <div class="form-grid">
-            <div class="field wide"><label asp-for="Name">Komponent adı</label><input asp-for="Name" /></div>
-            <div class="field"><label asp-for="Sku">SKU / stok kodu</label><input asp-for="Sku" /></div>
-            <div class="field"><label asp-for="UnitOfMeasure"></label><input asp-for="UnitOfMeasure" /></div>
-            <div class="field"><label asp-for="MinimumStock"></label><input asp-for="MinimumStock" type="number" min="0" step="0.001" /></div>
-            <div class="field wide"><label asp-for="ImageUrl"></label><input asp-for="ImageUrl" /></div>
+            <div class="field wide"><label asp-for="Form.Name">Komponent adı</label><input asp-for="Form.Name" name="Name" /></div>
+            <div class="field"><label asp-for="Form.Sku">SKU / stok kodu</label><input asp-for="Form.Sku" name="Sku" /></div>
+            <div class="field"><label asp-for="Form.UnitOfMeasure"></label><input asp-for="Form.UnitOfMeasure" name="UnitOfMeasure" /></div>
+            <div class="field"><label asp-for="Form.MinimumStock"></label><input asp-for="Form.MinimumStock" name="MinimumStock" type="number" min="0" step="0.001" /></div>
+            <div class="field"><label asp-for="Form.DefaultStorageLocationId">Raf konumu</label><select asp-for="Form.DefaultStorageLocationId" name="DefaultStorageLocationId"><option value="">Bilinmiyor</option>@foreach (var location in Model.StorageLocations) { <option value="@location.Id">@location.Code — @location.Warehouse / @location.Aisle-@location.Rack-@location.Shelf</option> }</select></div>
+            <div class="field wide"><label asp-for="Form.ImageUrl"></label><input asp-for="Form.ImageUrl" name="ImageUrl" /></div>
         </div>
         <div class="form-actions"><a asp-action="Components" class="secondary-action">Vazgeç</a><button class="primary-action" type="submit">Değişiklikleri kaydet</button></div>
     </form>

@@ -8,7 +8,8 @@ public sealed class Component
     {
     }
 
-    private Component(Guid id, string name, string sku, string unitOfMeasure, decimal minimumStock, string? imageUrl)
+    private Component(Guid id, string name, string sku, string unitOfMeasure, decimal minimumStock,
+        string? imageUrl, Guid? defaultStorageLocationId)
     {
         Id = id;
         Name = name;
@@ -16,6 +17,7 @@ public sealed class Component
         UnitOfMeasure = unitOfMeasure;
         MinimumStock = minimumStock;
         ImageUrl = imageUrl;
+        DefaultStorageLocationId = defaultStorageLocationId;
         IsActive = true;
     }
 
@@ -25,9 +27,11 @@ public sealed class Component
     public string UnitOfMeasure { get; private set; } = string.Empty;
     public decimal MinimumStock { get; private set; }
     public string? ImageUrl { get; private set; }
+    public Guid? DefaultStorageLocationId { get; private set; }
     public bool IsActive { get; private set; }
 
-    public static Component Create(Guid id, string name, string sku, string unitOfMeasure, decimal minimumStock, string? imageUrl = null)
+    public static Component Create(Guid id, string name, string sku, string unitOfMeasure, decimal minimumStock,
+        string? imageUrl = null, Guid? defaultStorageLocationId = null)
     {
         if (id == Guid.Empty)
             throw new DomainException("component.id_required", "Komponent kimliği zorunludur.");
@@ -37,18 +41,23 @@ public sealed class Component
             throw new DomainException("component.minimum_stock_invalid", "Minimum stok sıfırdan küçük olamaz.");
         var normalizedImageUrl = NormalizeImageUrl(imageUrl);
 
-        return new Component(id, name.Trim(), sku.Trim().ToUpperInvariant(), unitOfMeasure.Trim(), minimumStock, normalizedImageUrl);
+        return new Component(id, name.Trim(), sku.Trim().ToUpperInvariant(), unitOfMeasure.Trim(), minimumStock,
+            normalizedImageUrl, defaultStorageLocationId);
     }
 
-    public void Update(string name, string sku, string unitOfMeasure, decimal minimumStock, string? imageUrl)
+    public void Update(string name, string sku, string unitOfMeasure, decimal minimumStock, string? imageUrl,
+        Guid? defaultStorageLocationId)
     {
-        var updated = Create(Id, name, sku, unitOfMeasure, minimumStock, imageUrl);
+        var updated = Create(Id, name, sku, unitOfMeasure, minimumStock, imageUrl, defaultStorageLocationId);
         Name = updated.Name;
         Sku = updated.Sku;
         UnitOfMeasure = updated.UnitOfMeasure;
         MinimumStock = updated.MinimumStock;
         ImageUrl = updated.ImageUrl;
+        DefaultStorageLocationId = updated.DefaultStorageLocationId;
     }
+
+    public void ClearDefaultStorageLocation() => DefaultStorageLocationId = null;
 
     private static string? NormalizeImageUrl(string? imageUrl)
     {

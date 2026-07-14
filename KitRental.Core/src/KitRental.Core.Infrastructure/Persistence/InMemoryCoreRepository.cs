@@ -330,6 +330,12 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         lock (_gate) return Task.FromResult<IReadOnlyCollection<StorageLocation>>(_storageLocations.Values.OrderBy(item => item.Code).ToArray());
     }
 
+    public Task RemoveStorageLocationAsync(StorageLocation location, CancellationToken cancellationToken)
+    {
+        lock (_gate) _storageLocations.Remove(location.Id);
+        return Task.CompletedTask;
+    }
+
     public Task<IReadOnlyCollection<ComponentStock>> GetComponentStocksAsync(
         Guid? componentId,
         Guid? locationId,

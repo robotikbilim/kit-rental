@@ -96,6 +96,17 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) =>
         await GetAsync<StorageLocationViewModel[]>("/core/api/storage-locations", cancellationToken) ?? [];
 
+    public Task<ApiCommandResult<StorageLocationViewModel>> CreateStorageLocationAsync(
+        StorageLocationInputViewModel model, CancellationToken cancellationToken) =>
+        PostAsync<StorageLocationViewModel>("/core/api/storage-locations", model, cancellationToken);
+
+    public Task<ApiCommandResult<StorageLocationViewModel>> UpdateStorageLocationAsync(Guid id,
+        StorageLocationInputViewModel model, CancellationToken cancellationToken) =>
+        SendAsync<StorageLocationViewModel>(HttpMethod.Put, $"/core/api/storage-locations/{id}", model, cancellationToken);
+
+    public Task<ApiCommandResult<object>> DeleteStorageLocationAsync(Guid id, CancellationToken cancellationToken) =>
+        SendAsync<object>(HttpMethod.Delete, $"/core/api/storage-locations/{id}", null, cancellationToken);
+
     public async Task<IReadOnlyCollection<ProductModelCatalogViewModel>> GetProductModelsAsync(CancellationToken cancellationToken) =>
         await GetAsync<ProductModelCatalogViewModel[]>("/core/api/product-models", cancellationToken) ?? [];
 

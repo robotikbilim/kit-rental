@@ -98,17 +98,18 @@ public sealed class CatalogController(KitRentalApiClient apiClient) : Controller
     }
 
     [HttpGet]
-    public IActionResult CreateComponent() => View(new CreateComponentViewModel());
+    public async Task<IActionResult> CreateComponent(CancellationToken cancellationToken) =>
+        View(await ComponentFormPageAsync(new CreateComponentViewModel(), false, cancellationToken));
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateComponent(CreateComponentViewModel model, CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid) return View(model);
+        if (!ModelState.IsValid) return View(await ComponentFormPageAsync(model, false, cancellationToken));
         var result = await apiClient.CreateComponentAsync(model, cancellationToken);
         if (!result.IsSuccess || result.Data is null)
         {
             ModelState.AddModelError(string.Empty, result.Error ?? "Komponent oluşturulamadı.");
-            return View(model);
+            return View(await ComponentFormPageAsync(model, false, cancellationToken));
         }
         TempData["Success"] = "Komponent oluşturuldu.";
         return RedirectToAction(nameof(Component), new { id = result.Data.Id });
@@ -144,18 +145,22 @@ public sealed class CatalogController(KitRentalApiClient apiClient) : Controller
     [HttpGet]
     public async Task<IActionResult> EditComponent(Guid id, CancellationToken cancellationToken)
     {
-        var item = await apiClient.GetComponentLocatorAsync(id, cancellationToken);
-        return item is null ? NotFound() : View(new EditComponentViewModel { Id = item.Id, Name = item.Name,
-            Sku = item.Sku, UnitOfMeasure = item.UnitOfMeasure, MinimumStock = item.MinimumStock, ImageUrl = item.ImageUrl });
+        var item = (await apiClient.GetComponentsAsync(cancellationToken))
+            .SingleOrDefault(component => component.Id == id);
+        if (item is null) return NotFound();
+        var form = new EditComponentViewModel { Id = item.Id, Name = item.Name, Sku = item.Sku,
+            UnitOfMeasure = item.UnitOfMeasure, MinimumStock = item.MinimumStock, ImageUrl = item.ImageUrl,
+            DefaultStorageLocationId = item.DefaultStorageLocationId };
+        return View(await ComponentFormPageAsync(form, true, cancellationToken));
     }
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> EditComponent(Guid id, EditComponentViewModel model, CancellationToken cancellationToken)
     {
         model.Id = id;
-        if (!ModelState.IsValid) return View(model);
+        if (!ModelState.IsValid) return View(await ComponentFormPageAsync(model, true, cancellationToken));
         var result = await apiClient.UpdateComponentAsync(id, model, cancellationToken);
-        if (!result.IsSuccess) { ModelState.AddModelError(string.Empty, result.Error ?? "Komponent güncellenemedi."); return View(model); }
+        if (!result.IsSuccess) { ModelState.AddModelError(string.Empty, result.Error ?? "Komponent güncellenemedi."); return View(await ComponentFormPageAsync(model, true, cancellationToken)); }
         TempData["Success"] = "Komponent güncellendi.";
         return RedirectToAction(nameof(Components));
     }
@@ -170,6 +175,10 @@ public sealed class CatalogController(KitRentalApiClient apiClient) : Controller
 
     private async Task<CreateKitPageViewModel> KitPageAsync(CreateKitViewModel form, CancellationToken cancellationToken) =>
         new(form, await apiClient.GetComponentsAsync(cancellationToken));
+
+    private async Task<ComponentFormPageViewModel> ComponentFormPageAsync(CreateComponentViewModel form, bool isEdit,
+        CancellationToken cancellationToken) =>
+        new(form, await apiClient.GetStorageLocationsAsync(cancellationToken), isEdit);
 
     private async Task<EditRecipePageViewModel> RecipePageAsync(EditRecipeViewModel form, bool hasExistingRecipe,
         CancellationToken cancellationToken)

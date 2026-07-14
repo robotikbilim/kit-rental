@@ -49,6 +49,7 @@ public interface ICoreRepository
     Task AddStorageLocationAsync(StorageLocation location, CancellationToken cancellationToken);
     Task<StorageLocation?> GetStorageLocationAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<StorageLocation>> GetStorageLocationsAsync(CancellationToken cancellationToken);
+    Task RemoveStorageLocationAsync(StorageLocation location, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<ComponentStock>> GetComponentStocksAsync(Guid? componentId, Guid? locationId, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<StockMovement>> GetStockMovementsAsync(Guid? componentId, CancellationToken cancellationToken);
     Task ApplyStockMovementsAsync(IReadOnlyCollection<StockMovement> movements, CancellationToken cancellationToken);

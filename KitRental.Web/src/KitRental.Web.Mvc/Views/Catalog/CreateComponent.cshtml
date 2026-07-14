@@ -1,15 +1,16 @@
-@model CreateComponentViewModel
+@model ComponentFormPageViewModel
 @{ ViewData["Title"] = "Yeni Komponent"; }
 <div class="form-shell">
     <div class="form-heading"><a asp-action="Components">← Komponentler</a><span class="eyebrow">YENİ KAYIT</span><h1>Yeni komponent</h1><p>Atölyede kullanılacak komponentin kartını oluşturun.</p></div>
     <form method="post" class="catalog-form">
         <div asp-validation-summary="ModelOnly" class="error"></div>
         <div class="form-grid">
-            <div class="field wide"><label asp-for="Name">Komponent adı</label><input asp-for="Name" placeholder="Örn. Arduino Uno R3" /><span asp-validation-for="Name"></span></div>
-            <div class="field"><label asp-for="Sku">SKU / stok kodu</label><input asp-for="Sku" placeholder="CMP-ARD-UNO" /></div>
-            <div class="field"><label asp-for="UnitOfMeasure"></label><input asp-for="UnitOfMeasure" /></div>
-            <div class="field"><label asp-for="MinimumStock"></label><input asp-for="MinimumStock" type="number" min="0" step="0.001" /></div>
-            <div class="field wide"><label asp-for="ImageUrl"></label><input asp-for="ImageUrl" placeholder="https://.../komponent.jpg" /><small>Boş bırakırsanız varsayılan komponent görseli kullanılır.</small></div>
+            <div class="field wide"><label asp-for="Form.Name">Komponent adı</label><input asp-for="Form.Name" name="Name" placeholder="Örn. Arduino Uno R3" /><span asp-validation-for="Form.Name"></span></div>
+            <div class="field"><label asp-for="Form.Sku">SKU / stok kodu</label><input asp-for="Form.Sku" name="Sku" placeholder="CMP-ARD-UNO" /></div>
+            <div class="field"><label asp-for="Form.UnitOfMeasure"></label><input asp-for="Form.UnitOfMeasure" name="UnitOfMeasure" /></div>
+            <div class="field"><label asp-for="Form.MinimumStock"></label><input asp-for="Form.MinimumStock" name="MinimumStock" type="number" min="0" step="0.001" /></div>
+            <div class="field"><label asp-for="Form.DefaultStorageLocationId">Raf konumu</label><select asp-for="Form.DefaultStorageLocationId" name="DefaultStorageLocationId"><option value="">Bilinmiyor</option>@foreach (var location in Model.StorageLocations) { <option value="@location.Id">@location.Code — @location.Warehouse / @location.Aisle-@location.Rack-@location.Shelf</option> }</select><small>Raf henüz belli değilse “Bilinmiyor” seçili kalabilir.</small></div>
+            <div class="field wide"><label asp-for="Form.ImageUrl"></label><input asp-for="Form.ImageUrl" name="ImageUrl" placeholder="https://.../komponent.jpg" /><small>Boş bırakırsanız varsayılan komponent görseli kullanılır.</small></div>
         </div>
         <div class="form-actions"><a asp-action="Components" class="secondary-action">Vazgeç</a><button type="submit" class="primary-action">Komponenti kaydet</button></div>
     </form>

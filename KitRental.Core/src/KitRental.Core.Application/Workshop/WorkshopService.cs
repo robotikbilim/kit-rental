@@ -11,7 +11,9 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
 {
     public async Task<ComponentResponse> CreateComponentAsync(CreateComponentCommand command, CancellationToken cancellationToken)
     {
-        var component = Component.Create(Guid.NewGuid(), command.Name, command.Sku, command.UnitOfMeasure, command.MinimumStock, command.ImageUrl);
+        await EnsureDefaultLocationAsync(command.DefaultStorageLocationId, cancellationToken);
+        var component = Component.Create(Guid.NewGuid(), command.Name, command.Sku, command.UnitOfMeasure,
+            command.MinimumStock, command.ImageUrl, command.DefaultStorageLocationId);
         try
         {
             await repository.AddComponentAsync(component, cancellationToken);
@@ -30,11 +32,13 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
     {
         var component = await repository.GetComponentAsync(command.Id, cancellationToken)
             ?? throw new ResourceNotFoundException("Komponent bulunamadı.");
+        await EnsureDefaultLocationAsync(command.DefaultStorageLocationId, cancellationToken);
         if ((await repository.GetComponentsAsync(cancellationToken)).Any(item => item.Id != component.Id &&
             item.Sku.Equals(command.Sku.Trim(), StringComparison.OrdinalIgnoreCase)))
             throw new ConflictException("component.sku_not_unique", "Bu SKU başka bir komponentte kullanılıyor.");
         var previous = component.Sku;
-        component.Update(command.Name, command.Sku, command.UnitOfMeasure, command.MinimumStock, command.ImageUrl);
+        component.Update(command.Name, command.Sku, command.UnitOfMeasure, command.MinimumStock, command.ImageUrl,
+            command.DefaultStorageLocationId);
         await AuditAsync(command.ActorId, nameof(Component), component.Id, "Updated", previous, component.Sku, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         var total = (await repository.GetComponentStocksAsync(component.Id, null, cancellationToken)).Sum(item => item.Quantity);
@@ -108,7 +112,13 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
                     location.Rack, location.Shelf, stock.Quantity);
             })
             .OrderBy(item => item.LocationCode)
-            .ToArray();
+            .ToList();
+        if (component.DefaultStorageLocationId.HasValue &&
+            locations.TryGetValue(component.DefaultStorageLocationId.Value, out var defaultLocation) &&
+            locationResponses.All(item => item.StorageLocationId != defaultLocation.Id))
+            locationResponses.Add(new ComponentLocationResponse(defaultLocation.Id, defaultLocation.Code,
+                defaultLocation.Warehouse, defaultLocation.Aisle, defaultLocation.Rack, defaultLocation.Shelf, 0));
+        locationResponses = locationResponses.OrderBy(item => item.LocationCode).ToList();
         var total = locationResponses.Sum(item => item.Quantity);
         return new ComponentLocatorResponse(component.Id, component.Name, component.Sku, component.UnitOfMeasure,
             component.ImageUrl, total, component.MinimumStock, total <= component.MinimumStock, locationResponses);
@@ -133,6 +143,38 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
 
     public async Task<IReadOnlyCollection<StorageLocationResponse>> GetLocationsAsync(CancellationToken cancellationToken) =>
         (await repository.GetStorageLocationsAsync(cancellationToken)).Select(MapLocation).ToArray();
+
+    public async Task<StorageLocationResponse> UpdateLocationAsync(UpdateStorageLocationCommand command,
+        CancellationToken cancellationToken)
+    {
+        var location = await repository.GetStorageLocationAsync(command.Id, cancellationToken)
+            ?? throw new ResourceNotFoundException("Raf/lokasyon bulunamadı.");
+        var normalizedCode = command.Code.Trim().ToUpperInvariant();
+        if ((await repository.GetStorageLocationsAsync(cancellationToken)).Any(item => item.Id != location.Id &&
+            item.Code == normalizedCode))
+            throw new ConflictException("storage_location.code_not_unique", "Bu raf kodu başka bir kayıtta kullanılıyor.");
+        var previous = location.Code;
+        location.Update(command.Code, command.Warehouse, command.Aisle, command.Rack, command.Shelf);
+        await AuditAsync(command.ActorId, nameof(StorageLocation), location.Id, "Updated", previous,
+            location.Code, cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+        return MapLocation(location);
+    }
+
+    public async Task DeleteLocationAsync(Guid id, Guid actorId, CancellationToken cancellationToken)
+    {
+        var location = await repository.GetStorageLocationAsync(id, cancellationToken)
+            ?? throw new ResourceNotFoundException("Raf/lokasyon bulunamadı.");
+        if ((await repository.GetComponentStocksAsync(null, id, cancellationToken)).Count > 0 ||
+            (await repository.GetStockMovementsAsync(null, cancellationToken)).Any(item => item.StorageLocationId == id))
+            throw new ConflictException("storage_location.in_use", "Stok veya hareket kaydı bulunan raf silinemez.");
+        foreach (var component in (await repository.GetComponentsAsync(cancellationToken))
+                     .Where(item => item.DefaultStorageLocationId == id))
+            component.ClearDefaultStorageLocation();
+        await repository.RemoveStorageLocationAsync(location, cancellationToken);
+        await AuditAsync(actorId, nameof(StorageLocation), id, "Deleted", location.Code, null, cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+    }
 
     public async Task<StockMovementResponse> ReceiveAsync(RecordStockCommand command, CancellationToken cancellationToken) =>
         await RecordAsync(command, StockMovementType.Receipt, cancellationToken);
@@ -337,6 +379,12 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
         }
     }
 
+    private async Task EnsureDefaultLocationAsync(Guid? locationId, CancellationToken cancellationToken)
+    {
+        if (locationId.HasValue && await repository.GetStorageLocationAsync(locationId.Value, cancellationToken) is null)
+            throw new ResourceNotFoundException("Seçilen varsayılan raf bulunamadı.");
+    }
+
     private Task AuditAsync(Guid actorId, string entityType, Guid entityId, string action,
         string? previous, string? next, CancellationToken cancellationToken) =>
         repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId, entityType, entityId, action,
@@ -344,7 +392,7 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
 
     private static ComponentResponse MapComponent(Component component, decimal totalStock) =>
         new(component.Id, component.Name, component.Sku, component.UnitOfMeasure, component.MinimumStock, component.ImageUrl,
-            totalStock, totalStock <= component.MinimumStock);
+            component.DefaultStorageLocationId, totalStock, totalStock <= component.MinimumStock);
 
     private static StorageLocationResponse MapLocation(StorageLocation location) =>
         new(location.Id, location.Code, location.Warehouse, location.Aisle, location.Rack, location.Shelf);

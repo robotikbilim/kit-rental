@@ -42,4 +42,14 @@ public sealed class StorageLocation
             rack.Trim().ToUpperInvariant(),
             shelf.Trim().ToUpperInvariant());
     }
+
+    public void Update(string code, string warehouse, string aisle, string rack, string shelf)
+    {
+        var updated = Create(Id, code, warehouse, aisle, rack, shelf);
+        Code = updated.Code;
+        Warehouse = updated.Warehouse;
+        Aisle = updated.Aisle;
+        Rack = updated.Rack;
+        Shelf = updated.Shelf;
+    }
 }

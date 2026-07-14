@@ -241,7 +241,7 @@ api.MapPost("/components", async (CreateComponentRequest request, ClaimsPrincipa
 {
     var result = await service.CreateComponentAsync(
         new CreateComponentCommand(request.Name, request.Sku, request.UnitOfMeasure, request.MinimumStock, request.ImageUrl,
-            user.GetRequiredUserId()),
+            request.DefaultStorageLocationId, user.GetRequiredUserId()),
         cancellationToken);
     return Results.Created($"/api/components/{result.Id}", result);
 }).RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
@@ -273,6 +273,19 @@ api.MapPost("/storage-locations", async (CreateStorageLocationRequest request, C
 api.MapGet("/storage-locations", async (WorkshopService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetLocationsAsync(cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
+
+api.MapPut("/storage-locations/{id:guid}", async (Guid id, CreateStorageLocationRequest request,
+    ClaimsPrincipal user, WorkshopService service, CancellationToken cancellationToken) => Results.Ok(
+        await service.UpdateLocationAsync(new UpdateStorageLocationCommand(id, request.Code, request.Warehouse,
+            request.Aisle, request.Rack, request.Shelf, user.GetRequiredUserId()), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
+
+api.MapDelete("/storage-locations/{id:guid}", async (Guid id, ClaimsPrincipal user, WorkshopService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteLocationAsync(id, user.GetRequiredUserId(), cancellationToken);
+    return Results.NoContent();
+}).RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
 
 api.MapPost("/component-stock/receipts", async (RecordComponentStockRequest request, ClaimsPrincipal user, WorkshopService service, CancellationToken cancellationToken) =>
     Results.Created("/api/component-stock/movements", await service.ReceiveAsync(
@@ -319,7 +332,8 @@ api.MapGet("/product-models/{productModelId:guid}/bom", async (Guid productModel
 api.MapPut("/components/{componentId:guid}", async (Guid componentId, UpdateComponentRequest request,
     ClaimsPrincipal user, WorkshopService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.UpdateComponentAsync(new UpdateComponentCommand(componentId, request.Name, request.Sku,
-        request.UnitOfMeasure, request.MinimumStock, request.ImageUrl, user.GetRequiredUserId()), cancellationToken)))
+        request.UnitOfMeasure, request.MinimumStock, request.ImageUrl, request.DefaultStorageLocationId,
+        user.GetRequiredUserId()), cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
 
 api.MapDelete("/components/{componentId:guid}", async (Guid componentId, ClaimsPrincipal user,
@@ -518,8 +532,10 @@ public sealed record RentPhysicalKitRequest(string CustomerName, string Email, s
 public sealed record BulkRentPhysicalKitsRequest(IReadOnlyCollection<Guid> ProductUnitIds, string CustomerName,
     string Email, string Phone, string AddressLine, string District, string City, string PostalCode,
     DateOnly StartDate, DateOnly EndDate);
-public sealed record CreateComponentRequest(string Name, string Sku, string UnitOfMeasure, decimal MinimumStock, string? ImageUrl = null);
-public sealed record UpdateComponentRequest(string Name, string Sku, string UnitOfMeasure, decimal MinimumStock, string? ImageUrl = null);
+public sealed record CreateComponentRequest(string Name, string Sku, string UnitOfMeasure, decimal MinimumStock,
+    string? ImageUrl = null, Guid? DefaultStorageLocationId = null);
+public sealed record UpdateComponentRequest(string Name, string Sku, string UnitOfMeasure, decimal MinimumStock,
+    string? ImageUrl = null, Guid? DefaultStorageLocationId = null);
 public sealed record SupplyNeedLineRequest(Guid ComponentId, decimal Quantity);
 public sealed record SupplyNeedRequest(IReadOnlyCollection<SupplyNeedLineRequest> Lines);
 public sealed record CompleteSupplyNeedRequest(Guid StorageLocationId, IReadOnlyCollection<SupplyNeedLineRequest> Lines);

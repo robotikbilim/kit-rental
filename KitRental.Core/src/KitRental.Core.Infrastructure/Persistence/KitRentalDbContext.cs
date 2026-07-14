@@ -243,6 +243,9 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(component => component.ImageUrl).HasMaxLength(1000);
         builder.Property(component => component.MinimumStock).HasPrecision(18, 3);
         builder.HasIndex(component => component.Sku).IsUnique();
+        builder.HasIndex(component => component.DefaultStorageLocationId);
+        builder.HasOne<StorageLocation>().WithMany().HasForeignKey(component => component.DefaultStorageLocationId)
+            .OnDelete(DeleteBehavior.SetNull);
         AddRowVersion(builder);
     }
 

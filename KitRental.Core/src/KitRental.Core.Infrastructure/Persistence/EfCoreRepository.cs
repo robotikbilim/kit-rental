@@ -183,6 +183,12 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
     public async Task<IReadOnlyCollection<StorageLocation>> GetStorageLocationsAsync(CancellationToken cancellationToken) =>
         await dbContext.StorageLocations.OrderBy(location => location.Code).ToArrayAsync(cancellationToken);
 
+    public Task RemoveStorageLocationAsync(StorageLocation location, CancellationToken cancellationToken)
+    {
+        dbContext.StorageLocations.Remove(location);
+        return Task.CompletedTask;
+    }
+
     public async Task<IReadOnlyCollection<ComponentStock>> GetComponentStocksAsync(
         Guid? componentId,
         Guid? locationId,

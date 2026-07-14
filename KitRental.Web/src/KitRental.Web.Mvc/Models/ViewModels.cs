@@ -51,7 +51,7 @@ public sealed record ComponentLocatorViewModel(
 public sealed record ProductModelCatalogViewModel(Guid Id, string Name, string Sku, string? Description, string? ImageUrl);
 public sealed record ComponentCatalogViewModel(
     Guid Id, string Name, string Sku, string UnitOfMeasure, decimal MinimumStock, string? ImageUrl,
-    decimal TotalStock, bool IsLowStock);
+    Guid? DefaultStorageLocationId, decimal TotalStock, bool IsLowStock);
 public sealed record SupplyNeedLineViewModel(Guid ComponentId, string ComponentName, string ComponentSku,
     string UnitOfMeasure, decimal Quantity, decimal? SuppliedQuantity);
 public sealed record SupplyNeedListViewModel(Guid Id, int Status, DateTimeOffset CreatedAt,
@@ -70,6 +70,15 @@ public sealed record SupplyNeedFormPageViewModel(SupplyNeedInputViewModel Form,
     IReadOnlyCollection<ComponentCatalogViewModel> Components, bool IsEdit);
 public sealed record StorageLocationViewModel(Guid Id, string Code, string Warehouse, string Aisle,
     string Rack, string Shelf);
+public sealed class StorageLocationInputViewModel
+{
+    public Guid Id { get; set; }
+    [Required, StringLength(80), Display(Name = "Raf kodu")] public string Code { get; set; } = string.Empty;
+    [Required, StringLength(160), Display(Name = "Depo")] public string Warehouse { get; set; } = string.Empty;
+    [Required, StringLength(40), Display(Name = "Koridor")] public string Aisle { get; set; } = string.Empty;
+    [Required, StringLength(40), Display(Name = "Raf")] public string Rack { get; set; } = string.Empty;
+    [Required, StringLength(40), Display(Name = "Göz")] public string Shelf { get; set; } = string.Empty;
+}
 public sealed class CompleteSupplyNeedLineViewModel
 {
     public Guid ComponentId { get; set; }
@@ -95,6 +104,7 @@ public class CreateComponentViewModel
     [Required, StringLength(40), Display(Name = "Ölçü birimi")] public string UnitOfMeasure { get; set; } = "adet";
     [Range(0, 999999), Display(Name = "Minimum stok")] public decimal MinimumStock { get; set; }
     [Url, Display(Name = "Görsel adresi")] public string? ImageUrl { get; set; }
+    [Display(Name = "Varsayılan raf")] public Guid? DefaultStorageLocationId { get; set; }
 }
 
 public sealed class CreateKitViewModel
@@ -115,6 +125,8 @@ public sealed class CreateKitBomLineViewModel
 
 public sealed record CreateKitPageViewModel(CreateKitViewModel Form, IReadOnlyCollection<ComponentCatalogViewModel> Components);
 public sealed class EditComponentViewModel : CreateComponentViewModel { public Guid Id { get; set; } }
+public sealed record ComponentFormPageViewModel(CreateComponentViewModel Form,
+    IReadOnlyCollection<StorageLocationViewModel> StorageLocations, bool IsEdit);
 public sealed class EditKitViewModel
 {
     public Guid Id { get; set; }

@@ -8,10 +8,11 @@ public sealed record CreateComponentCommand(
     string UnitOfMeasure,
     decimal MinimumStock,
     string? ImageUrl,
+    Guid? DefaultStorageLocationId,
     Guid ActorId);
 
 public sealed record UpdateComponentCommand(Guid Id, string Name, string Sku, string UnitOfMeasure,
-    decimal MinimumStock, string? ImageUrl, Guid ActorId);
+    decimal MinimumStock, string? ImageUrl, Guid? DefaultStorageLocationId, Guid ActorId);
 
 public sealed record CreateStorageLocationCommand(
     string Code,
@@ -20,6 +21,9 @@ public sealed record CreateStorageLocationCommand(
     string Rack,
     string Shelf,
     Guid ActorId);
+
+public sealed record UpdateStorageLocationCommand(Guid Id, string Code, string Warehouse, string Aisle,
+    string Rack, string Shelf, Guid ActorId);
 
 public sealed record RecordStockCommand(
     Guid ComponentId,
@@ -60,6 +64,7 @@ public sealed record ComponentResponse(
     string UnitOfMeasure,
     decimal MinimumStock,
     string? ImageUrl,
+    Guid? DefaultStorageLocationId,
     decimal TotalStock,
     bool IsLowStock);
 
