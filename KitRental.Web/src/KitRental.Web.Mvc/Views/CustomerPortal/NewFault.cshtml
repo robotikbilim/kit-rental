@@ -6,10 +6,30 @@
     else {
     <form class="catalog-form" asp-action="NewFault" method="post">
         <div asp-validation-summary="All" class="error"></div><div class="form-grid">
-            <div class="field wide"><label asp-for="Form.AssignmentId">Arızalı kit</label><select name="AssignmentId">@foreach (var kit in Model.ActiveKits) { <option value="@kit.AssignmentId" selected="@(kit.AssignmentId == Model.Form.AssignmentId ? "selected" : null)">@kit.KitName — @kit.SerialNumber</option> }</select></div>
+            <div class="field wide fault-kit-picker">
+                <label id="fault-kit-label" for="AssignmentId">Arızalı kit</label>
+                <div class="fault-kit-search-row">
+                    <div class="fault-kit-combobox" id="fault-kit-combobox" hidden>
+                        <div class="fault-kit-combobox-input">
+                            <input id="fault-kit-search" type="text" role="combobox" autocomplete="off" spellcheck="false" placeholder="Seri numarası veya kit adıyla ara" aria-labelledby="fault-kit-label" aria-autocomplete="list" aria-controls="fault-kit-options" aria-expanded="false" />
+                            <button type="button" id="fault-kit-toggle" tabindex="-1" aria-label="Kit seçeneklerini aç" aria-controls="fault-kit-options">⌄</button>
+                        </div>
+                        <div class="fault-kit-options" id="fault-kit-options" role="listbox" aria-labelledby="fault-kit-label" hidden></div>
+                    </div>
+                    <button class="scan-action" type="button" id="fault-scan-qr"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7V5h2M17 5h2v2M19 17v2h-2M7 19H5v-2M8 9h3v3H8zM14 9h2v2h-2zM9 15h2M14 14h2v2h-2z" /></svg>QR okut</button>
+                </div>
+                <select id="AssignmentId" name="AssignmentId" aria-labelledby="fault-kit-label">
+                    @foreach (var kit in Model.ActiveKits) {
+                        <option value="@kit.AssignmentId" data-name="@kit.KitName" data-serial="@kit.SerialNumber" data-qr="@kit.QrCode" selected="@(kit.AssignmentId == Model.Form.AssignmentId ? "selected" : null)">@kit.KitName — @kit.SerialNumber</option>
+                    }
+                </select>
+                <small id="fault-kit-search-status" aria-live="polite">Kutuyu açıp seri numarası veya kit adıyla arayabilir ya da QR kodu okutabilirsiniz.</small>
+            </div>
+            <section class="qr-scanner fault-qr-scanner" id="fault-qr-scanner" hidden aria-live="polite"><div class="scanner-viewport"><video id="fault-scanner-video" playsinline muted></video><div class="scanner-frame"></div></div><div class="scanner-copy"><strong>QR kodu çerçevenin içine getirin</strong><span id="fault-scanner-status">Kamera hazırlanıyor…</span></div><button type="button" class="secondary-action" id="fault-stop-scanner">Kamerayı kapat</button></section>
             <div class="field"><label asp-for="Form.Category"></label><input name="Category" value="@Model.Form.Category" placeholder="Örn. Sensör, motor, güç, mekanik" /></div>
             <div class="field"><label asp-for="Form.Severity"></label><select name="Severity"><option value="1">Düşük — kullanıma engel değil</option><option value="2" selected="@(Model.Form.Severity == 2 ? "selected" : null)">Orta — kısmi kullanım</option><option value="3" selected="@(Model.Form.Severity == 3 ? "selected" : null)">Yüksek — kullanılamıyor</option><option value="4" selected="@(Model.Form.Severity == 4 ? "selected" : null)">Kritik — güvenlik riski</option></select></div>
             <div class="field wide"><label asp-for="Form.Description"></label><textarea name="Description" rows="7" placeholder="Sorunun ne zaman başladığını, hangi koşullarda tekrarlandığını ve varsa denediğiniz adımları yazın.">@Model.Form.Description</textarea><small>Detaylı açıklama servis sürecini hızlandırır.</small></div>
         </div><div class="form-actions"><a class="secondary-action" asp-action="Index">Vazgeç</a><button class="primary-action" type="submit">Arıza kaydı oluştur</button></div>
     </form> }
 </div>
+<script src="~/js/fault-kit-selector.js"></script>
