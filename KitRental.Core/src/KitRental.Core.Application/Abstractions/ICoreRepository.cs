@@ -22,6 +22,14 @@ public interface ICoreRepository
     Task<ProductUnit?> GetProductUnitAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<ProductUnit>> GetProductUnitsAsync(CancellationToken cancellationToken);
     Task RemoveProductUnitAsync(ProductUnit unit, CancellationToken cancellationToken);
+    Task RemoveProductUnitWithStockRestorationAsync(ProductUnit unit,
+        IReadOnlyCollection<StockMovement> movements, AuditEntry auditEntry,
+        CancellationToken cancellationToken);
+    Task AddProductUnitsWithStockConsumptionAsync(
+        IReadOnlyCollection<ProductUnit> units,
+        IReadOnlyCollection<StockMovement> movements,
+        IReadOnlyCollection<AuditEntry> auditEntries,
+        CancellationToken cancellationToken);
     Task AddCustomerAsync(Customer customer, CancellationToken cancellationToken);
     Task<Customer?> GetCustomerAsync(Guid id, CancellationToken cancellationToken);
     Task<Customer?> FindCustomerByEmailAsync(string email, CancellationToken cancellationToken);

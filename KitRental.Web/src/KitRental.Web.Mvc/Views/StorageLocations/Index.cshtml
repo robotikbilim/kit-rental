@@ -11,11 +11,11 @@ else
 {
     <div class="table-wrap">
         <table>
-            <thead><tr><th>Raf kodu</th><th>Depo</th><th>Koridor</th><th>Raf</th><th>Göz</th><th>İşlemler</th></tr></thead>
+            <thead><tr><th>Raf kodu</th><th>Depo</th><th>Koridor</th><th>Raf</th><th>Göz</th><th>Varsayılan</th><th>İşlemler</th></tr></thead>
             <tbody>
             @foreach (var location in Model)
             {
-                <tr><td><strong>@location.Code</strong></td><td>@location.Warehouse</td><td>@location.Aisle</td><td>@location.Rack</td><td>@location.Shelf</td><td><div class="record-actions"><a asp-action="Edit" asp-route-id="@location.Id">Düzenle</a><form asp-action="Delete" asp-route-id="@location.Id" method="post" onsubmit="return confirm('Bu rafı silmek istediğinize emin misiniz? Stok veya hareket kaydı bulunan raflar silinemez.');"><button type="submit">Sil</button></form></div></td></tr>
+                <tr><td><strong>@location.Code</strong></td><td>@location.Warehouse</td><td>@location.Aisle</td><td>@location.Rack</td><td>@location.Shelf</td><td>@if (location.IsDefaultForNewComponents) { <span class="default-location-badge">Varsayılan</span> } else { <form asp-action="SetDefault" asp-route-id="@location.Id" method="post"><button type="submit" class="set-default-location">Varsayılan yap</button></form> }</td><td><div class="record-actions"><a asp-action="Edit" asp-route-id="@location.Id">Düzenle</a><form asp-action="Delete" asp-route-id="@location.Id" method="post" onsubmit="return confirm('Bu rafı silmek istediğinize emin misiniz? Stok veya hareket kaydı bulunan raflar silinemez.');"><button type="submit">Sil</button></form></div></td></tr>
             }
             </tbody>
         </table>

@@ -282,6 +282,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Ignore(movement => movement.SignedQuantity);
         builder.HasIndex(movement => new { movement.ComponentId, movement.OccurredAt });
         builder.HasIndex(movement => movement.TransferId);
+        builder.HasIndex(movement => movement.ProductUnitId);
         builder.HasOne<Component>().WithMany().HasForeignKey(movement => movement.ComponentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<StorageLocation>().WithMany().HasForeignKey(movement => movement.StorageLocationId).OnDelete(DeleteBehavior.Restrict);
     }

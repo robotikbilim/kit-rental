@@ -10,6 +10,7 @@
             <div class="field"><label asp-for="Aisle"></label><input asp-for="Aisle" placeholder="Örn. A" /></div>
             <div class="field"><label asp-for="Rack"></label><input asp-for="Rack" placeholder="Örn. 01" /></div>
             <div class="field"><label asp-for="Shelf"></label><input asp-for="Shelf" placeholder="Örn. 03" /></div>
+            <label class="default-location-choice"><input asp-for="IsDefaultForNewComponents" /><span><strong>Yeni komponentlerde varsayılan raf yap</strong><small>Seçildiğinde önceki varsayılan rafın seçimi kaldırılır.</small></span></label>
         </div>
         <div class="form-actions"><a asp-action="Index" class="secondary-action">Vazgeç</a><button type="submit" class="primary-action">@(isEdit ? "Değişiklikleri kaydet" : "Rafı kaydet")</button></div>
     </form>

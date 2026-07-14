@@ -80,6 +80,7 @@ public sealed record ProductModelCatalogViewModel(Guid Id, string Name, string S
 public sealed record ComponentCatalogViewModel(
     Guid Id, string Name, string Sku, string UnitOfMeasure, decimal MinimumStock, string? ImageUrl,
     Guid? DefaultStorageLocationId, decimal TotalStock, bool IsLowStock);
+public sealed record ComponentListPageViewModel(IReadOnlyCollection<ComponentCatalogViewModel> Components, string Query);
 public sealed record SupplyNeedLineViewModel(Guid ComponentId, string ComponentName, string ComponentSku,
     string UnitOfMeasure, decimal Quantity, decimal? SuppliedQuantity);
 public sealed record SupplyNeedListViewModel(Guid Id, int Status, DateTimeOffset CreatedAt,
@@ -97,7 +98,7 @@ public sealed class SupplyNeedInputViewModel
 public sealed record SupplyNeedFormPageViewModel(SupplyNeedInputViewModel Form,
     IReadOnlyCollection<ComponentCatalogViewModel> Components, bool IsEdit);
 public sealed record StorageLocationViewModel(Guid Id, string Code, string Warehouse, string Aisle,
-    string Rack, string Shelf);
+    string Rack, string Shelf, bool IsDefaultForNewComponents);
 public sealed class StorageLocationInputViewModel
 {
     public Guid Id { get; set; }
@@ -106,6 +107,7 @@ public sealed class StorageLocationInputViewModel
     [Required, StringLength(40), Display(Name = "Koridor")] public string Aisle { get; set; } = string.Empty;
     [Required, StringLength(40), Display(Name = "Raf")] public string Rack { get; set; } = string.Empty;
     [Required, StringLength(40), Display(Name = "Göz")] public string Shelf { get; set; } = string.Empty;
+    [Display(Name = "Yeni komponentlerde varsayılan raf")] public bool IsDefaultForNewComponents { get; set; }
 }
 public sealed class CompleteSupplyNeedLineViewModel
 {
@@ -133,6 +135,7 @@ public class CreateComponentViewModel
     [Range(0, 999999), Display(Name = "Minimum stok")] public decimal MinimumStock { get; set; }
     [Url, Display(Name = "Görsel adresi")] public string? ImageUrl { get; set; }
     [Display(Name = "Varsayılan raf")] public Guid? DefaultStorageLocationId { get; set; }
+    [Range(0, 999999), Display(Name = "Başlangıç stok adedi")] public decimal InitialStock { get; set; }
 }
 
 public sealed class CreateKitViewModel

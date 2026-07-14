@@ -1,17 +1,26 @@
-@model IReadOnlyCollection<ComponentCatalogViewModel>
+@model ComponentListPageViewModel
 @{ ViewData["Title"] = "Komponentler"; }
-<div class="catalog-heading"><div><span class="eyebrow">ATÖLYE KATALOĞU</span><h1>Komponentler</h1><p>@Model.Count komponent kartı ve güncel stok seviyesi.</p></div><a class="primary-action" asp-action="CreateComponent">+ Yeni komponent</a></div>
+<div class="catalog-heading"><div><span class="eyebrow">ATÖLYE KATALOĞU</span><h1>Komponentler</h1><p>@Model.Components.Count komponent kartı ve güncel stok seviyesi.</p></div><a class="primary-action" asp-action="CreateComponent">+ Yeni komponent</a></div>
 @if (TempData["Success"] is string message) { <div class="success-banner">@message</div> }
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
+<form method="get" class="catalog-search" role="search">
+    <input type="search" name="query" value="@Model.Query" placeholder="Komponent adı veya SKU ile ara..." aria-label="Komponent ara" autofocus />
+    <button type="submit">Ara</button>
+    @if (Model.Query.Length > 0) { <a asp-action="Components">Temizle</a> }
+</form>
 <div class="component-catalog-grid">
-@foreach (var component in Model)
+@foreach (var component in Model.Components)
 {
     <article class="component-catalog-card">
         <img src="@(component.ImageUrl ?? Url.Content("~/images/component-placeholder.svg"))" alt="@component.Name" />
         <div><span>@component.Sku</span><h2><a asp-action="Component" asp-route-id="@component.Id">@component.Name</a></h2><small>Minimum: @component.MinimumStock.ToString("0.###") @component.UnitOfMeasure</small></div>
-        <div class="catalog-stock @(component.IsLowStock ? "critical" : "")"><strong>@component.TotalStock.ToString("0.###")</strong><span>@component.UnitOfMeasure</span></div>
+        <div class="quick-stock-wrap">
+            <form asp-action="AdjustComponentStock" asp-route-id="@component.Id" method="post"><input type="hidden" name="change" value="-1" /><input type="hidden" name="query" value="@Model.Query" /><button type="submit" class="stock-step minus" aria-label="@component.Name stoğunu bir azalt">−</button></form>
+            <div class="catalog-stock @(component.IsLowStock ? "critical" : "")"><strong>@component.TotalStock.ToString("0.###")</strong><span>@component.UnitOfMeasure</span></div>
+            <form asp-action="AdjustComponentStock" asp-route-id="@component.Id" method="post"><input type="hidden" name="change" value="1" /><input type="hidden" name="query" value="@Model.Query" /><button type="submit" class="stock-step plus" aria-label="@component.Name stoğunu bir artır">+</button></form>
+        </div>
         <div class="record-actions"><a asp-action="EditComponent" asp-route-id="@component.Id">Güncelle</a><form asp-action="DeleteComponent" asp-route-id="@component.Id" method="post" onsubmit="return confirm('Bu komponenti silmek istediğinize emin misiniz?');"><button type="submit">Sil</button></form></div>
     </article>
 }
 </div>
-@if (Model.Count == 0) { <div class="empty">Henüz komponent kartı yok.</div> }
+@if (Model.Components.Count == 0) { <div class="empty">@(Model.Query.Length > 0 ? "Aramanızla eşleşen komponent bulunamadı." : "Henüz komponent kartı yok.")</div> }

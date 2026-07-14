@@ -41,7 +41,8 @@ public sealed class StorageLocationsController(KitRentalApiClient apiClient) : C
             Warehouse = location.Warehouse,
             Aisle = location.Aisle,
             Rack = location.Rack,
-            Shelf = location.Shelf
+            Shelf = location.Shelf,
+            IsDefaultForNewComponents = location.IsDefaultForNewComponents
         });
     }
 
@@ -67,6 +68,29 @@ public sealed class StorageLocationsController(KitRentalApiClient apiClient) : C
         var result = await apiClient.DeleteStorageLocationAsync(id, cancellationToken);
         TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
             ? "Raf silindi. Bu rafı varsayılan konum olarak kullanan komponentler 'Bilinmiyor' olarak güncellendi."
+            : result.Error;
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetDefault(Guid id, CancellationToken cancellationToken)
+    {
+        var location = (await apiClient.GetStorageLocationsAsync(cancellationToken))
+            .SingleOrDefault(item => item.Id == id);
+        if (location is null) return NotFound();
+        var model = new StorageLocationInputViewModel
+        {
+            Id = location.Id,
+            Code = location.Code,
+            Warehouse = location.Warehouse,
+            Aisle = location.Aisle,
+            Rack = location.Rack,
+            Shelf = location.Shelf,
+            IsDefaultForNewComponents = true
+        };
+        var result = await apiClient.UpdateStorageLocationAsync(id, model, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? $"{location.Code} yeni komponentler için varsayılan raf yapıldı."
             : result.Error;
         return RedirectToAction(nameof(Index));
     }

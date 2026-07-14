@@ -27,7 +27,8 @@ public sealed class StockMovement
         string reference,
         Guid actorId,
         DateTimeOffset occurredAt,
-        Guid? transferId)
+        Guid? transferId,
+        Guid? productUnitId)
     {
         Id = id;
         ComponentId = componentId;
@@ -38,6 +39,7 @@ public sealed class StockMovement
         ActorId = actorId;
         OccurredAt = occurredAt;
         TransferId = transferId;
+        ProductUnitId = productUnitId;
     }
 
     public Guid Id { get; private set; }
@@ -49,6 +51,7 @@ public sealed class StockMovement
     public Guid ActorId { get; private set; }
     public DateTimeOffset OccurredAt { get; private set; }
     public Guid? TransferId { get; private set; }
+    public Guid? ProductUnitId { get; private set; }
 
     public decimal SignedQuantity => Type is StockMovementType.Receipt or StockMovementType.TransferIn or StockMovementType.AdjustmentIncrease
         ? Quantity
@@ -63,7 +66,8 @@ public sealed class StockMovement
         string reference,
         Guid actorId,
         DateTimeOffset occurredAt,
-        Guid? transferId = null)
+        Guid? transferId = null,
+        Guid? productUnitId = null)
     {
         if (id == Guid.Empty || componentId == Guid.Empty || storageLocationId == Guid.Empty || actorId == Guid.Empty)
             throw new DomainException("stock_movement.ids_required", "Stok hareketi için komponent, lokasyon ve aktör zorunludur.");
@@ -72,6 +76,7 @@ public sealed class StockMovement
         if (string.IsNullOrWhiteSpace(reference))
             throw new DomainException("stock_movement.reference_required", "Stok hareketi açıklaması veya referansı zorunludur.");
 
-        return new StockMovement(id, componentId, storageLocationId, type, quantity, reference.Trim(), actorId, occurredAt, transferId);
+        return new StockMovement(id, componentId, storageLocationId, type, quantity, reference.Trim(), actorId,
+            occurredAt, transferId, productUnitId);
     }
 }

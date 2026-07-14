@@ -8,7 +8,8 @@ public sealed class StorageLocation
     {
     }
 
-    private StorageLocation(Guid id, string code, string warehouse, string aisle, string rack, string shelf)
+    private StorageLocation(Guid id, string code, string warehouse, string aisle, string rack, string shelf,
+        bool isDefaultForNewComponents)
     {
         Id = id;
         Code = code;
@@ -17,6 +18,7 @@ public sealed class StorageLocation
         Rack = rack;
         Shelf = shelf;
         IsActive = true;
+        IsDefaultForNewComponents = isDefaultForNewComponents;
     }
 
     public Guid Id { get; private set; }
@@ -26,8 +28,10 @@ public sealed class StorageLocation
     public string Rack { get; private set; } = string.Empty;
     public string Shelf { get; private set; } = string.Empty;
     public bool IsActive { get; private set; }
+    public bool IsDefaultForNewComponents { get; private set; }
 
-    public static StorageLocation Create(Guid id, string code, string warehouse, string aisle, string rack, string shelf)
+    public static StorageLocation Create(Guid id, string code, string warehouse, string aisle, string rack, string shelf,
+        bool isDefaultForNewComponents = false)
     {
         if (id == Guid.Empty)
             throw new DomainException("storage_location.id_required", "Raf/lokasyon kimliği zorunludur.");
@@ -40,16 +44,21 @@ public sealed class StorageLocation
             warehouse.Trim(),
             aisle.Trim().ToUpperInvariant(),
             rack.Trim().ToUpperInvariant(),
-            shelf.Trim().ToUpperInvariant());
+            shelf.Trim().ToUpperInvariant(),
+            isDefaultForNewComponents);
     }
 
-    public void Update(string code, string warehouse, string aisle, string rack, string shelf)
+    public void Update(string code, string warehouse, string aisle, string rack, string shelf,
+        bool isDefaultForNewComponents = false)
     {
-        var updated = Create(Id, code, warehouse, aisle, rack, shelf);
+        var updated = Create(Id, code, warehouse, aisle, rack, shelf, isDefaultForNewComponents);
         Code = updated.Code;
         Warehouse = updated.Warehouse;
         Aisle = updated.Aisle;
         Rack = updated.Rack;
         Shelf = updated.Shelf;
+        IsDefaultForNewComponents = updated.IsDefaultForNewComponents;
     }
+
+    public void SetDefaultForNewComponents(bool value) => IsDefaultForNewComponents = value;
 }

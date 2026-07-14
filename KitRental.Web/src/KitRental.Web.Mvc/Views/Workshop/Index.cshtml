@@ -39,7 +39,7 @@
             </div>
             <div class="stock-total">
                 <span>Toplam stok</span>
-                <strong id="total-stock">0</strong>
+                <div class="finder-stock-controls"><button type="button" id="decrease-stock" class="stock-step minus" aria-label="Stoğu bir azalt">−</button><strong id="total-stock">0</strong><button type="button" id="increase-stock" class="stock-step plus" aria-label="Stoğu bir artır">+</button></div>
                 <small id="stock-unit"></small>
             </div>
         </div>
@@ -55,6 +55,7 @@
 
     <div class="finder-error" id="finder-error" hidden>Bilgiler alınamadı. Lütfen tekrar deneyin.</div>
 </section>
+<form id="quick-stock-token" hidden>@Html.AntiForgeryToken()</form>
 
 <script>
 (() => {
@@ -68,6 +69,7 @@
     let timer;
     let request;
     let activeIndex = -1;
+    let selectedComponentId = null;
 
     const imageUrl = value => value && value.trim() ? value : placeholder;
     const formatQuantity = value => new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 3 }).format(value);
@@ -158,6 +160,7 @@
     }
 
     function renderResult(item) {
+        selectedComponentId = item.id;
         error.hidden = true;
         prompt.hidden = true;
         result.hidden = false;
@@ -191,6 +194,32 @@
                 card.querySelector('.location-quantity span').textContent = item.unitOfMeasure;
                 grid.appendChild(card);
             });
+        }
+    }
+
+    document.getElementById('decrease-stock').addEventListener('click', () => adjustStock(-1));
+    document.getElementById('increase-stock').addEventListener('click', () => adjustStock(1));
+
+    async function adjustStock(change) {
+        if (!selectedComponentId) return;
+        const buttons = [document.getElementById('decrease-stock'), document.getElementById('increase-stock')];
+        buttons.forEach(button => button.disabled = true);
+        error.hidden = true;
+        const body = new FormData(document.getElementById('quick-stock-token'));
+        body.append('id', selectedComponentId);
+        body.append('change', change);
+        try {
+            const response = await fetch('/Workshop/AdjustStock', { method: 'POST', body });
+            if (!response.ok) {
+                const problem = await response.json().catch(() => null);
+                throw new Error(problem?.error || 'Stok güncellenemedi.');
+            }
+            renderResult(await response.json());
+        } catch (exception) {
+            error.textContent = exception.message;
+            error.hidden = false;
+        } finally {
+            buttons.forEach(button => button.disabled = false);
         }
     }
 

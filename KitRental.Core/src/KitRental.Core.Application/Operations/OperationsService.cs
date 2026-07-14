@@ -8,6 +8,7 @@ using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Support;
+using KitRental.Core.Application.Inventory;
 
 namespace KitRental.Core.Application.Operations;
 
@@ -56,7 +57,10 @@ public sealed record DashboardResponse(
     int OrdersAwaitingApproval,
     int OverdueOrders);
 
-public sealed class OperationsService(ICoreRepository repository, TimeProvider timeProvider)
+public sealed class OperationsService(
+    ICoreRepository repository,
+    TimeProvider timeProvider,
+    ProductUnitStockConsumptionPlanner stockConsumptionPlanner)
 {
     public async Task<Customer> CreateCustomerAsync(CreateCustomerCommand command, CancellationToken cancellationToken)
     {
@@ -223,9 +227,13 @@ public sealed class OperationsService(ICoreRepository repository, TimeProvider t
             throw new ConflictException("order.lines_required", "En az bir kit ve adet seçilmelidir.");
         if (lines.Sum(line => line.Quantity) > 200)
             throw new ConflictException("order.kit_limit_exceeded", "Tek siparişte en fazla 200 fiziksel kit oluşturulabilir.");
+        var models = new Dictionary<Guid, ProductModel>();
         foreach (var requestedLine in lines)
-            _ = await repository.GetProductModelAsync(requestedLine.ProductModelId, cancellationToken)
+        {
+            var model = await repository.GetProductModelAsync(requestedLine.ProductModelId, cancellationToken)
                 ?? throw new ResourceNotFoundException("Seçilen eğitim kitlerinden biri bulunamadı.");
+            models[model.Id] = model;
+        }
         order.ReplaceLines(lines.Select(line => (line.ProductModelId, line.Quantity)).ToArray());
 
         var now = timeProvider.GetUtcNow();
@@ -238,11 +246,26 @@ public sealed class OperationsService(ICoreRepository repository, TimeProvider t
                 var serialNumber = $"ORD-{now:yyyyMMdd}-{Guid.NewGuid():N}".ToUpperInvariant();
                 var unit = ProductUnit.Create(Guid.NewGuid(), line.ProductModelId, serialNumber,
                     $"KITRENTAL:{serialNumber}", actorId, now);
-                await repository.AddProductUnitAsync(unit, cancellationToken);
                 units.Add(unit);
                 assignments.Add(RentalAssignment.Create(Guid.NewGuid(), line.Id, order.CustomerId, unit.Id,
                     order.Period, now, actorId));
             }
+        }
+
+        var stockMovements = await stockConsumptionPlanner.CreateMovementsAsync(
+            units.GroupBy(unit => unit.ProductModelId)
+                .Select(group => new ProductUnitProduction(models[group.Key], group.Select(unit => unit.Id).ToArray()))
+                .ToArray(), actorId, now, cancellationToken);
+        var creationAudits = units.Select(unit => new AuditEntry(Guid.NewGuid(), actorId, nameof(ProductUnit), unit.Id,
+            "CreatedForOrder", null, order.OrderNumber, now)).ToArray();
+        try
+        {
+            await repository.AddProductUnitsWithStockConsumptionAsync(
+                units, stockMovements, creationAudits, cancellationToken);
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw new ConflictException("product_unit.identifier_not_unique", exception.Message);
         }
 
         if (!await repository.TryCreateReservationsAsync(units, assignments, actorId, now, cancellationToken))
@@ -253,9 +276,6 @@ public sealed class OperationsService(ICoreRepository repository, TimeProvider t
             throw new ConflictException("order.kit_reservation_failed", "Sipariş kitleri rezerve edilemedi.");
         }
 
-        foreach (var unit in units)
-            await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId, nameof(ProductUnit), unit.Id,
-                "CreatedForOrder", null, order.OrderNumber, now), cancellationToken);
         await AuditAsync(actorId, nameof(RentalOrder), order.Id, "OrderKitsCreated", null,
             units.Count.ToString(), cancellationToken);
         var assignmentByUnit = assignments.ToDictionary(item => item.ProductUnitId);

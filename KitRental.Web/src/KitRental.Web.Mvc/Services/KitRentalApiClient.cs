@@ -207,6 +207,9 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => SendAsync<ComponentCatalogViewModel>(HttpMethod.Put, $"/core/api/components/{id}", model, cancellationToken);
     public Task<ApiCommandResult<object>> DeleteComponentAsync(Guid id, CancellationToken cancellationToken) =>
         SendAsync<object>(HttpMethod.Delete, $"/core/api/components/{id}", null, cancellationToken);
+    public Task<ApiCommandResult<ComponentLocatorViewModel>> AdjustComponentStockAsync(Guid id, decimal change,
+        CancellationToken cancellationToken) => PostAsync<ComponentLocatorViewModel>(
+        $"/core/api/components/{id}/stock-adjustments", new { change }, cancellationToken);
 
     public Task<ApiCommandResult<ProductModelCatalogViewModel>> CreateKitAsync(
         CreateKitViewModel model,

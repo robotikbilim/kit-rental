@@ -4,6 +4,7 @@ using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Warehouse;
 using KitRental.Core.Domain.Inventory;
+using KitRental.SharedKernel;
 
 namespace KitRental.Core.Application.Workshop;
 
@@ -11,9 +12,18 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
 {
     public async Task<ComponentResponse> CreateComponentAsync(CreateComponentCommand command, CancellationToken cancellationToken)
     {
-        await EnsureDefaultLocationAsync(command.DefaultStorageLocationId, cancellationToken);
+        var defaultStorageLocationId = command.DefaultStorageLocationId;
+        if (!defaultStorageLocationId.HasValue)
+            defaultStorageLocationId = (await repository.GetStorageLocationsAsync(cancellationToken))
+                .SingleOrDefault(item => item.IsDefaultForNewComponents)?.Id;
+        await EnsureDefaultLocationAsync(defaultStorageLocationId, cancellationToken);
+        if (command.InitialStock < 0)
+            throw new DomainException("component.initial_stock_invalid", "Başlangıç stoğu negatif olamaz.");
+        if (command.InitialStock > 0 && !defaultStorageLocationId.HasValue)
+            throw new DomainException("component.initial_stock_location_required",
+                "Başlangıç stoğu girmek için bir raf konumu seçilmelidir.");
         var component = Component.Create(Guid.NewGuid(), command.Name, command.Sku, command.UnitOfMeasure,
-            command.MinimumStock, command.ImageUrl, command.DefaultStorageLocationId);
+            command.MinimumStock, command.ImageUrl, defaultStorageLocationId);
         try
         {
             await repository.AddComponentAsync(component, cancellationToken);
@@ -24,8 +34,65 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
         }
 
         await AuditAsync(command.ActorId, nameof(Component), component.Id, "Created", null, component.Sku, cancellationToken);
-        await repository.SaveChangesAsync(cancellationToken);
-        return MapComponent(component, 0);
+        if (command.InitialStock > 0)
+        {
+            var movement = StockMovement.Create(Guid.NewGuid(), component.Id,
+                defaultStorageLocationId!.Value, StockMovementType.Receipt, command.InitialStock,
+                "Komponent oluşturma başlangıç stoğu", command.ActorId, timeProvider.GetUtcNow());
+            await repository.ApplyStockMovementsAsync([movement], cancellationToken);
+        }
+        else
+        {
+            await repository.SaveChangesAsync(cancellationToken);
+        }
+        return MapComponent(component, command.InitialStock);
+    }
+
+    public async Task<ComponentLocatorResponse> AdjustStockAsync(AdjustComponentStockCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (command.Change == 0 || Math.Abs(command.Change) > 999999)
+            throw new DomainException("component.stock_change_invalid", "Stok değişimi sıfırdan farklı ve geçerli bir miktar olmalıdır.");
+        var component = await repository.GetComponentAsync(command.ComponentId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Komponent bulunamadı.");
+        var stocks = (await repository.GetComponentStocksAsync(component.Id, null, cancellationToken))
+            .OrderByDescending(item => item.StorageLocationId == component.DefaultStorageLocationId)
+            .ThenBy(item => item.StorageLocationId)
+            .ToArray();
+        var now = timeProvider.GetUtcNow();
+        var movements = new List<StockMovement>();
+
+        if (command.Change > 0)
+        {
+            var locationId = component.DefaultStorageLocationId ?? stocks.FirstOrDefault()?.StorageLocationId
+                ?? throw new ConflictException("component.stock_location_required",
+                    "Stok artırmak için komponente varsayılan bir raf tanımlayın.");
+            movements.Add(StockMovement.Create(Guid.NewGuid(), component.Id, locationId,
+                StockMovementType.AdjustmentIncrease, command.Change, "Hızlı stok artırımı", command.ActorId, now));
+        }
+        else
+        {
+            var required = Math.Abs(command.Change);
+            var available = stocks.Sum(item => item.Quantity);
+            if (available < required)
+                throw new ConflictException("component.stock_insufficient",
+                    $"{component.Name} stoğu yetersiz. Mevcut stok: {available:0.###} {component.UnitOfMeasure}.");
+            var remaining = required;
+            foreach (var stock in stocks)
+            {
+                var quantity = Math.Min(stock.Quantity, remaining);
+                if (quantity <= 0) continue;
+                movements.Add(StockMovement.Create(Guid.NewGuid(), component.Id, stock.StorageLocationId,
+                    StockMovementType.AdjustmentDecrease, quantity, "Hızlı stok azaltımı", command.ActorId, now));
+                remaining -= quantity;
+                if (remaining == 0) break;
+            }
+        }
+
+        await AuditAsync(command.ActorId, nameof(ComponentStock), component.Id, "QuickAdjusted", null,
+            command.Change.ToString("0.###"), cancellationToken);
+        await repository.ApplyStockMovementsAsync(movements, cancellationToken);
+        return await GetComponentLocatorAsync(component.Id, cancellationToken);
     }
 
     public async Task<ComponentResponse> UpdateComponentAsync(UpdateComponentCommand command, CancellationToken cancellationToken)
@@ -126,7 +193,8 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
 
     public async Task<StorageLocationResponse> CreateLocationAsync(CreateStorageLocationCommand command, CancellationToken cancellationToken)
     {
-        var location = StorageLocation.Create(Guid.NewGuid(), command.Code, command.Warehouse, command.Aisle, command.Rack, command.Shelf);
+        var location = StorageLocation.Create(Guid.NewGuid(), command.Code, command.Warehouse, command.Aisle,
+            command.Rack, command.Shelf, command.IsDefaultForNewComponents);
         try
         {
             await repository.AddStorageLocationAsync(location, cancellationToken);
@@ -136,6 +204,8 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
             throw new ConflictException("storage_location.code_not_unique", exception.Message);
         }
 
+        if (location.IsDefaultForNewComponents)
+            ClearOtherDefaultLocations(location.Id, await repository.GetStorageLocationsAsync(cancellationToken));
         await AuditAsync(command.ActorId, nameof(StorageLocation), location.Id, "Created", null, location.Code, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return MapLocation(location);
@@ -154,7 +224,10 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
             item.Code == normalizedCode))
             throw new ConflictException("storage_location.code_not_unique", "Bu raf kodu başka bir kayıtta kullanılıyor.");
         var previous = location.Code;
-        location.Update(command.Code, command.Warehouse, command.Aisle, command.Rack, command.Shelf);
+        location.Update(command.Code, command.Warehouse, command.Aisle, command.Rack, command.Shelf,
+            command.IsDefaultForNewComponents);
+        if (location.IsDefaultForNewComponents)
+            ClearOtherDefaultLocations(location.Id, await repository.GetStorageLocationsAsync(cancellationToken));
         await AuditAsync(command.ActorId, nameof(StorageLocation), location.Id, "Updated", previous,
             location.Code, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
@@ -395,7 +468,16 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
             component.DefaultStorageLocationId, totalStock, totalStock <= component.MinimumStock);
 
     private static StorageLocationResponse MapLocation(StorageLocation location) =>
-        new(location.Id, location.Code, location.Warehouse, location.Aisle, location.Rack, location.Shelf);
+        new(location.Id, location.Code, location.Warehouse, location.Aisle, location.Rack, location.Shelf,
+            location.IsDefaultForNewComponents);
+
+    private static void ClearOtherDefaultLocations(Guid selectedId,
+        IReadOnlyCollection<StorageLocation> locations)
+    {
+        foreach (var location in locations.Where(item =>
+                     item.Id != selectedId && item.IsDefaultForNewComponents))
+            location.SetDefaultForNewComponents(false);
+    }
 
     private static StockMovementResponse MapMovement(StockMovement movement) =>
         new(movement.Id, movement.ComponentId, movement.StorageLocationId, movement.Type, movement.Quantity,

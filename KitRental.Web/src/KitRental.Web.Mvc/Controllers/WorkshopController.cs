@@ -24,4 +24,13 @@ public sealed class WorkshopController(KitRentalApiClient apiClient) : Controlle
         var result = await apiClient.GetComponentLocatorAsync(id, cancellationToken);
         return result is null ? NotFound() : Json(result);
     }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> AdjustStock(Guid id, decimal change, CancellationToken cancellationToken)
+    {
+        var result = await apiClient.AdjustComponentStockAsync(id, change, cancellationToken);
+        return result.IsSuccess && result.Data is not null
+            ? Json(result.Data)
+            : BadRequest(new { error = result.Error ?? "Stok güncellenemedi." });
+    }
 }

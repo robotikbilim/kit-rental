@@ -59,6 +59,55 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
         return Task.CompletedTask;
     }
 
+    public async Task RemoveProductUnitWithStockRestorationAsync(ProductUnit unit,
+        IReadOnlyCollection<StockMovement> movements, AuditEntry auditEntry,
+        CancellationToken cancellationToken)
+    {
+        foreach (var movement in movements)
+        {
+            var stock = await dbContext.ComponentStocks.SingleOrDefaultAsync(item =>
+                item.ComponentId == movement.ComponentId &&
+                item.StorageLocationId == movement.StorageLocationId, cancellationToken);
+            if (stock is null)
+            {
+                stock = ComponentStock.Create(Guid.NewGuid(), movement.ComponentId, movement.StorageLocationId);
+                await dbContext.ComponentStocks.AddAsync(stock, cancellationToken);
+            }
+            stock.Apply(movement.SignedQuantity);
+        }
+        dbContext.ProductUnits.Remove(unit);
+        await dbContext.StockMovements.AddRangeAsync(movements, cancellationToken);
+        await dbContext.AuditEntries.AddAsync(auditEntry, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task AddProductUnitsWithStockConsumptionAsync(
+        IReadOnlyCollection<ProductUnit> units,
+        IReadOnlyCollection<StockMovement> movements,
+        IReadOnlyCollection<AuditEntry> auditEntries,
+        CancellationToken cancellationToken)
+    {
+        var serialNumbers = units.Select(item => item.SerialNumber).ToArray();
+        var qrCodes = units.Select(item => item.QrCode).ToArray();
+        if (serialNumbers.Distinct().Count() != units.Count || qrCodes.Distinct().Count() != units.Count ||
+            await dbContext.ProductUnits.AnyAsync(item =>
+                serialNumbers.Contains(item.SerialNumber) || qrCodes.Contains(item.QrCode), cancellationToken))
+            throw new InvalidOperationException("Seri numarası veya QR kod başka bir fiziksel ürün biriminde kullanılıyor.");
+
+        foreach (var movement in movements)
+        {
+            var stock = await dbContext.ComponentStocks.SingleAsync(item =>
+                item.ComponentId == movement.ComponentId &&
+                item.StorageLocationId == movement.StorageLocationId, cancellationToken);
+            stock.Apply(movement.SignedQuantity);
+        }
+
+        await dbContext.ProductUnits.AddRangeAsync(units, cancellationToken);
+        await dbContext.StockMovements.AddRangeAsync(movements, cancellationToken);
+        await dbContext.AuditEntries.AddRangeAsync(auditEntries, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task AddCustomerAsync(Customer customer, CancellationToken cancellationToken)
     {
         if (await dbContext.Customers.AnyAsync(existing => existing.Email == customer.Email, cancellationToken))

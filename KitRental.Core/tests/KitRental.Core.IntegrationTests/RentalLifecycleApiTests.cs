@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using KitRental.Core.Application.Inventory;
 using KitRental.Core.Application.Operations;
 using KitRental.Core.Application.Rentals;
+using KitRental.Core.Application.Workshop;
 using KitRental.Core.Domain.Inventory;
 using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Orders;
@@ -91,6 +92,15 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
         var cancellationToken = TestContext.Current.CancellationToken;
         var model = await PostAsync<ProductModelResponse>(
             "/api/product-models", new CreateProductModelRequest("Sipariş Akış Seti", $"OF-{Guid.NewGuid():N}"), cancellationToken);
+        var location = await PostAsync<StorageLocationResponse>("/api/storage-locations",
+            new CreateStorageLocationRequest($"ORDER-{Guid.NewGuid():N}", "Sipariş Deposu", "A", "01", "01"), cancellationToken);
+        var component = await PostAsync<ComponentResponse>("/api/components",
+            new CreateComponentRequest("Sipariş Kit Komponenti", $"ORD-CMP-{Guid.NewGuid():N}", "adet", 0, null, location.Id),
+            cancellationToken);
+        await PostAsync<StockMovementResponse>("/api/component-stock/receipts",
+            new RecordComponentStockRequest(component.Id, location.Id, 2, "Sipariş üretim stoğu"), cancellationToken);
+        await PostAsync<BillOfMaterialsResponse>($"/api/product-models/{model.Id}/bom",
+            new CreateBillOfMaterialsRequest(1, [new BillOfMaterialsLineRequest(component.Id, 1)]), cancellationToken);
         var customer = await PostAsync<CustomerResponse>(
             "/api/customers",
             new CreateCustomerRequest("Akış Test Okulu", $"flow-{Guid.NewGuid():N}@example.com",
@@ -108,6 +118,13 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
             new { lines = new[] { new { productModelId = model.Id, quantity = 2 } } }, cancellationToken);
         Assert.Equal(2, prepared.CreatedCount);
         Assert.All(prepared.Kits, kit => Assert.Equal(ProductUnitStatus.Reserved, kit.Status));
+        var componentStocks = await _client.GetFromJsonAsync<ComponentStockResponse[]>(
+            $"/api/component-stock?componentId={component.Id}", cancellationToken);
+        var componentMovements = await _client.GetFromJsonAsync<StockMovementResponse[]>(
+            $"/api/component-stock/movements?componentId={component.Id}", cancellationToken);
+        Assert.Empty(componentStocks!);
+        Assert.Equal(2, componentMovements!.Where(item =>
+            item.Type == KitRental.Core.Domain.Warehouse.StockMovementType.Consumption).Sum(item => item.Quantity));
         order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions",
             new OrderTransitionRequest(RentalOrderStatus.Preparing), cancellationToken);
         Assert.Equal(RentalOrderStatus.Preparing, order.Status);

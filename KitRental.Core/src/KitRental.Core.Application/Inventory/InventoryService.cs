@@ -6,7 +6,10 @@ using KitRental.SharedKernel;
 
 namespace KitRental.Core.Application.Inventory;
 
-public sealed class InventoryService(ICoreRepository repository, TimeProvider timeProvider)
+public sealed class InventoryService(
+    ICoreRepository repository,
+    TimeProvider timeProvider,
+    ProductUnitStockConsumptionPlanner stockConsumptionPlanner)
 {
     public async Task<ProductModelResponse> CreateModelAsync(
         CreateProductModelCommand command,
@@ -74,38 +77,26 @@ public sealed class InventoryService(ICoreRepository repository, TimeProvider ti
         CreateProductUnitCommand command,
         CancellationToken cancellationToken)
     {
-        if (await repository.GetProductModelAsync(command.ProductModelId, cancellationToken) is null)
-        {
-            throw new ResourceNotFoundException("Ürün modeli bulunamadı.");
-        }
-
+        var model = await repository.GetProductModelAsync(command.ProductModelId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Ürün modeli bulunamadı.");
+        var now = timeProvider.GetUtcNow();
         var serialNumber = string.IsNullOrWhiteSpace(command.SerialNumber)
-            ? GenerateSerialNumber(timeProvider.GetUtcNow())
+            ? GenerateSerialNumber(now)
             : command.SerialNumber;
         var qrCode = string.IsNullOrWhiteSpace(command.QrCode)
             ? $"KITRENTAL:{serialNumber}"
             : command.QrCode;
-        var unit = ProductUnit.Create(
-            Guid.NewGuid(),
-            command.ProductModelId,
-            serialNumber,
-            qrCode,
-            command.ActorId,
-            timeProvider.GetUtcNow());
+        var unit = ProductUnit.Create(Guid.NewGuid(), command.ProductModelId, serialNumber, qrCode,
+            command.ActorId, now);
 
         try
         {
-            await repository.AddProductUnitAsync(unit, cancellationToken);
+            await PersistCreatedUnitsAsync([unit], model, command.ActorId, now, cancellationToken);
         }
         catch (InvalidOperationException exception)
         {
             throw new ConflictException("product_unit.identifier_not_unique", exception.Message);
         }
-
-        await repository.AddAuditEntryAsync(
-            new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(ProductUnit), unit.Id, "Created", null, unit.Status.ToString(), timeProvider.GetUtcNow()),
-            cancellationToken);
-        await repository.SaveChangesAsync(cancellationToken);
 
         return Map(unit);
     }
@@ -116,8 +107,8 @@ public sealed class InventoryService(ICoreRepository repository, TimeProvider ti
     {
         if (command.Quantity is < 1 or > 200)
             throw new DomainException("product_unit.quantity_invalid", "Tek işlemde 1 ile 200 arasında fiziksel kit oluşturulabilir.");
-        if (await repository.GetProductModelAsync(command.ProductModelId, cancellationToken) is null)
-            throw new ResourceNotFoundException("Ürün modeli bulunamadı.");
+        var model = await repository.GetProductModelAsync(command.ProductModelId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Ürün modeli bulunamadı.");
 
         var now = timeProvider.GetUtcNow();
         var units = new List<ProductUnit>(command.Quantity);
@@ -126,19 +117,16 @@ public sealed class InventoryService(ICoreRepository repository, TimeProvider ti
             var serialNumber = GenerateSerialNumber(now);
             var unit = ProductUnit.Create(Guid.NewGuid(), command.ProductModelId, serialNumber,
                 $"KITRENTAL:{serialNumber}", command.ActorId, now);
-            try
-            {
-                await repository.AddProductUnitAsync(unit, cancellationToken);
-            }
-            catch (InvalidOperationException exception)
-            {
-                throw new ConflictException("product_unit.identifier_not_unique", exception.Message);
-            }
-            await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(ProductUnit),
-                unit.Id, "Created", null, unit.Status.ToString(), now), cancellationToken);
             units.Add(unit);
         }
-        await repository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await PersistCreatedUnitsAsync(units, model, command.ActorId, now, cancellationToken);
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw new ConflictException("product_unit.identifier_not_unique", exception.Message);
+        }
         return units.Select(Map).ToArray();
     }
 
@@ -206,14 +194,33 @@ public sealed class InventoryService(ICoreRepository repository, TimeProvider ti
             (await repository.GetAssignmentsForProductUnitAsync(id, cancellationToken)).Count > 0 ||
             (await repository.GetFaultTicketsAsync(null, cancellationToken)).Any(item => item.ProductUnitId == id))
             throw new ConflictException("product_unit.in_use", "Yalnızca hiç kiralanmamış, arızası olmayan ve kiralanabilir durumdaki fiziksel kit silinebilir.");
-        await repository.RemoveProductUnitAsync(unit, cancellationToken);
-        await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId, nameof(ProductUnit), id,
-            "Deleted", unit.SerialNumber, null, timeProvider.GetUtcNow()), cancellationToken);
-        await repository.SaveChangesAsync(cancellationToken);
+        var model = await repository.GetProductModelAsync(unit.ProductModelId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Ürün modeli bulunamadı.");
+        var now = timeProvider.GetUtcNow();
+        var movements = await stockConsumptionPlanner.CreateRestorationMovementsAsync(
+            unit, model, actorId, now, cancellationToken);
+        var audit = new AuditEntry(Guid.NewGuid(), actorId, nameof(ProductUnit), id,
+            "Deleted", unit.SerialNumber, null, now);
+        await repository.RemoveProductUnitWithStockRestorationAsync(unit, movements, audit, cancellationToken);
     }
 
     private static ProductUnitResponse Map(ProductUnit unit) =>
         new(unit.Id, unit.ProductModelId, unit.SerialNumber, unit.QrCode, unit.Status);
+
+    private async Task PersistCreatedUnitsAsync(
+        IReadOnlyCollection<ProductUnit> units,
+        ProductModel model,
+        Guid actorId,
+        DateTimeOffset occurredAt,
+        CancellationToken cancellationToken)
+    {
+        var movements = await stockConsumptionPlanner.CreateMovementsAsync(
+            [new ProductUnitProduction(model, units.Select(item => item.Id).ToArray())], actorId, occurredAt,
+            cancellationToken);
+        var audits = units.Select(unit => new AuditEntry(Guid.NewGuid(), actorId, nameof(ProductUnit), unit.Id,
+            "Created", null, unit.Status.ToString(), occurredAt)).ToArray();
+        await repository.AddProductUnitsWithStockConsumptionAsync(units, movements, audits, cancellationToken);
+    }
 
     private static string GenerateSerialNumber(DateTimeOffset now) =>
         $"KR-{now:yyyyMMdd}-{Guid.NewGuid():N}".ToUpperInvariant();

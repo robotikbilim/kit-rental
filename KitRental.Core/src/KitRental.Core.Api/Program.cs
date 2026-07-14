@@ -65,6 +65,7 @@ else
     builder.Services.AddSqlServerPersistence(connectionString);
 }
 builder.Services.AddScoped<InventoryService>();
+builder.Services.AddScoped<ProductUnitStockConsumptionPlanner>();
 builder.Services.AddScoped<RentalAssignmentService>();
 builder.Services.AddScoped<OperationsService>();
 builder.Services.AddScoped<ReportingService>();
@@ -241,7 +242,7 @@ api.MapPost("/components", async (CreateComponentRequest request, ClaimsPrincipa
 {
     var result = await service.CreateComponentAsync(
         new CreateComponentCommand(request.Name, request.Sku, request.UnitOfMeasure, request.MinimumStock, request.ImageUrl,
-            request.DefaultStorageLocationId, user.GetRequiredUserId()),
+            request.DefaultStorageLocationId, user.GetRequiredUserId(), request.InitialStock),
         cancellationToken);
     return Results.Created($"/api/components/{result.Id}", result);
 }).RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
@@ -262,11 +263,17 @@ api.MapGet("/components/{componentId:guid}/locator", async (Guid componentId, Wo
     Results.Ok(await service.GetComponentLocatorAsync(componentId, cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
 
+api.MapPost("/components/{componentId:guid}/stock-adjustments", async (Guid componentId,
+    AdjustComponentStockRequest request, ClaimsPrincipal user, WorkshopService service,
+    CancellationToken cancellationToken) => Results.Ok(await service.AdjustStockAsync(
+        new AdjustComponentStockCommand(componentId, request.Change, user.GetRequiredUserId()), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
+
 api.MapPost("/storage-locations", async (CreateStorageLocationRequest request, ClaimsPrincipal user, WorkshopService service, CancellationToken cancellationToken) =>
 {
     var result = await service.CreateLocationAsync(
         new CreateStorageLocationCommand(request.Code, request.Warehouse, request.Aisle, request.Rack, request.Shelf,
-            user.GetRequiredUserId()), cancellationToken);
+            user.GetRequiredUserId(), request.IsDefaultForNewComponents), cancellationToken);
     return Results.Created($"/api/storage-locations/{result.Id}", result);
 }).RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
 
@@ -277,7 +284,8 @@ api.MapGet("/storage-locations", async (WorkshopService service, CancellationTok
 api.MapPut("/storage-locations/{id:guid}", async (Guid id, CreateStorageLocationRequest request,
     ClaimsPrincipal user, WorkshopService service, CancellationToken cancellationToken) => Results.Ok(
         await service.UpdateLocationAsync(new UpdateStorageLocationCommand(id, request.Code, request.Warehouse,
-            request.Aisle, request.Rack, request.Shelf, user.GetRequiredUserId()), cancellationToken)))
+            request.Aisle, request.Rack, request.Shelf, user.GetRequiredUserId(),
+            request.IsDefaultForNewComponents), cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
 
 api.MapDelete("/storage-locations/{id:guid}", async (Guid id, ClaimsPrincipal user, WorkshopService service,
@@ -590,13 +598,15 @@ public sealed record BulkRentPhysicalKitsRequest(IReadOnlyCollection<Guid> Produ
     string Email, string Phone, string AddressLine, string District, string City, string PostalCode,
     DateOnly StartDate, DateOnly EndDate);
 public sealed record CreateComponentRequest(string Name, string Sku, string UnitOfMeasure, decimal MinimumStock,
-    string? ImageUrl = null, Guid? DefaultStorageLocationId = null);
+    string? ImageUrl = null, Guid? DefaultStorageLocationId = null, decimal InitialStock = 0);
+public sealed record AdjustComponentStockRequest(decimal Change);
 public sealed record UpdateComponentRequest(string Name, string Sku, string UnitOfMeasure, decimal MinimumStock,
     string? ImageUrl = null, Guid? DefaultStorageLocationId = null);
 public sealed record SupplyNeedLineRequest(Guid ComponentId, decimal Quantity);
 public sealed record SupplyNeedRequest(IReadOnlyCollection<SupplyNeedLineRequest> Lines);
 public sealed record CompleteSupplyNeedRequest(Guid StorageLocationId, IReadOnlyCollection<SupplyNeedLineRequest> Lines);
-public sealed record CreateStorageLocationRequest(string Code, string Warehouse, string Aisle, string Rack, string Shelf);
+public sealed record CreateStorageLocationRequest(string Code, string Warehouse, string Aisle, string Rack, string Shelf,
+    bool IsDefaultForNewComponents = false);
 public sealed record RecordComponentStockRequest(Guid ComponentId, Guid StorageLocationId, decimal Quantity, string Reference);
 public sealed record TransferComponentStockRequest(Guid ComponentId, Guid FromStorageLocationId, Guid ToStorageLocationId, decimal Quantity, string Reference);
 public sealed record BillOfMaterialsLineRequest(Guid ComponentId, decimal Quantity);

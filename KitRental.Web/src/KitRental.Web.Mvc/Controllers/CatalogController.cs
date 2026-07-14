@@ -87,8 +87,16 @@ public sealed class CatalogController(KitRentalApiClient apiClient) : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Components(CancellationToken cancellationToken) =>
-        View(await apiClient.GetComponentsAsync(cancellationToken));
+    public async Task<IActionResult> Components(string? query, CancellationToken cancellationToken)
+    {
+        var normalized = query?.Trim() ?? string.Empty;
+        var components = await apiClient.GetComponentsAsync(cancellationToken);
+        if (normalized.Length > 0)
+            components = components.Where(item =>
+                item.Name.Contains(normalized, StringComparison.CurrentCultureIgnoreCase) ||
+                item.Sku.Contains(normalized, StringComparison.OrdinalIgnoreCase)).ToArray();
+        return View(new ComponentListPageViewModel(components, normalized));
+    }
 
     [HttpGet]
     public async Task<IActionResult> Component(Guid id, CancellationToken cancellationToken)
@@ -104,6 +112,9 @@ public sealed class CatalogController(KitRentalApiClient apiClient) : Controller
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateComponent(CreateComponentViewModel model, CancellationToken cancellationToken)
     {
+        if (!model.DefaultStorageLocationId.HasValue)
+            ModelState.AddModelError(nameof(model.DefaultStorageLocationId),
+                "Yeni komponent için raf konumu seçilmelidir.");
         if (!ModelState.IsValid) return View(await ComponentFormPageAsync(model, false, cancellationToken));
         var result = await apiClient.CreateComponentAsync(model, cancellationToken);
         if (!result.IsSuccess || result.Data is null)
@@ -173,12 +184,29 @@ public sealed class CatalogController(KitRentalApiClient apiClient) : Controller
         return RedirectToAction(nameof(Components));
     }
 
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> AdjustComponentStock(Guid id, decimal change, string? query,
+        CancellationToken cancellationToken)
+    {
+        var result = await apiClient.AdjustComponentStockAsync(id, change, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? $"Stok {(change > 0 ? "artırıldı" : "azaltıldı")}."
+            : result.Error;
+        return RedirectToAction(nameof(Components), new { query });
+    }
+
     private async Task<CreateKitPageViewModel> KitPageAsync(CreateKitViewModel form, CancellationToken cancellationToken) =>
         new(form, await apiClient.GetComponentsAsync(cancellationToken));
 
     private async Task<ComponentFormPageViewModel> ComponentFormPageAsync(CreateComponentViewModel form, bool isEdit,
-        CancellationToken cancellationToken) =>
-        new(form, await apiClient.GetStorageLocationsAsync(cancellationToken), isEdit);
+        CancellationToken cancellationToken)
+    {
+        var locations = await apiClient.GetStorageLocationsAsync(cancellationToken);
+        if (!isEdit && !form.DefaultStorageLocationId.HasValue)
+            form.DefaultStorageLocationId = locations.SingleOrDefault(item =>
+                item.IsDefaultForNewComponents)?.Id;
+        return new ComponentFormPageViewModel(form, locations, isEdit);
+    }
 
     private async Task<EditRecipePageViewModel> RecipePageAsync(EditRecipeViewModel form, bool hasExistingRecipe,
         CancellationToken cancellationToken)

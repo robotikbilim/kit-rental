@@ -115,6 +115,67 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         return Task.CompletedTask;
     }
 
+    public Task RemoveProductUnitWithStockRestorationAsync(ProductUnit unit,
+        IReadOnlyCollection<StockMovement> movements, AuditEntry auditEntry,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            foreach (var movement in movements)
+            {
+                var key = (movement.ComponentId, movement.StorageLocationId);
+                if (!_componentStocks.TryGetValue(key, out var stock))
+                {
+                    stock = ComponentStock.Create(Guid.NewGuid(), movement.ComponentId, movement.StorageLocationId);
+                    _componentStocks.Add(key, stock);
+                }
+                stock.Apply(movement.SignedQuantity);
+                _stockMovements.Add(movement);
+            }
+            _units.Remove(unit.Id);
+            _auditEntries.Add(auditEntry);
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task AddProductUnitsWithStockConsumptionAsync(
+        IReadOnlyCollection<ProductUnit> units,
+        IReadOnlyCollection<StockMovement> movements,
+        IReadOnlyCollection<AuditEntry> auditEntries,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            var serialNumbers = units.Select(item => item.SerialNumber).ToArray();
+            var qrCodes = units.Select(item => item.QrCode).ToArray();
+            if (serialNumbers.Distinct().Count() != units.Count || qrCodes.Distinct().Count() != units.Count ||
+                _units.Values.Any(existing => serialNumbers.Contains(existing.SerialNumber) || qrCodes.Contains(existing.QrCode)))
+                throw new InvalidOperationException("Seri numarası veya QR kod başka bir fiziksel ürün biriminde kullanılıyor.");
+
+            var deltas = movements.GroupBy(item => (item.ComponentId, item.StorageLocationId))
+                .ToDictionary(group => group.Key, group => group.Sum(item => item.SignedQuantity));
+            foreach (var (key, delta) in deltas)
+            {
+                var available = _componentStocks.GetValueOrDefault(key)?.Quantity ?? 0;
+                if (available + delta < 0)
+                    throw new InvalidOperationException("Fiziksel kit üretimi için komponent stoğu yetersiz.");
+            }
+
+            foreach (var movement in movements)
+            {
+                var key = (movement.ComponentId, movement.StorageLocationId);
+                _componentStocks[key].Apply(movement.SignedQuantity);
+                _stockMovements.Add(movement);
+            }
+            foreach (var unit in units)
+                _units.Add(unit.Id, unit);
+            _auditEntries.AddRange(auditEntries);
+        }
+        return Task.CompletedTask;
+    }
+
     public Task AddCustomerAsync(Customer customer, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
