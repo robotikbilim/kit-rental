@@ -26,6 +26,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
     public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<FaultTicket> FaultTickets => Set<FaultTicket>();
     public DbSet<ReturnInspection> ReturnInspections => Set<ReturnInspection>();
+    public DbSet<KitReturnRequest> KitReturnRequests => Set<KitReturnRequest>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<Component> Components => Set<Component>();
     public DbSet<StorageLocation> StorageLocations => Set<StorageLocation>();
@@ -44,6 +45,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         ConfigureShipment(modelBuilder.Entity<Shipment>());
         ConfigureFaultTicket(modelBuilder.Entity<FaultTicket>());
         ConfigureInspection(modelBuilder.Entity<ReturnInspection>());
+        ConfigureKitReturnRequest(modelBuilder.Entity<KitReturnRequest>());
         ConfigureAudit(modelBuilder.Entity<AuditEntry>());
         ConfigureComponent(modelBuilder.Entity<Component>());
         ConfigureStorageLocation(modelBuilder.Entity<StorageLocation>());
@@ -304,6 +306,27 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             lines.HasIndex(line => line.ComponentId);
         });
         builder.Navigation(bom => bom.Lines).HasField("_lines").UsePropertyAccessMode(PropertyAccessMode.Field);
+        AddRowVersion(builder);
+    }
+
+    private static void ConfigureKitReturnRequest(EntityTypeBuilder<KitReturnRequest> builder)
+    {
+        builder.ToTable("KitReturnRequests");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Carrier).HasMaxLength(120);
+        builder.Property(x => x.TrackingNumber).HasMaxLength(160);
+        builder.HasIndex(x => new { x.CustomerId, x.Status });
+        builder.HasIndex(x => x.TrackingNumber).IsUnique().HasFilter("[TrackingNumber] IS NOT NULL");
+        builder.OwnsMany(x => x.Items, items =>
+        {
+            items.ToTable("KitReturnItems");
+            items.WithOwner().HasForeignKey("KitReturnRequestId");
+            items.HasKey(x => x.Id);
+            items.Property(x => x.Id).ValueGeneratedNever();
+            items.HasIndex(x => x.ProductUnitId);
+            items.HasIndex(x => x.AssignmentId);
+        });
+        builder.Navigation(x => x.Items).HasField("_items").UsePropertyAccessMode(PropertyAccessMode.Field);
         AddRowVersion(builder);
     }
 

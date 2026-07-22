@@ -49,6 +49,43 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         return File(PngByteQRCodeHelper.GetQRCode(value, QRCodeGenerator.ECCLevel.Q, 8), "image/png");
     }
 
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ConfirmDelivery(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await apiClient.ConfirmPortalOrderDeliveryAsync(id, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "Teslimat onaylandı. Kitleriniz artık kullanımınızda görünüyor."
+            : result.Error ?? "Teslimat onaylanamadı.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Returns(CancellationToken cancellationToken)
+    {
+        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        return portal is null ? Forbid() : View(portal);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> StartReturn(PortalKitReturnSelectionViewModel model, CancellationToken cancellationToken)
+    {
+        var result = await apiClient.CreatePortalKitReturnAsync(model.AssignmentIds, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "İade süreci başlatıldı. Kargoya verdiğinizde takip bilgilerini girin."
+            : result.Error ?? "İade süreci başlatılamadı.";
+        return RedirectToAction(nameof(Returns));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> MarkReturnShipped(PortalKitReturnShipmentViewModel model, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid) { TempData["Error"] = "Kargo firması ve takip numarası zorunludur."; return RedirectToAction(nameof(Returns)); }
+        var result = await apiClient.ShipPortalKitReturnAsync(model.ReturnId, model.Carrier, model.TrackingNumber, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "İade kargoya verildi olarak işaretlendi." : result.Error ?? "Kargo bilgisi kaydedilemedi.";
+        return RedirectToAction(nameof(Returns));
+    }
+
     [HttpGet]
     public async Task<IActionResult> NewRequest(CancellationToken cancellationToken)
     {

@@ -13,6 +13,7 @@
     <div class="recipe-actions"><a class="secondary-action" asp-action="FindKit">▣ QR ile kit bul</a><a class="primary-action" asp-action="NewRequest">+ Yeni kiralama talebi</a></div>
 </div>
 @if (TempData["Success"] is string message) { <div class="success-banner">@message</div> }
+@if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 <section class="metrics portal-metrics">
     <article><span>Kullanımınızdaki kit</span><strong>@Model.ActiveKitCount</strong></article>
     <article><span>Onay bekleyen talep</span><strong>@Model.PendingRequestCount</strong></article>
@@ -51,8 +52,8 @@
 
 <section class="portal-section">
     <div class="section-heading"><div><span class="eyebrow">TALEP TAKİBİ</span><h2>Kiralama taleplerim</h2></div><a class="row-link" asp-action="NewRequest">Yeni talep oluştur →</a></div>
-    <div class="table-scroll"><table><thead><tr><th>Talep</th><th>Kitler</th><th>Dönem</th><th>Oluşturulma</th><th>Durum</th></tr></thead><tbody>
-    @foreach (var order in Model.Orders) { <tr><td><strong>@order.OrderNumber</strong></td><td>@string.Join(", ", order.Lines.Select(line => $"{line.ProductName} × {line.Quantity}"))</td><td>@order.StartDate.ToString("dd.MM.yyyy") – @order.EndDate.ToString("dd.MM.yyyy")</td><td>@order.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td><td><span class="badge order-status-@order.Status">@OrderStatus(order.Status)</span></td></tr> }
+    <div class="table-scroll"><table><thead><tr><th>Talep</th><th>Kitler</th><th>Dönem</th><th>Oluşturulma</th><th>Durum</th><th><span class="visually-hidden">İşlem</span></th></tr></thead><tbody>
+    @foreach (var order in Model.Orders) { <tr><td><strong>@order.OrderNumber</strong></td><td>@string.Join(", ", order.Lines.Select(line => $"{line.ProductName} × {line.Quantity}"))</td><td>@order.StartDate.ToString("dd.MM.yyyy") – @order.EndDate.ToString("dd.MM.yyyy")</td><td>@order.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td><td><span class="badge order-status-@order.Status">@OrderStatus(order.Status)</span></td><td>@if (order.Status == 6) { <form asp-action="ConfirmDelivery" asp-route-id="@order.Id" method="post" onsubmit="return confirm('Bu siparişi teslim aldığınızı onaylıyor musunuz?');"><button class="portal-delivery-confirm" type="submit">Teslim aldım</button></form> }</td></tr> }
     </tbody></table></div>
     @if (Model.Orders.Count == 0) { <div class="empty">Henüz kiralama talebiniz yok.</div> }
 </section>

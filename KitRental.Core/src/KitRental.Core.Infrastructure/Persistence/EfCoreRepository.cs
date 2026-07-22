@@ -194,6 +194,19 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
     public Task AddInspectionAsync(ReturnInspection inspection, CancellationToken cancellationToken) =>
         dbContext.ReturnInspections.AddAsync(inspection, cancellationToken).AsTask();
 
+    public Task AddKitReturnRequestAsync(KitReturnRequest request, CancellationToken cancellationToken) =>
+        dbContext.KitReturnRequests.AddAsync(request, cancellationToken).AsTask();
+
+    public Task<KitReturnRequest?> GetKitReturnRequestAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.KitReturnRequests.Include(x => x.Items).SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyCollection<KitReturnRequest>> GetKitReturnRequestsAsync(Guid? customerId, CancellationToken cancellationToken)
+    {
+        var query = dbContext.KitReturnRequests.Include(x => x.Items).AsQueryable();
+        if (customerId.HasValue) query = query.Where(x => x.CustomerId == customerId.Value);
+        return await query.OrderByDescending(x => x.CreatedAt).ToArrayAsync(cancellationToken);
+    }
+
     public Task AddAuditEntryAsync(AuditEntry entry, CancellationToken cancellationToken) =>
         dbContext.AuditEntries.AddAsync(entry, cancellationToken).AsTask();
 

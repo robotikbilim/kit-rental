@@ -10,6 +10,8 @@
 }
 else
 {
+    @if (TempData["Success"] is string success) { <div class="alert success">@success</div> }
+    @if (TempData["Error"] is string error) { <div class="alert error">@error</div> }
     <section class="dashboard-group dashboard-group-general">
         <header class="dashboard-group-heading">
             <div><span class="eyebrow">GÜNLÜK OPERASYON</span><h2>Genel hızlı erişimler</h2></div>
@@ -21,6 +23,37 @@ else
             <a class="metric-card" asp-action="Inventory" asp-route-status="3"><span>Hazırlanıyor</span><strong>@Model.PreparingKits</strong><small>Hazırlanan kitlere git →</small></a>
             <a class="metric-card" asp-action="Inventory"><span>Kargodaki kit</span><strong>@Model.KitsInTransit</strong><small>Envantere git →</small></a>
         </div>
+    </section>
+
+    <section class="dashboard-group dashboard-group-rentals">
+        <header class="dashboard-group-heading">
+            <div><span class="eyebrow">KİRALAMA TAKİBİ</span><h2>Süresi dolan ve yaklaşan kitler</h2></div>
+            <p>Müşterideki aktif kitlerin teslim tarihlerini takip edin. Yaklaşan listesi önümüzdeki 7 günü kapsar.</p>
+        </header>
+        <div class="metrics dashboard-metrics">
+            <div class="metric-card metric-fault"><span>Süresi dolan kit</span><strong>@Model.ExpiredRentalKits.Count</strong><small>İade süreci başlatılmalı</small></div>
+            <div class="metric-card metric-repaired"><span>Süresi yaklaşan kit</span><strong>@Model.ExpiringRentalKits.Count</strong><small>7 gün içinde bitecek</small></div>
+        </div>
+
+        <h3>Süresi dolan kiralık kitler</h3>
+        @if (Model.ExpiredRentalKits.Count == 0) { <div class="empty">Süresi dolmuş kiralık kit bulunmuyor.</div> }
+        else { <div class="table-wrap"><table><thead><tr><th>Kit</th><th>Seri no</th><th>Müşteri</th><th>Sipariş</th><th>Bitiş tarihi</th><th>Gecikme</th></tr></thead><tbody>
+        @foreach (var item in Model.ExpiredRentalKits) { <tr><td>@item.KitName</td><td>@item.SerialNumber</td><td>@item.CustomerName</td><td>@item.OrderNumber</td><td>@item.EndDate.ToString("dd.MM.yyyy")</td><td><span class="status-badge danger">@(-item.DaysRemaining) gün geçti</span></td></tr> }
+        </tbody></table></div> }
+
+        <h3>Süresi yaklaşan kiralık kitler</h3>
+        @if (Model.ExpiringRentalKits.Count == 0) { <div class="empty">Önümüzdeki 7 gün içinde süresi dolacak kit bulunmuyor.</div> }
+        else { <div class="table-wrap"><table><thead><tr><th>Kit</th><th>Seri no</th><th>Müşteri</th><th>Sipariş</th><th>Bitiş tarihi</th><th>Kalan</th></tr></thead><tbody>
+        @foreach (var item in Model.ExpiringRentalKits) { <tr><td>@item.KitName</td><td>@item.SerialNumber</td><td>@item.CustomerName</td><td>@item.OrderNumber</td><td>@item.EndDate.ToString("dd.MM.yyyy")</td><td><span class="status-badge warning">@(item.DaysRemaining == 0 ? "Bugün" : $"{item.DaysRemaining} gün")</span></td></tr> }
+        </tbody></table></div> }
+    </section>
+
+    <section class="dashboard-group">
+        <header class="dashboard-group-heading"><div><span class="eyebrow">MÜŞTERİ İADELERİ</span><h2>Teslimat sürecindeki kitler</h2></div><p>Müşterinin başlattığı iadeleri ve kargo durumunu izleyin.</p></header>
+        @if (Model.ReturnsInProgress.Count == 0) { <div class="empty">Devam eden kit iadesi bulunmuyor.</div> }
+        else { <div class="table-wrap"><table><thead><tr><th>Müşteri</th><th>Kit sayısı</th><th>Durum</th><th>Kargo</th><th>Başlatılma</th><th></th></tr></thead><tbody>
+        @foreach (var item in Model.ReturnsInProgress) { <tr><td>@item.CustomerName</td><td>@item.KitCount</td><td>@(item.Status == 1 ? "Kargo bekleniyor" : "İade kargoda")</td><td>@(item.Carrier is null ? "-" : $"{item.Carrier} / {item.TrackingNumber}")</td><td>@item.CreatedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm")</td><td>@if (item.Status == 2) { <form asp-action="ReceiveReturn" asp-route-id="@item.Id" method="post" onsubmit="return confirm('Kitlerin elinize ulaştığını ve kullanılabilir stoka alınacağını onaylıyor musunuz?');"><button class="btn btn-primary" type="submit">Teslim aldım</button></form> }</td></tr> }
+        </tbody></table></div> }
     </section>
 
     <section class="dashboard-group dashboard-group-faults">

@@ -141,6 +141,32 @@ api.MapPost("/customer-portal/faults", async (PortalFaultRequest request, Claims
     return Results.Created($"/api/faults/{result.Id}", result);
 }).RequireAuthorization(policy => policy.RequireRole(customerRoles));
 
+api.MapPost("/customer-portal/orders/{orderId:guid}/confirm-delivery", async (Guid orderId,
+    ClaimsPrincipal user, CustomerPortalService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ConfirmOrderDeliveryAsync(new ConfirmPortalOrderDeliveryCommand(
+        GetRequiredCustomerId(user), orderId, user.GetRequiredUserId()), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapPost("/customer-portal/returns", async (PortalKitReturnRequest request, ClaimsPrincipal user,
+    CustomerPortalService service, CancellationToken cancellationToken) =>
+{
+    var result = await service.CreateKitReturnAsync(new CreatePortalKitReturnCommand(GetRequiredCustomerId(user),
+        request.AssignmentIds, user.GetRequiredUserId()), cancellationToken);
+    return Results.Created($"/api/customer-portal/returns/{result.Id}", result);
+}).RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapPost("/customer-portal/returns/{returnId:guid}/ship", async (Guid returnId,
+    PortalKitReturnShipmentRequest request, ClaimsPrincipal user, CustomerPortalService service,
+    CancellationToken cancellationToken) => Results.Ok(await service.ShipKitReturnAsync(
+        new ShipPortalKitReturnCommand(GetRequiredCustomerId(user), returnId, request.Carrier,
+            request.TrackingNumber, user.GetRequiredUserId()), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapPost("/kit-returns/{returnId:guid}/receive", async (Guid returnId, ClaimsPrincipal user,
+    CustomerPortalService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.ReceiveKitReturnAsync(returnId, user.GetRequiredUserId(), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
+
 api.MapGet("/order-summaries", async (ClaimsPrincipal user, CustomerPortalService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetOrderSummariesAsync(user.GetCustomerId(), cancellationToken)));
 
@@ -501,7 +527,7 @@ api.MapPost("/orders/{orderId:guid}/kits", async (Guid orderId, CreateOrderKitsR
     OperationsService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.CreateAndReserveOrderKitsAsync(
         orderId, request.Lines.Select(line => new OrderKitLineCommand(line.ProductModelId, line.Quantity)).ToArray(),
-        user.GetRequiredUserId(), cancellationToken)))
+        request.UseAvailableKits, user.GetRequiredUserId(), cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
 
 api.MapPost("/rental-assignments", async (CreateRentalAssignmentRequest request, ClaimsPrincipal user, RentalAssignmentService service, CancellationToken cancellationToken) =>
@@ -619,7 +645,7 @@ public sealed record UpdateCustomerRequest(string Name, string Email, bool IsAct
 public sealed record OrderLineRequest(Guid ProductModelId, int Quantity);
 public sealed record CreateOrderRequest(Guid CustomerId, Guid AddressId, DateOnly StartDate, DateOnly EndDate, IReadOnlyCollection<OrderLineRequest> Lines);
 public sealed record OrderTransitionRequest(RentalOrderStatus Target);
-public sealed record CreateOrderKitsRequest(IReadOnlyCollection<OrderLineRequest> Lines);
+public sealed record CreateOrderKitsRequest(IReadOnlyCollection<OrderLineRequest> Lines, bool UseAvailableKits = false);
 public sealed record CreateRentalAssignmentRequest(Guid OrderLineId, Guid CustomerId, Guid ProductUnitId, DateOnly StartDate, DateOnly EndDate);
 public sealed record CreateShipmentRequest(Guid OrderId, Guid? FaultTicketId, ShipmentType Type, string Carrier, string TrackingNumber);
 public sealed record ShipmentEventRequest(ShipmentStatus Status, DateTimeOffset OccurredAt, string Location, string Description);
@@ -629,4 +655,6 @@ public sealed record InspectionItemRequest(string Name, bool IsPresent, bool IsD
 public sealed record CompleteInspectionRequest(Guid OrderId, Guid ProductUnitId, IReadOnlyCollection<InspectionItemRequest> Items, decimal DamageCharge, ProductUnitStatus Outcome);
 public sealed record PortalRentalRequest(Guid AddressId, DateOnly StartDate, DateOnly EndDate, IReadOnlyCollection<OrderLineRequest> Lines);
 public sealed record PortalFaultRequest(Guid AssignmentId, string Category, FaultSeverity Severity, string Description);
+public sealed record PortalKitReturnRequest(IReadOnlyCollection<Guid> AssignmentIds);
+public sealed record PortalKitReturnShipmentRequest(string Carrier, string TrackingNumber);
 public partial class Program;

@@ -1,0 +1,20 @@
+@model CustomerPortalViewModel
+@{ ViewData["Title"] = "Kit Teslimi"; var today = DateOnly.FromDateTime(DateTime.Today); }
+<div class="page-heading"><div><span class="eyebrow">KİRALAMA SONU</span><h1>Kit teslimi</h1></div></div>
+@if (TempData["Success"] is string success) { <div class="alert success">@success</div> }
+@if (TempData["Error"] is string error) { <div class="alert error">@error</div> }
+<section class="panel">
+    <div class="panel-heading"><div><h2>Süresi dolan kitler</h2><p>Teslim etmek istediğiniz kitleri seçerek iade sürecini başlatın.</p></div></div>
+    @{ var activeReturnAssignments = Model.Returns.Where(x => x.Status != 3).SelectMany(x => x.Items).Select(x => x.AssignmentId).ToHashSet(); var eligible = Model.Kits.Where(x => x.AssignmentStatus == 2 && x.UnitStatus == 5 && x.EndDate <= today && !activeReturnAssignments.Contains(x.AssignmentId)).ToArray(); }
+    @if (eligible.Length == 0) { <div class="empty">Teslim süreci başlatılabilecek süresi dolmuş kit bulunmuyor.</div> }
+    else { <form asp-action="StartReturn" method="post"><div class="table-wrap"><table><thead><tr><th>Seç</th><th>Kit</th><th>Seri no</th><th>Sipariş</th><th>Kullanım bitişi</th></tr></thead><tbody>
+    @foreach (var kit in eligible) { <tr><td><input type="checkbox" name="AssignmentIds" value="@kit.AssignmentId" /></td><td>@kit.KitName</td><td>@kit.SerialNumber</td><td>@kit.OrderNumber</td><td>@kit.EndDate.ToString("dd.MM.yyyy")</td></tr> }
+    </tbody></table></div><button class="btn btn-primary" type="submit">Seçili kitleri teslim et</button></form> }
+</section>
+<section class="panel">
+    <div class="panel-heading"><div><h2>İade süreçlerim</h2><p>Başlattığınız iadelerin kargo ve teslim durumunu takip edin.</p></div></div>
+    @if (Model.Returns.Count == 0) { <div class="empty">Henüz iade kaydınız yok.</div> }
+    @foreach (var item in Model.Returns) { <article class="return-card"><div><strong>@string.Join(", ", item.Items.Select(x => $"{x.KitName} ({x.SerialNumber})"))</strong><p>@item.CreatedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm") · @(item.Status == 1 ? "Kargoya verilmesi bekleniyor" : item.Status == 2 ? "İade kargoda" : "Teslim alındı")</p></div>
+    @if (item.Status == 1) { <form asp-action="MarkReturnShipped" method="post" class="inline-form"><input type="hidden" name="ReturnId" value="@item.Id" /><input name="Carrier" placeholder="Kargo firması" required maxlength="120" /><input name="TrackingNumber" placeholder="Takip numarası" required maxlength="160" /><button class="btn btn-primary" type="submit">Kargoya verildi</button></form> } else if (item.Status == 2) { <span>@item.Carrier · @item.TrackingNumber</span> }
+    </article> }
+</section>

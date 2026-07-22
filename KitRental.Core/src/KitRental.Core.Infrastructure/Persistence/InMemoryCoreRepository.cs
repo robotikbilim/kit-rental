@@ -24,6 +24,7 @@ public sealed class InMemoryCoreRepository : ICoreRepository
     private readonly Dictionary<Guid, Shipment> _shipments = [];
     private readonly Dictionary<Guid, FaultTicket> _faultTickets = [];
     private readonly Dictionary<Guid, ReturnInspection> _inspections = [];
+    private readonly Dictionary<Guid, KitReturnRequest> _kitReturns = [];
     private readonly List<AuditEntry> _auditEntries = [];
     private readonly Dictionary<Guid, Component> _components = [];
     private readonly Dictionary<Guid, StorageLocation> _storageLocations = [];
@@ -359,6 +360,27 @@ public sealed class InMemoryCoreRepository : ICoreRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
         lock (_gate) return Task.FromResult<IReadOnlyCollection<Component>>(_components.Values.OrderBy(item => item.Name).ToArray());
+    }
+
+    public Task AddKitReturnRequestAsync(KitReturnRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) _kitReturns.Add(request.Id, request);
+        return Task.CompletedTask;
+    }
+
+    public Task<KitReturnRequest?> GetKitReturnRequestAsync(Guid id, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult(_kitReturns.GetValueOrDefault(id));
+    }
+
+    public Task<IReadOnlyCollection<KitReturnRequest>> GetKitReturnRequestsAsync(Guid? customerId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult<IReadOnlyCollection<KitReturnRequest>>(_kitReturns.Values
+            .Where(x => !customerId.HasValue || x.CustomerId == customerId.Value)
+            .OrderByDescending(x => x.CreatedAt).ToArray());
     }
 
     public Task RemoveComponentAsync(Component component, CancellationToken cancellationToken)

@@ -48,6 +48,9 @@ public interface ICoreRepository
     Task<FaultTicket?> GetFaultTicketAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<FaultTicket>> GetFaultTicketsAsync(Guid? customerId, CancellationToken cancellationToken);
     Task AddInspectionAsync(ReturnInspection inspection, CancellationToken cancellationToken);
+    Task AddKitReturnRequestAsync(KitReturnRequest request, CancellationToken cancellationToken);
+    Task<KitReturnRequest?> GetKitReturnRequestAsync(Guid id, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<KitReturnRequest>> GetKitReturnRequestsAsync(Guid? customerId, CancellationToken cancellationToken);
     Task AddAuditEntryAsync(AuditEntry entry, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<AuditEntry>> GetAuditEntriesAsync(CancellationToken cancellationToken);
     Task AddComponentAsync(Component component, CancellationToken cancellationToken);

@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "KitRental.SharedKernel/1.0.0": {
+        "runtime": {
+          "KitRental.SharedKernel.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "KitRental.SharedKernel/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

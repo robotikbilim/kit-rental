@@ -11,6 +11,16 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     public async Task<IActionResult> Dashboard(CancellationToken cancellationToken) =>
         View(await apiClient.GetDashboardAsync(cancellationToken));
 
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReceiveReturn(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await apiClient.ReceiveKitReturnAsync(id, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "İade teslim alındı; kitler yeniden kullanılabilir stoka eklendi."
+            : result.Error ?? "İade teslim alınamadı.";
+        return RedirectToAction(nameof(Dashboard));
+    }
+
     public async Task<IActionResult> Inventory([FromQuery] InventoryFilterViewModel filter,
         CancellationToken cancellationToken)
     {
@@ -119,10 +129,14 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             ModelState.AddModelError(string.Empty, "Tek siparişte en fazla 200 fiziksel kit oluşturulabilir.");
         if (ModelState.IsValid)
         {
-            var result = await apiClient.CreateOrderKitsAsync(model.OrderId, model.Lines, cancellationToken);
+            var result = await apiClient.CreateOrderKitsAsync(
+                model.OrderId, model.Lines, model.UseAvailableKits, cancellationToken);
             if (result.IsSuccess)
             {
-                TempData["Success"] = $"Sipariş kapsamındaki {result.Data!.CreatedCount} fiziksel kit tek seferde oluşturuldu ve rezerve edildi.";
+                var data = result.Data!;
+                TempData["Success"] = data.ReusedCount > 0
+                    ? $"Stoktaki {data.ReusedCount} hazır kit rezerve edildi; eksik {data.CreatedCount} fiziksel kit üretildi."
+                    : $"Sipariş kapsamındaki {data.CreatedCount} fiziksel kit oluşturuldu ve rezerve edildi.";
                 return RedirectToAction(nameof(OrderDetails), new { id = model.OrderId });
             }
             ModelState.AddModelError(string.Empty, result.Error ?? "Fiziksel kitler oluşturulamadı.");

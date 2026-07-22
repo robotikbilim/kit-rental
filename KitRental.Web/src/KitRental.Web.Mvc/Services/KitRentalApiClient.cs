@@ -303,6 +303,23 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => PostAsync<FaultViewModel>("/core/api/customer-portal/faults",
             new { model.AssignmentId, model.Category, model.Severity, model.Description }, cancellationToken);
 
+    public Task<ApiCommandResult<OrderViewModel>> ConfirmPortalOrderDeliveryAsync(Guid orderId,
+        CancellationToken cancellationToken) =>
+        PostAsync<OrderViewModel>($"/core/api/customer-portal/orders/{orderId}/confirm-delivery", new { }, cancellationToken);
+
+    public Task<ApiCommandResult<PortalKitReturnViewModel>> CreatePortalKitReturnAsync(
+        IReadOnlyCollection<Guid> assignmentIds, CancellationToken cancellationToken) =>
+        PostAsync<PortalKitReturnViewModel>("/core/api/customer-portal/returns", new { assignmentIds }, cancellationToken);
+
+    public Task<ApiCommandResult<PortalKitReturnViewModel>> ShipPortalKitReturnAsync(Guid returnId,
+        string carrier, string trackingNumber, CancellationToken cancellationToken) =>
+        PostAsync<PortalKitReturnViewModel>($"/core/api/customer-portal/returns/{returnId}/ship",
+            new { carrier, trackingNumber }, cancellationToken);
+
+    public Task<ApiCommandResult<PortalKitReturnViewModel>> ReceiveKitReturnAsync(Guid returnId,
+        CancellationToken cancellationToken) => PostAsync<PortalKitReturnViewModel>(
+            $"/core/api/kit-returns/{returnId}/receive", new { }, cancellationToken);
+
     public Task<ApiCommandResult<OrderViewModel>> UpdateOrderStatusAsync(Guid orderId, int target,
         CancellationToken cancellationToken) =>
         PostAsync<OrderViewModel>($"/core/api/orders/{orderId}/transitions", new { target }, cancellationToken);
@@ -312,10 +329,12 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
 
     public Task<ApiCommandResult<OrderKitPreparationViewModel>> CreateOrderKitsAsync(Guid orderId,
         IReadOnlyCollection<PortalRentalLineInputViewModel> lines,
+        bool useAvailableKits,
         CancellationToken cancellationToken) =>
         PostAsync<OrderKitPreparationViewModel>($"/core/api/orders/{orderId}/kits", new
         {
-            lines = lines.Select(line => new { line.ProductModelId, line.Quantity }).ToArray()
+            lines = lines.Select(line => new { line.ProductModelId, line.Quantity }).ToArray(),
+            useAvailableKits
         }, cancellationToken);
 
     public Task<ApiCommandResult<FaultViewModel>> ChangeFaultStatusAsync(Guid faultId, int status, string note,

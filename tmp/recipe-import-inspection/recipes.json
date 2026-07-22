@@ -1,0 +1,1210 @@
+[
+  {
+    "name": "Blue-Kit",
+    "lines": [
+      {
+        "componentName": "blue-Kit Tahtalar",
+        "quantity": 1
+      },
+      {
+        "componentName": "Oyun Hamuru",
+        "quantity": 2
+      },
+      {
+        "componentName": "Makey-Makey Set",
+        "quantity": 1
+      },
+      {
+        "componentName": "blue-Kit Kılavuz",
+        "quantity": 1
+      },
+      {
+        "componentName": "Asrın Plastik Kutu",
+        "quantity": 1
+      },
+      {
+        "componentName": "blue-Kit eşofman",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Green-Kit",
+    "lines": [
+      {
+        "componentName": "green-Kit Tahtalar",
+        "quantity": 1
+      },
+      {
+        "componentName": "Micro:Bit Kart",
+        "quantity": 1
+      },
+      {
+        "componentName": "Krokodil Kablo",
+        "quantity": 5
+      },
+      {
+        "componentName": "Yeşil LED 5mm",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kırmızı LED 5mm",
+        "quantity": 1
+      },
+      {
+        "componentName": "Sarı LED 5mm",
+        "quantity": 1
+      },
+      {
+        "componentName": "SG90 Servo Motor",
+        "quantity": 1
+      },
+      {
+        "componentName": "Joystick XY Eksen",
+        "quantity": 1
+      },
+      {
+        "componentName": "M3 Metal Vida 10mm",
+        "quantity": 4
+      },
+      {
+        "componentName": "M3 Metal Vida 6mm",
+        "quantity": 2
+      },
+      {
+        "componentName": "M3 Metal Somun",
+        "quantity": 6
+      },
+      {
+        "componentName": "Asrın Plastik Kutu",
+        "quantity": 1
+      },
+      {
+        "componentName": "green-Kit eşofman",
+        "quantity": 1
+      },
+      {
+        "componentName": "AA pil 1,5V",
+        "quantity": 2
+      },
+      {
+        "componentName": "2li pil yuvası jst uçlu",
+        "quantity": 1
+      },
+      {
+        "componentName": "micro usb",
+        "quantity": 1
+      },
+      {
+        "componentName": "alüminyum folyo",
+        "quantity": 2
+      },
+      {
+        "componentName": "10 cm jumper d-d(1li)",
+        "quantity": 2
+      },
+      {
+        "componentName": "10 cm jumper d-e(10lu)",
+        "quantity": 1
+      },
+      {
+        "componentName": "10 cm jumper e-e(10lu)",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Black-Kit",
+    "lines": [
+      {
+        "componentName": "black-Kit Tahtalar",
+        "quantity": 1
+      },
+      {
+        "componentName": "black-Kit Kılavuz",
+        "quantity": 1
+      },
+      {
+        "componentName": "Arduino UNO",
+        "quantity": 1
+      },
+      {
+        "componentName": "Arduino NANO",
+        "quantity": 1
+      },
+      {
+        "componentName": "Arduino UNO USB KABLO",
+        "quantity": 1
+      },
+      {
+        "componentName": "Arduino NANO USB KABLO",
+        "quantity": 1
+      },
+      {
+        "componentName": "2WD Araba Seti",
+        "quantity": 1
+      },
+      {
+        "componentName": "L298N Motor Sürücü",
+        "quantity": 1
+      },
+      {
+        "componentName": "5V Motor",
+        "quantity": 1
+      },
+      {
+        "componentName": "SG90 Servo Motor",
+        "quantity": 1
+      },
+      {
+        "componentName": "5V Fan",
+        "quantity": 1
+      },
+      {
+        "componentName": "7 Segment Display Modül 4 Digit",
+        "quantity": 1
+      },
+      {
+        "componentName": "1602 I2C LCD Display",
+        "quantity": 1
+      },
+      {
+        "componentName": "5110 LCD Display",
+        "quantity": 1
+      },
+      {
+        "componentName": "Joystick XY Eksen",
+        "quantity": 1
+      },
+      {
+        "componentName": "RFID Kart Okuma",
+        "quantity": 1
+      },
+      {
+        "componentName": "IR Remote Kumanda",
+        "quantity": 1
+      },
+      {
+        "componentName": "HC-SR04 Ultrasonik Sensör",
+        "quantity": 1
+      },
+      {
+        "componentName": "HC-06 Bluetooth Modül",
+        "quantity": 1
+      },
+      {
+        "componentName": "PIR Hareket Sensörü",
+        "quantity": 1
+      },
+      {
+        "componentName": "LDR Işık Sensörü 5mm",
+        "quantity": 1
+      },
+      {
+        "componentName": "DHT11 Isı ve Nem Sensörü",
+        "quantity": 1
+      },
+      {
+        "componentName": "ESP8266 WiFi Modül",
+        "quantity": 1
+      },
+      {
+        "componentName": "Tek Kanal 5V Röle Modül",
+        "quantity": 1
+      },
+      {
+        "componentName": "MQ-2 Gaz Sensörü",
+        "quantity": 1
+      },
+      {
+        "componentName": "HW-038 Su Seviye Modülü",
+        "quantity": 1
+      },
+      {
+        "componentName": "4x4 Membran Keypad",
+        "quantity": 1
+      },
+      {
+        "componentName": "1x4 Membran Keypad",
+        "quantity": 1
+      },
+      {
+        "componentName": "Buzzer 5V",
+        "quantity": 1
+      },
+      {
+        "componentName": "Buzzer Modülü 5V",
+        "quantity": 1
+      },
+      {
+        "componentName": "HW-479 RGB LED Modül",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kırmızı LED 10mm",
+        "quantity": 2
+      },
+      {
+        "componentName": "Sarı LED 10mm",
+        "quantity": 2
+      },
+      {
+        "componentName": "Mavi LED 10mm",
+        "quantity": 2
+      },
+      {
+        "componentName": "Kırmızı LED 5mm",
+        "quantity": 10
+      },
+      {
+        "componentName": "Yeşil LED 5mm",
+        "quantity": 10
+      },
+      {
+        "componentName": "10k Potansiyometre",
+        "quantity": 3
+      },
+      {
+        "componentName": "Potansiyometre Kapağı",
+        "quantity": 3
+      },
+      {
+        "componentName": "12x12 Push Buton",
+        "quantity": 4
+      },
+      {
+        "componentName": "Buton Kapağı Kırmızı",
+        "quantity": 2
+      },
+      {
+        "componentName": "Buton Kapağı Sarı",
+        "quantity": 2
+      },
+      {
+        "componentName": "Buton Kapağı Mavi",
+        "quantity": 2
+      },
+      {
+        "componentName": "Rocker Switch Kırmızı 16mm",
+        "quantity": 1
+      },
+      {
+        "componentName": "Stem Switch",
+        "quantity": 2
+      },
+      {
+        "componentName": "MTS-102 Toggle Switch",
+        "quantity": 1
+      },
+      {
+        "componentName": "12V Adaptör Jaklı",
+        "quantity": 1
+      },
+      {
+        "componentName": "9V Pil",
+        "quantity": 1
+      },
+      {
+        "componentName": "9V Pil Soket Jaklı",
+        "quantity": 1
+      },
+      {
+        "componentName": "AA Pil 1,5V",
+        "quantity": 4
+      },
+      {
+        "componentName": "4'lü Pil Yuvası",
+        "quantity": 1
+      },
+      {
+        "componentName": "2'li Pil Yuvası",
+        "quantity": 1
+      },
+      {
+        "componentName": "DC-180 LEDli Buton",
+        "quantity": 4
+      },
+      {
+        "componentName": "10k Direnç",
+        "quantity": 5
+      },
+      {
+        "componentName": "330ohm Direnç",
+        "quantity": 5
+      },
+      {
+        "componentName": "Bredboard Mini",
+        "quantity": 2
+      },
+      {
+        "componentName": "Breadboard Midi",
+        "quantity": 1
+      },
+      {
+        "componentName": "Breadboard Büyük",
+        "quantity": 1
+      },
+      {
+        "componentName": "M3 Metal Vida 6mm",
+        "quantity": 4
+      },
+      {
+        "componentName": "M3 Metal Somun",
+        "quantity": 4
+      },
+      {
+        "componentName": "Yıldız Tornavida",
+        "quantity": 1
+      },
+      {
+        "componentName": "Jumper Kablo 20cm M-M(10'lu)",
+        "quantity": 4
+      },
+      {
+        "componentName": "Jumper Kablo 10cm M-M(10'lu)",
+        "quantity": 2
+      },
+      {
+        "componentName": "Jumper Kablo 20cm M-F(10'lu)",
+        "quantity": 2
+      },
+      {
+        "componentName": "Jumper Kablo 10cm M-F(10'lu)",
+        "quantity": 2
+      },
+      {
+        "componentName": "Jumper Kablo 20cm F-F(10'lu)",
+        "quantity": 2
+      },
+      {
+        "componentName": "Jumper Kablo 10cm F-F(10'lu)",
+        "quantity": 2
+      },
+      {
+        "componentName": "Asrın Plastik Organizer",
+        "quantity": 1
+      },
+      {
+        "componentName": "Asrın Plastik Kutu 12L",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Red-Kit",
+    "lines": [
+      {
+        "componentName": "M-M Jumper 20cm (1 kablo)",
+        "quantity": 40
+      },
+      {
+        "componentName": "F-F Jumper 20cm (1 kablo)",
+        "quantity": 20
+      },
+      {
+        "componentName": "Uno Kablo (A to B)",
+        "quantity": 1
+      },
+      {
+        "componentName": "9V Pil Jakı",
+        "quantity": 1
+      },
+      {
+        "componentName": "9V Pil",
+        "quantity": 1
+      },
+      {
+        "componentName": "HCSR-04 Ultrasonik Sensör",
+        "quantity": 1
+      },
+      {
+        "componentName": "PIR",
+        "quantity": 1
+      },
+      {
+        "componentName": "LDR",
+        "quantity": 1
+      },
+      {
+        "componentName": "DHT11",
+        "quantity": 1
+      },
+      {
+        "componentName": "RFID",
+        "quantity": 1
+      },
+      {
+        "componentName": "IR Remote Kumanda",
+        "quantity": 1
+      },
+      {
+        "componentName": "SG90 Servo Motor",
+        "quantity": 1
+      },
+      {
+        "componentName": "Deney Kartları",
+        "quantity": 16
+      },
+      {
+        "componentName": "Arduino UNO",
+        "quantity": 1
+      },
+      {
+        "componentName": "5110 LCD",
+        "quantity": 1
+      },
+      {
+        "componentName": "PCB",
+        "quantity": 1
+      },
+      {
+        "componentName": "Pleksi",
+        "quantity": 1
+      },
+      {
+        "componentName": "Breadboard Mini",
+        "quantity": 1
+      },
+      {
+        "componentName": "10 mm LED (Kırmızı)",
+        "quantity": 4
+      },
+      {
+        "componentName": "10 mm LED (Mavi)",
+        "quantity": 1
+      },
+      {
+        "componentName": "10 mm LED (Sarı)",
+        "quantity": 1
+      },
+      {
+        "componentName": "5 mm LED",
+        "quantity": 1
+      },
+      {
+        "componentName": "10 mm RGB LED",
+        "quantity": 1
+      },
+      {
+        "componentName": "5V Buzzer",
+        "quantity": 1
+      },
+      {
+        "componentName": "2' li Pin",
+        "quantity": 11
+      },
+      {
+        "componentName": "3' lü Pin",
+        "quantity": 3
+      },
+      {
+        "componentName": "4'lü Pin",
+        "quantity": 2
+      },
+      {
+        "componentName": "6' lı Pin",
+        "quantity": 2
+      },
+      {
+        "componentName": "Vida",
+        "quantity": 6
+      },
+      {
+        "componentName": "Standoff",
+        "quantity": 8
+      },
+      {
+        "componentName": "Somun",
+        "quantity": 7
+      },
+      {
+        "componentName": "12x12 Buton",
+        "quantity": 4
+      },
+      {
+        "componentName": "Kırmızı Buton Cap",
+        "quantity": 2
+      },
+      {
+        "componentName": "Mavi Buton Cap",
+        "quantity": 1
+      },
+      {
+        "componentName": "Sarı Buton Cap",
+        "quantity": 1
+      },
+      {
+        "componentName": "RV09 Potansiyometre",
+        "quantity": 1
+      },
+      {
+        "componentName": "Pot Cap",
+        "quantity": 1
+      },
+      {
+        "componentName": "Smd 103 (Direnç)",
+        "quantity": 6
+      },
+      {
+        "componentName": "Smd 151 (Direnç)",
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "name": "Tank",
+    "lines": [
+      {
+        "componentName": "tank tahta",
+        "quantity": 1
+      },
+      {
+        "componentName": "uzun metal mil",
+        "quantity": 4
+      },
+      {
+        "componentName": "kısa metal mil",
+        "quantity": 2
+      },
+      {
+        "componentName": "lastik",
+        "quantity": 2
+      },
+      {
+        "componentName": "küçük plastik teker",
+        "quantity": 6
+      },
+      {
+        "componentName": "büyük plastik teker",
+        "quantity": 4
+      },
+      {
+        "componentName": "çift taraf sarı 5V DC motor",
+        "quantity": 1
+      },
+      {
+        "componentName": "2li pil yuvası",
+        "quantity": 1
+      },
+      {
+        "componentName": "AA pil",
+        "quantity": 2
+      },
+      {
+        "componentName": "stem switch",
+        "quantity": 1
+      },
+      {
+        "componentName": "iki ucu soyulmuş kablo",
+        "quantity": 1
+      },
+      {
+        "componentName": "çift taraflı bant",
+        "quantity": 3
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - Tank",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - Tank",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Havalı Yarışçı",
+    "lines": [
+      {
+        "componentName": "havalı yarışçı tahta",
+        "quantity": 1
+      },
+      {
+        "componentName": "Balon",
+        "quantity": 1
+      },
+      {
+        "componentName": "tahta mil",
+        "quantity": 2
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - Havalı Yarışçı",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - Havalı Yarışçı",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Dürbün",
+    "lines": [
+      {
+        "componentName": "dürbün tahta",
+        "quantity": 1
+      },
+      {
+        "componentName": "küçük mercek",
+        "quantity": 2
+      },
+      {
+        "componentName": "büyük mercek",
+        "quantity": 2
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - Dürbün",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - Dürbün",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Güneş Saati",
+    "lines": [
+      {
+        "componentName": "güneş saati tahta",
+        "quantity": 1
+      },
+      {
+        "componentName": "tahta mil",
+        "quantity": 1
+      },
+      {
+        "componentName": "pusula",
+        "quantity": 1
+      },
+      {
+        "componentName": "çift taraflı bant",
+        "quantity": 1
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - Güneş Saati",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - Güneş Saati",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Manyetik Yarışçı",
+    "lines": [
+      {
+        "componentName": "manyetik yarışçı tahta",
+        "quantity": 1
+      },
+      {
+        "componentName": "yuvarlak magnet",
+        "quantity": 2
+      },
+      {
+        "componentName": "tahta mil",
+        "quantity": 2
+      },
+      {
+        "componentName": "çift taraflı bant",
+        "quantity": 2
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - Manyetik Yarışçı",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - Manyetik Yarışçı",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Periskop",
+    "lines": [
+      {
+        "componentName": "periskop tahta",
+        "quantity": 1
+      },
+      {
+        "componentName": "ayna",
+        "quantity": 2
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - Periskop",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - Periskop",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Maglev",
+    "lines": [
+      {
+        "componentName": "maglev tahta",
+        "quantity": 1
+      },
+      {
+        "componentName": "içi delik yuvarlak mıknatıs",
+        "quantity": 6
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - Maglev",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - Maglev",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Pervane Devresi",
+    "lines": [
+      {
+        "componentName": "pervane devresi tahta",
+        "quantity": 1
+      },
+      {
+        "componentName": "5V DC motor",
+        "quantity": 1
+      },
+      {
+        "componentName": "plastik pervane",
+        "quantity": 1
+      },
+      {
+        "componentName": "stem switch",
+        "quantity": 1
+      },
+      {
+        "componentName": "2li pil yuvası",
+        "quantity": 1
+      },
+      {
+        "componentName": "AA pil",
+        "quantity": 2
+      },
+      {
+        "componentName": "iki ucu soyulmuş kablo",
+        "quantity": 1
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - Pervane Devresi",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - Pervane Devresi",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Mini Gece Lambası",
+    "lines": [
+      {
+        "componentName": "mini gece lambası tahta",
+        "quantity": 1
+      },
+      {
+        "componentName": "mini gece lambası pleksi şeffaf",
+        "quantity": 1
+      },
+      {
+        "componentName": "5mm LED Kırmızı",
+        "quantity": 3
+      },
+      {
+        "componentName": "330ohm direnç",
+        "quantity": 1
+      },
+      {
+        "componentName": "iki ucu soyulmuş kablo",
+        "quantity": 1
+      },
+      {
+        "componentName": "stem switch",
+        "quantity": 1
+      },
+      {
+        "componentName": "9V pil",
+        "quantity": 1
+      },
+      {
+        "componentName": "9V pil başlığı jaksız",
+        "quantity": 1
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - Mini Gece Lambası",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - Mini Gece Lambası",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "İletken Misin?",
+    "lines": [
+      {
+        "componentName": "iletken misin tahta",
+        "quantity": 1
+      },
+      {
+        "componentName": "krokodil kablo",
+        "quantity": 2
+      },
+      {
+        "componentName": "buzzer",
+        "quantity": 1
+      },
+      {
+        "componentName": "9V pil",
+        "quantity": 1
+      },
+      {
+        "componentName": "9V pil başlığı jaksız",
+        "quantity": 1
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - İletken Misin",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - İletken Misin",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Öttürme!",
+    "lines": [
+      {
+        "componentName": "öttürme tahta",
+        "quantity": 1
+      },
+      {
+        "componentName": "bakır tel 1mm 50cm",
+        "quantity": 1
+      },
+      {
+        "componentName": "yüzük",
+        "quantity": 1
+      },
+      {
+        "componentName": "krokodil kablo",
+        "quantity": 2
+      },
+      {
+        "componentName": "buzzer",
+        "quantity": 1
+      },
+      {
+        "componentName": "9V pil",
+        "quantity": 1
+      },
+      {
+        "componentName": "9V pil başlığı jaksız",
+        "quantity": 1
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - Öttürme",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - Öttürme",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Mancınık",
+    "lines": [
+      {
+        "componentName": "mancınık+basket tahtası",
+        "quantity": 1
+      },
+      {
+        "componentName": "lastik",
+        "quantity": 1
+      },
+      {
+        "componentName": "strafor top",
+        "quantity": 1
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - Mancınık",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - Mancınık",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Uzunlukları Ölçelim",
+    "lines": [
+      {
+        "componentName": "Ahşap - Uzunlukları Ölçelim",
+        "quantity": 1
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - Uzunlukları Ölçelim",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - Uzunlukları Ölçelim",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Paralarımızı Tanıyalım",
+    "lines": [
+      {
+        "componentName": "Ahşap - Paramızı Tanıyalım",
+        "quantity": 1
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - Paralarımızı Tanıyalım",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - Paralarımızı Tanıyalım",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Geometrik Şekiller",
+    "lines": [
+      {
+        "componentName": "Ahşap - Geometrik Şekiller",
+        "quantity": 1
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - Geometrik Şekiller",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - Geometrik Şekiller",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Da Vinci Köprüsü",
+    "lines": [
+      {
+        "componentName": "Ahşap - Da Vinci Köprüsü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Boya Seti 3'lü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Fırça 17 cm 2 numara",
+        "quantity": 1
+      },
+      {
+        "componentName": "Montaj Kılavuzu - Da Vinci Köprüsü",
+        "quantity": 1
+      },
+      {
+        "componentName": "Kutu - STEM",
+        "quantity": 1
+      },
+      {
+        "componentName": "STEM Kutu Etiketi - Da Vinci Köprüsü",
+        "quantity": 1
+      }
+    ]
+  }
+]

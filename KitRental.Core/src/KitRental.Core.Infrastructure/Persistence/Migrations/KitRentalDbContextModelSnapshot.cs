@@ -350,6 +350,54 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.ToTable("RentalAssignments", (string)null);
                 });
 
+            modelBuilder.Entity("KitRental.Core.Domain.Returns.KitReturnRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Carrier")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("ReceivedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTimeOffset?>("ShippedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TrackingNumber")
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TrackingNumber")
+                        .IsUnique()
+                        .HasFilter("[TrackingNumber] IS NOT NULL");
+
+                    b.HasIndex("CustomerId", "Status");
+
+                    b.ToTable("KitReturnRequests", (string)null);
+                });
+
             modelBuilder.Entity("KitRental.Core.Domain.Returns.ReturnInspection", b =>
                 {
                     b.Property<Guid>("Id")
@@ -997,6 +1045,42 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ProductUnitId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("KitRental.Core.Domain.Returns.KitReturnRequest", b =>
+                {
+                    b.OwnsMany("KitRental.Core.Domain.Returns.KitReturnItem", "Items", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<Guid>("AssignmentId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<Guid>("KitReturnRequestId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<Guid>("OrderId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<Guid>("ProductUnitId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("AssignmentId");
+
+                            b1.HasIndex("KitReturnRequestId");
+
+                            b1.HasIndex("ProductUnitId");
+
+                            b1.ToTable("KitReturnItems", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("KitReturnRequestId");
+                        });
+
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("KitRental.Core.Domain.Returns.ReturnInspection", b =>

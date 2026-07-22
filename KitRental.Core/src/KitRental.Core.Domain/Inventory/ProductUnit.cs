@@ -97,6 +97,12 @@ public sealed class ProductUnit
         TransitionTo(outcome, actorId, occurredAt, reason, ProductUnitStatus.UnderInspection);
     }
 
+    public void ReceiveReturnToAvailable(Guid actorId, DateTimeOffset occurredAt)
+    {
+        ReceiveForInspection(actorId, occurredAt);
+        CompleteInspection(ProductUnitStatus.Available, actorId, occurredAt, "Müşteri iadesi teslim alındı; kit yeniden kiralanabilir.");
+    }
+
     private void TransitionTo(
         ProductUnitStatus next,
         Guid actorId,

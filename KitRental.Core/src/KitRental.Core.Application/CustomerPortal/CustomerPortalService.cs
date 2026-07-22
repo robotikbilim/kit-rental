@@ -5,6 +5,7 @@ using KitRental.Core.Domain.Inventory;
 using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Support;
+using KitRental.Core.Domain.Returns;
 
 namespace KitRental.Core.Application.CustomerPortal;
 
@@ -46,6 +47,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         }
 
         var faults = await MapFaultsAsync(customerId, modelLookup, cancellationToken);
+        var returns = await MapReturnsAsync(customerId, cancellationToken);
         return new CustomerPortalResponse(customer.Name, customer.Email,
             kits.Count(item => item.AssignmentStatus == RentalAssignmentStatus.Active),
             orders.Count(item => item.Status == RentalOrderStatus.PendingApproval),
@@ -55,7 +57,99 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             customer.Addresses.Select(item => new PortalAddressResponse(item.Id, item.Title, item.ContactName, item.Phone,
                 item.Line1, item.District, item.City, item.PostalCode)).ToArray(),
             productModels.Select(item => new PortalProductModelResponse(item.Id, item.Name, item.Sku, item.Description,
-                item.ImageUrl)).ToArray());
+                item.ImageUrl)).ToArray(), returns);
+    }
+
+    public Task<IReadOnlyCollection<PortalKitReturnResponse>> GetReturnsAsync(Guid? customerId,
+        CancellationToken cancellationToken) => MapReturnsAsync(customerId, cancellationToken);
+
+    public async Task<KitReturnRequest> CreateKitReturnAsync(CreatePortalKitReturnCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (command.AssignmentIds.Count == 0)
+            throw new ConflictException("kit_return.empty", "Teslim etmek için en az bir kit seçmelisiniz.");
+        var activeReturns = await repository.GetKitReturnRequestsAsync(command.CustomerId, cancellationToken);
+        var busyAssignments = activeReturns.Where(x => x.Status != KitReturnStatus.Received)
+            .SelectMany(x => x.Items).Select(x => x.AssignmentId).ToHashSet();
+        var items = new List<KitReturnItem>();
+        foreach (var assignmentId in command.AssignmentIds.Distinct())
+        {
+            var assignment = await repository.GetRentalAssignmentAsync(assignmentId, cancellationToken)
+                ?? throw new ResourceNotFoundException("Kiralama kaydı bulunamadı.");
+            if (assignment.CustomerId != command.CustomerId || assignment.Status != RentalAssignmentStatus.Active)
+                throw new ForbiddenException("Yalnızca hesabınıza ait aktif kiralık kitleri teslim edebilirsiniz.");
+            if (assignment.Period.EndDate > DateOnly.FromDateTime(DateTime.UtcNow))
+                throw new ConflictException("kit_return.period_not_expired", "Yalnızca kullanım süresi dolan kitler teslim edilebilir.");
+            if (busyAssignments.Contains(assignment.Id))
+                throw new ConflictException("kit_return.already_started", "Seçilen kitlerden biri için iade süreci zaten devam ediyor.");
+            var unit = await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken);
+            if (unit?.Status != ProductUnitStatus.WithCustomer)
+                throw new ConflictException("kit_return.unit_not_with_customer", "Seçilen kit müşteride durumunda değil.");
+            var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
+                ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
+            items.Add(new KitReturnItem(Guid.NewGuid(), assignment.Id, assignment.ProductUnitId, order.Id));
+        }
+        var request = KitReturnRequest.Create(Guid.NewGuid(), command.CustomerId,
+            DateTimeOffset.UtcNow, command.ActorId, items);
+        await repository.AddKitReturnRequestAsync(request, cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+        return request;
+    }
+
+    public async Task<KitReturnRequest> ShipKitReturnAsync(ShipPortalKitReturnCommand command,
+        CancellationToken cancellationToken)
+    {
+        var request = await repository.GetKitReturnRequestAsync(command.ReturnId, cancellationToken)
+            ?? throw new ResourceNotFoundException("İade kaydı bulunamadı.");
+        if (request.CustomerId != command.CustomerId) throw new ForbiddenException("Bu iade kaydına erişemezsiniz.");
+        var now = DateTimeOffset.UtcNow;
+        request.MarkShipped(command.Carrier, command.TrackingNumber, now);
+        foreach (var item in request.Items)
+            (await repository.GetProductUnitAsync(item.ProductUnitId, cancellationToken))?.StartReturn(command.ActorId, now);
+        await repository.SaveChangesAsync(cancellationToken);
+        return request;
+    }
+
+    public async Task<KitReturnRequest> ReceiveKitReturnAsync(Guid returnId, Guid actorId,
+        CancellationToken cancellationToken)
+    {
+        var request = await repository.GetKitReturnRequestAsync(returnId, cancellationToken)
+            ?? throw new ResourceNotFoundException("İade kaydı bulunamadı.");
+        var now = DateTimeOffset.UtcNow;
+        request.Receive(now);
+        foreach (var item in request.Items)
+        {
+            var unit = await repository.GetProductUnitAsync(item.ProductUnitId, cancellationToken)
+                ?? throw new ResourceNotFoundException("Fiziksel kit bulunamadı.");
+            unit.ReceiveReturnToAvailable(actorId, now);
+            var assignment = await repository.GetRentalAssignmentAsync(item.AssignmentId, cancellationToken);
+            if (assignment?.Status == RentalAssignmentStatus.Active) assignment.Complete();
+        }
+        await repository.SaveChangesAsync(cancellationToken);
+        return request;
+    }
+
+    private async Task<IReadOnlyCollection<PortalKitReturnResponse>> MapReturnsAsync(Guid? customerId,
+        CancellationToken cancellationToken)
+    {
+        var customers = (await repository.GetCustomersAsync(cancellationToken)).ToDictionary(x => x.Id);
+        var models = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(x => x.Id);
+        var result = new List<PortalKitReturnResponse>();
+        foreach (var request in await repository.GetKitReturnRequestsAsync(customerId, cancellationToken))
+        {
+            var items = new List<PortalKitReturnItemResponse>();
+            foreach (var item in request.Items)
+            {
+                var unit = await repository.GetProductUnitAsync(item.ProductUnitId, cancellationToken);
+                items.Add(new PortalKitReturnItemResponse(item.AssignmentId, item.ProductUnitId, item.OrderId,
+                    unit is not null && models.TryGetValue(unit.ProductModelId, out var model) ? model.Name : "Eğitim kiti",
+                    unit?.SerialNumber ?? "-"));
+            }
+            result.Add(new PortalKitReturnResponse(request.Id, request.CustomerId,
+                customers.TryGetValue(request.CustomerId, out var customer) ? customer.Name : "Müşteri",
+                request.Status, request.Carrier, request.TrackingNumber, request.CreatedAt, request.ShippedAt, items));
+        }
+        return result;
     }
 
     public async Task<IReadOnlyCollection<PortalOrderResponse>> GetOrderSummariesAsync(Guid? customerId,
@@ -83,6 +177,21 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         command.CustomerId, command.AddressId, command.StartDate, command.EndDate,
         command.Lines.Select(line => new OrderLineCommand(line.ProductModelId, line.Quantity)).ToArray(),
         command.ActorId), cancellationToken);
+
+    public async Task<RentalOrder> ConfirmOrderDeliveryAsync(ConfirmPortalOrderDeliveryCommand command,
+        CancellationToken cancellationToken)
+    {
+        var order = await repository.GetOrderAsync(command.OrderId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
+        if (order.CustomerId != command.CustomerId)
+            throw new ForbiddenException("Yalnızca hesabınıza ait siparişlerin teslimatını onaylayabilirsiniz.");
+        if (order.Status != RentalOrderStatus.OutboundInTransit)
+            throw new ConflictException("order.delivery_confirmation_not_allowed",
+                "Yalnızca kargoya verilmiş siparişler teslim alındı olarak işaretlenebilir.");
+
+        return await operationsService.TransitionOrderAsync(order.Id, RentalOrderStatus.Delivered,
+            command.ActorId, cancellationToken);
+    }
 
     public async Task<FaultTicket> OpenFaultAsync(OpenPortalFaultCommand command, CancellationToken cancellationToken)
     {

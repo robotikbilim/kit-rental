@@ -26,7 +26,14 @@ public sealed record DashboardViewModel(
     int UnitsInMaintenance,
     int ActiveOrders,
     int OrdersAwaitingApproval,
-    int OverdueOrders);
+    int OverdueOrders,
+    IReadOnlyCollection<DashboardReturnViewModel> ReturnsInProgress,
+    IReadOnlyCollection<DashboardRentalExpiryViewModel> ExpiredRentalKits,
+    IReadOnlyCollection<DashboardRentalExpiryViewModel> ExpiringRentalKits);
+public sealed record DashboardReturnViewModel(Guid Id, string CustomerName, int Status, string? Carrier,
+    string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount);
+public sealed record DashboardRentalExpiryViewModel(Guid ProductUnitId, string KitName, string SerialNumber,
+    string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
 public sealed record ProductUnitViewModel(Guid Id, Guid ProductModelId, string SerialNumber, string QrCode, int Status);
 public sealed record InventoryItemViewModel(Guid Id, Guid ProductModelId, string ProductModelName,
     string ProductModelSku, string SerialNumber, string QrCode, int Status, DateTimeOffset CreatedAt);
@@ -332,7 +339,7 @@ public sealed record AdminOrderPageViewModel(AdminOrderInputViewModel Form,
     IReadOnlyCollection<ProductModelCatalogViewModel> ProductModels);
 public sealed record OrderKitViewModel(Guid ProductUnitId, Guid AssignmentId, Guid ProductModelId,
     string SerialNumber, int Status);
-public sealed record OrderKitPreparationViewModel(Guid OrderId, int CreatedCount,
+public sealed record OrderKitPreparationViewModel(Guid OrderId, int CreatedCount, int ReusedCount,
     IReadOnlyCollection<OrderKitViewModel> Kits);
 public sealed record OrderDetailLineViewModel(Guid Id, Guid ProductModelId, string ProductName, string ProductSku,
     int Quantity, int CreatedKitCount);
@@ -346,6 +353,7 @@ public sealed class PrepareOrderKitsViewModel
     public Guid OrderId { get; set; }
     public string OrderNumber { get; set; } = string.Empty;
     public string CustomerName { get; set; } = string.Empty;
+    public bool UseAvailableKits { get; set; }
     public List<PortalRentalLineInputViewModel> Lines { get; set; } = [new()];
     public IReadOnlyCollection<ProductModelCatalogViewModel> ProductModels { get; set; } = [];
 }
@@ -359,7 +367,23 @@ public sealed record PortalFaultViewModel(Guid Id, string Number, Guid ProductUn
 public sealed record CustomerPortalViewModel(string CustomerName, string CustomerEmail, int ActiveKitCount,
     int PendingRequestCount, int OpenFaultCount, IReadOnlyCollection<PortalKitViewModel> Kits,
     IReadOnlyCollection<PortalOrderViewModel> Orders, IReadOnlyCollection<PortalFaultViewModel> Faults,
-    IReadOnlyCollection<PortalAddressViewModel> Addresses, IReadOnlyCollection<PortalProductModelViewModel> ProductModels);
+    IReadOnlyCollection<PortalAddressViewModel> Addresses, IReadOnlyCollection<PortalProductModelViewModel> ProductModels,
+    IReadOnlyCollection<PortalKitReturnViewModel> Returns);
+public sealed record PortalKitReturnItemViewModel(Guid AssignmentId, Guid ProductUnitId, Guid OrderId,
+    string KitName, string SerialNumber);
+public sealed record PortalKitReturnViewModel(Guid Id, Guid CustomerId, string CustomerName, int Status,
+    string? Carrier, string? TrackingNumber, DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt,
+    IReadOnlyCollection<PortalKitReturnItemViewModel> Items);
+public sealed class PortalKitReturnSelectionViewModel
+{
+    public List<Guid> AssignmentIds { get; set; } = [];
+}
+public sealed class PortalKitReturnShipmentViewModel
+{
+    public Guid ReturnId { get; set; }
+    [Required, StringLength(120), Display(Name = "Kargo firması")] public string Carrier { get; set; } = string.Empty;
+    [Required, StringLength(160), Display(Name = "Takip numarası")] public string TrackingNumber { get; set; } = string.Empty;
+}
 
 public sealed class PortalRentalRequestViewModel
 {
