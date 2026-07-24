@@ -1,7 +1,7 @@
 @model CreatePhysicalKitPageViewModel
 @{ ViewData["Title"] = "Fiziksel Kit Ekle"; }
 <div class="form-shell">
-    <div class="form-heading"><a asp-action="Index">← Fiziksel kitlere dön</a><span class="eyebrow">TOPLU STOK GİRİŞİ</span><h1>Fiziksel kit oluştur</h1><p>Kit modelini ve adedi seçin. Her fiziksel kit için benzersiz seri numarası ve QR kod sistem tarafından otomatik oluşturulur.</p></div>
+    <div class="form-heading"><a asp-action="Index">← Fiziksel kitlere dön</a><span class="eyebrow">TOPLU STOK GİRİŞİ</span><h1>Fiziksel kit oluştur</h1><p>Kit modelini ve adedi seçin. Seri numarası eğitim setinin SKU kodunu ve üretim yılını gösterecek biçimde otomatik oluşturulur.</p></div>
     <form class="catalog-form" asp-action="Create" method="post">
         <div asp-validation-summary="All" class="error"></div>
         <div class="form-grid">

@@ -11,9 +11,15 @@
     var canManageOrders = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager");
 }
 <div class="page-heading orders-heading">
-    <div><span class="eyebrow">KİRALAMA AKIŞI</span><h1>Siparişler</h1><p class="block-muted">Siparişi onaylayın, siparişe özel kitleri üretin ve teslimata kadar yönetin.</p></div>
-    <div class="orders-heading-actions"><span class="request-counter">@Model.Count(item => item.Status == 2) yeni talep</span>@if (canManageOrders) { <a class="primary-action" asp-action="CreateOrder">+ Sipariş oluştur</a> }</div>
+    <div><span class="eyebrow">SİPARİŞ AKIŞI</span><h1>Siparişler</h1><p class="block-muted">Kiralama ve satın alma siparişlerini hazırlıktan teslimata kadar yönetin.</p></div>
+    <div class="orders-heading-actions"><span class="request-counter">@Model.Count(item => item.Status == 2) yeni talep</span>@if (canManageOrders) { <a class="secondary-action" asp-action="CreatePurchaseOrder">+ Satın alma</a><a class="primary-action" asp-action="CreateOrder">+ Kiralama</a> }</div>
 </div>
+
+<nav class="stock-filter" aria-label="Sipariş türü filtresi">
+    <a class="@(ViewBag.OrderType is null ? "active" : null)" asp-action="Orders">Tümü</a>
+    <a class="@((int?)ViewBag.OrderType == 1 ? "active" : null)" asp-action="Orders" asp-route-type="1">Kiralama</a>
+    <a class="@((int?)ViewBag.OrderType == 2 ? "active" : null)" asp-action="Orders" asp-route-type="2">Satın alma</a>
+</nav>
 
 <div class="order-flow order-flow-six" aria-label="Sipariş durum akışı">
     <span><b>1</b>Sipariş</span><i>→</i><span><b>2</b>Onay</span><i>→</i><span><b>3</b>Kitleri oluştur / rezerve et</span><i>→</i><span><b>4</b>Gönderime hazırla</span><i>→</i><span><b>5</b>Kargoya ver</span><i>→</i><span><b>6</b>Teslim et / kilitle</span>
@@ -28,16 +34,17 @@
 }
 else
 {
-    <div class="table-scroll"><table class="orders-table"><thead><tr><th>Sipariş</th><th>Müşteri</th><th>Talep edilen kitler</th><th>Fiziksel kit</th><th>Dönem</th><th>Durum</th><th>Aksiyon</th></tr></thead><tbody>
+    <div class="table-scroll"><table class="orders-table"><thead><tr><th>Sipariş</th><th>Tür</th><th>Müşteri</th><th>Talep edilen kitler</th><th>Fiziksel kit</th><th>Dönem</th><th>Durum</th><th>Aksiyon</th></tr></thead><tbody>
     @foreach (var item in Model)
     {
         var requestedKitCount = item.Lines.Sum(line => line.Quantity);
         <tr class="@(item.Status == 2 ? "pending-order" : null)">
             <td><strong>@item.OrderNumber</strong><small class="block-muted">@item.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></td>
+            <td><span class="badge">@(item.Type == 2 ? "Satın alma" : "Kiralama")</span></td>
             <td>@item.CustomerName</td>
             <td>@string.Join(", ", item.Lines.Select(line => $"{line.ProductName} × {line.Quantity}"))</td>
             <td><span class="order-kit-count @(item.AssignedKitCount == requestedKitCount ? "complete" : null)">@item.AssignedKitCount / @requestedKitCount</span><small class="block-muted">oluşturuldu</small></td>
-            <td>@item.StartDate.ToString("dd.MM.yyyy") — @item.EndDate.ToString("dd.MM.yyyy")</td>
+            <td>@(item.Type == 2 ? "Satın alma" : $"{item.StartDate:dd.MM.yyyy} — {item.EndDate:dd.MM.yyyy}")</td>
             <td><span class="badge order-status-@item.Status">@StatusName(item.Status)</span></td>
             <td><a class="row-link" asp-action="OrderDetails" asp-route-id="@item.Id">Detay →</a></td>
         </tr>

@@ -5,17 +5,18 @@
     var allKitsCreated = Model.Kits.Count == requestedCount;
     var canManage = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager");
     string OrderStatus(int status) => status switch { 2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Gönderim bekliyor", 5 => "Kargoya hazır", 6 => "Kargoya verildi", 13 => "Teslim edildi", _ => "İşlemde" };
-    string KitStatus(int status) => status switch { 2 => "Rezerve", 3 => "Gönderim bekliyor", 4 => "Kargoya verildi", 5 => "Teslim edildi / kirada", _ => "Hazırlanıyor" };
+    string KitStatus(int status) => status switch { 2 => "Rezerve", 3 => "Gönderim bekliyor", 4 => "Kargoya verildi", 5 => "Teslim edildi / kirada", 12 => "Satıldı", _ => "Hazırlanıyor" };
+    var isPurchase = Model.Type == 2;
 }
 <div class="order-detail-heading">
-    <div><a class="back-link" asp-action="Orders">← Siparişlere dön</a><span class="eyebrow">@Model.OrderNumber</span><h1>@Model.CustomerName</h1><p>@Model.StartDate.ToString("dd.MM.yyyy") — @Model.EndDate.ToString("dd.MM.yyyy")</p></div>
+    <div><a class="back-link" asp-action="Orders">← Siparişlere dön</a><span class="eyebrow">@(isPurchase ? "SATIN ALMA" : "KİRALAMA") · @Model.OrderNumber</span><h1>@Model.CustomerName</h1><p>@(isPurchase ? "Satın alma siparişi" : $"{Model.StartDate:dd.MM.yyyy} — {Model.EndDate:dd.MM.yyyy}")</p></div>
     <div class="order-detail-status"><span class="badge order-status-@Model.Status">@OrderStatus(Model.Status)</span><strong>@Model.Kits.Count / @requestedCount</strong><small>fiziksel kit oluşturuldu</small></div>
 </div>
 @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 
 <section class="detail-section order-request-lines">
-    <div class="section-heading"><div><span class="eyebrow">TALEP LİSTESİ</span><h2>İstenen kitler ve manuel oluşturma</h2><p>Ürün ve adetleri düzenleyin; onayladığınızda siparişin tüm fiziksel kitleri tek seferde oluşturulur.</p></div>@if (canManage && Model.Status == 3 && Model.Kits.Count == 0) { <a class="primary-action" asp-action="PrepareOrderKits" asp-route-id="@Model.Id">Ürünleri düzenle ve kitleri oluştur →</a> }</div>
+    <div class="section-heading"><div><span class="eyebrow">TALEP LİSTESİ</span><h2>İstenen kitler ve manuel oluşturma</h2><p>@(isPurchase ? "Hazır kitler önce ayrılır; eksik miktar bileşen stoktan üretilir." : "Ürün ve adetleri düzenleyin; siparişin fiziksel kitleri rezerve edilir.")</p></div>@if (canManage && Model.Status == 3 && Model.Kits.Count == 0) { <a class="primary-action" asp-action="PrepareOrderKits" asp-route-id="@Model.Id">Ürünleri düzenle ve kitleri oluştur →</a> }</div>
     <div class="order-line-cards">
     @foreach (var line in Model.Lines)
     {
@@ -41,7 +42,7 @@
 }
 else if (canManage && Model.Status == 3 && allKitsCreated)
 {
-    <div class="order-detail-next"><p>Tüm fiziksel kitler oluşturuldu ve siparişe rezerve edildi.</p><form asp-action="UpdateOrderStatus" asp-route-id="@Model.Id" method="post"><input type="hidden" name="target" value="4" /><input type="hidden" name="returnToDetails" value="true" /><button class="primary-action" type="submit">Kitleri kiraya ver / gönderime hazırla →</button></form></div>
+    <div class="order-detail-next"><p>Tüm fiziksel kitler oluşturuldu ve siparişe rezerve edildi.</p><form asp-action="UpdateOrderStatus" asp-route-id="@Model.Id" method="post"><input type="hidden" name="target" value="4" /><input type="hidden" name="returnToDetails" value="true" /><button class="primary-action" type="submit">@(isPurchase ? "Satışı hazırlamaya başla →" : "Kitleri kiraya ver / gönderime hazırla →")</button></form></div>
 }
 else if (canManage && Model.Status is 4 or 5)
 {
@@ -49,7 +50,7 @@ else if (canManage && Model.Status is 4 or 5)
 }
 else if (canManage && Model.Status == 6)
 {
-    <div class="order-detail-next"><p>Teslimat doğrulandığında sipariş tamamlanır ve kilitlenir.</p><form asp-action="UpdateOrderStatus" asp-route-id="@Model.Id" method="post"><input type="hidden" name="target" value="7" /><input type="hidden" name="returnToDetails" value="true" /><button class="primary-action" type="submit">Teslim et ve siparişi kilitle →</button></form></div>
+    <div class="order-detail-next"><p>@(isPurchase ? "Teslimatta kitler satıldı durumuna geçirilerek kiralama filosundan çıkarılır." : "Teslimat doğrulandığında sipariş tamamlanır ve kilitlenir.")</p><form asp-action="UpdateOrderStatus" asp-route-id="@Model.Id" method="post"><input type="hidden" name="target" value="7" /><input type="hidden" name="returnToDetails" value="true" /><button class="primary-action" type="submit">Teslim et ve siparişi kilitle →</button></form></div>
 }
 
 <section class="detail-section">

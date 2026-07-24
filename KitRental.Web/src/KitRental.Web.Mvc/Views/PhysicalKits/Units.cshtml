@@ -1,7 +1,7 @@
 @model PhysicalKitUnitPageViewModel
 @{
     ViewData["Title"] = $"{Model.KitName} Fiziksel Kitleri";
-    string StatusName(int status) => status switch { 1 => "Kiralanabilir", 2 => "Rezerve", 3 => "Gönderim bekliyor", 4 => "Kargoya verildi", 5 => "Teslim edildi / kirada", 6 => "İade yolunda", 7 => "Kontrolde", 8 => "Serviste", 9 => "Karantina", 10 => "Kayıp", 11 => "Emekli", _ => "Bilinmiyor" };
+    string StatusName(int status) => status switch { 1 => "Kiralanabilir", 2 => "Rezerve", 3 => "Gönderim bekliyor", 4 => "Kargoya verildi", 5 => "Teslim edildi / kirada", 6 => "İade yolunda", 7 => "Kontrolde", 8 => "Serviste", 9 => "Karantina", 10 => "Kayıp", 11 => "Emekli", 12 => "Satıldı", _ => "Bilinmiyor" };
     string FilterName() => Model.Filter switch { "available" => "Kiralanabilir kitler", "faulty" => "Arızalı kitler", _ => "Tüm fiziksel kitler" };
     var firstItem = Model.TotalCount == 0 ? 0 : (Model.Page - 1) * Model.PageSize + 1;
     var lastItem = Math.Min(Model.Page * Model.PageSize, Model.TotalCount);

@@ -42,12 +42,17 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var customer = CreateClient(new TokenUser(Guid.NewGuid(), email, "CustomerAccountManager", rental.CustomerId));
         var overview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
         Assert.Equal(unit.Id, overview!.Kits.Single().ProductUnitId);
+        var forbiddenPurchase = await customer.PostAsJsonAsync("/api/purchase-orders",
+            new CreatePurchaseOrderRequest(rental.CustomerId, overview.Addresses.Single().Id,
+                [new OrderLineRequest(model.Id, 1)]), cancellationToken);
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, forbiddenPurchase.StatusCode);
 
         var request = await customer.PostAsJsonAsync("/api/customer-portal/rental-requests", new PortalRentalRequest(
             overview.Addresses.Single().Id, new DateOnly(2026, 11, 1), new DateOnly(2026, 12, 1),
             [new OrderLineRequest(model.Id, 1)]), cancellationToken);
         request.EnsureSuccessStatusCode();
         var deliveryOrder = (await request.Content.ReadFromJsonAsync<CreatedOrderResponse>(cancellationToken))!;
+        Assert.Equal(OrderType.Rental, deliveryOrder.Type);
 
         var fault = await customer.PostAsJsonAsync("/api/customer-portal/faults", new PortalFaultRequest(
             rental.AssignmentId, "Motor", FaultSeverity.High, "Sol motor yük altında dönmüyor."), cancellationToken);
@@ -150,7 +155,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     }
 
     private sealed record CreatedFaultResponse(Guid Id);
-    private sealed record CreatedOrderResponse(Guid Id);
+    private sealed record CreatedOrderResponse(Guid Id, OrderType Type);
     private sealed record OrderResponse(Guid Id, RentalOrderStatus Status);
     private sealed record ReturnResponse(Guid Id, KitReturnStatus Status);
 }

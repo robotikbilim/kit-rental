@@ -510,6 +510,16 @@ api.MapPost("/orders", async (CreateOrderRequest request, ClaimsPrincipal user, 
     return Results.Created($"/api/orders/{result.Id}", result);
 });
 
+api.MapPost("/purchase-orders", async (CreatePurchaseOrderRequest request, ClaimsPrincipal user,
+    OperationsService service, CancellationToken cancellationToken) =>
+{
+    var result = await service.CreatePurchaseOrderAsync(
+        new CreatePurchaseOrderCommand(request.CustomerId, request.AddressId,
+            request.Lines.Select(line => new OrderLineCommand(line.ProductModelId, line.Quantity)).ToArray(),
+            user.GetRequiredUserId()), cancellationToken);
+    return Results.Created($"/api/orders/{result.Id}", result);
+}).RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
 api.MapGet("/orders", async (ClaimsPrincipal user, OperationsService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetOrdersAsync(user.GetCustomerId(), cancellationToken)));
 
@@ -646,6 +656,8 @@ public sealed record OrderLineRequest(Guid ProductModelId, int Quantity);
 public sealed record CreateOrderRequest(Guid CustomerId, Guid AddressId, DateOnly StartDate, DateOnly EndDate, IReadOnlyCollection<OrderLineRequest> Lines);
 public sealed record OrderTransitionRequest(RentalOrderStatus Target);
 public sealed record CreateOrderKitsRequest(IReadOnlyCollection<OrderLineRequest> Lines, bool UseAvailableKits = false);
+public sealed record CreatePurchaseOrderRequest(Guid CustomerId, Guid AddressId,
+    IReadOnlyCollection<OrderLineRequest> Lines);
 public sealed record CreateRentalAssignmentRequest(Guid OrderLineId, Guid CustomerId, Guid ProductUnitId, DateOnly StartDate, DateOnly EndDate);
 public sealed record CreateShipmentRequest(Guid OrderId, Guid? FaultTicketId, ShipmentType Type, string Carrier, string TrackingNumber);
 public sealed record ShipmentEventRequest(ShipmentStatus Status, DateTimeOffset OccurredAt, string Location, string Description);

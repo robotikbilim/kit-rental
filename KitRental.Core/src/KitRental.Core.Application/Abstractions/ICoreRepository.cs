@@ -84,4 +84,9 @@ public interface ICoreRepository
         Guid actorId,
         DateTimeOffset occurredAt,
         CancellationToken cancellationToken);
+    Task<bool> TryReserveUnitsAsync(
+        IReadOnlyCollection<ProductUnit> units,
+        Guid actorId,
+        DateTimeOffset occurredAt,
+        CancellationToken cancellationToken);
 }

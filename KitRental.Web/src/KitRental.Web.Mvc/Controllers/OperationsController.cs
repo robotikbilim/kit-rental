@@ -35,8 +35,12 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             await apiClient.GetProductModelsAsync(cancellationToken)));
     }
 
-    public async Task<IActionResult> Orders(CancellationToken cancellationToken) =>
-        View(await apiClient.GetOrdersAsync(cancellationToken));
+    public async Task<IActionResult> Orders(int? type, CancellationToken cancellationToken)
+    {
+        var orders = await apiClient.GetOrdersAsync(cancellationToken);
+        ViewBag.OrderType = type;
+        return View(type is 1 or 2 ? orders.Where(item => item.Type == type).ToArray() : orders);
+    }
 
     [HttpGet]
     public async Task<IActionResult> OrderDetails(Guid id, CancellationToken cancellationToken)
@@ -80,6 +84,43 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             ModelState.AddModelError(string.Empty, result.Error ?? "Sipariş oluşturulamadı.");
         }
         return View(new AdminOrderPageViewModel(model,
+            (await apiClient.GetCustomersAsync(cancellationToken)).Where(item => item.IsActive).ToArray(),
+            await apiClient.GetProductModelsAsync(cancellationToken)));
+    }
+
+    [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> CreatePurchaseOrder(CancellationToken cancellationToken)
+    {
+        var customers = (await apiClient.GetCustomersAsync(cancellationToken)).Where(item => item.IsActive).ToArray();
+        var model = new PurchaseOrderInputViewModel
+        {
+            CustomerId = customers.FirstOrDefault()?.Id ?? Guid.Empty,
+            AddressId = customers.FirstOrDefault()?.Addresses.FirstOrDefault()?.Id ?? Guid.Empty
+        };
+        return View(new PurchaseOrderPageViewModel(model, customers,
+            await apiClient.GetProductModelsAsync(cancellationToken)));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> CreatePurchaseOrder(PurchaseOrderInputViewModel model,
+        CancellationToken cancellationToken)
+    {
+        model.Lines = model.Lines.Where(line => line.ProductModelId != Guid.Empty && line.Quantity > 0).ToList();
+        if (model.Lines.Count == 0)
+            ModelState.AddModelError(string.Empty, "En az bir eğitim kiti seçmelisiniz.");
+        if (model.Lines.Sum(line => line.Quantity) > 200)
+            ModelState.AddModelError(string.Empty, "Tek siparişte en fazla 200 fiziksel kit bulunabilir.");
+        if (ModelState.IsValid)
+        {
+            var result = await apiClient.CreatePurchaseOrderAsync(model, cancellationToken);
+            if (result.IsSuccess)
+            {
+                TempData["Success"] = "Satın alma siparişi onaylanmış olarak oluşturuldu.";
+                return RedirectToAction(nameof(OrderDetails), new { id = result.Data!.Id });
+            }
+            ModelState.AddModelError(string.Empty, result.Error ?? "Satın alma siparişi oluşturulamadı.");
+        }
+        return View(new PurchaseOrderPageViewModel(model,
             (await apiClient.GetCustomersAsync(cancellationToken)).Where(item => item.IsActive).ToArray(),
             await apiClient.GetProductModelsAsync(cancellationToken)));
     }

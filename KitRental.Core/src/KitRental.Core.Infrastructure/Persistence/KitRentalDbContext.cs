@@ -141,6 +141,18 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             lines.HasOne<ProductModel>().WithMany().HasForeignKey(line => line.ProductModelId).OnDelete(DeleteBehavior.Restrict);
         });
         builder.Navigation(order => order.Lines).HasField("_lines").UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.OwnsMany(order => order.ProductUnits, allocations =>
+        {
+            allocations.ToTable("OrderProductUnits");
+            allocations.WithOwner().HasForeignKey("RentalOrderId");
+            allocations.HasKey(item => item.Id);
+            allocations.Property(item => item.Id).ValueGeneratedNever();
+            allocations.HasIndex(item => item.ProductUnitId).IsUnique();
+            allocations.HasOne<ProductUnit>().WithMany().HasForeignKey(item => item.ProductUnitId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+        builder.Navigation(order => order.ProductUnits).HasField("_productUnits")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.OwnsMany(order => order.History, history =>
         {
             history.ToTable("OrderStatusEvents");

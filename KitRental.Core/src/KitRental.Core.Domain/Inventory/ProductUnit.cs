@@ -81,6 +81,10 @@ public sealed class ProductUnit
     public void ConfirmDelivery(Guid actorId, DateTimeOffset occurredAt) =>
         TransitionTo(ProductUnitStatus.WithCustomer, actorId, occurredAt, "Teslimat doğrulandı.", ProductUnitStatus.OutboundInTransit);
 
+    public void CompleteSale(Guid actorId, DateTimeOffset occurredAt) =>
+        TransitionTo(ProductUnitStatus.Sold, actorId, occurredAt, "Satış teslimatı tamamlandı; kit kiralama filosundan çıkarıldı.",
+            ProductUnitStatus.OutboundInTransit);
+
     public void StartReturn(Guid actorId, DateTimeOffset occurredAt) =>
         TransitionTo(ProductUnitStatus.ReturnInTransit, actorId, occurredAt, "İade kargosuna verildi.", ProductUnitStatus.WithCustomer);
 

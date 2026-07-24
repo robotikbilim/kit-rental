@@ -568,4 +568,20 @@ public sealed class InMemoryCoreRepository : ICoreRepository
             return Task.FromResult(true);
         }
     }
+
+    public Task<bool> TryReserveUnitsAsync(IReadOnlyCollection<ProductUnit> units, Guid actorId,
+        DateTimeOffset occurredAt, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            if (units.Count == 0 || units.Select(item => item.Id).Distinct().Count() != units.Count ||
+                units.Any(item => !_units.TryGetValue(item.Id, out var stored) ||
+                    stored.Status != ProductUnitStatus.Available))
+                return Task.FromResult(false);
+            foreach (var unit in units)
+                unit.Reserve(actorId, occurredAt);
+            return Task.FromResult(true);
+        }
+    }
 }

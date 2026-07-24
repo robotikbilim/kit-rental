@@ -110,6 +110,14 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             lines = model.Lines.Select(line => new { line.ProductModelId, line.Quantity }).ToArray()
         }, cancellationToken);
 
+    public Task<ApiCommandResult<OrderViewModel>> CreatePurchaseOrderAsync(PurchaseOrderInputViewModel model,
+        CancellationToken cancellationToken) => PostAsync<OrderViewModel>("/core/api/purchase-orders", new
+        {
+            model.CustomerId,
+            model.AddressId,
+            lines = model.Lines.Select(line => new { line.ProductModelId, line.Quantity }).ToArray()
+        }, cancellationToken);
+
     public Task<FaultPageViewModel?> GetFaultsAsync(FaultFilterViewModel filter,
         CancellationToken cancellationToken)
     {

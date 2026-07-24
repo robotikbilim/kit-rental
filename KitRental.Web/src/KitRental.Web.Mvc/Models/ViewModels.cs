@@ -27,6 +27,8 @@ public sealed record DashboardViewModel(
     int ActiveOrders,
     int OrdersAwaitingApproval,
     int OverdueOrders,
+    int SoldKits,
+    int CompletedPurchaseOrders,
     IReadOnlyCollection<DashboardReturnViewModel> ReturnsInProgress,
     IReadOnlyCollection<DashboardRentalExpiryViewModel> ExpiredRentalKits,
     IReadOnlyCollection<DashboardRentalExpiryViewModel> ExpiringRentalKits);
@@ -51,7 +53,8 @@ public sealed class InventoryFilterViewModel
 }
 public sealed record InventoryScreenViewModel(InventoryPageViewModel Result, InventoryFilterViewModel Filter,
     IReadOnlyCollection<ProductModelCatalogViewModel> ProductModels);
-public sealed record OrderViewModel(Guid Id, string OrderNumber, Guid CustomerId, PeriodViewModel Period, int Status, IReadOnlyCollection<OrderLineViewModel> Lines);
+public sealed record OrderViewModel(Guid Id, string OrderNumber, Guid CustomerId, int Type,
+    PeriodViewModel? Period, int Status, IReadOnlyCollection<OrderLineViewModel> Lines);
 public sealed record PeriodViewModel(DateOnly StartDate, DateOnly EndDate);
 public sealed record OrderLineViewModel(Guid Id, Guid ProductModelId, int Quantity);
 public sealed record FaultViewModel(Guid Id, string Number, Guid CustomerId, string CustomerName,
@@ -281,8 +284,8 @@ public sealed record PortalKitLookupPageViewModel(string Identifier, bool HasSea
 public sealed record PortalKitDetailPageViewModel(PortalKitViewModel Kit,
     IReadOnlyCollection<PortalFaultViewModel> Faults);
 public sealed record PortalOrderLineViewModel(Guid ProductModelId, string ProductName, string ProductSku, int Quantity);
-public sealed record PortalOrderViewModel(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName, int Status,
-    DateOnly StartDate, DateOnly EndDate, DateTimeOffset CreatedAt, IReadOnlyCollection<PortalOrderLineViewModel> Lines,
+public sealed record PortalOrderViewModel(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName, int Type,
+    int Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt, IReadOnlyCollection<PortalOrderLineViewModel> Lines,
     int AssignedKitCount = 0);
 public sealed record OrderCustomerViewModel(Guid Id, string Name, string Email, bool IsActive,
     IReadOnlyCollection<PortalAddressViewModel> Addresses);
@@ -337,6 +340,15 @@ public sealed class AdminOrderInputViewModel
 public sealed record AdminOrderPageViewModel(AdminOrderInputViewModel Form,
     IReadOnlyCollection<OrderCustomerViewModel> Customers,
     IReadOnlyCollection<ProductModelCatalogViewModel> ProductModels);
+public sealed class PurchaseOrderInputViewModel
+{
+    [Required, Display(Name = "Müşteri")] public Guid CustomerId { get; set; }
+    [Required, Display(Name = "Teslimat adresi")] public Guid AddressId { get; set; }
+    public List<PortalRentalLineInputViewModel> Lines { get; set; } = [new()];
+}
+public sealed record PurchaseOrderPageViewModel(PurchaseOrderInputViewModel Form,
+    IReadOnlyCollection<OrderCustomerViewModel> Customers,
+    IReadOnlyCollection<ProductModelCatalogViewModel> ProductModels);
 public sealed record OrderKitViewModel(Guid ProductUnitId, Guid AssignmentId, Guid ProductModelId,
     string SerialNumber, int Status);
 public sealed record OrderKitPreparationViewModel(Guid OrderId, int CreatedCount, int ReusedCount,
@@ -345,8 +357,8 @@ public sealed record OrderDetailLineViewModel(Guid Id, Guid ProductModelId, stri
     int Quantity, int CreatedKitCount);
 public sealed record OrderDetailKitViewModel(Guid Id, Guid OrderLineId, Guid ProductModelId, string ProductName,
     string ProductSku, string SerialNumber, string QrCode, int Status);
-public sealed record OrderDetailViewModel(Guid Id, string OrderNumber, string CustomerName, int Status,
-    DateOnly StartDate, DateOnly EndDate, DateTimeOffset CreatedAt,
+public sealed record OrderDetailViewModel(Guid Id, string OrderNumber, string CustomerName, int Type, int Status,
+    DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt,
     IReadOnlyCollection<OrderDetailLineViewModel> Lines, IReadOnlyCollection<OrderDetailKitViewModel> Kits);
 public sealed class PrepareOrderKitsViewModel
 {

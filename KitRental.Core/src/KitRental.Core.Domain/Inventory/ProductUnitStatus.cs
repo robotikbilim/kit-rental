@@ -12,5 +12,6 @@ public enum ProductUnitStatus
     InMaintenance = 8,
     Quarantined = 9,
     Lost = 10,
-    Retired = 11
+    Retired = 11,
+    Sold = 12
 }

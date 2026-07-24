@@ -398,9 +398,45 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
         });
     }
 
+    public async Task<bool> TryReserveUnitsAsync(IReadOnlyCollection<ProductUnit> units, Guid actorId,
+        DateTimeOffset occurredAt, CancellationToken cancellationToken)
+    {
+        var unitIds = units.Select(item => item.Id).ToArray();
+        if (units.Count == 0 || unitIds.Distinct().Count() != units.Count)
+            throw new ArgumentException("Rezerve edilecek fiziksel kitler benzersiz olmalıdır.");
+
+        var newUnitIds = dbContext.ChangeTracker.Entries<ProductUnit>()
+            .Where(entry => entry.State == EntityState.Added && unitIds.Contains(entry.Entity.Id))
+            .Select(entry => entry.Entity.Id)
+            .ToHashSet();
+        var strategy = dbContext.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable, cancellationToken);
+            var databaseUnits = await dbContext.ProductUnits
+                .Where(item => unitIds.Contains(item.Id))
+                .Select(item => new { item.Id, item.Status })
+                .ToArrayAsync(cancellationToken);
+            if (databaseUnits.Length + newUnitIds.Count != units.Count ||
+                databaseUnits.Any(item => item.Status != ProductUnitStatus.Available))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
+
+            foreach (var unit in units)
+                unit.Reserve(actorId, occurredAt);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return true;
+        });
+    }
+
     private IQueryable<RentalOrder> OrdersQuery() =>
         dbContext.RentalOrders
             .Include(order => order.DeliveryAddress)
             .Include(order => order.Lines)
+            .Include(order => order.ProductUnits)
             .Include(order => order.History);
 }

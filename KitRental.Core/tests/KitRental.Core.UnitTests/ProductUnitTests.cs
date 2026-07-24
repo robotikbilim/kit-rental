@@ -5,6 +5,32 @@ namespace KitRental.Core.UnitTests;
 
 public sealed class ProductUnitTests
 {
+    [Fact]
+    public void SerialNumber_ContainsNormalizedSetSkuAndCreationYear()
+    {
+        var serial = ProductUnitSerialNumber.Create(
+            "robotik başlangıç / v2",
+            new DateTimeOffset(2026, 7, 24, 10, 0, 0, TimeSpan.Zero),
+            Guid.Parse("7a3f21c8-04d9-b612-aabb-ccddeeff0011"));
+
+        Assert.Equal("ROBOTIK-BASLANGIC-V2-2026-7A3F21C8-04D9B612", serial);
+    }
+
+    [Fact]
+    public void SerialNumber_UsesUniqueIdForDistinctPhysicalKits()
+    {
+        var createdAt = new DateTimeOffset(2026, 7, 24, 10, 0, 0, TimeSpan.Zero);
+
+        var first = ProductUnitSerialNumber.Create("RB-SET", createdAt,
+            Guid.Parse("11111111-1111-1111-1111-111111111111"));
+        var second = ProductUnitSerialNumber.Create("RB-SET", createdAt,
+            Guid.Parse("22222222-2222-2222-2222-222222222222"));
+
+        Assert.NotEqual(first, second);
+        Assert.StartsWith("RB-SET-2026-", first);
+        Assert.StartsWith("RB-SET-2026-", second);
+    }
+
     private static readonly Guid ActorId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly DateTimeOffset Now = new(2026, 7, 13, 12, 0, 0, TimeSpan.Zero);
 

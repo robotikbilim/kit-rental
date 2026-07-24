@@ -25,23 +25,33 @@ public enum RentalOrderStatus
     Overdue = 17
 }
 
+public enum OrderType
+{
+    Rental = 1,
+    Purchase = 2
+}
+
 public sealed record RentalOrderLine(Guid Id, Guid ProductModelId, int Quantity);
+public sealed record OrderProductUnit(Guid Id, Guid OrderLineId, Guid ProductUnitId);
 public sealed record OrderStatusEvent(Guid Id, RentalOrderStatus Previous, RentalOrderStatus Current, DateTimeOffset OccurredAt, Guid ActorId, string Reason);
 
 public sealed class RentalOrder
 {
     private readonly List<RentalOrderLine> _lines = [];
+    private readonly List<OrderProductUnit> _productUnits = [];
     private readonly List<OrderStatusEvent> _history = [];
 
     private RentalOrder()
     {
     }
 
-    private RentalOrder(Guid id, string orderNumber, Guid customerId, RentalPeriod period, AddressSnapshot address, DateTimeOffset createdAt)
+    private RentalOrder(Guid id, string orderNumber, Guid customerId, OrderType type, RentalPeriod? period,
+        AddressSnapshot address, DateTimeOffset createdAt)
     {
         Id = id;
         OrderNumber = orderNumber;
         CustomerId = customerId;
+        Type = type;
         Period = period;
         DeliveryAddress = address;
         CreatedAt = createdAt;
@@ -51,11 +61,13 @@ public sealed class RentalOrder
     public Guid Id { get; private set; }
     public string OrderNumber { get; private set; } = string.Empty;
     public Guid CustomerId { get; private set; }
-    public RentalPeriod Period { get; private set; }
+    public OrderType Type { get; private set; }
+    public RentalPeriod? Period { get; private set; }
     public AddressSnapshot DeliveryAddress { get; private set; } = null!;
     public RentalOrderStatus Status { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public IReadOnlyCollection<RentalOrderLine> Lines => _lines.AsReadOnly();
+    public IReadOnlyCollection<OrderProductUnit> ProductUnits => _productUnits.AsReadOnly();
     public IReadOnlyCollection<OrderStatusEvent> History => _history.AsReadOnly();
 
     public static RentalOrder Create(Guid id, string orderNumber, Guid customerId, RentalPeriod period, AddressSnapshot address, DateTimeOffset createdAt)
@@ -65,7 +77,17 @@ public sealed class RentalOrder
             throw new DomainException("order.required_fields", "Sipariş kimliği, numarası ve müşteri zorunludur.");
         }
 
-        return new RentalOrder(id, orderNumber.Trim().ToUpperInvariant(), customerId, period, address, createdAt);
+        return new RentalOrder(id, orderNumber.Trim().ToUpperInvariant(), customerId, OrderType.Rental, period, address, createdAt);
+    }
+
+    public static RentalOrder CreatePurchase(Guid id, string orderNumber, Guid customerId,
+        AddressSnapshot address, DateTimeOffset createdAt)
+    {
+        if (id == Guid.Empty || customerId == Guid.Empty || string.IsNullOrWhiteSpace(orderNumber))
+            throw new DomainException("order.required_fields", "Sipariş kimliği, numarası ve müşteri zorunludur.");
+
+        return new RentalOrder(id, orderNumber.Trim().ToUpperInvariant(), customerId, OrderType.Purchase, null,
+            address, createdAt);
     }
 
     public RentalOrderLine AddLine(Guid productModelId, int quantity)
@@ -89,6 +111,23 @@ public sealed class RentalOrder
         _lines.Clear();
         foreach (var line in lines)
             _lines.Add(new RentalOrderLine(Guid.NewGuid(), line.ProductModelId, line.Quantity));
+    }
+
+    public void AddProductUnit(Guid orderLineId, Guid productUnitId)
+    {
+        if (Type != OrderType.Purchase || Status != RentalOrderStatus.Approved)
+            throw new DomainException("order.product_units_not_editable", "Ürün birimleri yalnızca onaylanmış satın alma siparişine eklenebilir.");
+        if (!_lines.Any(line => line.Id == orderLineId) || productUnitId == Guid.Empty ||
+            _productUnits.Any(item => item.ProductUnitId == productUnitId))
+            throw new DomainException("order.product_unit_invalid", "Sipariş satırı veya fiziksel ürün birimi geçersiz.");
+        _productUnits.Add(new OrderProductUnit(Guid.NewGuid(), orderLineId, productUnitId));
+    }
+
+    public void ClearProductUnits()
+    {
+        if (Type != OrderType.Purchase || Status != RentalOrderStatus.Approved)
+            throw new DomainException("order.product_units_not_editable", "Satış tahsisleri bu aşamada temizlenemez.");
+        _productUnits.Clear();
     }
 
     public void Submit(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.PendingApproval, actorId, now, "Onaya gönderildi.", RentalOrderStatus.Draft);

@@ -76,7 +76,11 @@
                                 Operasyon <span aria-hidden="true"></span>
                             </button>
                             <div class="submenu">
-                                <a asp-controller="Operations" asp-action="Orders">Siparişler</a>
+                                  <a asp-controller="Operations" asp-action="Orders">Siparişler</a>
+                                  @if (User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager"))
+                                  {
+                                      <a asp-controller="Operations" asp-action="CreatePurchaseOrder">Satın Alma Siparişi</a>
+                                  }
                                 <a asp-controller="SupplyNeeds" asp-action="Index">İhtiyaç Listeleri</a>
                                 <a asp-controller="Operations" asp-action="Faults">Arızalar</a>
                             </div>

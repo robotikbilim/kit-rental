@@ -22,10 +22,10 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var orderResponses = new List<PortalOrderResponse>();
         var customerFaults = await repository.GetFaultTicketsAsync(customerId, cancellationToken);
 
-        foreach (var order in orders)
+        foreach (var order in orders.Where(item => item.Type == OrderType.Rental))
         {
             orderResponses.Add(new PortalOrderResponse(order.Id, order.OrderNumber, customer.Id, customer.Name,
-                order.Status, order.Period.StartDate, order.Period.EndDate, order.CreatedAt,
+                order.Type, order.Status, order.Period!.Value.StartDate, order.Period.Value.EndDate, order.CreatedAt,
                 order.Lines.Select(line => new PortalOrderLineResponse(line.ProductModelId,
                     modelLookup.TryGetValue(line.ProductModelId, out var lineModel) ? lineModel.Name : "Eğitim kiti",
                     modelLookup.TryGetValue(line.ProductModelId, out lineModel) ? lineModel.Sku : "-", line.Quantity)).ToArray()));
@@ -160,10 +160,12 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var result = new List<PortalOrderResponse>();
         foreach (var order in await repository.GetOrdersAsync(customerId, cancellationToken))
         {
-            var assignedKitCount = (await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken)).Count;
+            var assignedKitCount = order.Type == OrderType.Rental
+                ? (await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken)).Count
+                : order.ProductUnits.Count;
             result.Add(new PortalOrderResponse(order.Id, order.OrderNumber, order.CustomerId,
                 customers.TryGetValue(order.CustomerId, out var customer) ? customer.Name : "Müşteri",
-                order.Status, order.Period.StartDate, order.Period.EndDate, order.CreatedAt,
+                order.Type, order.Status, order.Period?.StartDate, order.Period?.EndDate, order.CreatedAt,
                 order.Lines.Select(line => new PortalOrderLineResponse(line.ProductModelId,
                     models.TryGetValue(line.ProductModelId, out var model) ? model.Name : "Eğitim kiti",
                     models.TryGetValue(line.ProductModelId, out model) ? model.Sku : "-", line.Quantity)).ToArray(),
@@ -185,6 +187,8 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
         if (order.CustomerId != command.CustomerId)
             throw new ForbiddenException("Yalnızca hesabınıza ait siparişlerin teslimatını onaylayabilirsiniz.");
+        if (order.Type != OrderType.Rental)
+            throw new ForbiddenException("Satın alma siparişleri müşteri portalından yönetilemez.");
         if (order.Status != RentalOrderStatus.OutboundInTransit)
             throw new ConflictException("order.delivery_confirmation_not_allowed",
                 "Yalnızca kargoya verilmiş siparişler teslim alındı olarak işaretlenebilir.");

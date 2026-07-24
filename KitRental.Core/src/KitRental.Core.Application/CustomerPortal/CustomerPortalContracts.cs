@@ -15,7 +15,7 @@ public sealed record PortalKitResponse(Guid ProductUnitId, Guid AssignmentId, Gu
     RentalAssignmentStatus AssignmentStatus, DateOnly StartDate, DateOnly EndDate, int OpenFaultCount);
 public sealed record PortalOrderLineResponse(Guid ProductModelId, string ProductName, string ProductSku, int Quantity);
 public sealed record PortalOrderResponse(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName,
-    RentalOrderStatus Status, DateOnly StartDate, DateOnly EndDate, DateTimeOffset CreatedAt,
+    OrderType Type, RentalOrderStatus Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt,
     IReadOnlyCollection<PortalOrderLineResponse> Lines, int AssignedKitCount = 0);
 public sealed record PortalFaultStatusResponse(FaultStatus Previous, FaultStatus Current, DateTimeOffset OccurredAt, string Note);
 public sealed record PortalShipmentEventResponse(ShipmentStatus Status, DateTimeOffset OccurredAt, string Location, string Description);

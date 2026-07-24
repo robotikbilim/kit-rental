@@ -80,13 +80,14 @@ public sealed class InventoryService(
         var model = await repository.GetProductModelAsync(command.ProductModelId, cancellationToken)
             ?? throw new ResourceNotFoundException("Ürün modeli bulunamadı.");
         var now = timeProvider.GetUtcNow();
+        var unitId = Guid.NewGuid();
         var serialNumber = string.IsNullOrWhiteSpace(command.SerialNumber)
-            ? GenerateSerialNumber(now)
+            ? ProductUnitSerialNumber.Create(model.Sku, now, unitId)
             : command.SerialNumber;
         var qrCode = string.IsNullOrWhiteSpace(command.QrCode)
             ? $"KITRENTAL:{serialNumber}"
             : command.QrCode;
-        var unit = ProductUnit.Create(Guid.NewGuid(), command.ProductModelId, serialNumber, qrCode,
+        var unit = ProductUnit.Create(unitId, command.ProductModelId, serialNumber, qrCode,
             command.ActorId, now);
 
         try
@@ -114,8 +115,9 @@ public sealed class InventoryService(
         var units = new List<ProductUnit>(command.Quantity);
         for (var index = 0; index < command.Quantity; index++)
         {
-            var serialNumber = GenerateSerialNumber(now);
-            var unit = ProductUnit.Create(Guid.NewGuid(), command.ProductModelId, serialNumber,
+            var unitId = Guid.NewGuid();
+            var serialNumber = ProductUnitSerialNumber.Create(model.Sku, now, unitId);
+            var unit = ProductUnit.Create(unitId, command.ProductModelId, serialNumber,
                 $"KITRENTAL:{serialNumber}", command.ActorId, now);
             units.Add(unit);
         }
@@ -221,9 +223,6 @@ public sealed class InventoryService(
             "Created", null, unit.Status.ToString(), occurredAt)).ToArray();
         await repository.AddProductUnitsWithStockConsumptionAsync(units, movements, audits, cancellationToken);
     }
-
-    private static string GenerateSerialNumber(DateTimeOffset now) =>
-        $"KR-{now:yyyyMMdd}-{Guid.NewGuid():N}".ToUpperInvariant();
 
     private static ProductModelResponse MapModel(ProductModel model) =>
         new(model.Id, model.Name, model.Sku, model.Description, model.ImageUrl);

@@ -18,6 +18,8 @@ public sealed record UpdateCustomerCommand(Guid CustomerId, string Name, string 
 public sealed record CustomerAddressCommand(Guid CustomerId, Guid? AddressId, AddressCommand Address, Guid ActorId);
 public sealed record OrderLineCommand(Guid ProductModelId, int Quantity);
 public sealed record CreateOrderCommand(Guid CustomerId, Guid AddressId, DateOnly StartDate, DateOnly EndDate, IReadOnlyCollection<OrderLineCommand> Lines, Guid ActorId);
+public sealed record CreatePurchaseOrderCommand(Guid CustomerId, Guid AddressId,
+    IReadOnlyCollection<OrderLineCommand> Lines, Guid ActorId);
 public sealed record CreateShipmentCommand(Guid OrderId, Guid? FaultTicketId, ShipmentType Type, string Carrier, string TrackingNumber, Guid ActorId);
 public sealed record AddShipmentEventCommand(Guid ShipmentId, ShipmentStatus Status, DateTimeOffset OccurredAt, string Location, string Description, Guid ActorId);
 public sealed record OpenFaultCommand(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId, string Category, FaultSeverity Severity, string Description, Guid ActorId);
@@ -39,8 +41,8 @@ public sealed record OrderDetailLineResponse(Guid Id, Guid ProductModelId, strin
     int Quantity, int CreatedKitCount);
 public sealed record OrderDetailKitResponse(Guid Id, Guid OrderLineId, Guid ProductModelId, string ProductName,
     string ProductSku, string SerialNumber, string QrCode, ProductUnitStatus Status);
-public sealed record OrderDetailResponse(Guid Id, string OrderNumber, string CustomerName, RentalOrderStatus Status,
-    DateOnly StartDate, DateOnly EndDate, DateTimeOffset CreatedAt,
+public sealed record OrderDetailResponse(Guid Id, string OrderNumber, string CustomerName, OrderType Type,
+    RentalOrderStatus Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt,
     IReadOnlyCollection<OrderDetailLineResponse> Lines, IReadOnlyCollection<OrderDetailKitResponse> Kits);
 public sealed record DashboardResponse(
     int Customers,
@@ -56,6 +58,8 @@ public sealed record DashboardResponse(
     int ActiveOrders,
     int OrdersAwaitingApproval,
     int OverdueOrders,
+    int SoldKits,
+    int CompletedPurchaseOrders,
     IReadOnlyCollection<DashboardReturnResponse> ReturnsInProgress,
     IReadOnlyCollection<DashboardRentalExpiryResponse> ExpiredRentalKits,
     IReadOnlyCollection<DashboardRentalExpiryResponse> ExpiringRentalKits);
@@ -183,6 +187,26 @@ public sealed class OperationsService(
         return order;
     }
 
+    public async Task<RentalOrder> CreatePurchaseOrderAsync(CreatePurchaseOrderCommand command,
+        CancellationToken cancellationToken)
+    {
+        var customer = await repository.GetCustomerAsync(command.CustomerId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+        await ValidateOrderLinesAsync(command.Lines, cancellationToken);
+        var now = timeProvider.GetUtcNow();
+        var order = RentalOrder.CreatePurchase(Guid.NewGuid(),
+            $"SO-{now:yyyyMMdd}-{Guid.NewGuid():N}"[..20], customer.Id,
+            customer.SnapshotAddress(command.AddressId), now);
+        foreach (var line in command.Lines)
+            order.AddLine(line.ProductModelId, line.Quantity);
+        order.Submit(command.ActorId, now);
+        order.Approve(command.ActorId, now);
+        await repository.AddOrderAsync(order, cancellationToken);
+        await AuditAsync(command.ActorId, nameof(RentalOrder), order.Id, "PurchaseOrderCreated", null,
+            $"{order.Type}|{order.Status}", cancellationToken);
+        return order;
+    }
+
     public Task<IReadOnlyCollection<RentalOrder>> GetOrdersAsync(Guid? customerId, CancellationToken cancellationToken) =>
         repository.GetOrdersAsync(customerId, cancellationToken);
 
@@ -193,14 +217,17 @@ public sealed class OperationsService(
         var customer = await repository.GetCustomerAsync(order.CustomerId, cancellationToken);
         var models = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(item => item.Id);
         var assignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
-        var assignmentCounts = assignments.GroupBy(item => item.OrderLineId)
+        var assignedUnits = order.Type == OrderType.Rental
+            ? assignments.Select(item => new { item.OrderLineId, item.ProductUnitId }).ToArray()
+            : order.ProductUnits.Select(item => new { item.OrderLineId, item.ProductUnitId }).ToArray();
+        var assignmentCounts = assignedUnits.GroupBy(item => item.OrderLineId)
             .ToDictionary(group => group.Key, group => group.Count());
         var lines = order.Lines.Select(line => new OrderDetailLineResponse(line.Id, line.ProductModelId,
             models.TryGetValue(line.ProductModelId, out var model) ? model.Name : "Eğitim kiti",
             models.TryGetValue(line.ProductModelId, out model) ? model.Sku : "-", line.Quantity,
             assignmentCounts.GetValueOrDefault(line.Id))).ToArray();
         var kits = new List<OrderDetailKitResponse>();
-        foreach (var assignment in assignments)
+        foreach (var assignment in assignedUnits)
         {
             var unit = await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken);
             if (unit is null) continue;
@@ -208,8 +235,8 @@ public sealed class OperationsService(
             kits.Add(new OrderDetailKitResponse(unit.Id, assignment.OrderLineId, unit.ProductModelId,
                 model?.Name ?? "Eğitim kiti", model?.Sku ?? "-", unit.SerialNumber, unit.QrCode, unit.Status));
         }
-        return new OrderDetailResponse(order.Id, order.OrderNumber, customer?.Name ?? "Müşteri", order.Status,
-            order.Period.StartDate, order.Period.EndDate, order.CreatedAt, lines,
+        return new OrderDetailResponse(order.Id, order.OrderNumber, customer?.Name ?? "Müşteri", order.Type,
+            order.Status, order.Period?.StartDate, order.Period?.EndDate, order.CreatedAt, lines,
             kits.OrderBy(item => item.ProductName).ThenBy(item => item.SerialNumber).ToArray());
     }
 
@@ -223,7 +250,7 @@ public sealed class OperationsService(
             throw new ConflictException("order.not_approved", "Fiziksel kitler yalnızca onaylanmış sipariş için oluşturulabilir.");
 
         var existingAssignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
-        if (existingAssignments.Count > 0)
+        if (existingAssignments.Count > 0 || order.ProductUnits.Count > 0)
             throw new ConflictException("order.kits_already_created", "Bu siparişin fiziksel kitleri daha önce oluşturulmuş.");
         var lines = requestedLines
             .Where(line => line.ProductModelId != Guid.Empty && line.Quantity > 0)
@@ -247,7 +274,8 @@ public sealed class OperationsService(
         var units = new List<ProductUnit>();
         var createdUnits = new List<ProductUnit>();
         var assignments = new List<RentalAssignment>();
-        var availableUnitsByModel = useAvailableKits
+        var purchaseLinks = new List<(Guid OrderLineId, Guid ProductUnitId)>();
+        var availableUnitsByModel = (useAvailableKits || order.Type == OrderType.Purchase)
             ? (await repository.GetProductUnitsAsync(cancellationToken))
                 .Where(unit => unit.Status == ProductUnitStatus.Available)
                 .GroupBy(unit => unit.ProductModelId)
@@ -266,14 +294,18 @@ public sealed class OperationsService(
                 }
                 else
                 {
-                    var serialNumber = $"ORD-{now:yyyyMMdd}-{Guid.NewGuid():N}".ToUpperInvariant();
-                    unit = ProductUnit.Create(Guid.NewGuid(), line.ProductModelId, serialNumber,
+                    var unitId = Guid.NewGuid();
+                    var serialNumber = ProductUnitSerialNumber.Create(models[line.ProductModelId].Sku, now, unitId);
+                    unit = ProductUnit.Create(unitId, line.ProductModelId, serialNumber,
                         $"KITRENTAL:{serialNumber}", actorId, now);
                     createdUnits.Add(unit);
                 }
                 units.Add(unit);
-                assignments.Add(RentalAssignment.Create(Guid.NewGuid(), line.Id, order.CustomerId, unit.Id,
-                    order.Period, now, actorId));
+                if (order.Type == OrderType.Rental)
+                    assignments.Add(RentalAssignment.Create(Guid.NewGuid(), line.Id, order.CustomerId, unit.Id,
+                        order.Period!.Value, now, actorId));
+                else
+                    purchaseLinks.Add((line.Id, unit.Id));
             }
         }
 
@@ -293,8 +325,16 @@ public sealed class OperationsService(
             throw new ConflictException("product_unit.identifier_not_unique", exception.Message);
         }
 
-        if (!await repository.TryCreateReservationsAsync(units, assignments, actorId, now, cancellationToken))
+        if (order.Type == OrderType.Purchase)
+            foreach (var link in purchaseLinks)
+                order.AddProductUnit(link.OrderLineId, link.ProductUnitId);
+        var reserved = order.Type == OrderType.Rental
+            ? await repository.TryCreateReservationsAsync(units, assignments, actorId, now, cancellationToken)
+            : await repository.TryReserveUnitsAsync(units, actorId, now, cancellationToken);
+        if (!reserved)
         {
+            if (order.Type == OrderType.Purchase)
+                order.ClearProductUnits();
             foreach (var unit in createdUnits)
                 await repository.RemoveProductUnitAsync(unit, cancellationToken);
             await repository.SaveChangesAsync(cancellationToken);
@@ -303,9 +343,11 @@ public sealed class OperationsService(
 
         await AuditAsync(actorId, nameof(RentalOrder), order.Id, "OrderKitsCreated", null,
             $"Created:{createdUnits.Count}|Reused:{units.Count - createdUnits.Count}", cancellationToken);
-        var assignmentByUnit = assignments.ToDictionary(item => item.ProductUnitId);
+        var linkByUnit = order.Type == OrderType.Rental
+            ? assignments.ToDictionary(item => item.ProductUnitId, item => item.Id)
+            : order.ProductUnits.ToDictionary(item => item.ProductUnitId, item => item.Id);
         return new OrderKitPreparationResponse(order.Id, createdUnits.Count, units.Count - createdUnits.Count, units.Select(unit =>
-            new OrderKitResponse(unit.Id, assignmentByUnit[unit.Id].Id, unit.ProductModelId,
+            new OrderKitResponse(unit.Id, linkByUnit[unit.Id], unit.ProductModelId,
                 unit.SerialNumber, unit.Status)).ToArray());
     }
 
@@ -316,10 +358,13 @@ public sealed class OperationsService(
         var now = timeProvider.GetUtcNow();
         var previous = order.Status;
         var assignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
+        var allocatedUnitIds = order.Type == OrderType.Rental
+            ? assignments.Select(item => item.ProductUnitId).ToArray()
+            : order.ProductUnits.Select(item => item.ProductUnitId).ToArray();
         if (target is RentalOrderStatus.Preparing or RentalOrderStatus.OutboundInTransit or RentalOrderStatus.Delivered)
         {
             var requestedKitCount = order.Lines.Sum(line => line.Quantity);
-            if (assignments.Count != requestedKitCount)
+            if (allocatedUnitIds.Length != requestedKitCount)
                 throw new ConflictException("order.kits_incomplete",
                     $"Siparişin {requestedKitCount} fiziksel kitinin tamamı oluşturulup rezerve edilmelidir.");
         }
@@ -328,23 +373,24 @@ public sealed class OperationsService(
             case RentalOrderStatus.Approved: order.Approve(actorId, now); break;
             case RentalOrderStatus.Preparing:
                 order.StartPreparation(actorId, now);
-                foreach (var assignment in assignments)
+                foreach (var unitId in allocatedUnitIds)
                 {
-                    var unit = await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken);
+                    var unit = await repository.GetProductUnitAsync(unitId, cancellationToken);
                     if (unit?.Status == ProductUnitStatus.Reserved)
                         unit.StartPreparation(actorId, now);
-                    if (assignment.Status == RentalAssignmentStatus.Reserved)
-                        assignment.Activate();
                 }
+                if (order.Type == OrderType.Rental)
+                    foreach (var assignment in assignments.Where(item => item.Status == RentalAssignmentStatus.Reserved))
+                        assignment.Activate();
                 break;
             case RentalOrderStatus.ReadyToShip: order.MarkReadyToShip(actorId, now); break;
             case RentalOrderStatus.OutboundInTransit:
                 if (order.Status == RentalOrderStatus.Preparing)
                     order.MarkReadyToShip(actorId, now);
                 order.Dispatch(actorId, now);
-                foreach (var assignment in assignments)
+                foreach (var unitId in allocatedUnitIds)
                 {
-                    var unit = await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken);
+                    var unit = await repository.GetProductUnitAsync(unitId, cancellationToken);
                     if (unit?.Status == ProductUnitStatus.Reserved)
                         unit.StartPreparation(actorId, now);
                     if (unit?.Status == ProductUnitStatus.Preparing)
@@ -353,17 +399,25 @@ public sealed class OperationsService(
                 break;
             case RentalOrderStatus.Delivered:
                 order.ConfirmDelivery(actorId, now);
-                foreach (var assignment in assignments)
+                foreach (var unitId in allocatedUnitIds)
                 {
-                    var unit = await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken);
+                    var unit = await repository.GetProductUnitAsync(unitId, cancellationToken);
                     if (unit?.Status == ProductUnitStatus.OutboundInTransit)
-                        unit.ConfirmDelivery(actorId, now);
-                    if (assignment.Status == RentalAssignmentStatus.Reserved)
-                        assignment.Activate();
+                    {
+                        if (order.Type == OrderType.Purchase) unit.CompleteSale(actorId, now);
+                        else unit.ConfirmDelivery(actorId, now);
+                    }
                 }
+                if (order.Type == OrderType.Rental)
+                    foreach (var assignment in assignments.Where(item => item.Status == RentalAssignmentStatus.Reserved))
+                        assignment.Activate();
                 order.LockAfterDelivery(actorId, now);
                 break;
-            case RentalOrderStatus.AwaitingReturn: order.RequestReturn(actorId, now); break;
+            case RentalOrderStatus.AwaitingReturn:
+                if (order.Type != OrderType.Rental)
+                    throw new ConflictException("order.purchase_return_not_allowed", "Satın alma siparişinde kiralama iadesi başlatılamaz.");
+                order.RequestReturn(actorId, now);
+                break;
             default: throw new ConflictException("order.unsupported_transition", "Bu durum geçişi ilgili süreç üzerinden yapılmalıdır.");
         }
         await AuditAsync(actorId, nameof(RentalOrder), order.Id, "StatusChanged", previous.ToString(), order.Status.ToString(), cancellationToken);
@@ -376,13 +430,16 @@ public sealed class OperationsService(
             ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
         var now = timeProvider.GetUtcNow();
         var assignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
+        var outboundUnitIds = order.Type == OrderType.Rental
+            ? assignments.Select(item => item.ProductUnitId)
+            : order.ProductUnits.Select(item => item.ProductUnitId);
 
         if (command.Type == ShipmentType.Outbound)
         {
             order.Dispatch(command.ActorId, now);
-            foreach (var assignment in assignments)
+            foreach (var unitId in outboundUnitIds)
             {
-                var unit = await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken);
+                var unit = await repository.GetProductUnitAsync(unitId, cancellationToken);
                 if (unit?.Status == ProductUnitStatus.Reserved)
                     unit.StartPreparation(command.ActorId, now);
                 if (unit?.Status == ProductUnitStatus.Preparing)
@@ -391,6 +448,9 @@ public sealed class OperationsService(
         }
         else if (command.Type == ShipmentType.Return)
         {
+            if (order.Type != OrderType.Rental)
+                throw new ConflictException("order.purchase_return_not_allowed",
+                    "Satın alma siparişi için iade kargosu oluşturulamaz.");
             order.StartReturnShipment(command.ActorId, now);
             foreach (var assignment in assignments)
             {
@@ -427,9 +487,20 @@ public sealed class OperationsService(
             if (shipment.Type == ShipmentType.Outbound)
             {
                 order.ConfirmDelivery(command.ActorId, command.OccurredAt);
-                order.ActivateRental(command.ActorId, command.OccurredAt);
-                foreach (var assignment in assignments)
-                    (await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken))?.ConfirmDelivery(command.ActorId, command.OccurredAt);
+                if (order.Type == OrderType.Purchase)
+                {
+                    foreach (var allocation in order.ProductUnits)
+                        (await repository.GetProductUnitAsync(allocation.ProductUnitId, cancellationToken))
+                            ?.CompleteSale(command.ActorId, command.OccurredAt);
+                    order.LockAfterDelivery(command.ActorId, command.OccurredAt);
+                }
+                else
+                {
+                    order.ActivateRental(command.ActorId, command.OccurredAt);
+                    foreach (var assignment in assignments)
+                        (await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken))
+                            ?.ConfirmDelivery(command.ActorId, command.OccurredAt);
+                }
             }
             else if (shipment.Type == ShipmentType.Return)
             {
@@ -601,11 +672,23 @@ public sealed class OperationsService(
             orders.Count(order => order.Status is not (RentalOrderStatus.Completed or RentalOrderStatus.Cancelled or RentalOrderStatus.Rejected)),
             orders.Count(order => order.Status == RentalOrderStatus.PendingApproval),
             orders.Count(order => order.Status == RentalOrderStatus.Overdue),
+            units.Count(unit => unit.Status == ProductUnitStatus.Sold),
+            orders.Count(order => order.Type == OrderType.Purchase && order.Status == RentalOrderStatus.Completed),
             returns.Where(x => x.Status != KitReturnStatus.Received).Select(x => new DashboardReturnResponse(
                 x.Id, customerLookup.TryGetValue(x.CustomerId, out var customer) ? customer.Name : "Müşteri",
                 (int)x.Status, x.Carrier, x.TrackingNumber, x.CreatedAt, x.Items.Count)).ToArray(),
             rentalExpiryItems.Where(x => x.DaysRemaining < 0).OrderBy(x => x.DaysRemaining).ToArray(),
             rentalExpiryItems.Where(x => x.DaysRemaining is >= 0 and <= 7).OrderBy(x => x.DaysRemaining).ToArray());
+    }
+
+    private async Task ValidateOrderLinesAsync(IReadOnlyCollection<OrderLineCommand> lines,
+        CancellationToken cancellationToken)
+    {
+        if (lines.Count == 0 || lines.Any(line => line.ProductModelId == Guid.Empty || line.Quantity <= 0))
+            throw new ConflictException("order.lines_required", "Siparişte en az bir geçerli ürün satırı bulunmalıdır.");
+        foreach (var line in lines)
+            if (await repository.GetProductModelAsync(line.ProductModelId, cancellationToken) is null)
+                throw new ResourceNotFoundException($"{line.ProductModelId} ürün modeli bulunamadı.");
     }
 
     private async Task AuditAsync(
