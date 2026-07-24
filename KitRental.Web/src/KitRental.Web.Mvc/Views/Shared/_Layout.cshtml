@@ -110,6 +110,7 @@
                                     <a asp-controller="Customers" asp-action="Index">Müşteriler</a>
                                     @if (User.IsInRole("SystemAdmin"))
                                     {
+                                        <a asp-controller="AdminUsers" asp-action="Index">Yönetici Kullanıcılar</a>
                                         <a asp-controller="Operations" asp-action="Audit">İşlem Geçmişi</a>
                                     }
                                 </div>

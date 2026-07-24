@@ -16,9 +16,9 @@ public sealed class InMemoryUserRepository : IUserRepository
     {
         var admin = UserAccount.Create(
             DevelopmentAdminId,
-            "admin@kitrental.local",
+            "admin@robotikbilim.com.tr",
             "Sistem Yöneticisi",
-            passwordHasher.Hash("Admin12345!"),
+            passwordHasher.Hash("41yaD3r!n58"),
             UserRole.SystemAdmin,
             null);
         var tacev = UserAccount.Create(

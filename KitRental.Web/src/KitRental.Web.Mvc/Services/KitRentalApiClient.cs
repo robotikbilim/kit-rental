@@ -53,6 +53,17 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public async Task<IReadOnlyCollection<UserApiResponse>> GetUsersAsync(CancellationToken cancellationToken) =>
         await GetAsync<UserApiResponse[]>("/identity/api/users", cancellationToken) ?? [];
 
+    public Task<ApiCommandResult<UserApiResponse>> CreateAdminUserAsync(
+        CreateAdminUserViewModel model, CancellationToken cancellationToken) =>
+        PostAsync<UserApiResponse>("/identity/api/users", new
+        {
+            model.Email,
+            model.DisplayName,
+            model.Password,
+            role = 1,
+            customerId = (Guid?)null
+        }, cancellationToken);
+
     public Task<AuditPageApiResponse?> GetAuditAsync(AuditFilterViewModel filter,
         CancellationToken cancellationToken)
     {

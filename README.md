@@ -62,8 +62,8 @@ Gateway Swagger ekranındaki açılır doküman listesinden Gateway, Identity ve
 Geliştirme yöneticisi:
 
 ```text
-E-posta: admin@kitrental.local
-Parola:  Admin12345!
+E-posta: admin@robotikbilim.com.tr
+Parola:  41yaD3r!n58
 ```
 
 Bu hesap ve varsayılan token sırrı yalnız yerel geliştirme içindir. Üretimde `KIT_RENTAL_TOKEN_SECRET` güçlü ve gizli bir değerle tanımlanmalıdır.

@@ -1,0 +1,44 @@
+@model CreateAdminUserViewModel
+@{ ViewData["Title"] = "Yeni Yönetici Ekle"; }
+
+<div class="form-shell customer-form-shell">
+    <div class="form-heading">
+        <a asp-action="Index">← Yönetici kullanıcılara dön</a>
+        <span class="eyebrow">SİSTEM YÖNETİMİ</span>
+        <h1>Yeni yönetici ekle</h1>
+        <p>Bu hesap sistemin bütün yönetim alanlarına erişebilir.</p>
+    </div>
+    <form class="catalog-form" asp-action="Create" method="post">
+        <div asp-validation-summary="All" class="error"></div>
+        <div class="form-section">
+            <div class="form-grid">
+                <div class="field wide">
+                    <label asp-for="DisplayName"></label>
+                    <input asp-for="DisplayName" autocomplete="name" />
+                </div>
+                <div class="field wide">
+                    <label asp-for="Email"></label>
+                    <input asp-for="Email" autocomplete="username" />
+                    <small class="field-help">Giriş kullanıcı adı olarak geçerli bir e-posta adresi kullanılır.</small>
+                </div>
+                <div class="field">
+                    <label asp-for="Password"></label>
+                    <input asp-for="Password" autocomplete="new-password" />
+                    <small class="field-help">En az 10 karakter olmalıdır.</small>
+                </div>
+                <div class="field">
+                    <label asp-for="PasswordConfirmation"></label>
+                    <input asp-for="PasswordConfirmation" autocomplete="new-password" />
+                </div>
+            </div>
+        </div>
+        <div class="account-role-note">
+            <strong>Hesap yetkisi: Sistem Yöneticisi</strong>
+            <span>Tüm yönetim ve kullanıcı işlemlerine erişebilir.</span>
+        </div>
+        <div class="form-actions">
+            <a class="secondary-action" asp-action="Index">Vazgeç</a>
+            <button class="primary-action" type="submit">Yöneticiyi oluştur</button>
+        </div>
+    </form>
+</div>

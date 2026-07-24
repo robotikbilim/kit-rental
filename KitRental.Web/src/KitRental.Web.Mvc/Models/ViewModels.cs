@@ -15,6 +15,21 @@ public sealed class LoginViewModel
 
 public sealed record LoginApiResponse(string AccessToken, DateTimeOffset ExpiresAt, UserApiResponse User);
 public sealed record UserApiResponse(Guid Id, string Email, string DisplayName, int Role, Guid? CustomerId, bool IsActive = true);
+public sealed class CreateAdminUserViewModel
+{
+    [Required, StringLength(160), Display(Name = "Ad soyad")]
+    public string DisplayName { get; set; } = string.Empty;
+
+    [Required, EmailAddress, StringLength(320), Display(Name = "Kullanıcı adı (e-posta)")]
+    public string Email { get; set; } = string.Empty;
+
+    [Required, MinLength(10), DataType(DataType.Password), Display(Name = "Şifre")]
+    public string Password { get; set; } = string.Empty;
+
+    [Required, Compare(nameof(Password)), DataType(DataType.Password), Display(Name = "Şifre tekrarı")]
+    public string PasswordConfirmation { get; set; } = string.Empty;
+}
+public sealed record AdminUsersPageViewModel(IReadOnlyCollection<UserApiResponse> Users);
 public sealed record AuditEntryApiResponse(Guid Id, Guid ActorId, string EntityType, Guid EntityId,
     string Action, string? PreviousValue, string? NewValue, DateTimeOffset OccurredAt);
 public sealed record AuditPageApiResponse(int Page, int PageSize, int TotalCount, int TotalPages,

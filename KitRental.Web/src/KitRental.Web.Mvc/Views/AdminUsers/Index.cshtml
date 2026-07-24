@@ -1,0 +1,38 @@
+@model AdminUsersPageViewModel
+@{ ViewData["Title"] = "Yönetici Kullanıcılar"; }
+
+<div class="customer-heading">
+    <div>
+        <span class="eyebrow">SİSTEM YÖNETİMİ</span>
+        <h1>Yönetici kullanıcılar</h1>
+        <p>Sistemin tamamını yönetebilen hesapları görüntüleyin ve yeni bir sistem yöneticisi oluşturun.</p>
+    </div>
+    <a class="primary-action" asp-action="Create">Yeni yönetici ekle</a>
+</div>
+
+@if (TempData["Success"] is string success)
+{
+    <div class="success-banner">@success</div>
+}
+
+@if (Model.Users.Count == 0)
+{
+    <div class="empty">Henüz yönetici hesabı bulunmuyor.</div>
+}
+else
+{
+    <table>
+        <thead><tr><th>Ad soyad</th><th>Kullanıcı adı</th><th>Yetki</th><th>Durum</th></tr></thead>
+        <tbody>
+        @foreach (var user in Model.Users)
+        {
+            <tr>
+                <td><strong>@user.DisplayName</strong></td>
+                <td><a href="mailto:@user.Email">@user.Email</a></td>
+                <td><span class="badge">Sistem Yöneticisi</span></td>
+                <td>@(user.IsActive ? "Aktif" : "Pasif")</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

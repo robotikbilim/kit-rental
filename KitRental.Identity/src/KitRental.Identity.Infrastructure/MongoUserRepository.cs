@@ -54,8 +54,8 @@ public sealed class MongoUserRepository : IUserRepository, IIdentityStoreInitial
         await _users.Indexes.CreateOneAsync(emailIndex, cancellationToken: cancellationToken);
 
         await EnsureDevelopmentUserAsync(UserAccount.Create(
-            InMemoryUserRepository.DevelopmentAdminId, "admin@kitrental.local", "Sistem Yöneticisi",
-            _passwordHasher.Hash("Admin12345!"), UserRole.SystemAdmin, null), cancellationToken);
+            InMemoryUserRepository.DevelopmentAdminId, "admin@robotikbilim.com.tr", "Sistem Yöneticisi",
+            _passwordHasher.Hash("41yaD3r!n58"), UserRole.SystemAdmin, null), cancellationToken);
         await EnsureDevelopmentUserAsync(UserAccount.Create(
             InMemoryUserRepository.DevelopmentTacevUserId, "kadikoy@tacev.demo", "TACEV Kadıköy",
             _passwordHasher.Hash("Tacev12345!"), UserRole.CustomerAccountManager,
@@ -64,8 +64,20 @@ public sealed class MongoUserRepository : IUserRepository, IIdentityStoreInitial
 
     private async Task EnsureDevelopmentUserAsync(UserAccount account, CancellationToken cancellationToken)
     {
-        if (!await _users.Find(user => user.Email == account.Email).AnyAsync(cancellationToken))
-            await _users.InsertOneAsync(UserDocument.FromDomain(account), cancellationToken: cancellationToken);
+        if (await _users.Find(user => user.Email == account.Email).AnyAsync(cancellationToken))
+            return;
+
+        var existingSeedUser = await _users.Find(user => user.Id == account.Id).AnyAsync(cancellationToken);
+        if (existingSeedUser)
+        {
+            await _users.ReplaceOneAsync(
+                user => user.Id == account.Id,
+                UserDocument.FromDomain(account),
+                cancellationToken: cancellationToken);
+            return;
+        }
+
+        await _users.InsertOneAsync(UserDocument.FromDomain(account), cancellationToken: cancellationToken);
     }
 
     private sealed class UserDocument
