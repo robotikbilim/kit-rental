@@ -187,6 +187,10 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<SupplyNeedListViewModel?> GetSupplyNeedAsync(Guid id, CancellationToken cancellationToken) =>
         GetAsync<SupplyNeedListViewModel>($"/core/api/supply-needs/{id}", cancellationToken);
 
+    public Task<ApiCommandResult<SupplyNeedListViewModel>> RefreshSupplyNeedRecommendationAsync(
+        CancellationToken cancellationToken) => PostAsync<SupplyNeedListViewModel>(
+        "/core/api/supply-needs/refresh-recommendation", new { }, cancellationToken);
+
     public Task<ApiCommandResult<SupplyNeedListViewModel>> CreateSupplyNeedAsync(SupplyNeedInputViewModel model,
         CancellationToken cancellationToken) => PostAsync<SupplyNeedListViewModel>("/core/api/supply-needs",
         new { lines = model.Lines.Select(line => new { line.ComponentId, line.Quantity }).ToArray() }, cancellationToken);

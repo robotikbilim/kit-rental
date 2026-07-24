@@ -7,19 +7,16 @@ using KitRental.Core.Domain.Procurement;
 using KitRental.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace KitRental.Core.IntegrationTests;
 
 public sealed class SupplyNeedApiTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly HttpClient _client;
-    private readonly WebApplicationFactory<Program> _factory;
 
     public SupplyNeedApiTests(WebApplicationFactory<Program> factory)
     {
-        _factory = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Testing"));
-        _client = _factory.CreateClient();
+        _client = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Testing")).CreateClient();
         var tokens = new TokenService(new TokenOptions("KitRental.Identity", "KitRental",
             "development-only-secret-change-before-production-2026", TimeSpan.FromHours(8)));
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
@@ -28,21 +25,45 @@ public sealed class SupplyNeedApiTests : IClassFixture<WebApplicationFactory<Pro
     }
 
     [Fact]
-    public async Task DailyRecommendation_AddsLowStockComponent_AndApprovalCreatesPendingOrder()
+    public async Task RefreshRecommendation_SynchronizesLowStockWithoutDuplicateLines()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var component = await PostAsync<ComponentResponse>("/api/components",
             new CreateComponentRequest("Düşük Stok Testi", $"LOW-{Guid.NewGuid():N}", "adet", 25),
             cancellationToken);
+        var location = await PostAsync<StorageLocationResponse>("/api/storage-locations",
+            new CreateStorageLocationRequest($"LOW-{Guid.NewGuid():N}", "Test Depo", "A", "1", "1"),
+            cancellationToken);
 
-        await using (var scope = _factory.Services.CreateAsyncScope())
-            await scope.ServiceProvider.GetRequiredService<SupplyNeedService>()
-                .RefreshRecommendationAsync(cancellationToken);
+        var refresh = await _client.PostAsJsonAsync("/api/supply-needs/refresh-recommendation",
+            new { }, cancellationToken);
+        refresh.EnsureSuccessStatusCode();
+        refresh = await _client.PostAsJsonAsync("/api/supply-needs/refresh-recommendation",
+            new { }, cancellationToken);
+        refresh.EnsureSuccessStatusCode();
 
         var lists = await _client.GetFromJsonAsync<SupplyNeedResponse[]>("/api/supply-needs", cancellationToken);
         var recommendation = lists!.Single(item => item.Status == SupplyNeedStatus.Recommended);
-        var line = recommendation.Lines.Single(item => item.ComponentId == component.Id);
+        var line = Assert.Single(recommendation.Lines, item => item.ComponentId == component.Id);
         Assert.Equal(25, line.Quantity);
+
+        await PostAsync<StockMovementResponse>("/api/component-stock/receipts",
+            new RecordComponentStockRequest(component.Id, location.Id, 25, "Minimum stok tamamlandı"),
+            cancellationToken);
+        refresh = await _client.PostAsJsonAsync("/api/supply-needs/refresh-recommendation",
+            new { }, cancellationToken);
+        refresh.EnsureSuccessStatusCode();
+        recommendation = await refresh.Content.ReadFromJsonAsync<SupplyNeedResponse>(cancellationToken);
+        Assert.DoesNotContain(recommendation!.Lines, item => item.ComponentId == component.Id);
+
+        await PostAsync<StockMovementResponse>("/api/component-stock/consumptions",
+            new RecordComponentStockRequest(component.Id, location.Id, 5, "Stok minimumun altına düştü"),
+            cancellationToken);
+        refresh = await _client.PostAsJsonAsync("/api/supply-needs/refresh-recommendation",
+            new { }, cancellationToken);
+        refresh.EnsureSuccessStatusCode();
+        recommendation = await refresh.Content.ReadFromJsonAsync<SupplyNeedResponse>(cancellationToken);
+        Assert.Equal(5, Assert.Single(recommendation!.Lines, item => item.ComponentId == component.Id).Quantity);
 
         var approval = await _client.PostAsJsonAsync($"/api/supply-needs/{recommendation.Id}/approve",
             new { }, cancellationToken);

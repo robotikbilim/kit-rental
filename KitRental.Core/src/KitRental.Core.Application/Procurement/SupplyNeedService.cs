@@ -69,7 +69,7 @@ public sealed class SupplyNeedService(ICoreRepository repository, TimeProvider t
             (await repository.GetComponentsAsync(cancellationToken)).ToDictionary(item => item.Id));
     }
 
-    public async Task RefreshRecommendationAsync(CancellationToken cancellationToken)
+    public async Task<SupplyNeedResponse> RefreshRecommendationAsync(CancellationToken cancellationToken)
     {
         var lists = await repository.GetSupplyNeedListsAsync(cancellationToken);
         var recommendation = lists.FirstOrDefault(item => item.Status == SupplyNeedStatus.Recommended);
@@ -93,6 +93,8 @@ public sealed class SupplyNeedService(ICoreRepository repository, TimeProvider t
             .ToArray();
         recommendation.Update(recommendedLines, now);
         await repository.SaveChangesAsync(cancellationToken);
+        return Map(recommendation,
+            (await repository.GetComponentsAsync(cancellationToken)).ToDictionary(item => item.Id));
     }
 
     public async Task<SupplyNeedResponse> CompleteAsync(CompleteSupplyNeedCommand command,

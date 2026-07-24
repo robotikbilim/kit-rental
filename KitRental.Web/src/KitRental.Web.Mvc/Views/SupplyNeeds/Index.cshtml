@@ -1,13 +1,13 @@
 @model SupplyNeedIndexPageViewModel
 @{ ViewData["Title"] = "İhtiyaç Listeleri"; }
-<div class="catalog-heading"><div><span class="eyebrow">TEDARİK PLANLAMA</span><h1>İhtiyaç Listeleri</h1><p>Günlük stok tavsiyesini onaylayın, siparişleri ve gelen miktarları yönetin.</p></div><a class="primary-action" asp-action="Create">+ Yeni ihtiyaç listesi</a></div>
+<div class="catalog-heading"><div><span class="eyebrow">TEDARİK PLANLAMA</span><h1>İhtiyaç Listeleri</h1><p>Güncel stok tavsiyesini oluşturun, siparişleri ve gelen miktarları yönetin.</p></div><div class="heading-actions"><form asp-action="RefreshRecommendation" method="post"><button type="submit" class="secondary-action">Stoktan tavsiye listesini güncelle</button></form><a class="primary-action" asp-action="Create">+ Yeni ihtiyaç listesi</a></div></div>
 @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 <div class="supply-need-list">
 @foreach (var list in Model.Lists)
 {
     <article class="supply-need-card status-@list.Status @(list.Status == 0 ? "recommendation-card" : null)">
-        <header><div><span class="eyebrow">@(list.Status == 0 ? "GÜNLÜK OTOMATİK TAVSİYE" : "İHTİYAÇ LİSTESİ")</span><h2>@(list.Status == 0 ? "Tavsiye edilen ihtiyaçlar" : list.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"))</h2><small>@(list.Status == 0 ? $"Son kontrol: {list.UpdatedAt.ToLocalTime():dd.MM.yyyy HH:mm}" : $"{list.Lines.Count} komponent kalemi")</small></div><span class="supply-status">@(list.Status == 0 ? "Tavsiye" : list.Status == 1 ? "Bekleniyor" : "Tedarik edildi")</span></header>
+        <header><div><span class="eyebrow">@(list.Status == 0 ? "STOKTAN OLUŞTURULAN TAVSİYE" : "İHTİYAÇ LİSTESİ")</span><h2>@(list.Status == 0 ? "Tavsiye edilen ihtiyaçlar" : list.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"))</h2><small>@(list.Status == 0 ? $"Son kontrol: {list.UpdatedAt.ToLocalTime():dd.MM.yyyy HH:mm}" : $"{list.Lines.Count} komponent kalemi")</small></div><span class="supply-status">@(list.Status == 0 ? "Tavsiye" : list.Status == 1 ? "Bekleniyor" : "Tedarik edildi")</span></header>
         @if (list.Status == 0)
         {
             @if (list.Lines.Count == 0) { <div class="recommendation-empty"><strong>✓ Yeni tedarik tavsiyesi yok</strong><span>Tüm komponent stokları minimum seviyesinde veya bekleyen bir ihtiyaç listesinde bulunuyor.</span></div> }

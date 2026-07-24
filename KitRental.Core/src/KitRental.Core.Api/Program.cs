@@ -73,7 +73,6 @@ builder.Services.AddScoped<WorkshopService>();
 builder.Services.AddScoped<PhysicalKitService>();
 builder.Services.AddScoped<CustomerPortalService>();
 builder.Services.AddScoped<SupplyNeedService>();
-builder.Services.AddHostedService<SupplyNeedRecommendationWorker>();
 
 var app = builder.Build();
 if (!useInMemoryPersistence)
@@ -381,6 +380,11 @@ api.MapGet("/supply-needs", async (SupplyNeedService service, CancellationToken 
 
 api.MapGet("/supply-needs/{id:guid}", async (Guid id, SupplyNeedService service,
     CancellationToken cancellationToken) => Results.Ok(await service.GetAsync(id, cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
+
+api.MapPost("/supply-needs/refresh-recommendation", async (SupplyNeedService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.RefreshRecommendationAsync(cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(warehouseRoles));
 
 api.MapPost("/supply-needs", async (SupplyNeedRequest request, ClaimsPrincipal user,
