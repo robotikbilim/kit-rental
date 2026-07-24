@@ -52,7 +52,9 @@ public interface ICoreRepository
     Task<KitReturnRequest?> GetKitReturnRequestAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KitReturnRequest>> GetKitReturnRequestsAsync(Guid? customerId, CancellationToken cancellationToken);
     Task AddAuditEntryAsync(AuditEntry entry, CancellationToken cancellationToken);
-    Task<IReadOnlyCollection<AuditEntry>> GetAuditEntriesAsync(CancellationToken cancellationToken);
+    Task<(IReadOnlyCollection<AuditEntry> Items, int TotalCount)> GetAuditEntriesAsync(
+        string? action, Guid? actorId, DateTimeOffset? occurredFrom, DateTimeOffset? occurredTo,
+        int page, int pageSize, CancellationToken cancellationToken);
     Task AddComponentAsync(Component component, CancellationToken cancellationToken);
     Task<Component?> GetComponentAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<Component>> GetComponentsAsync(CancellationToken cancellationToken);

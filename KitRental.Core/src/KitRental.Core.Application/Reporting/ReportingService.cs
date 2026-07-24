@@ -6,8 +6,16 @@ namespace KitRental.Core.Application.Reporting;
 
 public sealed class ReportingService(ICoreRepository repository)
 {
-    public Task<IReadOnlyCollection<AuditEntry>> GetAuditTrailAsync(CancellationToken cancellationToken) =>
-        repository.GetAuditEntriesAsync(cancellationToken);
+    public async Task<AuditPage> GetAuditTrailAsync(AuditQuery query, CancellationToken cancellationToken)
+    {
+        var page = Math.Max(1, query.Page);
+        var pageSize = Math.Clamp(query.PageSize, 10, 100);
+        var result = await repository.GetAuditEntriesAsync(
+            string.IsNullOrWhiteSpace(query.Action) ? null : query.Action.Trim(),
+            query.ActorId, query.OccurredFrom, query.OccurredTo, page, pageSize, cancellationToken);
+        return new AuditPage(page, pageSize, result.TotalCount,
+            Math.Max(1, (int)Math.Ceiling(result.TotalCount / (double)pageSize)), result.Items);
+    }
 
     public async Task<byte[]> ExportInventoryCsvAsync(CancellationToken cancellationToken)
     {
@@ -31,3 +39,8 @@ public sealed class ReportingService(ICoreRepository repository)
         return $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
     }
 }
+
+public sealed record AuditQuery(string? Action, Guid? ActorId, DateTimeOffset? OccurredFrom,
+    DateTimeOffset? OccurredTo, int Page = 1, int PageSize = 25);
+public sealed record AuditPage(int Page, int PageSize, int TotalCount, int TotalPages,
+    IReadOnlyCollection<AuditEntry> Items);

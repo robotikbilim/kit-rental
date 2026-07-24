@@ -603,7 +603,15 @@ api.MapGet("/dashboard", async (OperationsService service, CancellationToken can
     .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
 
 api.MapGet("/audit", async (ReportingService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.GetAuditTrailAsync(cancellationToken)))
+    Results.Ok((await service.GetAuditTrailAsync(new AuditQuery(null, null, null, null, 1, 100),
+        cancellationToken)).Items))
+    .RequireAuthorization(policy => policy.RequireRole("SystemAdmin", "Auditor"));
+
+api.MapGet("/audit/search", async (string? action, Guid? actorId, DateTimeOffset? occurredFrom,
+    DateTimeOffset? occurredTo, int? page, int? pageSize, ReportingService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetAuditTrailAsync(new AuditQuery(action, actorId, occurredFrom, occurredTo,
+        page ?? 1, pageSize ?? 25), cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole("SystemAdmin", "Auditor"));
 
 api.MapGet("/reports/inventory.csv", async (ReportingService service, CancellationToken cancellationToken) =>

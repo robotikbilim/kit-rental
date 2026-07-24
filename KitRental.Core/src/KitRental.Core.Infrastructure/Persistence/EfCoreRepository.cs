@@ -210,8 +210,25 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
     public Task AddAuditEntryAsync(AuditEntry entry, CancellationToken cancellationToken) =>
         dbContext.AuditEntries.AddAsync(entry, cancellationToken).AsTask();
 
-    public async Task<IReadOnlyCollection<AuditEntry>> GetAuditEntriesAsync(CancellationToken cancellationToken) =>
-        await dbContext.AuditEntries.OrderByDescending(entry => entry.OccurredAt).ToArrayAsync(cancellationToken);
+    public async Task<(IReadOnlyCollection<AuditEntry> Items, int TotalCount)> GetAuditEntriesAsync(
+        string? action, Guid? actorId, DateTimeOffset? occurredFrom, DateTimeOffset? occurredTo,
+        int page, int pageSize, CancellationToken cancellationToken)
+    {
+        var query = dbContext.AuditEntries.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(action))
+            query = query.Where(entry => entry.Action == action);
+        if (actorId.HasValue)
+            query = query.Where(entry => entry.ActorId == actorId.Value);
+        if (occurredFrom.HasValue)
+            query = query.Where(entry => entry.OccurredAt >= occurredFrom.Value);
+        if (occurredTo.HasValue)
+            query = query.Where(entry => entry.OccurredAt < occurredTo.Value);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query.OrderByDescending(entry => entry.OccurredAt)
+            .ThenByDescending(entry => entry.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToArrayAsync(cancellationToken);
+        return (items, totalCount);
+    }
 
     public async Task AddComponentAsync(Component component, CancellationToken cancellationToken)
     {

@@ -86,6 +86,33 @@ Compose servisleri:
 
 Her uygulamanın bağımsız Dockerfile'ı vardır; böylece tek repository içinden dört ayrı deploy edilebilir image üretilir.
 
+## Domain bazlı marka yayını
+
+MVC uygulaması `Host` başlığına göre `Branding:Hosts` yapılandırmasından marka seçer. Production ortamında
+`atolye.et-edu.net` ve `tacev.et-edu.net` aynı `kit_rental_web` container'ına yönlendirilmelidir.
+Örnek Nginx yapılandırması:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name atolye.et-edu.net tacev.et-edu.net;
+
+    # ssl_certificate ve ssl_certificate_key iki domain için geçerli olmalıdır.
+
+    location / {
+        proxy_pass http://kit_rental_web:93;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Her iki DNS kaydı aynı reverse proxy sunucusuna yönlendirilmelidir. Cookie için ortak `.et-edu.net`
+domain'i tanımlanmadığından iki subdomain'in oturumları birbirinden ayrıdır. Resmî logolar
+`wwwroot/images/brands` altına eklendikten sonra ilgili markanın `LogoPath` değeri (örneğin
+`/images/brands/tacev.svg`) güncellenmelidir; boş değer marka adını yazı olarak gösterir.
+
 ## GitHub Actions ve GHCR
 
 `.github/workflows/publish-images.yml` matrisi şu image'ları oluşturur:
@@ -125,4 +152,3 @@ Aşağıdaki değişikliklerde ilgili belge aynı pull request içinde güncelle
 - yeni container, port veya environment variable,
 - iş akışı/durum makinesi değişikliği,
 - CI/CD yayın davranışı değişikliği.
-

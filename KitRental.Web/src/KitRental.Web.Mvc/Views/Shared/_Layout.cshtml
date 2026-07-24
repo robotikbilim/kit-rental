@@ -1,19 +1,33 @@
+@using KitRental.Web.Mvc.Branding
+@inject IBrandResolver BrandResolver
+@{
+    var currentBrand = BrandResolver.Current;
+}
 <!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>@ViewData["Title"] - KitRental</title>
+    <title>@ViewData["Title"] - @currentBrand.ShortTitle</title>
     <link rel="stylesheet" href="~/css/site.css" />
 </head>
-<body>
+<body class="@currentBrand.ThemeClass">
     <header class="topbar">
         @{
             var isCustomer = User.IsInRole("CustomerAccountManager") || User.IsInRole("CustomerUser");
             var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
             var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
         }
-        <a class="brand" asp-controller="@(isCustomer ? "CustomerPortal" : "Operations")" asp-action="@(isCustomer ? "Index" : "Dashboard")">@(isCustomer ? "TACEV Kit Portalı" : "RB Atölye")</a>
+        <a class="brand" asp-controller="@(isCustomer ? "CustomerPortal" : "Operations")" asp-action="@(isCustomer ? "Index" : "Dashboard")">
+            @if (!string.IsNullOrWhiteSpace(currentBrand.LogoPath))
+            {
+                <img src="@currentBrand.LogoPath" alt="@currentBrand.Name logosu" />
+            }
+            else
+            {
+                <span>@currentBrand.ShortTitle</span>
+            }
+        </a>
         @if (User.Identity?.IsAuthenticated == true)
         {
             <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-menu" aria-label="Menüyü aç">
@@ -94,6 +108,10 @@
                                 </button>
                                 <div class="submenu">
                                     <a asp-controller="Customers" asp-action="Index">Müşteriler</a>
+                                    @if (User.IsInRole("SystemAdmin"))
+                                    {
+                                        <a asp-controller="Operations" asp-action="Audit">İşlem Geçmişi</a>
+                                    }
                                 </div>
                             </div>
                         }

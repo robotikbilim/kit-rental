@@ -11,6 +11,31 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     public async Task<IActionResult> Dashboard(CancellationToken cancellationToken) =>
         View(await apiClient.GetDashboardAsync(cancellationToken));
 
+    [HttpGet, Authorize(Roles = "SystemAdmin")]
+    public async Task<IActionResult> Audit([FromQuery] AuditFilterViewModel filter,
+        CancellationToken cancellationToken)
+    {
+        if (filter.OccurredFrom.HasValue && filter.OccurredTo.HasValue &&
+            filter.OccurredFrom > filter.OccurredTo)
+        {
+            ModelState.AddModelError(nameof(filter.OccurredTo), "Bitiş tarihi başlangıç tarihinden önce olamaz.");
+            filter.OccurredTo = null;
+        }
+        var users = await apiClient.GetUsersAsync(cancellationToken);
+        var result = await apiClient.GetAuditAsync(filter, cancellationToken)
+            ?? new AuditPageApiResponse(1, filter.PageSize, 0, 1, []);
+        var userMap = users.ToDictionary(item => item.Id);
+        var items = result.Items.Select(item =>
+        {
+            userMap.TryGetValue(item.ActorId, out var actor);
+            return new AuditListItemViewModel(item.Id, actor?.DisplayName ?? "Bilinmeyen kullanıcı",
+                actor?.Email ?? item.ActorId.ToString(), actor?.Role is 5 or 6,
+                item.EntityType, item.EntityId, item.Action, item.PreviousValue, item.NewValue, item.OccurredAt);
+        }).ToArray();
+        return View(new AuditScreenViewModel(result.Page, result.PageSize, result.TotalCount,
+            result.TotalPages, items, filter, users.OrderBy(item => item.DisplayName).ToArray()));
+    }
+
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> ReceiveReturn(Guid id, CancellationToken cancellationToken)
     {

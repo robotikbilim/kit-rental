@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using KitRental.Web.Mvc.Branding;
 using KitRental.Web.Mvc.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.AddHttpContextAccessor();
+builder.Services.Configure<BrandingOptions>(builder.Configuration.GetSection("Branding"));
+builder.Services.AddScoped<IBrandResolver, HostBrandResolver>();
 builder.Services.AddHttpClient<KitRentalApiClient>(client =>
     client.BaseAddress = new Uri(builder.Configuration["GatewayUrl"] ?? "https://localhost:61327"));
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

@@ -329,12 +329,21 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyCollection<AuditEntry>> GetAuditEntriesAsync(CancellationToken cancellationToken)
+    public Task<(IReadOnlyCollection<AuditEntry> Items, int TotalCount)> GetAuditEntriesAsync(
+        string? action, Guid? actorId, DateTimeOffset? occurredFrom, DateTimeOffset? occurredTo,
+        int page, int pageSize, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         lock (_gate)
         {
-            return Task.FromResult<IReadOnlyCollection<AuditEntry>>(_auditEntries.OrderByDescending(entry => entry.OccurredAt).ToArray());
+            var query = _auditEntries.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(action)) query = query.Where(entry => entry.Action == action);
+            if (actorId.HasValue) query = query.Where(entry => entry.ActorId == actorId.Value);
+            if (occurredFrom.HasValue) query = query.Where(entry => entry.OccurredAt >= occurredFrom.Value);
+            if (occurredTo.HasValue) query = query.Where(entry => entry.OccurredAt < occurredTo.Value);
+            var filtered = query.OrderByDescending(entry => entry.OccurredAt).ThenByDescending(entry => entry.Id).ToArray();
+            return Task.FromResult<(IReadOnlyCollection<AuditEntry>, int)>(
+                (filtered.Skip((page - 1) * pageSize).Take(pageSize).ToArray(), filtered.Length));
         }
     }
 

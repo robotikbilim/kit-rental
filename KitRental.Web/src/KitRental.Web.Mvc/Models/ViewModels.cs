@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using KitRental.Web.Mvc.Branding;
 
 namespace KitRental.Web.Mvc.Models;
 
@@ -9,10 +10,30 @@ public sealed class LoginViewModel
     [Required, DataType(DataType.Password)]
     public string Password { get; set; } = string.Empty;
     public string? Error { get; set; }
+    public BrandDefinition Brand { get; set; } = new();
 }
 
 public sealed record LoginApiResponse(string AccessToken, DateTimeOffset ExpiresAt, UserApiResponse User);
 public sealed record UserApiResponse(Guid Id, string Email, string DisplayName, int Role, Guid? CustomerId, bool IsActive = true);
+public sealed record AuditEntryApiResponse(Guid Id, Guid ActorId, string EntityType, Guid EntityId,
+    string Action, string? PreviousValue, string? NewValue, DateTimeOffset OccurredAt);
+public sealed record AuditPageApiResponse(int Page, int PageSize, int TotalCount, int TotalPages,
+    IReadOnlyCollection<AuditEntryApiResponse> Items);
+public sealed class AuditFilterViewModel
+{
+    public string? Action { get; set; }
+    public Guid? ActorId { get; set; }
+    [DataType(DataType.Date)] public DateOnly? OccurredFrom { get; set; }
+    [DataType(DataType.Date)] public DateOnly? OccurredTo { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 25;
+}
+public sealed record AuditListItemViewModel(Guid Id, string ActorName, string ActorEmail, bool IsCustomer,
+    string EntityType, Guid EntityId, string Action, string? PreviousValue, string? NewValue,
+    DateTimeOffset OccurredAt);
+public sealed record AuditScreenViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
+    IReadOnlyCollection<AuditListItemViewModel> Items, AuditFilterViewModel Filter,
+    IReadOnlyCollection<UserApiResponse> Users);
 public sealed record DashboardViewModel(
     int Customers,
     int ProductUnits,

@@ -6,6 +6,7 @@ using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Support;
 using KitRental.Core.Domain.Returns;
+using KitRental.Core.Domain.Auditing;
 
 namespace KitRental.Core.Application.CustomerPortal;
 
@@ -92,6 +93,9 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var request = KitReturnRequest.Create(Guid.NewGuid(), command.CustomerId,
             DateTimeOffset.UtcNow, command.ActorId, items);
         await repository.AddKitReturnRequestAsync(request, cancellationToken);
+        await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId,
+            nameof(KitReturnRequest), request.Id, "ReturnRequested", null,
+            $"{items.Count} kit", request.CreatedAt), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return request;
     }
@@ -106,6 +110,9 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         request.MarkShipped(command.Carrier, command.TrackingNumber, now);
         foreach (var item in request.Items)
             (await repository.GetProductUnitAsync(item.ProductUnitId, cancellationToken))?.StartReturn(command.ActorId, now);
+        await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId,
+            nameof(KitReturnRequest), request.Id, "ReturnShipped", null,
+            $"{command.Carrier} / {command.TrackingNumber}", now), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return request;
     }
@@ -125,6 +132,9 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             var assignment = await repository.GetRentalAssignmentAsync(item.AssignmentId, cancellationToken);
             if (assignment?.Status == RentalAssignmentStatus.Active) assignment.Complete();
         }
+        await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId,
+            nameof(KitReturnRequest), request.Id, "ReturnReceived", null,
+            $"{request.Items.Count} kit", now), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return request;
     }

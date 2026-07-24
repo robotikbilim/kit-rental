@@ -53,6 +53,24 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public async Task<IReadOnlyCollection<UserApiResponse>> GetUsersAsync(CancellationToken cancellationToken) =>
         await GetAsync<UserApiResponse[]>("/identity/api/users", cancellationToken) ?? [];
 
+    public Task<AuditPageApiResponse?> GetAuditAsync(AuditFilterViewModel filter,
+        CancellationToken cancellationToken)
+    {
+        var parameters = new List<string>
+        {
+            $"page={Math.Max(1, filter.Page)}",
+            $"pageSize={Math.Clamp(filter.PageSize, 10, 100)}"
+        };
+        if (!string.IsNullOrWhiteSpace(filter.Action))
+            parameters.Add($"action={Uri.EscapeDataString(filter.Action.Trim())}");
+        if (filter.ActorId.HasValue) parameters.Add($"actorId={filter.ActorId.Value}");
+        if (filter.OccurredFrom.HasValue)
+            parameters.Add($"occurredFrom={filter.OccurredFrom.Value:yyyy-MM-dd}T00:00:00%2B03:00");
+        if (filter.OccurredTo.HasValue)
+            parameters.Add($"occurredTo={filter.OccurredTo.Value.AddDays(1):yyyy-MM-dd}T00:00:00%2B03:00");
+        return GetAsync<AuditPageApiResponse>($"/core/api/audit/search?{string.Join('&', parameters)}", cancellationToken);
+    }
+
     public Task<ApiCommandResult<UserApiResponse>> CreateCustomerContactAccountAsync(
         CustomerContactAccountViewModel model, CancellationToken cancellationToken) =>
         PostAsync<UserApiResponse>("/identity/api/users", new

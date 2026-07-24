@@ -2,19 +2,21 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
+using KitRental.Web.Mvc.Branding;
 using KitRental.Web.Mvc.Models;
 using KitRental.Web.Mvc.Services;
 
 namespace KitRental.Web.Mvc.Controllers;
 
-public sealed class AccountController(KitRentalApiClient apiClient) : Controller
+public sealed class AccountController(KitRentalApiClient apiClient, IBrandResolver brandResolver) : Controller
 {
     [HttpGet]
-    public IActionResult Login() => View(new LoginViewModel());
+    public IActionResult Login() => View(CreateLoginViewModel());
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginViewModel model, CancellationToken cancellationToken)
     {
+        model.Brand = brandResolver.Current;
         if (!ModelState.IsValid)
             return View(model);
         var result = await apiClient.LoginAsync(model.Email, model.Password, cancellationToken);
@@ -58,4 +60,9 @@ public sealed class AccountController(KitRentalApiClient apiClient) : Controller
     }
 
     public IActionResult AccessDenied() => View();
+
+    private LoginViewModel CreateLoginViewModel() => new()
+    {
+        Brand = brandResolver.Current
+    };
 }

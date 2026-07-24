@@ -1,9 +1,19 @@
 @model LoginViewModel
 @{ ViewData["Title"] = "Giriş"; }
 <section class="login-card">
-    <div class="eyebrow">OPERASYON PORTALI</div>
-    <h1>Eğitim kiti kiralama süreçlerini tek yerden yönetin.</h1>
-    <p>Operasyon ekibi ve TACEV kullanıcıları için güvenli kiralama ve servis portalı.</p>
+    <div class="login-brand">
+        @if (!string.IsNullOrWhiteSpace(Model.Brand.LogoPath))
+        {
+            <img src="@Model.Brand.LogoPath" alt="@Model.Brand.Name logosu" />
+        }
+        else
+        {
+            <span class="brand-wordmark" aria-label="@Model.Brand.Name">@Model.Brand.Name</span>
+        }
+    </div>
+    <div class="eyebrow">@Model.Brand.Eyebrow</div>
+    <h1>@Model.Brand.LoginHeading</h1>
+    <p>@Model.Brand.LoginDescription</p>
     <form method="post">
         <label asp-for="Email">E-posta</label>
         <input asp-for="Email" autocomplete="username" />

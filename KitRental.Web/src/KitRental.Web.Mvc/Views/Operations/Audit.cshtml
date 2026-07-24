@@ -1,0 +1,90 @@
+@model AuditScreenViewModel
+@{
+    ViewData["Title"] = "İşlem Geçmişi";
+    var firstItem = Model.TotalCount == 0 ? 0 : (Model.Page - 1) * Model.PageSize + 1;
+    var lastItem = Math.Min(Model.Page * Model.PageSize, Model.TotalCount);
+    string ActionName(string value) => value switch {
+        "Created" => "Oluşturuldu", "Updated" => "Güncellendi", "Deleted" => "Silindi",
+        "Submitted" => "Talep gönderildi", "Opened" => "Arıza bildirildi",
+        "StatusChanged" => "Durum değiştirildi", "AddressAdded" => "Adres eklendi",
+        "AddressUpdated" => "Adres güncellendi", "AddressRemoved" => "Adres silindi",
+        "Reserved" => "Rezerve edildi", "Completed" => "Tamamlandı",
+        "Transferred" => "Transfer edildi", "Supplied" => "Tedarik edildi",
+        "Activated" => "Etkinleştirildi", "Deactivated" => "Devre dışı bırakıldı",
+        "PurchaseOrderCreated" => "Satın alma siparişi", "OrderKitsCreated" => "Kitler hazırlandı",
+        "ReturnRequested" => "İade talebi oluşturuldu", "ReturnShipped" => "İade kargolandı",
+        "ReturnReceived" => "İade teslim alındı",
+        _ => value
+    };
+    string EntityName(string value) => value switch {
+        "RentalOrder" => "Sipariş", "FaultTicket" => "Arıza", "Customer" => "Müşteri",
+        "ProductUnit" => "Fiziksel kit", "ProductModel" => "Kit modeli", "Component" => "Komponent",
+        "ComponentStock" => "Komponent stoğu", "StorageLocation" => "Depo konumu",
+        "Shipment" => "Kargo", "RentalAssignment" => "Kiralama", "ReturnInspection" => "İade kontrolü",
+        "KitReturnRequest" => "İade talebi", "SupplyNeedList" => "İhtiyaç listesi", _ => value
+    };
+    string TurkishValue(string value) => value switch {
+        "Draft" => "Taslak", "PendingApproval" => "Onay bekliyor", "Approved" => "Onaylandı",
+        "Preparing" => "Hazırlanıyor", "ReadyToShip" => "Gönderime hazır",
+        "OutboundInTransit" => "Müşteriye gönderiliyor", "Delivered" => "Teslim edildi",
+        "RentalActive" => "Kiralama aktif", "AwaitingReturn" => "İade bekleniyor",
+        "ReturnInTransit" => "İade kargoda", "UnderInspection" => "Kontrol ediliyor",
+        "DamageReview" => "Hasar incelemesinde", "Completed" => "Tamamlandı",
+        "Rejected" => "Reddedildi", "Cancelled" => "İptal edildi",
+        "DeliveryIssue" => "Teslimat sorunu", "Overdue" => "Süresi geçti",
+        "Available" => "Kullanılabilir", "Reserved" => "Rezerve edildi",
+        "WithCustomer" => "Müşteride", "InMaintenance" => "Bakımda",
+        "Quarantined" => "Karantinada", "Lost" => "Kayıp", "Retired" => "Kullanımdan kaldırıldı",
+        "Sold" => "Satıldı", "Active" => "Aktif", "Open" => "Açık",
+        "Investigating" => "İnceleniyor", "WaitingForCustomer" => "Müşteri bilgisi bekleniyor",
+        "InService" => "Serviste", "ReplacementInTransit" => "Değişim kargoda",
+        "Resolved" => "Çözüldü", "Closed" => "Kapatıldı", "Created" => "Oluşturuldu",
+        "InTransit" => "Kargoda", "Requested" => "Talep edildi", "Received" => "Teslim alındı",
+        "Recommended" => "Önerildi", "Pending" => "Bekliyor", "Supplied" => "Tedarik edildi",
+        "Rental" => "Kiralama", "Purchase" => "Satın alma",
+        _ => value
+    };
+    string? DetailUrl(AuditListItemViewModel item) => item.Action == "Deleted" ? null : item.EntityType switch {
+        "RentalOrder" => Url.Action("OrderDetails", "Operations", new { id = item.EntityId }),
+        "Customer" => Url.Action("Edit", "Customers", new { id = item.EntityId }),
+        "ProductUnit" => Url.Action("Details", "PhysicalKits", new { id = item.EntityId }),
+        "ProductModel" => Url.Action("Kit", "Catalog", new { id = item.EntityId }),
+        "Component" or "ComponentStock" => Url.Action("Component", "Catalog", new { id = item.EntityId }),
+        "StorageLocation" => Url.Action("Edit", "StorageLocations", new { id = item.EntityId }),
+        "SupplyNeedList" => Url.Action("Edit", "SupplyNeeds", new { id = item.EntityId }),
+        _ => null
+    };
+    var actions = new[] { "Created", "Updated", "Deleted", "Submitted", "Opened", "StatusChanged",
+        "AddressAdded", "AddressUpdated", "AddressRemoved", "Reserved", "Completed", "Transferred",
+        "Supplied", "Activated", "Deactivated", "PurchaseOrderCreated", "OrderKitsCreated",
+        "ReturnRequested", "ReturnShipped", "ReturnReceived" };
+}
+<div class="page-heading"><div><span class="eyebrow">YÖNETİM &amp; GÜVENLİK</span><h1>İşlem Geçmişi</h1>
+<p class="block-muted">Yönetici ve müşteri hareketlerini kullanıcı, işlem tipi ve tarihe göre inceleyin.</p></div></div>
+<form method="get" class="fault-filter-form audit-filter">
+    <div class="field"><label for="Action">İşlem tipi</label><select id="Action" name="Action"><option value="">Tüm işlemler</option>
+    @foreach (var action in actions) { <option value="@action" selected="@(Model.Filter.Action == action)">@ActionName(action)</option> }</select></div>
+    <div class="field audit-user-filter"><label for="ActorId">Kullanıcı</label><select id="ActorId" name="ActorId"><option value="">Tüm kullanıcılar</option>
+    @foreach (var user in Model.Users) { <option value="@user.Id" selected="@(Model.Filter.ActorId == user.Id)">@user.DisplayName — @user.Email</option> }</select></div>
+    <div class="field"><label for="OccurredFrom">Başlangıç</label><input id="OccurredFrom" name="OccurredFrom" type="date" value="@Model.Filter.OccurredFrom?.ToString("yyyy-MM-dd")" /></div>
+    <div class="field"><label for="OccurredTo">Bitiş</label><input id="OccurredTo" name="OccurredTo" type="date" value="@Model.Filter.OccurredTo?.ToString("yyyy-MM-dd")" /></div>
+    <div class="field"><label for="PageSize">Sayfa boyutu</label><select id="PageSize" name="PageSize">@foreach (var size in new[] { 10, 25, 50, 100 }) { <option value="@size" selected="@(Model.Filter.PageSize == size)">@size</option> }</select></div>
+    <div class="fault-filter-actions"><a class="secondary-action" asp-action="Audit">Temizle</a><button class="primary-action" type="submit">Filtrele</button></div>
+</form>
+<div asp-validation-summary="All" class="error"></div>
+@if (Model.Items.Count == 0) { <div class="empty">Filtrelere uygun işlem kaydı bulunamadı.</div> }
+else {
+<div class="table-scroll"><table class="audit-table"><thead><tr><th>Tarih</th><th>Kullanıcı</th><th>İşlem</th><th>Kayıt</th><th>Değişiklik</th></tr></thead><tbody>
+@foreach (var item in Model.Items) { <tr>
+    <td><time datetime="@item.OccurredAt.ToString("O")">@item.OccurredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</time></td>
+    <td><strong>@item.ActorName</strong><small class="block-muted">@item.ActorEmail</small>@if (item.IsCustomer) { <span class="audit-customer">Müşteri</span> }</td>
+    <td><span class="audit-action">@ActionName(item.Action)</span></td>
+    <td><strong>@EntityName(item.EntityType)</strong><small class="audit-id">@item.EntityId</small>
+        @if (DetailUrl(item) is string detailUrl) { <a class="audit-detail" href="@detailUrl">Detaya git →</a> }</td>
+    <td><div class="audit-change">@if (!string.IsNullOrWhiteSpace(item.PreviousValue)) { <span class="audit-old">@TurkishValue(item.PreviousValue)</span> } @if (!string.IsNullOrWhiteSpace(item.NewValue)) { <span class="audit-new">@TurkishValue(item.NewValue)</span> } @if (string.IsNullOrWhiteSpace(item.PreviousValue) && string.IsNullOrWhiteSpace(item.NewValue)) { <span>—</span> }</div></td>
+</tr> }</tbody></table></div>
+<footer class="pagination-shell"><span>@firstItem–@lastItem / @Model.TotalCount kayıt</span><nav class="pagination" aria-label="İşlem geçmişi sayfaları">
+@if (Model.Page > 1) { <a asp-action="Audit" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize" asp-route-action="@Model.Filter.Action" asp-route-actorId="@Model.Filter.ActorId" asp-route-occurredFrom="@Model.Filter.OccurredFrom" asp-route-occurredTo="@Model.Filter.OccurredTo">←</a> }
+@for (var p = Math.Max(1, Model.Page - 2); p <= Math.Min(Model.TotalPages, Model.Page + 2); p++) { <a class="@(p == Model.Page ? "active" : null)" asp-action="Audit" asp-route-page="@p" asp-route-pageSize="@Model.PageSize" asp-route-action="@Model.Filter.Action" asp-route-actorId="@Model.Filter.ActorId" asp-route-occurredFrom="@Model.Filter.OccurredFrom" asp-route-occurredTo="@Model.Filter.OccurredTo">@p</a> }
+@if (Model.Page < Model.TotalPages) { <a asp-action="Audit" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize" asp-route-action="@Model.Filter.Action" asp-route-actorId="@Model.Filter.ActorId" asp-route-occurredFrom="@Model.Filter.OccurredFrom" asp-route-occurredTo="@Model.Filter.OccurredTo">→</a> }
+</nav></footer> }
