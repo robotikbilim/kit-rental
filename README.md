@@ -163,7 +163,7 @@ Testler parola/token güvenliğini, müşteri rol kapsamını, Identity girişin
 
 Core operasyon verileri EF Core üzerinden SQL Server'da, kullanıcı ve rol verileri MongoDB'de kalıcıdır. Core API açılışta bekleyen migration'ları uygular; Identity API benzersiz e-posta indeksini ve yalnız geliştirme amaçlı yönetici hesabını oluşturur. `Testing` ortamında entegrasyon testlerinin yalıtımı için bellek içi adaptörler kullanılmaya devam eder.
 
-Yerel ayarlarda `Persistence:SeedDemoData=true` olduğu için Core API; eksik demo kayıtlarını idempotent olarak tamamlar. Başlangıç kataloğunda 20 komponent, 8 depo/raf lokasyonu, 40 raf bakiyesi, 6 eğitim kiti ve bunların üretim reçeteleri bulunur.
+Yeni oluşturulan Core veritabanı migration şeması dışında boş başlar. Başlangıçta yalnız Identity servisindeki Sistem Yöneticisi hesabı oluşturulur.
 
 Yeni Core migration'ı oluşturmak için:
 

@@ -56,10 +56,6 @@ public sealed class MongoUserRepository : IUserRepository, IIdentityStoreInitial
         await EnsureDevelopmentUserAsync(UserAccount.Create(
             InMemoryUserRepository.DevelopmentAdminId, "admin@robotikbilim.com.tr", "Sistem Yöneticisi",
             _passwordHasher.Hash("41yaD3r!n58"), UserRole.SystemAdmin, null), cancellationToken);
-        await EnsureDevelopmentUserAsync(UserAccount.Create(
-            InMemoryUserRepository.DevelopmentTacevUserId, "kadikoy@tacev.demo", "TACEV Kadıköy",
-            _passwordHasher.Hash("Tacev12345!"), UserRole.CustomerAccountManager,
-            InMemoryUserRepository.DevelopmentTacevCustomerId), cancellationToken);
     }
 
     private async Task EnsureDevelopmentUserAsync(UserAccount account, CancellationToken cancellationToken)

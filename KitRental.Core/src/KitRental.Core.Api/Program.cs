@@ -79,8 +79,6 @@ var app = builder.Build();
 if (!useInMemoryPersistence)
 {
     await app.Services.MigrateCoreDatabaseAsync();
-    if (builder.Configuration.GetValue<bool>("Persistence:SeedDemoData"))
-        await app.Services.SeedCoreDemoDataAsync();
 }
 app.UseSwagger();
 app.UseSwaggerUI(options =>
