@@ -414,6 +414,9 @@ public sealed record PortalFaultViewModel(Guid Id, string Number, Guid ProductUn
     IReadOnlyCollection<PortalFaultStatusViewModel> History, IReadOnlyCollection<PortalShipmentViewModel> Shipments,
     string ReporterName = "", string ReporterPhone = "", int ApprovalStatus = 0);
 public sealed record PublicFaultKitViewModel(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
+
+public sealed record EmailDeliveryViewModel(Guid Id, string Recipient, string RecipientName, string Subject,
+    string Body, int Status, DateTimeOffset OccurredAt, string? Error);
 public sealed class PublicFaultFormViewModel
 {
     [Required] public string QrCode { get; set; } = string.Empty;

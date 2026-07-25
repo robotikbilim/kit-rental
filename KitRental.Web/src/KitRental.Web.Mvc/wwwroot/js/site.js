@@ -1,4 +1,21 @@
 (() => {
+    document.querySelectorAll(':where(.table-scroll,.table-wrap,.unit-table-wrap,.portal-kit-table-wrap) table')
+        .forEach((table) => {
+            const headers = [...table.querySelectorAll('thead th')].map((header, index, all) => {
+                const text = header.textContent.trim();
+                if (text) return text;
+                if (header.querySelector('input[type="checkbox"]')) return 'Seçim';
+                return index === all.length - 1 ? 'İşlemler' : '';
+            });
+
+            table.querySelectorAll('tbody tr').forEach((row) => {
+                [...row.children].forEach((cell, index) => {
+                    if (cell.tagName !== 'TD' || cell.hasAttribute('data-mobile-label')) return;
+                    cell.dataset.mobileLabel = headers[index] || `Bilgi ${index + 1}`;
+                });
+            });
+        });
+
     const toggle = document.querySelector('.menu-toggle');
     const menu = document.querySelector('.topbar-menu');
     const submenuToggles = [...document.querySelectorAll('.submenu-toggle')];

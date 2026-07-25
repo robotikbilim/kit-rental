@@ -10,6 +10,7 @@ using KitRental.Core.Domain.Support;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Warehouse;
 using KitRental.Core.Domain.Procurement;
+using KitRental.Core.Domain.Notifications;
 
 namespace KitRental.Core.Infrastructure.Persistence;
 
@@ -26,6 +27,7 @@ public sealed class InMemoryCoreRepository : ICoreRepository
     private readonly Dictionary<Guid, ReturnInspection> _inspections = [];
     private readonly Dictionary<Guid, KitReturnRequest> _kitReturns = [];
     private readonly List<AuditEntry> _auditEntries = [];
+    private readonly List<EmailDelivery> _emailDeliveries = [];
     private readonly Dictionary<Guid, Component> _components = [];
     private readonly Dictionary<Guid, StorageLocation> _storageLocations = [];
     private readonly Dictionary<(Guid ComponentId, Guid LocationId), ComponentStock> _componentStocks = [];
@@ -345,6 +347,20 @@ public sealed class InMemoryCoreRepository : ICoreRepository
             return Task.FromResult<(IReadOnlyCollection<AuditEntry>, int)>(
                 (filtered.Skip((page - 1) * pageSize).Take(pageSize).ToArray(), filtered.Length));
         }
+    }
+
+    public Task AddEmailDeliveryAsync(EmailDelivery delivery, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) _emailDeliveries.Add(delivery);
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyCollection<EmailDelivery>> GetEmailDeliveriesAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult<IReadOnlyCollection<EmailDelivery>>(
+            _emailDeliveries.OrderByDescending(item => item.OccurredAt).ToArray());
     }
 
     public Task AddComponentAsync(Component component, CancellationToken cancellationToken)

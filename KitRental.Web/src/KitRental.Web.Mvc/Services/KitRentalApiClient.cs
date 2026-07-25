@@ -395,6 +395,10 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => PostAsync<FaultViewModel>($"/core/api/faults/{faultId}/status",
             new { status, note }, cancellationToken);
 
+    public async Task<IReadOnlyCollection<EmailDeliveryViewModel>> GetEmailDeliveriesAsync(
+        CancellationToken cancellationToken) =>
+        await GetAsync<EmailDeliveryViewModel[]>("/core/api/email-deliveries", cancellationToken) ?? [];
+
     public async Task<IReadOnlyCollection<BuildableKitViewModel>> GetBuildableKitsAsync(CancellationToken cancellationToken) =>
         await GetAsync<BuildableKitViewModel[]>("/core/api/manufacturing/buildable-kits", cancellationToken) ?? [];
 

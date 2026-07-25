@@ -1,0 +1,44 @@
+@model IReadOnlyCollection<EmailDeliveryViewModel>
+@{
+    ViewData["Title"] = "E-posta Geçmişi";
+}
+<header class="page-heading email-history-heading">
+    <div>
+        <span class="eyebrow">İLETİŞİM KAYITLARI</span>
+        <h1>E-posta geçmişi</h1>
+        <p>SMTP üzerinden gönderilen ve gönderilemeyen son 500 bildirimi görüntüleyin.</p>
+    </div>
+    <span class="status-dot">@Model.Count kayıt</span>
+</header>
+
+@if (Model.Count == 0)
+{
+    <div class="empty">Henüz gönderilmiş bir e-posta kaydı bulunmuyor.</div>
+}
+else
+{
+    <section class="email-history-list">
+        @foreach (var email in Model)
+        {
+            <article class="email-history-card">
+                <div class="email-history-status status-@email.Status">
+                    <span>@(email.Status == 1 ? "Gönderildi" : "Gönderilemedi")</span>
+                    <time datetime="@email.OccurredAt.ToString("O")">@email.OccurredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</time>
+                </div>
+                <div class="email-history-main">
+                    <h2>@email.Subject</h2>
+                    <p><strong>@email.RecipientName</strong><a href="mailto:@email.Recipient">@email.Recipient</a></p>
+                    @if (!string.IsNullOrWhiteSpace(email.Error))
+                    {
+                        <div class="email-history-error">@email.Error</div>
+                    }
+                </div>
+                <details class="email-history-detail">
+                    <summary>E-posta içeriğini görüntüle</summary>
+                    <iframe class="email-history-body" title="@email.Subject e-posta içeriği"
+                            sandbox="" srcdoc="@email.Body"></iframe>
+                </details>
+            </article>
+        }
+    </section>
+}

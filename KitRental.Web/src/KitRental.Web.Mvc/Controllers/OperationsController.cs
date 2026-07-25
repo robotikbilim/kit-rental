@@ -11,6 +11,10 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     public async Task<IActionResult> Dashboard(CancellationToken cancellationToken) =>
         View(await apiClient.GetDashboardAsync(cancellationToken));
 
+    [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> EmailHistory(CancellationToken cancellationToken) =>
+        View(await apiClient.GetEmailDeliveriesAsync(cancellationToken));
+
     [HttpGet, Authorize(Roles = "SystemAdmin")]
     public async Task<IActionResult> Audit([FromQuery] AuditFilterViewModel filter,
         CancellationToken cancellationToken)

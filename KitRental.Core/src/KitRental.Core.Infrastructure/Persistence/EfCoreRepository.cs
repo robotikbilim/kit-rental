@@ -11,6 +11,7 @@ using KitRental.Core.Domain.Support;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Warehouse;
 using KitRental.Core.Domain.Procurement;
+using KitRental.Core.Domain.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 namespace KitRental.Core.Infrastructure.Persistence;
@@ -209,6 +210,14 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
 
     public Task AddAuditEntryAsync(AuditEntry entry, CancellationToken cancellationToken) =>
         dbContext.AuditEntries.AddAsync(entry, cancellationToken).AsTask();
+
+    public Task AddEmailDeliveryAsync(EmailDelivery delivery, CancellationToken cancellationToken) =>
+        dbContext.EmailDeliveries.AddAsync(delivery, cancellationToken).AsTask();
+
+    public async Task<IReadOnlyCollection<EmailDelivery>> GetEmailDeliveriesAsync(
+        CancellationToken cancellationToken) =>
+        await dbContext.EmailDeliveries.AsNoTracking().OrderByDescending(item => item.OccurredAt)
+            .Take(500).ToArrayAsync(cancellationToken);
 
     public async Task<(IReadOnlyCollection<AuditEntry> Items, int TotalCount)> GetAuditEntriesAsync(
         string? action, Guid? actorId, DateTimeOffset? occurredFrom, DateTimeOffset? occurredTo,

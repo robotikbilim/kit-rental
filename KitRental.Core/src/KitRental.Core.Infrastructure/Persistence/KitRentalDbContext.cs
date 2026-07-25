@@ -10,6 +10,7 @@ using KitRental.Core.Domain.Support;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Warehouse;
 using KitRental.Core.Domain.Procurement;
+using KitRental.Core.Domain.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -34,6 +35,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<BillOfMaterials> BillsOfMaterials => Set<BillOfMaterials>();
     public DbSet<SupplyNeedList> SupplyNeedLists => Set<SupplyNeedList>();
+    public DbSet<EmailDelivery> EmailDeliveries => Set<EmailDelivery>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -53,6 +55,20 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         ConfigureStockMovement(modelBuilder.Entity<StockMovement>());
         ConfigureBillOfMaterials(modelBuilder.Entity<BillOfMaterials>());
         ConfigureSupplyNeedList(modelBuilder.Entity<SupplyNeedList>());
+        ConfigureEmailDelivery(modelBuilder.Entity<EmailDelivery>());
+    }
+
+    private static void ConfigureEmailDelivery(EntityTypeBuilder<EmailDelivery> builder)
+    {
+        builder.ToTable("EmailDeliveries");
+        builder.HasKey(item => item.Id);
+        builder.Property(item => item.Recipient).HasMaxLength(320).IsRequired();
+        builder.Property(item => item.RecipientName).HasMaxLength(200).IsRequired();
+        builder.Property(item => item.Subject).HasMaxLength(500).IsRequired();
+        builder.Property(item => item.Body).IsRequired();
+        builder.Property(item => item.Error).HasMaxLength(2000);
+        builder.HasIndex(item => item.OccurredAt);
+        builder.HasIndex(item => new { item.Recipient, item.OccurredAt });
     }
 
     private static void ConfigureProductModel(EntityTypeBuilder<ProductModel> builder)

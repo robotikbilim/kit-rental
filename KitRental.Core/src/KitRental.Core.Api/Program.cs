@@ -134,6 +134,10 @@ var warehouseRoles = new[] { "SystemAdmin", "OperationsManager", "WarehouseStaff
 var serviceRoles = new[] { "SystemAdmin", "OperationsManager", "ServiceTechnician" };
 var customerRoles = new[] { "CustomerAccountManager", "CustomerUser" };
 
+api.MapGet("/email-deliveries", async (ICoreRepository repository, CancellationToken cancellationToken) =>
+    Results.Ok(await repository.GetEmailDeliveriesAsync(cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole("SystemAdmin", "OperationsManager"));
+
 api.MapGet("/customer-portal", async (ClaimsPrincipal user, CustomerPortalService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetOverviewAsync(GetRequiredCustomerId(user), cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(customerRoles));

@@ -9,6 +9,7 @@ using KitRental.Core.Domain.Support;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Warehouse;
 using KitRental.Core.Domain.Procurement;
+using KitRental.Core.Domain.Notifications;
 
 namespace KitRental.Core.Application.Abstractions;
 
@@ -52,6 +53,8 @@ public interface ICoreRepository
     Task<KitReturnRequest?> GetKitReturnRequestAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KitReturnRequest>> GetKitReturnRequestsAsync(Guid? customerId, CancellationToken cancellationToken);
     Task AddAuditEntryAsync(AuditEntry entry, CancellationToken cancellationToken);
+    Task AddEmailDeliveryAsync(EmailDelivery delivery, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<EmailDelivery>> GetEmailDeliveriesAsync(CancellationToken cancellationToken);
     Task<(IReadOnlyCollection<AuditEntry> Items, int TotalCount)> GetAuditEntriesAsync(
         string? action, Guid? actorId, DateTimeOffset? occurredFrom, DateTimeOffset? occurredTo,
         int page, int pageSize, CancellationToken cancellationToken);

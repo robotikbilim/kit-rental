@@ -5,6 +5,7 @@ using System.Text.Encodings.Web;
 using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Support;
+using KitRental.Core.Domain.Notifications;
 
 namespace KitRental.Core.Api;
 
@@ -125,13 +126,14 @@ public sealed class EmailNotificationService(
         foreach (var recipient in recipients.Where(item => !string.IsNullOrWhiteSpace(item.Email))
                      .DistinctBy(item => item.Email, StringComparer.OrdinalIgnoreCase))
         {
+            var renderedBody = WrapBody(recipient.DisplayName, body);
             try
             {
                 using var message = new MailMessage
                 {
                     From = new MailAddress(configuration["Email:FromAddress"]!, configuration["Email:FromName"]),
                     Subject = subject,
-                    Body = WrapBody(recipient.DisplayName, body),
+                    Body = renderedBody,
                     IsBodyHtml = true,
                     BodyEncoding = Encoding.UTF8,
                     SubjectEncoding = Encoding.UTF8
@@ -139,12 +141,24 @@ public sealed class EmailNotificationService(
                 message.To.Add(recipient.Email);
                 using var smtp = CreateSmtpClient();
                 await smtp.SendMailAsync(message, cancellationToken);
+                await RecordDeliveryAsync(recipient, subject, renderedBody, EmailDeliveryStatus.Sent, null,
+                    cancellationToken);
             }
             catch (Exception exception) when (exception is SmtpException or InvalidOperationException or FormatException)
             {
+                await RecordDeliveryAsync(recipient, subject, renderedBody, EmailDeliveryStatus.Failed,
+                    exception.Message, cancellationToken);
                 logger.LogError(exception, "E-posta bildirimi {Recipient} alıcısına gönderilemedi.", recipient.Email);
             }
         }
+    }
+
+    private async Task RecordDeliveryAsync(EmailRecipient recipient, string subject, string body,
+        EmailDeliveryStatus status, string? error, CancellationToken cancellationToken)
+    {
+        await repository.AddEmailDeliveryAsync(EmailDelivery.Create(recipient.Email, recipient.DisplayName,
+            subject, body, status, DateTimeOffset.UtcNow, error), cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
     }
 
     private SmtpClient CreateSmtpClient()
