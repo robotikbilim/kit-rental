@@ -18,7 +18,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     [HttpGet]
     public async Task<IActionResult> FindKit(string? identifier, CancellationToken cancellationToken)
     {
-        var value = identifier?.Trim() ?? string.Empty;
+        var value = QrCodeValue.Normalize(identifier);
         if (value.Length == 0)
             return View(new PortalKitLookupPageViewModel(string.Empty, false, null));
         var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);

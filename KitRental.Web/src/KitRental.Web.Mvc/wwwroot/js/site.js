@@ -19,6 +19,22 @@
     const toggle = document.querySelector('.menu-toggle');
     const menu = document.querySelector('.topbar-menu');
     const submenuToggles = [...document.querySelectorAll('.submenu-toggle')];
+    const sidebarToggle = document.querySelector('.sidebar-toggle');
+
+    if (sidebarToggle) {
+        const setSidebarCollapsed = (collapsed) => {
+            document.body.classList.toggle('sidebar-collapsed', collapsed);
+            sidebarToggle.setAttribute('aria-expanded', String(!collapsed));
+            sidebarToggle.setAttribute('aria-label', collapsed ? 'Sol menüyü aç' : 'Sol menüyü daralt');
+        };
+
+        setSidebarCollapsed(window.localStorage.getItem('kit-rental-sidebar-collapsed') === 'true');
+        sidebarToggle.addEventListener('click', () => {
+            const collapsed = !document.body.classList.contains('sidebar-collapsed');
+            setSidebarCollapsed(collapsed);
+            window.localStorage.setItem('kit-rental-sidebar-collapsed', String(collapsed));
+        });
+    }
 
     if (!toggle || !menu) return;
 

@@ -1,12 +1,21 @@
 @model DashboardViewModel
+@using KitRental.Web.Mvc.Branding
+@inject IBrandResolver BrandResolver
 @{
+    var currentBrand = BrandResolver.Current;
     ViewData["Title"] = "Genel Bakış";
     var urgentWorkCount = Model is null ? 0 :
         Model.OrdersAwaitingApproval + Model.FaultyKits + Model.ExpiredRentalKits.Count + Model.ReturnsInProgress.Count;
 }
 <div class="page-heading dashboard-heading">
-    <div><span class="eyebrow">CANLI OPERASYON</span><h1>Bugün neyle ilgilenmelisiniz?</h1><p>Tüm kritik işleri önem sırasına göre tek ekrandan yönetin.</p></div>
-    <span class="status-dot">● Sistem çalışıyor</span>
+    <div class="dashboard-title">
+        @if (!string.IsNullOrWhiteSpace(currentBrand.LogoPath))
+        {
+            <img class="dashboard-logo" src="@currentBrand.LogoPath" alt="@currentBrand.Name logosu" />
+        }
+        <div><span class="eyebrow">CANLI OPERASYON</span><h1>Bugün neyle ilgilenmelisiniz?</h1><p>Tüm kritik işleri önem sırasına göre tek ekrandan yönetin.</p></div>
+    </div>
+    <span class="status-dot"><partial name="_DashboardIcon" model="@("status")" /> Sistem çalışıyor</span>
 </div>
 @if (Model is null)
 {
@@ -23,28 +32,28 @@ else
         </header>
         <div class="attention-grid">
             <a class="attention-card priority-high" asp-action="Orders">
-                <span class="attention-icon">!</span><div><small>SİPARİŞ ONAYI</small><strong>@Model.OrdersAwaitingApproval</strong><p>Onayınızı bekleyen sipariş</p></div><b>İncele →</b>
+                <span class="attention-icon"><partial name="_DashboardIcon" model="@("orders")" /></span><div><small>SİPARİŞ ONAYI</small><strong>@Model.OrdersAwaitingApproval</strong><p>Onayınızı bekleyen sipariş</p></div><b>İncele →</b>
             </a>
             <a class="attention-card priority-high" asp-action="Faults">
-                <span class="attention-icon">⚠</span><div><small>TEKNİK SERVİS</small><strong>@Model.FaultyKits</strong><p>İlgilenilmesi gereken arıza</p></div><b>Arızalara git →</b>
+                <span class="attention-icon"><partial name="_DashboardIcon" model="@("fault")" /></span><div><small>TEKNİK SERVİS</small><strong>@Model.FaultyKits</strong><p>İlgilenilmesi gereken arıza</p></div><b>Arızalara git →</b>
             </a>
             <a class="attention-card priority-medium" asp-action="Dashboard" asp-fragment="expired-rentals">
-                <span class="attention-icon">◷</span><div><small>GECİKEN İADE</small><strong>@Model.ExpiredRentalKits.Count</strong><p>Süresi dolan kiralık kit</p></div><b>Listeyi aç →</b>
+                <span class="attention-icon"><partial name="_DashboardIcon" model="@("clock")" /></span><div><small>GECİKEN İADE</small><strong>@Model.ExpiredRentalKits.Count</strong><p>Süresi dolan kiralık kit</p></div><b>Listeyi aç →</b>
             </a>
             <a class="attention-card priority-medium" asp-action="Dashboard" asp-fragment="returns">
-                <span class="attention-icon">↙</span><div><small>GELEN TESLİMAT</small><strong>@Model.ReturnsInProgress.Count</strong><p>Devam eden müşteri iadesi</p></div><b>Kontrol et →</b>
+                <span class="attention-icon"><partial name="_DashboardIcon" model="@("return")" /></span><div><small>GELEN TESLİMAT</small><strong>@Model.ReturnsInProgress.Count</strong><p>Devam eden müşteri iadesi</p></div><b>Kontrol et →</b>
             </a>
         </div>
     </section>
     <nav class="dashboard-shortcuts" aria-label="Hızlı işlemler">
         @if (User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager"))
         {
-            <a asp-action="CreateOrder">＋ Yeni sipariş</a>
+            <a asp-action="CreateOrder"><partial name="_DashboardIcon" model="@("plus")" />Yeni sipariş</a>
         }
-        <a asp-controller="PhysicalKits" asp-action="Lookup">⌕ Kit sorgula</a>
-        <a asp-controller="Workshop" asp-action="Index">⌁ Komponent bul</a>
-        <a asp-action="Inventory">▦ Envanteri aç</a>
-        <a asp-controller="SupplyNeeds" asp-action="Index">✓ İhtiyaç listeleri</a>
+        <a asp-controller="PhysicalKits" asp-action="Lookup"><partial name="_DashboardIcon" model="@("scan")" />Kit sorgula</a>
+        <a asp-controller="Workshop" asp-action="Index"><partial name="_DashboardIcon" model="@("search")" />Komponent bul</a>
+        <a asp-action="Inventory"><partial name="_DashboardIcon" model="@("inventory")" />Envanteri aç</a>
+        <a asp-controller="SupplyNeeds" asp-action="Index"><partial name="_DashboardIcon" model="@("list")" />İhtiyaç listeleri</a>
     </nav>
     <section class="dashboard-group dashboard-group-general">
         <header class="dashboard-group-heading">

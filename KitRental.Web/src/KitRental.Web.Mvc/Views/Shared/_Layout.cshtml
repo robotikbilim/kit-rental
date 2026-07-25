@@ -126,6 +126,12 @@
             </div>
         }
     </header>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <button class="sidebar-toggle" type="button" aria-expanded="true" aria-label="Sol menüyü daralt" title="Menüyü aç / kapat">
+            <span class="sidebar-toggle-icon" aria-hidden="true"></span>
+        </button>
+    }
     <main class="container">@RenderBody()</main>
     <script src="~/js/site.js"></script>
 </body>

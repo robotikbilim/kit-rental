@@ -12,6 +12,14 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
     [HttpGet("{qrCode}")]
     public async Task<IActionResult> Report(string qrCode, CancellationToken cancellationToken)
     {
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            if (User.IsInRole("CustomerAccountManager") || User.IsInRole("CustomerUser"))
+                return RedirectToAction("FindKit", "CustomerPortal", new { identifier = qrCode });
+
+            return RedirectToAction("Lookup", "PhysicalKits", new { identifier = qrCode });
+        }
+
         var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
         return kit is null ? NotFound() : View(new PublicFaultFormViewModel
         {

@@ -31,7 +31,7 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
     [HttpGet]
     public async Task<IActionResult> Lookup(string? identifier, CancellationToken cancellationToken)
     {
-        var value = identifier?.Trim() ?? string.Empty;
+        var value = QrCodeValue.Normalize(identifier);
         if (value.Length == 0)
             return View(new PhysicalKitLookupPageViewModel(string.Empty, false, null, null));
         var result = await apiClient.LookupPhysicalKitAsync(value, cancellationToken);

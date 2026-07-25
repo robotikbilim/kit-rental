@@ -11,6 +11,18 @@
 
     if (!form || !input || !startButton || !scanner || !video) return;
 
+    const extractIdentifier = rawValue => {
+        const value = rawValue.trim();
+        try {
+            const url = new URL(value);
+            const parts = url.pathname.split('/').filter(Boolean);
+            const faultRouteIndex = parts.findIndex(part => part.toLocaleLowerCase('tr-TR') === 'ariza');
+            if (faultRouteIndex >= 0 && parts[faultRouteIndex + 1])
+                return decodeURIComponent(parts[faultRouteIndex + 1]);
+        } catch { /* The QR may already contain the plain identifier. */ }
+        return value;
+    };
+
     const stop = () => {
         scanning = false;
         stream?.getTracks().forEach(track => track.stop());
@@ -26,7 +38,7 @@
             const codes = await detector.detect(video);
             const value = codes.find(code => code.rawValue)?.rawValue;
             if (value) {
-                input.value = value.trim();
+                input.value = extractIdentifier(value);
                 stop();
                 form.requestSubmit();
                 return;
@@ -61,5 +73,8 @@
     });
 
     stopButton?.addEventListener('click', stop);
+    form.addEventListener('submit', () => {
+        input.value = extractIdentifier(input.value);
+    });
     window.addEventListener('pagehide', () => stream?.getTracks().forEach(track => track.stop()));
 })();
