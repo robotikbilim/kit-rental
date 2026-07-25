@@ -23,7 +23,9 @@ public sealed record PortalShipmentResponse(ShipmentType Type, string Carrier, s
     IReadOnlyCollection<PortalShipmentEventResponse> Events);
 public sealed record PortalFaultResponse(Guid Id, string Number, Guid ProductUnitId, string KitName, string SerialNumber,
     string Category, FaultSeverity Severity, string Description, FaultStatus Status, DateTimeOffset OpenedAt,
-    IReadOnlyCollection<PortalFaultStatusResponse> History, IReadOnlyCollection<PortalShipmentResponse> Shipments);
+    IReadOnlyCollection<PortalFaultStatusResponse> History, IReadOnlyCollection<PortalShipmentResponse> Shipments,
+    string ReporterName = "", string ReporterPhone = "",
+    FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired);
 public sealed record CustomerPortalResponse(string CustomerName, string CustomerEmail, int ActiveKitCount,
     int PendingRequestCount, int OpenFaultCount, IReadOnlyCollection<PortalKitResponse> Kits,
     IReadOnlyCollection<PortalOrderResponse> Orders, IReadOnlyCollection<PortalFaultResponse> Faults,

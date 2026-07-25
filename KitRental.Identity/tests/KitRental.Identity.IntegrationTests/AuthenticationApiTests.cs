@@ -60,5 +60,26 @@ public sealed class AuthenticationApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
 
+    [Fact]
+    public async Task InternalNotificationRecipients_RequiresKey_AndReturnsActiveAdminUsers()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var unauthorized = await _client.GetAsync(
+            "/api/internal/notification-recipients/admins", cancellationToken);
+        Assert.Equal(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get,
+            "/api/internal/notification-recipients/admins");
+        request.Headers.Add("X-Internal-Api-Key",
+            "development-only-internal-key-change-before-production");
+        var response = await _client.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var recipients = await response.Content.ReadFromJsonAsync<NotificationRecipient[]>(cancellationToken);
+
+        Assert.Contains(recipients!, recipient =>
+            recipient.Email == "admin@robotikbilim.com.tr");
+    }
+
     private sealed record LoginResult(string AccessToken);
+    private sealed record NotificationRecipient(string Email, string DisplayName);
 }

@@ -43,6 +43,25 @@ docker compose up --build
 
 Portal: `http://localhost:5200`
 
+### E-posta bildirimleri
+
+E-posta bildirimleri varsayılan olarak kapalıdır. Core ve Identity servislerinde aynı iç servis anahtarını,
+Core servisinde de SMTP ayarlarını ortam değişkenleriyle tanımlayın:
+
+```text
+Email__Enabled=true
+Email__FromAddress=admin@robotikbilim.com.tr
+Email__FromName=Robotik Bilim KitRental
+Email__Smtp__Host=smtp.gmail.com
+Email__Smtp__Port=587
+Email__Smtp__EnableSsl=true
+Email__Smtp__Username=admin@robotikbilim.com.tr
+Email__Smtp__Password=Google_16_haneli_uygulama_sifresi
+Notifications__IdentityBaseUrl=http://kit_rental_identity
+Notifications__InternalApiKey=uzun-rastgele-ortak-anahtar
+InternalApiKey=uzun-rastgele-ortak-anahtar
+```
+
 Atölye komponent bulucu: `http://localhost:5200/Workshop`
 
 Eğitim kiti yönetimi: `http://localhost:5200/Catalog/Kits`

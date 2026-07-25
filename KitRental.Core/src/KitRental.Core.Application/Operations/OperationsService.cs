@@ -22,14 +22,18 @@ public sealed record CreatePurchaseOrderCommand(Guid CustomerId, Guid AddressId,
     IReadOnlyCollection<OrderLineCommand> Lines, Guid ActorId);
 public sealed record CreateShipmentCommand(Guid OrderId, Guid? FaultTicketId, ShipmentType Type, string Carrier, string TrackingNumber, Guid ActorId);
 public sealed record AddShipmentEventCommand(Guid ShipmentId, ShipmentStatus Status, DateTimeOffset OccurredAt, string Location, string Description, Guid ActorId);
-public sealed record OpenFaultCommand(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId, string Category, FaultSeverity Severity, string Description, Guid ActorId);
+public sealed record OpenFaultCommand(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId,
+    string Category, FaultSeverity Severity, string Description, Guid ActorId, string? ReporterName = null,
+    string? ReporterPhone = null, FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired);
+public sealed record PublicFaultKitResponse(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
+public sealed record OpenPublicFaultCommand(string QrCode, string ReporterName, string ReporterPhone, string Description);
 public sealed record InspectionItemCommand(string Name, bool IsPresent, bool IsDamaged, string Note);
 public sealed record CompleteInspectionCommand(Guid OrderId, Guid ProductUnitId, IReadOnlyCollection<InspectionItemCommand> Items, decimal DamageCharge, ProductUnitStatus Outcome, Guid ActorId);
 public sealed record FaultPageQuery(string? Query, FaultStatus? Status, FaultSeverity? Severity,
     DateOnly? OpenedFrom, DateOnly? OpenedTo, int Page = 1, int PageSize = 20);
 public sealed record FaultListItemResponse(Guid Id, string Number, Guid CustomerId, string CustomerName,
     string ReporterName, string ReporterPhone, string Category, FaultSeverity Severity, string Description,
-    FaultStatus Status, DateTimeOffset OpenedAt);
+    FaultStatus Status, DateTimeOffset OpenedAt, FaultApprovalStatus ApprovalStatus);
 public sealed record FaultPageResponse(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultListItemResponse> Items);
 public sealed record OrderKitResponse(Guid ProductUnitId, Guid AssignmentId, Guid ProductModelId,
@@ -528,9 +532,54 @@ public sealed class OperationsService(
         var now = timeProvider.GetUtcNow();
         var ticket = FaultTicket.Open(
             Guid.NewGuid(), $"FLT-{now:yyyyMMdd}-{Guid.NewGuid():N}"[..21], command.CustomerId, command.OrderId,
-            command.AssignmentId, command.ProductUnitId, command.Category, command.Severity, command.Description, now);
+            command.AssignmentId, command.ProductUnitId, command.Category, command.Severity, command.Description, now,
+            command.ReporterName, command.ReporterPhone, command.ApprovalStatus);
         await repository.AddFaultTicketAsync(ticket, cancellationToken);
         await AuditAsync(command.ActorId, nameof(FaultTicket), ticket.Id, "Opened", null, ticket.Status.ToString(), cancellationToken);
+        return ticket;
+    }
+
+    public async Task<PublicFaultKitResponse> GetPublicFaultKitAsync(string qrCode,
+        CancellationToken cancellationToken)
+    {
+        var unit = (await repository.GetProductUnitsAsync(cancellationToken))
+            .SingleOrDefault(item => string.Equals(item.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase))
+            ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
+        _ = (await repository.GetAssignmentsForProductUnitAsync(unit.Id, cancellationToken))
+            .Where(item => item.Status == RentalAssignmentStatus.Active)
+            .OrderByDescending(item => item.Period.EndDate).FirstOrDefault()
+            ?? throw new ConflictException("fault.no_active_rental", "Bu kit için aktif bir kiralama bulunmuyor.");
+        var model = await repository.GetProductModelAsync(unit.ProductModelId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Kit modeli bulunamadı.");
+        return new PublicFaultKitResponse(unit.QrCode, unit.Id, model.Name, unit.SerialNumber);
+    }
+
+    public async Task<FaultTicket> OpenPublicFaultAsync(OpenPublicFaultCommand command,
+        CancellationToken cancellationToken)
+    {
+        var unit = (await repository.GetProductUnitsAsync(cancellationToken))
+            .SingleOrDefault(item => string.Equals(item.QrCode, command.QrCode.Trim(), StringComparison.OrdinalIgnoreCase))
+            ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
+        var assignment = (await repository.GetAssignmentsForProductUnitAsync(unit.Id, cancellationToken))
+            .Where(item => item.Status == RentalAssignmentStatus.Active)
+            .OrderByDescending(item => item.Period.EndDate).FirstOrDefault()
+            ?? throw new ConflictException("fault.no_active_rental", "Bu kit için aktif bir kiralama bulunmuyor.");
+        var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
+        return await OpenFaultAsync(new OpenFaultCommand(assignment.CustomerId, order.Id, assignment.Id, unit.Id,
+            "Öğrenci bildirimi", FaultSeverity.Medium, command.Description,
+            new Guid("00000000-0000-0000-0000-000000000001"), command.ReporterName, command.ReporterPhone,
+            FaultApprovalStatus.PendingCustomerApproval), cancellationToken);
+    }
+
+    public async Task<FaultTicket> ReviewPublicFaultAsync(Guid ticketId, Guid customerId, bool approved,
+        CancellationToken cancellationToken)
+    {
+        var ticket = await repository.GetFaultTicketAsync(ticketId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
+        if (ticket.CustomerId != customerId) throw new ForbiddenException("Bu arıza kaydını onaylayamazsınız.");
+        ticket.ReviewByCustomer(approved, timeProvider.GetUtcNow());
+        await repository.SaveChangesAsync(cancellationToken);
         return ticket;
     }
 
@@ -546,17 +595,19 @@ public sealed class OperationsService(
         {
             customers.TryGetValue(ticket.CustomerId, out var customer);
             orders.TryGetValue(ticket.OrderId, out var order);
-            var reporterName = order?.DeliveryAddress.ContactName
+            var reporterName = !string.IsNullOrWhiteSpace(ticket.ReporterName) ? ticket.ReporterName : order?.DeliveryAddress.ContactName
                 ?? customer?.Addresses.FirstOrDefault()?.ContactName
                 ?? customer?.Name
                 ?? "-";
-            var reporterPhone = order?.DeliveryAddress.Phone
+            var reporterPhone = !string.IsNullOrWhiteSpace(ticket.ReporterPhone) ? ticket.ReporterPhone : order?.DeliveryAddress.Phone
                 ?? customer?.Addresses.FirstOrDefault()?.Phone
                 ?? "-";
             return new FaultListItemResponse(ticket.Id, ticket.Number, ticket.CustomerId,
                 customer?.Name ?? "Müşteri", reporterName, reporterPhone, ticket.Category, ticket.Severity,
-                ticket.Description, ticket.Status, ticket.OpenedAt);
+                ticket.Description, ticket.Status, ticket.OpenedAt, ticket.ApprovalStatus);
         });
+
+        items = items.Where(item => item.ApprovalStatus is FaultApprovalStatus.NotRequired or FaultApprovalStatus.Approved);
 
         if (!string.IsNullOrWhiteSpace(query.Query))
         {

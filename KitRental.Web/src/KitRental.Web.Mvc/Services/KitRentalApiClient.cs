@@ -344,6 +344,19 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => PostAsync<FaultViewModel>("/core/api/customer-portal/faults",
             new { model.AssignmentId, model.Category, model.Severity, model.Description }, cancellationToken);
 
+    public Task<PublicFaultKitViewModel?> GetPublicFaultKitAsync(string qrCode, CancellationToken cancellationToken) =>
+        GetAsync<PublicFaultKitViewModel>($"/core/api/public/faults/kit/{Uri.EscapeDataString(qrCode)}", cancellationToken);
+
+    public Task<ApiCommandResult<object>> CreatePublicFaultAsync(PublicFaultFormViewModel model,
+        CancellationToken cancellationToken) => PostAsync<object>("/core/api/public/faults", new
+        {
+            model.QrCode, model.ReporterName, model.ReporterPhone, model.Description
+        }, cancellationToken);
+
+    public Task<ApiCommandResult<object>> ReviewStudentFaultAsync(Guid id, bool approved,
+        CancellationToken cancellationToken) => PostAsync<object>(
+            $"/core/api/customer-portal/student-faults/{id}/review", new { approved }, cancellationToken);
+
     public Task<ApiCommandResult<OrderViewModel>> ConfirmPortalOrderDeliveryAsync(Guid orderId,
         CancellationToken cancellationToken) =>
         PostAsync<OrderViewModel>($"/core/api/customer-portal/orders/{orderId}/confirm-delivery", new { }, cancellationToken);

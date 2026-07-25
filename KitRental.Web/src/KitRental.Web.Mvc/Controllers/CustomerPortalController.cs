@@ -152,6 +152,16 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             portal.Kits.Where(item => item.AssignmentStatus == 2).ToArray()));
     }
 
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReviewStudentFault(Guid id, bool approved, CancellationToken cancellationToken)
+    {
+        var result = await apiClient.ReviewStudentFaultAsync(id, approved, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? approved ? "Öğrenci arıza bildirimi teknik ekibe iletildi." : "Öğrenci arıza bildirimi reddedildi."
+            : result.Error ?? "Arıza bildirimi değerlendirilemedi.";
+        return RedirectToAction(nameof(Index), new { section = "student-faults" });
+    }
+
     public async Task<IActionResult> Fault(Guid id, CancellationToken cancellationToken)
     {
         var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);

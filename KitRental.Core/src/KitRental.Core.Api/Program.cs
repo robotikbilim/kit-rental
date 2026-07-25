@@ -17,6 +17,7 @@ using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Support;
 using KitRental.Core.Domain.Procurement;
 using KitRental.Core.Infrastructure.Persistence;
+using KitRental.Core.Api;
 using KitRental.Observability;
 using KitRental.Security;
 using KitRental.SharedKernel;
@@ -73,6 +74,10 @@ builder.Services.AddScoped<WorkshopService>();
 builder.Services.AddScoped<PhysicalKitService>();
 builder.Services.AddScoped<CustomerPortalService>();
 builder.Services.AddScoped<SupplyNeedService>();
+builder.Services.AddScoped<IEmailNotificationService, EmailNotificationService>();
+builder.Services.AddHttpClient("identity-notifications", client =>
+    client.BaseAddress = new Uri(builder.Configuration["Notifications:IdentityBaseUrl"]
+        ?? "https://localhost:59592"));
 
 var app = builder.Build();
 if (!useInMemoryPersistence)
@@ -109,6 +114,20 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapGet("/api/public/faults/kit/{qrCode}", async (string qrCode, OperationsService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetPublicFaultKitAsync(qrCode, cancellationToken))).AllowAnonymous();
+
+app.MapPost("/api/public/faults", async (PublicFaultRequest request, OperationsService service,
+    IEmailNotificationService notifications,
+    CancellationToken cancellationToken) =>
+{
+    var result = await service.OpenPublicFaultAsync(new OpenPublicFaultCommand(
+        request.QrCode, request.ReporterName, request.ReporterPhone, request.Description), cancellationToken);
+    await notifications.NotifyCustomerOfStudentFaultAsync(result, cancellationToken);
+    return Results.Created($"/api/public/faults/{result.Id}", new { result.Id, result.Number });
+}).AllowAnonymous();
+
 var api = app.MapGroup("/api").RequireAuthorization();
 var operationsRoles = new[] { "SystemAdmin", "OperationsManager" };
 var warehouseRoles = new[] { "SystemAdmin", "OperationsManager", "WarehouseStaff" };
@@ -120,22 +139,39 @@ api.MapGet("/customer-portal", async (ClaimsPrincipal user, CustomerPortalServic
     .RequireAuthorization(policy => policy.RequireRole(customerRoles));
 
 api.MapPost("/customer-portal/rental-requests", async (PortalRentalRequest request, ClaimsPrincipal user,
-    CustomerPortalService service, CancellationToken cancellationToken) =>
+    CustomerPortalService service, IEmailNotificationService notifications,
+    CancellationToken cancellationToken) =>
 {
     var result = await service.CreateRentalRequestAsync(new CreatePortalRentalRequestCommand(
         GetRequiredCustomerId(user), request.AddressId, request.StartDate, request.EndDate,
         request.Lines.Select(line => new PortalRentalLineCommand(line.ProductModelId, line.Quantity)).ToArray(),
         user.GetRequiredUserId()), cancellationToken);
+    await notifications.NotifyAdminsOfRentalRequestAsync(result, cancellationToken);
     return Results.Created($"/api/orders/{result.Id}", result);
 }).RequireAuthorization(policy => policy.RequireRole(customerRoles));
 
 api.MapPost("/customer-portal/faults", async (PortalFaultRequest request, ClaimsPrincipal user,
-    CustomerPortalService service, CancellationToken cancellationToken) =>
+    CustomerPortalService service, IEmailNotificationService notifications,
+    CancellationToken cancellationToken) =>
 {
     var result = await service.OpenFaultAsync(new OpenPortalFaultCommand(GetRequiredCustomerId(user),
         request.AssignmentId, request.Category, request.Severity, request.Description, user.GetRequiredUserId()),
         cancellationToken);
+    await notifications.NotifyAdminsOfFaultAsync(result, "Müşteri yeni bir arıza kaydı oluşturdu",
+        cancellationToken);
     return Results.Created($"/api/faults/{result.Id}", result);
+}).RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapPost("/customer-portal/student-faults/{ticketId:guid}/review", async (Guid ticketId,
+    PublicFaultReviewRequest request, ClaimsPrincipal user, OperationsService service,
+    IEmailNotificationService notifications, CancellationToken cancellationToken) =>
+{
+    var result = await service.ReviewPublicFaultAsync(ticketId, GetRequiredCustomerId(user), request.Approved,
+        cancellationToken);
+    if (request.Approved)
+        await notifications.NotifyAdminsOfFaultAsync(result, "Müşteri öğrenci arıza bildirimini onayladı",
+            cancellationToken);
+    return Results.Ok(result);
 }).RequireAuthorization(policy => policy.RequireRole(customerRoles));
 
 api.MapPost("/customer-portal/orders/{orderId:guid}/confirm-delivery", async (Guid orderId,
@@ -677,6 +713,8 @@ public sealed record InspectionItemRequest(string Name, bool IsPresent, bool IsD
 public sealed record CompleteInspectionRequest(Guid OrderId, Guid ProductUnitId, IReadOnlyCollection<InspectionItemRequest> Items, decimal DamageCharge, ProductUnitStatus Outcome);
 public sealed record PortalRentalRequest(Guid AddressId, DateOnly StartDate, DateOnly EndDate, IReadOnlyCollection<OrderLineRequest> Lines);
 public sealed record PortalFaultRequest(Guid AssignmentId, string Category, FaultSeverity Severity, string Description);
+public sealed record PublicFaultRequest(string QrCode, string ReporterName, string ReporterPhone, string Description);
+public sealed record PublicFaultReviewRequest(bool Approved);
 public sealed record PortalKitReturnRequest(IReadOnlyCollection<Guid> AssignmentIds);
 public sealed record PortalKitReturnShipmentRequest(string Carrier, string TrackingNumber);
 public partial class Program;

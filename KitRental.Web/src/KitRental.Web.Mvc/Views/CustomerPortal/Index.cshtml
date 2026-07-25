@@ -50,6 +50,34 @@
     else { <div class="empty">Aktif veya hazırlanmakta olan kiralık kitiniz bulunmuyor.</div> }
 </section>
 
+@{
+    var studentFaults = Model.Faults.Where(fault => fault.ApprovalStatus == 1).ToArray();
+}
+<section class="portal-section" id="student-faults">
+    <div class="section-heading"><div><span class="eyebrow">ÖĞRENCİLERDEN GELEN</span><h2>Onay bekleyen arızalar</h2></div><b class="portal-kit-count">@studentFaults.Length bildirim</b></div>
+    @if (studentFaults.Length == 0)
+    {
+        <div class="empty">Onayınızı bekleyen öğrenci arıza bildirimi yok.</div>
+    }
+    else
+    {
+        <div class="student-fault-grid">
+        @foreach (var fault in studentFaults)
+        {
+            <article class="student-fault-card">
+                <div><small>@fault.SerialNumber · @fault.OpenedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small><h3>@fault.KitName</h3></div>
+                <dl><div><dt>Öğrenci</dt><dd>@fault.ReporterName</dd></div><div><dt>Telefon</dt><dd><a href="tel:@fault.ReporterPhone">@fault.ReporterPhone</a></dd></div></dl>
+                <p>@fault.Description</p>
+                <div class="student-fault-actions">
+                    <form asp-action="ReviewStudentFault" asp-route-id="@fault.Id" method="post"><input type="hidden" name="approved" value="false" /><button class="secondary-action" type="submit">Reddet</button></form>
+                    <form asp-action="ReviewStudentFault" asp-route-id="@fault.Id" method="post"><input type="hidden" name="approved" value="true" /><button class="primary-action" type="submit">Onayla ve admine ilet</button></form>
+                </div>
+            </article>
+        }
+        </div>
+    }
+</section>
+
 <section class="portal-section">
     <div class="section-heading"><div><span class="eyebrow">TALEP TAKİBİ</span><h2>Kiralama taleplerim</h2></div><a class="row-link" asp-action="NewRequest">Yeni talep oluştur →</a></div>
     <div class="table-scroll"><table><thead><tr><th>Talep</th><th>Kitler</th><th>Dönem</th><th>Oluşturulma</th><th>Durum</th><th><span class="visually-hidden">İşlem</span></th></tr></thead><tbody>
@@ -62,7 +90,7 @@
 <section class="portal-section" id="faults">
     <div class="section-heading"><div><span class="eyebrow">SERVİS TAKİBİ</span><h2>Arıza kayıtlarım</h2></div><a class="secondary-action" asp-action="NewFault">Arıza bildir</a></div>
     <div class="portal-fault-grid">
-    @foreach (var fault in Model.Faults)
+    @foreach (var fault in Model.Faults.Where(item => item.ApprovalStatus != 1 && item.ApprovalStatus != 3))
     {
         <a asp-action="Fault" asp-route-id="@fault.Id" class="portal-fault-card">
             <div><small>@fault.Number · @fault.SerialNumber</small><h3>@fault.KitName</h3><p>@fault.Description</p></div>

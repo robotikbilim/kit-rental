@@ -203,6 +203,8 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(ticket => ticket.Number).HasMaxLength(50).IsRequired();
         builder.Property(ticket => ticket.Category).HasMaxLength(160).IsRequired();
         builder.Property(ticket => ticket.Description).HasMaxLength(4000).IsRequired();
+        builder.Property(ticket => ticket.ReporterName).HasMaxLength(160).IsRequired();
+        builder.Property(ticket => ticket.ReporterPhone).HasMaxLength(40).IsRequired();
         builder.HasIndex(ticket => ticket.Number).IsUnique();
         builder.HasIndex(ticket => new { ticket.CustomerId, ticket.Status });
         builder.OwnsMany(ticket => ticket.History, history =>

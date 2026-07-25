@@ -1,0 +1,18 @@
+@model PublicFaultFormViewModel
+@{ ViewData["Title"] = "Arıza Bildir"; }
+<div class="public-fault-shell">
+    <section class="public-fault-card">
+        <span class="eyebrow">TACEV · ÖĞRENCİ ARIZA BİLDİRİMİ</span>
+        <h1>Kitte bir sorun mu var?</h1>
+        <p class="block-muted">Formu doldurun; bildiriminiz önce TACEV yetkilisine, onaylandıktan sonra teknik ekibe iletilsin.</p>
+        <div class="public-kit-summary"><span>Okutulan ürün</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
+        <form method="post" class="public-fault-form">
+            <input asp-for="QrCode" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="error"></div>
+            <div class="field"><label asp-for="ReporterName"></label><input asp-for="ReporterName" autocomplete="name" placeholder="Adınız ve soyadınız" /><span asp-validation-for="ReporterName" class="error"></span></div>
+            <div class="field"><label asp-for="ReporterPhone"></label><input asp-for="ReporterPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="05xx xxx xx xx" /><span asp-validation-for="ReporterPhone" class="error"></span></div>
+            <div class="field"><label asp-for="Description"></label><textarea asp-for="Description" rows="6" placeholder="Sorunun ne zaman ve nasıl oluştuğunu kısaca anlatın."></textarea><span asp-validation-for="Description" class="error"></span></div>
+            <button class="primary-action" type="submit">Arıza bildirimini gönder</button>
+        </form>
+    </section>
+</div>

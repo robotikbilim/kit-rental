@@ -21,7 +21,7 @@
 }
 else
 {
-    <table>
+    <div class="table-scroll"><table>
         <thead><tr><th>Ad soyad</th><th>Kullanıcı adı</th><th>Yetki</th><th>Durum</th></tr></thead>
         <tbody>
         @foreach (var user in Model.Users)
@@ -34,5 +34,5 @@ else
             </tr>
         }
         </tbody>
-    </table>
+    </table></div>
 }

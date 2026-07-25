@@ -100,6 +100,24 @@ api.MapGet("/users", async (IdentityService service, CancellationToken cancellat
     .RequireAuthorization(policy => policy.RequireRole(
         UserRole.SystemAdmin.ToString(), UserRole.OperationsManager.ToString()));
 
+api.MapGet("/internal/notification-recipients/admins", async (HttpRequest request,
+    IdentityService service, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+    var expectedKey = configuration["InternalApiKey"]
+        ?? "development-only-internal-key-change-before-production";
+    if (string.IsNullOrWhiteSpace(expectedKey) ||
+        !request.Headers.TryGetValue("X-Internal-Api-Key", out var suppliedKey) ||
+        !string.Equals(suppliedKey.ToString(), expectedKey, StringComparison.Ordinal))
+        return Results.Unauthorized();
+
+    var recipients = (await service.GetUsersAsync(cancellationToken))
+        .Where(user => user.IsActive && user.Role is not (UserRole.CustomerAccountManager or UserRole.CustomerUser))
+        .Select(user => new NotificationRecipientResponse(user.Email, user.DisplayName))
+        .DistinctBy(user => user.Email, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    return Results.Ok(recipients);
+}).AllowAnonymous();
+
 api.MapPost("/users", async (CreateUserRequest request, IdentityService service, CancellationToken cancellationToken) =>
 {
     var result = await service.CreateUserAsync(
@@ -114,4 +132,5 @@ app.Run();
 
 public sealed record LoginRequest(string Email, string Password);
 public sealed record CreateUserRequest(string Email, string DisplayName, string Password, UserRole Role, Guid? CustomerId);
+public sealed record NotificationRecipientResponse(string Email, string DisplayName);
 public partial class Program;

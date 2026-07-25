@@ -11,7 +11,7 @@
     <title>@ViewData["Title"] - @currentBrand.ShortTitle</title>
     <link rel="stylesheet" href="~/css/site.css" />
 </head>
-<body class="@currentBrand.ThemeClass">
+<body class="@currentBrand.ThemeClass @(User.Identity?.IsAuthenticated == true ? "app-authenticated" : "app-public")">
     <header class="topbar">
         @{
             var isCustomer = User.IsInRole("CustomerAccountManager") || User.IsInRole("CustomerUser");
@@ -27,6 +27,7 @@
             {
                 <span>@currentBrand.ShortTitle</span>
             }
+            <small>@(isCustomer ? "Müşteri Portalı" : "Yönetim Paneli")</small>
         </a>
         @if (User.Identity?.IsAuthenticated == true)
         {

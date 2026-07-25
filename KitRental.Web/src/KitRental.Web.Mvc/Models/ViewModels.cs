@@ -95,7 +95,7 @@ public sealed record PeriodViewModel(DateOnly StartDate, DateOnly EndDate);
 public sealed record OrderLineViewModel(Guid Id, Guid ProductModelId, int Quantity);
 public sealed record FaultViewModel(Guid Id, string Number, Guid CustomerId, string CustomerName,
     string ReporterName, string ReporterPhone, string Category, int Severity, string Description, int Status,
-    DateTimeOffset OpenedAt);
+    DateTimeOffset OpenedAt, int ApprovalStatus = 0);
 public sealed record FaultPageViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultViewModel> Items);
 public sealed class FaultFilterViewModel
@@ -411,7 +411,19 @@ public sealed record PortalShipmentViewModel(int Type, string Carrier, string Tr
     IReadOnlyCollection<PortalShipmentEventViewModel> Events);
 public sealed record PortalFaultViewModel(Guid Id, string Number, Guid ProductUnitId, string KitName, string SerialNumber,
     string Category, int Severity, string Description, int Status, DateTimeOffset OpenedAt,
-    IReadOnlyCollection<PortalFaultStatusViewModel> History, IReadOnlyCollection<PortalShipmentViewModel> Shipments);
+    IReadOnlyCollection<PortalFaultStatusViewModel> History, IReadOnlyCollection<PortalShipmentViewModel> Shipments,
+    string ReporterName = "", string ReporterPhone = "", int ApprovalStatus = 0);
+public sealed record PublicFaultKitViewModel(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
+public sealed class PublicFaultFormViewModel
+{
+    [Required] public string QrCode { get; set; } = string.Empty;
+    public string KitName { get; set; } = string.Empty;
+    public string SerialNumber { get; set; } = string.Empty;
+    [Required, StringLength(160), Display(Name = "Ad soyad")] public string ReporterName { get; set; } = string.Empty;
+    [Required, Phone, StringLength(40), Display(Name = "Telefon numarası")] public string ReporterPhone { get; set; } = string.Empty;
+    [Required, StringLength(4000, MinimumLength = 10), Display(Name = "Arıza nedeni")]
+    public string Description { get; set; } = string.Empty;
+}
 public sealed record CustomerPortalViewModel(string CustomerName, string CustomerEmail, int ActiveKitCount,
     int PendingRequestCount, int OpenFaultCount, IReadOnlyCollection<PortalKitViewModel> Kits,
     IReadOnlyCollection<PortalOrderViewModel> Orders, IReadOnlyCollection<PortalFaultViewModel> Faults,

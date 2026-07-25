@@ -1,8 +1,12 @@
 @model DashboardViewModel
-@{ ViewData["Title"] = "Genel Bakış"; }
-<div class="page-heading">
-    <div><span class="eyebrow">CANLI OPERASYON</span><h1>Genel Bakış</h1></div>
-    <span class="status-dot">Sistem çalışıyor</span>
+@{
+    ViewData["Title"] = "Genel Bakış";
+    var urgentWorkCount = Model is null ? 0 :
+        Model.OrdersAwaitingApproval + Model.FaultyKits + Model.ExpiredRentalKits.Count + Model.ReturnsInProgress.Count;
+}
+<div class="page-heading dashboard-heading">
+    <div><span class="eyebrow">CANLI OPERASYON</span><h1>Bugün neyle ilgilenmelisiniz?</h1><p>Tüm kritik işleri önem sırasına göre tek ekrandan yönetin.</p></div>
+    <span class="status-dot">● Sistem çalışıyor</span>
 </div>
 @if (Model is null)
 {
@@ -12,6 +16,36 @@ else
 {
     @if (TempData["Success"] is string success) { <div class="alert success">@success</div> }
     @if (TempData["Error"] is string error) { <div class="alert error">@error</div> }
+    <section class="attention-board">
+        <header class="attention-heading">
+            <div><span class="eyebrow">ÖNCELİKLİ İŞLER</span><h2>@(urgentWorkCount == 0 ? "Harika, bekleyen kritik iş yok" : $"{urgentWorkCount} iş sizi bekliyor")</h2></div>
+            <span class="attention-pulse">Canlı durum</span>
+        </header>
+        <div class="attention-grid">
+            <a class="attention-card priority-high" asp-action="Orders">
+                <span class="attention-icon">!</span><div><small>SİPARİŞ ONAYI</small><strong>@Model.OrdersAwaitingApproval</strong><p>Onayınızı bekleyen sipariş</p></div><b>İncele →</b>
+            </a>
+            <a class="attention-card priority-high" asp-action="Faults">
+                <span class="attention-icon">⚠</span><div><small>TEKNİK SERVİS</small><strong>@Model.FaultyKits</strong><p>İlgilenilmesi gereken arıza</p></div><b>Arızalara git →</b>
+            </a>
+            <a class="attention-card priority-medium" asp-action="Dashboard" asp-fragment="expired-rentals">
+                <span class="attention-icon">◷</span><div><small>GECİKEN İADE</small><strong>@Model.ExpiredRentalKits.Count</strong><p>Süresi dolan kiralık kit</p></div><b>Listeyi aç →</b>
+            </a>
+            <a class="attention-card priority-medium" asp-action="Dashboard" asp-fragment="returns">
+                <span class="attention-icon">↙</span><div><small>GELEN TESLİMAT</small><strong>@Model.ReturnsInProgress.Count</strong><p>Devam eden müşteri iadesi</p></div><b>Kontrol et →</b>
+            </a>
+        </div>
+    </section>
+    <nav class="dashboard-shortcuts" aria-label="Hızlı işlemler">
+        @if (User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager"))
+        {
+            <a asp-action="CreateOrder">＋ Yeni sipariş</a>
+        }
+        <a asp-controller="PhysicalKits" asp-action="Lookup">⌕ Kit sorgula</a>
+        <a asp-controller="Workshop" asp-action="Index">⌁ Komponent bul</a>
+        <a asp-action="Inventory">▦ Envanteri aç</a>
+        <a asp-controller="SupplyNeeds" asp-action="Index">✓ İhtiyaç listeleri</a>
+    </nav>
     <section class="dashboard-group dashboard-group-general">
         <header class="dashboard-group-heading">
             <div><span class="eyebrow">GÜNLÜK OPERASYON</span><h2>Genel hızlı erişimler</h2></div>
@@ -25,7 +59,7 @@ else
         </div>
     </section>
 
-    <section class="dashboard-group dashboard-group-rentals">
+    <section class="dashboard-group dashboard-group-rentals" id="expired-rentals">
         <header class="dashboard-group-heading">
             <div><span class="eyebrow">KİRALAMA TAKİBİ</span><h2>Süresi dolan ve yaklaşan kitler</h2></div>
             <p>Müşterideki aktif kitlerin teslim tarihlerini takip edin. Yaklaşan listesi önümüzdeki 7 günü kapsar.</p>
@@ -48,7 +82,7 @@ else
         </tbody></table></div> }
     </section>
 
-    <section class="dashboard-group">
+    <section class="dashboard-group" id="returns">
         <header class="dashboard-group-heading"><div><span class="eyebrow">MÜŞTERİ İADELERİ</span><h2>Teslimat sürecindeki kitler</h2></div><p>Müşterinin başlattığı iadeleri ve kargo durumunu izleyin.</p></header>
         @if (Model.ReturnsInProgress.Count == 0) { <div class="empty">Devam eden kit iadesi bulunmuyor.</div> }
         else { <div class="table-wrap"><table><thead><tr><th>Müşteri</th><th>Kit sayısı</th><th>Durum</th><th>Kargo</th><th>Başlatılma</th><th></th></tr></thead><tbody>

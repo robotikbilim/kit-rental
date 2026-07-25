@@ -237,7 +237,8 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             result.Add(new PortalFaultResponse(ticket.Id, ticket.Number, ticket.ProductUnitId, modelName,
                 unit?.SerialNumber ?? "-", ticket.Category, ticket.Severity, ticket.Description, ticket.Status,
                 ticket.OpenedAt, ticket.History.OrderBy(item => item.OccurredAt).Select(item =>
-                    new PortalFaultStatusResponse(item.Previous, item.Current, item.OccurredAt, item.Note)).ToArray(), shipments));
+                    new PortalFaultStatusResponse(item.Previous, item.Current, item.OccurredAt, item.Note)).ToArray(), shipments,
+                ticket.ReporterName, ticket.ReporterPhone, ticket.ApprovalStatus));
         }
         return result.OrderByDescending(item => item.OpenedAt).ToArray();
     }
