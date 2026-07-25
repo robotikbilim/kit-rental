@@ -1,20 +1,11 @@
 @model DashboardViewModel
-@using KitRental.Web.Mvc.Branding
-@inject IBrandResolver BrandResolver
 @{
-    var currentBrand = BrandResolver.Current;
     ViewData["Title"] = "Genel Bakış";
     var urgentWorkCount = Model is null ? 0 :
         Model.OrdersAwaitingApproval + Model.FaultyKits + Model.ExpiredRentalKits.Count + Model.ReturnsInProgress.Count;
 }
 <div class="page-heading dashboard-heading">
-    <div class="dashboard-title">
-        @if (!string.IsNullOrWhiteSpace(currentBrand.LogoPath))
-        {
-            <img class="dashboard-logo" src="@currentBrand.LogoPath" alt="@currentBrand.Name logosu" />
-        }
-        <div><span class="eyebrow">CANLI OPERASYON</span><h1>Bugün neyle ilgilenmelisiniz?</h1><p>Tüm kritik işleri önem sırasına göre tek ekrandan yönetin.</p></div>
-    </div>
+    <div><span class="eyebrow">CANLI OPERASYON</span><h1>Bugün neyle ilgilenmelisiniz?</h1><p>Tüm kritik işleri önem sırasına göre tek ekrandan yönetin.</p></div>
     <span class="status-dot"><partial name="_DashboardIcon" model="@("status")" /> Sistem çalışıyor</span>
 </div>
 @if (Model is null)

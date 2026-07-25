@@ -10,7 +10,7 @@
         5 => "Onarım Aşamasında",
         6 => "Kargoya Verildi",
         7 => "Problem Çözüldü",
-        8 => "Tekrar Gönderildi",
+        8 => "Tamamlandı",
         _ => "İşlemde"
     };
     string SeverityName(int value) => value switch
@@ -62,7 +62,7 @@ else
                             <option value="5">Onarım Aşamasında</option>
                             <option value="7">Problem Çözüldü</option>
                             <option value="6">Kargoya Verildi</option>
-                            <option value="8">Tekrar Gönderildi</option>
+                            <option value="8">Tamamlandı</option>
                         </select>
                         <input name="note" required placeholder="Müşterinin göreceği süreç notu" />
                         <button class="table-action" type="submit">Güncelle</button>

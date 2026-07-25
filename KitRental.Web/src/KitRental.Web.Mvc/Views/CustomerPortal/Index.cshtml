@@ -6,7 +6,7 @@
 @functions {
     string UnitStatus(int value) => value switch { 1 => "Hazır", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimat yolunda", 5 => "Kullanımınızda", 6 => "Geri gönderiliyor", 7 => "Kontrolde", 8 => "Serviste", _ => "İşlemde" };
     string OrderStatus(int value) => value switch { 2 => "Onay bekliyor", 3 => "Onaylandı", 4 => "Hazırlanıyor", 5 => "Kargoya hazır", 6 => "Teslimat yolunda", 7 => "Teslim edildi", 8 => "Kiralama aktif", 9 => "İade bekleniyor", 10 => "İade yolunda", 11 => "Kontrolde", 13 => "Tamamlandı", 14 => "Reddedildi", 15 => "İptal edildi", _ => "Taslak" };
-    string FaultStatus(int value) => value switch { 1 => "Kayıt açıldı", 2 => "İnceleniyor", 3 => "Bilgi bekleniyor", 4 => "Kitin gönderilmesi bekleniyor", 5 => "Serviste", 6 => "Geri gönderiliyor", 7 => "Çözüldü", 8 => "Kapatıldı", _ => "İşlemde" };
+    string FaultStatus(int value) => value switch { 1 => "Kayıt açıldı", 2 => "İnceleniyor", 3 => "Bilgi bekleniyor", 4 => "Kitin gönderilmesi bekleniyor", 5 => "Serviste", 6 => "Geri gönderiliyor", 7 => "Çözüldü", 8 => "Tamamlandı", _ => "İşlemde" };
 }
 <div class="portal-heading">
     <div><span class="eyebrow">TACEV KİRALAMA PORTALI</span><h1>Merhaba, @Model.CustomerName</h1><p>Kitlerinizi, kiralama taleplerinizi ve servis süreçlerinizi tek ekrandan takip edin.</p></div>

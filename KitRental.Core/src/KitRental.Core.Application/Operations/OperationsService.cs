@@ -713,7 +713,7 @@ public sealed class OperationsService(
             units.Count,
             units.Count(unit => unit.Status == ProductUnitStatus.WithCustomer),
             units.Count(unit => unit.Status == ProductUnitStatus.Available && !faultyUnitIds.Contains(unit.Id)),
-            faultyUnitIds.Count,
+            openFaultUnitIds.Count,
             units.Count(unit => repairedUnitIds.Contains(unit.Id) && !openFaultUnitIds.Contains(unit.Id) &&
                 unit.Status is ProductUnitStatus.Reserved or ProductUnitStatus.Preparing),
             units.Count(unit => unit.Status == ProductUnitStatus.Preparing),
