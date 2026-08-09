@@ -10,7 +10,8 @@ public sealed class KitDeliveryReceipt
 
     private KitDeliveryReceipt(Guid id, Guid productUnitId, Guid assignmentId, Guid orderId,
         Guid customerId, string recipientFirstName, string recipientLastName, string recipientPhone,
-        string addressLine, string district, string city, DateTimeOffset receivedAt, Guid actorId)
+        string addressLine, string district, string city, DateTimeOffset receivedAt, Guid actorId,
+        double? latitude, double? longitude)
     {
         Id = id;
         ProductUnitId = productUnitId;
@@ -25,6 +26,8 @@ public sealed class KitDeliveryReceipt
         City = city;
         ReceivedAt = receivedAt;
         ActorId = actorId;
+        Latitude = latitude;
+        Longitude = longitude;
     }
 
     public Guid Id { get; private set; }
@@ -40,12 +43,15 @@ public sealed class KitDeliveryReceipt
     public string City { get; private set; } = string.Empty;
     public DateTimeOffset ReceivedAt { get; private set; }
     public Guid ActorId { get; private set; }
+    public double? Latitude { get; private set; }
+    public double? Longitude { get; private set; }
 
     public string RecipientFullName => $"{RecipientFirstName} {RecipientLastName}".Trim();
 
     public static KitDeliveryReceipt Create(Guid id, Guid productUnitId, Guid assignmentId, Guid orderId,
         Guid customerId, string recipientFirstName, string recipientLastName, string recipientPhone,
-        string addressLine, string district, string city, DateTimeOffset receivedAt, Guid actorId)
+        string addressLine, string district, string city, DateTimeOffset receivedAt, Guid actorId,
+        double? latitude = null, double? longitude = null)
     {
         if (id == Guid.Empty || productUnitId == Guid.Empty || assignmentId == Guid.Empty ||
             orderId == Guid.Empty || customerId == Guid.Empty || actorId == Guid.Empty)
@@ -58,6 +64,6 @@ public sealed class KitDeliveryReceipt
 
         return new KitDeliveryReceipt(id, productUnitId, assignmentId, orderId, customerId,
             recipientFirstName.Trim(), recipientLastName.Trim(), recipientPhone.Trim(), addressLine.Trim(),
-            district.Trim(), city.Trim(), receivedAt, actorId);
+            district.Trim(), city.Trim(), receivedAt, actorId, latitude, longitude);
     }
 }

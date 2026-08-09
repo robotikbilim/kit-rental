@@ -24,12 +24,13 @@ public sealed record CreateShipmentCommand(Guid OrderId, Guid? FaultTicketId, Sh
 public sealed record AddShipmentEventCommand(Guid ShipmentId, ShipmentStatus Status, DateTimeOffset OccurredAt, string Location, string Description, Guid ActorId);
 public sealed record OpenFaultCommand(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId,
     string Category, FaultSeverity Severity, string Description, Guid ActorId, string? ReporterName = null,
-    string? ReporterPhone = null, string? ReporterAddress = null);
+    string? ReporterPhone = null, string? ReporterAddress = null, double? Latitude = null, double? Longitude = null);
 public sealed record PublicFaultKitResponse(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
 public sealed record OpenPublicFaultCommand(string QrCode, string ReporterName, string ReporterPhone,
-    string ReporterAddress, string Description);
+    string ReporterAddress, string Description, double? Latitude, double? Longitude);
 public sealed record CreatePublicKitDeliveryCommand(string QrCode, string RecipientFirstName,
-    string RecipientLastName, string RecipientPhone, string AddressLine, string District, string City);
+    string RecipientLastName, string RecipientPhone, string AddressLine, string District, string City,
+    double? Latitude, double? Longitude);
 public sealed record FaultGuideEntryResponse(Guid Id, string Title, string Problem, string Solution,
     int DisplayOrder, bool IsActive, DateTimeOffset UpdatedAt);
 public sealed record SaveFaultGuideEntryCommand(Guid? Id, string Title, string Problem, string Solution,
@@ -545,7 +546,7 @@ public sealed class OperationsService(
         var ticket = FaultTicket.Open(
             Guid.NewGuid(), $"FLT-{now:yyyyMMdd}-{Guid.NewGuid():N}"[..21], command.CustomerId, command.OrderId,
             command.AssignmentId, command.ProductUnitId, command.Category, command.Severity, command.Description, now,
-            command.ReporterName, command.ReporterPhone, command.ReporterAddress);
+            command.ReporterName, command.ReporterPhone, command.ReporterAddress, command.Latitude, command.Longitude);
         await repository.AddFaultTicketAsync(ticket, cancellationToken);
         await AuditAsync(command.ActorId, nameof(FaultTicket), ticket.Id, "Opened", null, ticket.Status.ToString(), cancellationToken);
         return ticket;
@@ -577,7 +578,7 @@ public sealed class OperationsService(
         return await OpenFaultAsync(new OpenFaultCommand(assignment.CustomerId, order.Id, assignment.Id, unit.Id,
             "Son kullanici bildirimi", FaultSeverity.Medium, command.Description,
             new Guid("00000000-0000-0000-0000-000000000001"), command.ReporterName, command.ReporterPhone,
-            command.ReporterAddress),
+            command.ReporterAddress, command.Latitude, command.Longitude),
             cancellationToken);
     }
 
@@ -603,7 +604,7 @@ public sealed class OperationsService(
         var fullAddress = $"{command.AddressLine.Trim()}, {command.District.Trim()} / {command.City.Trim()}";
         var receipt = KitDeliveryReceipt.Create(Guid.NewGuid(), unit.Id, assignment.Id, order.Id,
             assignment.CustomerId, command.RecipientFirstName, command.RecipientLastName, command.RecipientPhone,
-            command.AddressLine, command.District, command.City, now, actorId);
+            command.AddressLine, command.District, command.City, now, actorId, command.Latitude, command.Longitude);
 
         unit.ConfirmDeliveryTo(actorId, now, recipientName, fullAddress);
         if (assignment.Status == RentalAssignmentStatus.Reserved) assignment.Activate();

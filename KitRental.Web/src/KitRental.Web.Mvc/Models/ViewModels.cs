@@ -460,7 +460,9 @@ public sealed class PublicFaultFormViewModel
     [Required, StringLength(160), Display(Name = "Ad soyad")] public string ReporterName { get; set; } = string.Empty;
     [Required, Phone, StringLength(40), Display(Name = "Telefon numarası")] public string ReporterPhone { get; set; } = string.Empty;
     [Required, StringLength(1000), Display(Name = "Adres")] public string ReporterAddress { get; set; } = string.Empty;
-    [Required, StringLength(4000, MinimumLength = 10), Display(Name = "Arıza nedeni")]
+    [Range(-90, 90), Display(Name = "Enlem")] public double? Latitude { get; set; }
+    [Range(-180, 180), Display(Name = "Boylam")] public double? Longitude { get; set; }
+    [Required, StringLength(4000, MinimumLength = 10), Display(Name = "Ariza nedeni")]
     public string Description { get; set; } = string.Empty;
 }
 public sealed class PublicReturnFormViewModel
@@ -486,6 +488,8 @@ public sealed class PublicDeliveryFormViewModel
     [Required, StringLength(120), Display(Name = "İl")] public string City { get; set; } = string.Empty;
     [Required, StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
     [Required, StringLength(1000), Display(Name = "Adres")] public string AddressLine { get; set; } = string.Empty;
+    [Range(-90, 90), Display(Name = "Enlem")] public double? Latitude { get; set; }
+    [Range(-180, 180), Display(Name = "Boylam")] public double? Longitude { get; set; }
 }
 public sealed record CustomerPortalViewModel(string CustomerName, string CustomerEmail, int ActiveKitCount,
     int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, IReadOnlyCollection<PortalKitViewModel> Kits,

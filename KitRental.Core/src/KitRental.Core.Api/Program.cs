@@ -123,7 +123,8 @@ app.MapPost("/api/public/faults", async (PublicFaultRequest request, OperationsS
     CancellationToken cancellationToken) =>
 {
     var result = await service.OpenPublicFaultAsync(new OpenPublicFaultCommand(
-        request.QrCode, request.ReporterName, request.ReporterPhone, request.ReporterAddress, request.Description),
+        request.QrCode, request.ReporterName, request.ReporterPhone, request.ReporterAddress, request.Description,
+        request.Latitude, request.Longitude),
         cancellationToken);
     await notifications.NotifyAdminsOfFaultAsync(result, "QR Ã¼zerinden yeni arÄ±za kaydÄ± oluÅŸturuldu",
         cancellationToken);
@@ -144,7 +145,7 @@ app.MapPost("/api/public/deliveries", async (PublicKitDeliveryRequest request, O
 {
     var result = await service.CreatePublicKitDeliveryAsync(new CreatePublicKitDeliveryCommand(
         request.QrCode, request.RecipientFirstName, request.RecipientLastName, request.RecipientPhone,
-        request.AddressLine, request.District, request.City), cancellationToken);
+        request.AddressLine, request.District, request.City, request.Latitude, request.Longitude), cancellationToken);
     return Results.Created($"/api/public/deliveries/{result.Id}", result);
 }).AllowAnonymous();
 
@@ -732,9 +733,9 @@ public sealed record InspectionItemRequest(string Name, bool IsPresent, bool IsD
 public sealed record CompleteInspectionRequest(Guid OrderId, Guid ProductUnitId, IReadOnlyCollection<InspectionItemRequest> Items, decimal DamageCharge, ProductUnitStatus Outcome);
 public sealed record PortalFaultRequest(Guid AssignmentId, string Category, FaultSeverity Severity, string Description);
 public sealed record PublicFaultRequest(string QrCode, string ReporterName, string ReporterPhone,
-    string ReporterAddress, string Description);
+    string ReporterAddress, string Description, double? Latitude = null, double? Longitude = null);
 public sealed record PublicKitReturnRequest(string QrCode, string RequesterFirstName, string RequesterLastName,
     string RequesterPhone, string ReturnAddress, double? Latitude, double? Longitude);
 public sealed record PublicKitDeliveryRequest(string QrCode, string RecipientFirstName, string RecipientLastName,
-    string RecipientPhone, string AddressLine, string District, string City);
+    string RecipientPhone, string AddressLine, string District, string City, double? Latitude = null, double? Longitude = null);
 public partial class Program;

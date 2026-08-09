@@ -8,12 +8,21 @@
         <div class="public-kit-summary"><span>Okutulan urun</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
         <form method="post" class="public-fault-form">
             <input asp-for="QrCode" type="hidden" />
+            <input asp-for="Latitude" type="hidden" />
+            <input asp-for="Longitude" type="hidden" />
             <div asp-validation-summary="ModelOnly" class="error"></div>
             <div class="field"><label asp-for="ReporterName"></label><input asp-for="ReporterName" autocomplete="name" placeholder="Adiniz ve soyadiniz" /><span asp-validation-for="ReporterName" class="error"></span></div>
             <div class="field"><label asp-for="ReporterPhone"></label><input asp-for="ReporterPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="05xx xxx xx xx" /><span asp-validation-for="ReporterPhone" class="error"></span></div>
             <div class="field"><label asp-for="ReporterAddress"></label><textarea asp-for="ReporterAddress" rows="3" autocomplete="street-address" placeholder="Kitin bulundugu acik adresi yazin."></textarea><span asp-validation-for="ReporterAddress" class="error"></span></div>
+            <div class="public-location-box">
+                <button class="secondary-action" id="use-location" type="button">Konumumu ekle</button>
+                <span id="location-status">Konum eklemek istege baglidir.</span>
+                <span asp-validation-for="Latitude" class="error"></span>
+                <span asp-validation-for="Longitude" class="error"></span>
+            </div>
             <div class="field"><label asp-for="Description"></label><textarea asp-for="Description" rows="6" placeholder="Sorunun ne zaman ve nasil olustugunu kisaca anlatin."></textarea><span asp-validation-for="Description" class="error"></span></div>
             <button class="primary-action" type="submit">Ariza kaydini gonder</button>
         </form>
     </section>
 </div>
+<script src="~/js/public-location.js" asp-append-version="true"></script>
