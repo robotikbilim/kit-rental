@@ -30,7 +30,10 @@ public sealed record CustomerPortalResponse(string CustomerName, string Customer
     int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, IReadOnlyCollection<PortalKitResponse> Kits,
     IReadOnlyCollection<PortalOrderResponse> Orders, IReadOnlyCollection<PortalFaultResponse> Faults,
     IReadOnlyCollection<PortalAddressResponse> Addresses, IReadOnlyCollection<PortalProductModelResponse> ProductModels,
-    IReadOnlyCollection<PortalKitReturnResponse> Returns);
+    IReadOnlyCollection<PortalKitReturnResponse> Returns,
+    IReadOnlyCollection<PortalKitLocationResponse> KitLocations);
+public sealed record PortalKitLocationResponse(Guid ProductUnitId, string KitName, string SerialNumber,
+    string RecipientName, string AddressLine, string District, string City);
 public sealed record PortalKitReturnItemResponse(Guid AssignmentId, Guid ProductUnitId, Guid OrderId,
     string KitName, string SerialNumber);
 public sealed record PortalKitReturnResponse(Guid Id, Guid CustomerId, string CustomerName, KitReturnStatus Status,

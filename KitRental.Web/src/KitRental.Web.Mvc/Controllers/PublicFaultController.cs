@@ -92,6 +92,38 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
         return View("Success", new PublicKitActionViewModel(model.QrCode, model.KitName, model.SerialNumber));
     }
 
+    [HttpGet("{qrCode}/teslim-al")]
+    public async Task<IActionResult> Delivery(string qrCode, CancellationToken cancellationToken)
+    {
+        if (RedirectAuthenticated(qrCode) is { } redirect) return redirect;
+        var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
+        return kit is null ? NotFound() : View(new PublicDeliveryFormViewModel
+        {
+            QrCode = kit.QrCode, KitName = kit.KitName, SerialNumber = kit.SerialNumber
+        });
+    }
+
+    [HttpPost("{qrCode}/teslim-al"), ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delivery(string qrCode, PublicDeliveryFormViewModel model,
+        CancellationToken cancellationToken)
+    {
+        model.QrCode = qrCode;
+        var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
+        if (kit is null) return NotFound();
+        model.KitName = kit.KitName;
+        model.SerialNumber = kit.SerialNumber;
+        if (!ModelState.IsValid) return View(model);
+        var result = await apiClient.CreatePublicDeliveryAsync(model, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            ModelState.AddModelError(string.Empty, result.Error ?? "Kit teslim kaydı oluşturulamadı.");
+            return View(model);
+        }
+        ViewData["SuccessTitle"] = "Kit teslim alındı";
+        ViewData["SuccessMessage"] = "Teslim bilginiz kit geçmişine işlendi.";
+        return View("Success", new PublicKitActionViewModel(model.QrCode, model.KitName, model.SerialNumber));
+    }
+
     private IActionResult? RedirectAuthenticated(string qrCode)
     {
         if (User.Identity?.IsAuthenticated != true) return null;

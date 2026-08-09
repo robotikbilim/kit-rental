@@ -25,6 +25,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
     public DbSet<RentalOrder> RentalOrders => Set<RentalOrder>();
     public DbSet<RentalAssignment> RentalAssignments => Set<RentalAssignment>();
     public DbSet<Shipment> Shipments => Set<Shipment>();
+    public DbSet<KitDeliveryReceipt> KitDeliveryReceipts => Set<KitDeliveryReceipt>();
     public DbSet<FaultTicket> FaultTickets => Set<FaultTicket>();
     public DbSet<FaultGuideEntry> FaultGuideEntries => Set<FaultGuideEntry>();
     public DbSet<ReturnInspection> ReturnInspections => Set<ReturnInspection>();
@@ -46,6 +47,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         ConfigureOrder(modelBuilder.Entity<RentalOrder>());
         ConfigureAssignment(modelBuilder.Entity<RentalAssignment>());
         ConfigureShipment(modelBuilder.Entity<Shipment>());
+        ConfigureKitDeliveryReceipt(modelBuilder.Entity<KitDeliveryReceipt>());
         ConfigureFaultTicket(modelBuilder.Entity<FaultTicket>());
         ConfigureFaultGuideEntry(modelBuilder.Entity<FaultGuideEntry>());
         ConfigureInspection(modelBuilder.Entity<ReturnInspection>());
@@ -211,6 +213,30 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             events.Property(item => item.Description).HasMaxLength(1000).IsRequired();
         });
         builder.Navigation(shipment => shipment.Events).HasField("_events").UsePropertyAccessMode(PropertyAccessMode.Field);
+        AddRowVersion(builder);
+    }
+
+    private static void ConfigureKitDeliveryReceipt(EntityTypeBuilder<KitDeliveryReceipt> builder)
+    {
+        builder.ToTable("KitDeliveryReceipts");
+        builder.HasKey(receipt => receipt.Id);
+        builder.Property(receipt => receipt.RecipientFirstName).HasMaxLength(100).IsRequired();
+        builder.Property(receipt => receipt.RecipientLastName).HasMaxLength(100).IsRequired();
+        builder.Property(receipt => receipt.RecipientPhone).HasMaxLength(40).IsRequired();
+        builder.Property(receipt => receipt.AddressLine).HasMaxLength(1000).IsRequired();
+        builder.Property(receipt => receipt.District).HasMaxLength(120).IsRequired();
+        builder.Property(receipt => receipt.City).HasMaxLength(120).IsRequired();
+        builder.Ignore(receipt => receipt.RecipientFullName);
+        builder.HasIndex(receipt => new { receipt.ProductUnitId, receipt.ReceivedAt });
+        builder.HasIndex(receipt => new { receipt.City, receipt.District });
+        builder.HasOne<ProductUnit>().WithMany().HasForeignKey(receipt => receipt.ProductUnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<RentalAssignment>().WithMany().HasForeignKey(receipt => receipt.AssignmentId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<RentalOrder>().WithMany().HasForeignKey(receipt => receipt.OrderId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Customer>().WithMany().HasForeignKey(receipt => receipt.CustomerId)
+            .OnDelete(DeleteBehavior.Restrict);
         AddRowVersion(builder);
     }
 

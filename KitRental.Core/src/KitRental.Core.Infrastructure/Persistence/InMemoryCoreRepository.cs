@@ -23,6 +23,7 @@ public sealed class InMemoryCoreRepository : ICoreRepository
     private readonly Dictionary<Guid, Customer> _customers = [];
     private readonly Dictionary<Guid, RentalOrder> _orders = [];
     private readonly Dictionary<Guid, Shipment> _shipments = [];
+    private readonly Dictionary<Guid, KitDeliveryReceipt> _kitDeliveryReceipts = [];
     private readonly Dictionary<Guid, FaultTicket> _faultTickets = [];
     private readonly Dictionary<Guid, FaultGuideEntry> _faultGuideEntries = [];
     private readonly Dictionary<Guid, ReturnInspection> _inspections = [];
@@ -289,6 +290,20 @@ public sealed class InMemoryCoreRepository : ICoreRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
         lock (_gate) return Task.FromResult<IReadOnlyCollection<Shipment>>(_shipments.Values.Where(shipment => shipment.OrderId == orderId).ToArray());
+    }
+
+    public Task AddKitDeliveryReceiptAsync(KitDeliveryReceipt receipt, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) _kitDeliveryReceipts.Add(receipt.Id, receipt);
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyCollection<KitDeliveryReceipt>> GetKitDeliveryReceiptsAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult<IReadOnlyCollection<KitDeliveryReceipt>>(
+            _kitDeliveryReceipts.Values.OrderByDescending(item => item.ReceivedAt).ToArray());
     }
 
     public Task AddFaultTicketAsync(FaultTicket ticket, CancellationToken cancellationToken)

@@ -28,6 +28,8 @@ public sealed record OpenFaultCommand(Guid CustomerId, Guid OrderId, Guid Assign
 public sealed record PublicFaultKitResponse(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
 public sealed record OpenPublicFaultCommand(string QrCode, string ReporterName, string ReporterPhone,
     string ReporterAddress, string Description);
+public sealed record CreatePublicKitDeliveryCommand(string QrCode, string RecipientFirstName,
+    string RecipientLastName, string RecipientPhone, string AddressLine, string District, string City);
 public sealed record FaultGuideEntryResponse(Guid Id, string Title, string Problem, string Solution,
     int DisplayOrder, bool IsActive, DateTimeOffset UpdatedAt);
 public sealed record SaveFaultGuideEntryCommand(Guid? Id, string Title, string Problem, string Solution,
@@ -71,13 +73,16 @@ public sealed record DashboardResponse(
     int CompletedPurchaseOrders,
     IReadOnlyCollection<DashboardReturnResponse> ReturnsInProgress,
     IReadOnlyCollection<DashboardRentalExpiryResponse> ExpiredRentalKits,
-    IReadOnlyCollection<DashboardRentalExpiryResponse> ExpiringRentalKits);
+    IReadOnlyCollection<DashboardRentalExpiryResponse> ExpiringRentalKits,
+    IReadOnlyCollection<DashboardKitLocationResponse> KitLocations);
 public sealed record DashboardReturnResponse(Guid Id, string CustomerName, int Status, string? Carrier,
     string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount, string? RequesterFirstName = null,
     string? RequesterLastName = null, string? RequesterPhone = null, string? ReturnAddress = null,
     double? Latitude = null, double? Longitude = null);
 public sealed record DashboardRentalExpiryResponse(Guid ProductUnitId, string KitName, string SerialNumber,
     string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
+public sealed record DashboardKitLocationResponse(Guid ProductUnitId, string KitName, string SerialNumber,
+    string RecipientName, string AddressLine, string District, string City);
 
 public sealed class OperationsService(
     ICoreRepository repository,
@@ -552,10 +557,6 @@ public sealed class OperationsService(
         var unit = (await repository.GetProductUnitsAsync(cancellationToken))
             .SingleOrDefault(item => string.Equals(item.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase))
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
-        _ = (await repository.GetAssignmentsForProductUnitAsync(unit.Id, cancellationToken))
-            .Where(item => item.Status == RentalAssignmentStatus.Active)
-            .OrderByDescending(item => item.Period.EndDate).FirstOrDefault()
-            ?? throw new ConflictException("fault.no_active_rental", "Bu kit için aktif bir kiralama bulunmuyor.");
         var model = await repository.GetProductModelAsync(unit.ProductModelId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kit modeli bulunamadı.");
         return new PublicFaultKitResponse(unit.QrCode, unit.Id, model.Name, unit.SerialNumber);
@@ -578,6 +579,50 @@ public sealed class OperationsService(
             new Guid("00000000-0000-0000-0000-000000000001"), command.ReporterName, command.ReporterPhone,
             command.ReporterAddress),
             cancellationToken);
+    }
+
+    public async Task<KitDeliveryReceipt> CreatePublicKitDeliveryAsync(CreatePublicKitDeliveryCommand command,
+        CancellationToken cancellationToken)
+    {
+        var unit = (await repository.GetProductUnitsAsync(cancellationToken))
+            .SingleOrDefault(item => string.Equals(item.QrCode, command.QrCode.Trim(), StringComparison.OrdinalIgnoreCase))
+            ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
+        if (unit.Status != ProductUnitStatus.OutboundInTransit)
+            throw new ConflictException("kit_delivery.not_in_transit", "Yalnızca kargodaki kit teslim alınabilir.");
+
+        var assignment = (await repository.GetAssignmentsForProductUnitAsync(unit.Id, cancellationToken))
+            .Where(item => item.Status is RentalAssignmentStatus.Reserved or RentalAssignmentStatus.Active)
+            .OrderByDescending(item => item.CreatedAt)
+            .FirstOrDefault()
+            ?? throw new ConflictException("kit_delivery.no_reserved_rental", "Bu kit için teslim bekleyen kiralama bulunmuyor.");
+        var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
+        var now = timeProvider.GetUtcNow();
+        var actorId = new Guid("00000000-0000-0000-0000-000000000001");
+        var recipientName = $"{command.RecipientFirstName.Trim()} {command.RecipientLastName.Trim()}";
+        var fullAddress = $"{command.AddressLine.Trim()}, {command.District.Trim()} / {command.City.Trim()}";
+        var receipt = KitDeliveryReceipt.Create(Guid.NewGuid(), unit.Id, assignment.Id, order.Id,
+            assignment.CustomerId, command.RecipientFirstName, command.RecipientLastName, command.RecipientPhone,
+            command.AddressLine, command.District, command.City, now, actorId);
+
+        unit.ConfirmDeliveryTo(actorId, now, recipientName, fullAddress);
+        if (assignment.Status == RentalAssignmentStatus.Reserved) assignment.Activate();
+        await repository.AddKitDeliveryReceiptAsync(receipt, cancellationToken);
+        await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId, nameof(ProductUnit), unit.Id,
+            "PublicDeliveryReceived", ProductUnitStatus.OutboundInTransit.ToString(), unit.Status.ToString(), now),
+            cancellationToken);
+
+        var orderAssignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
+        if (order.Status == RentalOrderStatus.OutboundInTransit &&
+            orderAssignments.Count > 0 &&
+            orderAssignments.All(item => item.Status == RentalAssignmentStatus.Active))
+        {
+            order.ConfirmDelivery(actorId, now);
+            order.ActivateRental(actorId, now);
+        }
+
+        await repository.SaveChangesAsync(cancellationToken);
+        return receipt;
     }
 
     public Task<IReadOnlyCollection<FaultTicket>> GetFaultTicketsAsync(Guid? customerId, CancellationToken cancellationToken) =>
@@ -715,6 +760,7 @@ public sealed class OperationsService(
         var orders = await repository.GetOrdersAsync(null, cancellationToken);
         var faults = await repository.GetFaultTicketsAsync(null, cancellationToken);
         var returns = await repository.GetKitReturnRequestsAsync(null, cancellationToken);
+        var deliveryReceipts = await repository.GetKitDeliveryReceiptsAsync(cancellationToken);
         var customerLookup = customers.ToDictionary(x => x.Id);
         var modelLookup = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(x => x.Id);
         var unitLookup = units.ToDictionary(x => x.Id);
@@ -749,6 +795,33 @@ public sealed class OperationsService(
             .Select(unit => unit.Id)
             .Concat(openFaultUnitIds)
             .ToHashSet();
+        var latestReceiptsByUnit = deliveryReceipts
+            .GroupBy(receipt => receipt.ProductUnitId)
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(receipt => receipt.ReceivedAt).First());
+        var kitLocations = new List<DashboardKitLocationResponse>();
+        foreach (var order in orders.Where(item => item.Type == OrderType.Rental))
+        {
+            foreach (var assignment in await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken))
+            {
+                if (assignment.Status != RentalAssignmentStatus.Active ||
+                    !unitLookup.TryGetValue(assignment.ProductUnitId, out var unit) ||
+                    unit.Status != ProductUnitStatus.WithCustomer)
+                    continue;
+
+                var kitName = modelLookup.TryGetValue(unit.ProductModelId, out var model) ? model.Name : "Eğitim kiti";
+                if (latestReceiptsByUnit.TryGetValue(unit.Id, out var receipt))
+                {
+                    kitLocations.Add(new DashboardKitLocationResponse(unit.Id, kitName, unit.SerialNumber,
+                        receipt.RecipientFullName, receipt.AddressLine, receipt.District, receipt.City));
+                }
+                else
+                {
+                    var address = order.DeliveryAddress;
+                    kitLocations.Add(new DashboardKitLocationResponse(unit.Id, kitName, unit.SerialNumber,
+                        address.ContactName, address.Line1, address.District, address.City));
+                }
+            }
+        }
 
         return new DashboardResponse(
             customers.Count,
@@ -772,7 +845,8 @@ public sealed class OperationsService(
                 (int)x.Status, x.Carrier, x.TrackingNumber, x.CreatedAt, x.Items.Count,
                 x.RequesterFirstName, x.RequesterLastName, x.RequesterPhone, x.ReturnAddress, x.Latitude, x.Longitude)).ToArray(),
             rentalExpiryItems.Where(x => x.DaysRemaining < 0).OrderBy(x => x.DaysRemaining).ToArray(),
-            rentalExpiryItems.Where(x => x.DaysRemaining is >= 0 and <= 7).OrderBy(x => x.DaysRemaining).ToArray());
+            rentalExpiryItems.Where(x => x.DaysRemaining is >= 0 and <= 7).OrderBy(x => x.DaysRemaining).ToArray(),
+            kitLocations.OrderBy(item => item.City).ThenBy(item => item.District).ThenBy(item => item.SerialNumber).ToArray());
     }
 
     private async Task ValidateOrderLinesAsync(IReadOnlyCollection<OrderLineCommand> lines,

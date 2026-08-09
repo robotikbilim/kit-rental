@@ -178,6 +178,13 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
             .Where(shipment => shipment.OrderId == orderId)
             .ToArrayAsync(cancellationToken);
 
+    public Task AddKitDeliveryReceiptAsync(KitDeliveryReceipt receipt, CancellationToken cancellationToken) =>
+        dbContext.KitDeliveryReceipts.AddAsync(receipt, cancellationToken).AsTask();
+
+    public async Task<IReadOnlyCollection<KitDeliveryReceipt>> GetKitDeliveryReceiptsAsync(CancellationToken cancellationToken) =>
+        await dbContext.KitDeliveryReceipts.AsNoTracking()
+            .OrderByDescending(receipt => receipt.ReceivedAt).ToArrayAsync(cancellationToken);
+
     public Task AddFaultTicketAsync(FaultTicket ticket, CancellationToken cancellationToken) =>
         dbContext.FaultTickets.AddAsync(ticket, cancellationToken).AsTask();
 

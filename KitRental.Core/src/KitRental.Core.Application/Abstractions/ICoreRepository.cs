@@ -45,6 +45,8 @@ public interface ICoreRepository
     Task AddShipmentAsync(Shipment shipment, CancellationToken cancellationToken);
     Task<Shipment?> GetShipmentAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<Shipment>> GetShipmentsAsync(Guid orderId, CancellationToken cancellationToken);
+    Task AddKitDeliveryReceiptAsync(KitDeliveryReceipt receipt, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<KitDeliveryReceipt>> GetKitDeliveryReceiptsAsync(CancellationToken cancellationToken);
     Task AddFaultTicketAsync(FaultTicket ticket, CancellationToken cancellationToken);
     Task<FaultTicket?> GetFaultTicketAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<FaultTicket>> GetFaultTicketsAsync(Guid? customerId, CancellationToken cancellationToken);

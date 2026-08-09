@@ -1,8 +1,17 @@
 @model DashboardViewModel
+@using System.Text.Json
 @{
     ViewData["Title"] = "Genel Bakış";
     var urgentWorkCount = Model is null ? 0 :
         Model.OrdersAwaitingApproval + Model.FaultyKits + Model.ExpiredRentalKits.Count + Model.ReturnsInProgress.Count;
+    var mapLocationsJson = Model is null ? "[]" : JsonSerializer.Serialize(
+        Model.KitLocations,
+        new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+}
+@section Head {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 }
 <div class="page-heading dashboard-heading">
     <div><span class="eyebrow">CANLI OPERASYON</span><h1>Bugün neyle ilgilenmelisiniz?</h1><p>Tüm kritik işleri önem sırasına göre tek ekrandan yönetin.</p></div>
@@ -46,6 +55,29 @@ else
         <a asp-action="Inventory"><partial name="_DashboardIcon" model="@("inventory")" />Envanteri aç</a>
         <a asp-controller="SupplyNeeds" asp-action="Index"><partial name="_DashboardIcon" model="@("list")" />İhtiyaç listeleri</a>
     </nav>
+    <section class="dashboard-group kit-map-section">
+        <header class="dashboard-group-heading">
+            <div><span class="eyebrow">KIT KONUM HARITASI</span><h2>Türkiye genelinde kit dağılımı</h2></div>
+            <p>Kitler il ve ilçe bilgisine göre gruplanır; haritayı yakınlaştırdıkça kümeler ayrılır.</p>
+        </header>
+        @if (Model.KitLocations.Count == 0)
+        {
+            <div class="empty">Konumu kaydedilmiş teslim edilmiş kit bulunmuyor.</div>
+        }
+        else
+        {
+            <div class="kit-map-layout">
+                <div id="turkey-kit-map" class="turkey-kit-map" data-locations='@Html.Raw(mapLocationsJson)'></div>
+                <aside class="kit-map-summary">
+                    <strong>@Model.KitLocations.Count kit sahada</strong>
+                    @foreach (var city in Model.KitLocations.GroupBy(item => item.City).OrderByDescending(group => group.Count()).ThenBy(group => group.Key).Take(8))
+                    {
+                        <span><b>@city.Key</b>@city.Count() kit · @city.Select(item => item.District).Distinct().Count() ilçe</span>
+                    }
+                </aside>
+            </div>
+        }
+    </section>
     <section class="dashboard-group dashboard-group-general">
         <header class="dashboard-group-heading">
             <div><span class="eyebrow">GÜNLÜK OPERASYON</span><h2>Genel hızlı erişimler</h2></div>
@@ -116,4 +148,9 @@ else
             <a class="metric-card" asp-controller="Customers" asp-action="Index"><span>Müşteri</span><strong>@Model.Customers</strong><small>Müşterilere git →</small></a>
         </div>
     </section>
+}
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="~/js/turkey-kit-map.js" asp-append-version="true"></script>
 }

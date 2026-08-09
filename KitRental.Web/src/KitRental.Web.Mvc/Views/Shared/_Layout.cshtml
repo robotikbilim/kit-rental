@@ -10,6 +10,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>@ViewData["Title"] - @currentBrand.ShortTitle</title>
     <link rel="stylesheet" href="~/css/site.css" />
+    @await RenderSectionAsync("Head", required: false)
 </head>
 <body class="@currentBrand.ThemeClass @(User.Identity?.IsAuthenticated == true ? "app-authenticated" : "app-public")">
     <header class="topbar">
@@ -124,5 +125,6 @@
     <aside class="popup-notifications" id="popup-notifications" aria-live="polite" aria-label="Bildirimler"></aside>
     <main class="container">@RenderBody()</main>
     <script src="~/js/site.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

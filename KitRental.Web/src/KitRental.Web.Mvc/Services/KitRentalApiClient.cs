@@ -394,6 +394,18 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.Longitude
         }, cancellationToken);
 
+    public Task<ApiCommandResult<object>> CreatePublicDeliveryAsync(PublicDeliveryFormViewModel model,
+        CancellationToken cancellationToken) => PostAsync<object>("/core/api/public/deliveries", new
+        {
+            model.QrCode,
+            model.RecipientFirstName,
+            model.RecipientLastName,
+            model.RecipientPhone,
+            model.AddressLine,
+            model.District,
+            model.City
+        }, cancellationToken);
+
     public Task<ApiCommandResult<OrderViewModel>> ConfirmPortalOrderDeliveryAsync(Guid orderId,
         CancellationToken cancellationToken) =>
         PostAsync<OrderViewModel>($"/core/api/customer-portal/orders/{orderId}/confirm-delivery", new { }, cancellationToken);

@@ -67,13 +67,16 @@ public sealed record DashboardViewModel(
     int CompletedPurchaseOrders,
     IReadOnlyCollection<DashboardReturnViewModel> ReturnsInProgress,
     IReadOnlyCollection<DashboardRentalExpiryViewModel> ExpiredRentalKits,
-    IReadOnlyCollection<DashboardRentalExpiryViewModel> ExpiringRentalKits);
+    IReadOnlyCollection<DashboardRentalExpiryViewModel> ExpiringRentalKits,
+    IReadOnlyCollection<DashboardKitLocationViewModel> KitLocations);
 public sealed record DashboardReturnViewModel(Guid Id, string CustomerName, int Status, string? Carrier,
     string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount, string? RequesterFirstName = null,
     string? RequesterLastName = null, string? RequesterPhone = null, string? ReturnAddress = null,
     double? Latitude = null, double? Longitude = null);
 public sealed record DashboardRentalExpiryViewModel(Guid ProductUnitId, string KitName, string SerialNumber,
     string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
+public sealed record DashboardKitLocationViewModel(Guid ProductUnitId, string KitName, string SerialNumber,
+    string RecipientName, string AddressLine, string District, string City);
 public sealed record ProductUnitViewModel(Guid Id, Guid ProductModelId, string SerialNumber, string QrCode, int Status);
 public sealed record InventoryItemViewModel(Guid Id, Guid ProductModelId, string ProductModelName,
     string ProductModelSku, string SerialNumber, string QrCode, int Status, DateTimeOffset CreatedAt);
@@ -472,11 +475,24 @@ public sealed class PublicReturnFormViewModel
     [Range(-90, 90), Display(Name = "Enlem")] public double? Latitude { get; set; }
     [Range(-180, 180), Display(Name = "Boylam")] public double? Longitude { get; set; }
 }
+public sealed class PublicDeliveryFormViewModel
+{
+    [Required] public string QrCode { get; set; } = string.Empty;
+    public string KitName { get; set; } = string.Empty;
+    public string SerialNumber { get; set; } = string.Empty;
+    [Required, StringLength(100), Display(Name = "Ad")] public string RecipientFirstName { get; set; } = string.Empty;
+    [Required, StringLength(100), Display(Name = "Soyad")] public string RecipientLastName { get; set; } = string.Empty;
+    [Required, Phone, StringLength(40), Display(Name = "Telefon numarası")] public string RecipientPhone { get; set; } = string.Empty;
+    [Required, StringLength(120), Display(Name = "İl")] public string City { get; set; } = string.Empty;
+    [Required, StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
+    [Required, StringLength(1000), Display(Name = "Adres")] public string AddressLine { get; set; } = string.Empty;
+}
 public sealed record CustomerPortalViewModel(string CustomerName, string CustomerEmail, int ActiveKitCount,
     int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, IReadOnlyCollection<PortalKitViewModel> Kits,
     IReadOnlyCollection<PortalOrderViewModel> Orders, IReadOnlyCollection<PortalFaultViewModel> Faults,
     IReadOnlyCollection<PortalAddressViewModel> Addresses, IReadOnlyCollection<PortalProductModelViewModel> ProductModels,
-    IReadOnlyCollection<PortalKitReturnViewModel> Returns);
+    IReadOnlyCollection<PortalKitReturnViewModel> Returns,
+    IReadOnlyCollection<DashboardKitLocationViewModel> KitLocations);
 public sealed record PortalKitReturnItemViewModel(Guid AssignmentId, Guid ProductUnitId, Guid OrderId,
     string KitName, string SerialNumber);
 public sealed record PortalKitReturnViewModel(Guid Id, Guid CustomerId, string CustomerName, int Status,

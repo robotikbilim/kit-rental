@@ -178,6 +178,58 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
+    public async Task PublicQr_ReceivesInTransitKit_AndAddsDashboardLocation()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin-public-delivery@test.local", "SystemAdmin", null));
+        var publicClient = _factory.CreateClient();
+        var model = await PostAsync<ProductModelResponse>(admin, "/api/product-models",
+            new CreateProductModelRequest("Public Teslim Kiti", $"PDL-{Guid.NewGuid():N}"), cancellationToken);
+        var unit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
+            new CreateProductUnitRequest(model.Id, $"PDL-SN-{Guid.NewGuid():N}", $"PDL-QR-{Guid.NewGuid():N}"), cancellationToken);
+        var customer = await PostAsync<CustomerResponse>(admin, "/api/customers",
+            new CreateCustomerRequest("Teslim Okulu", $"delivery-{Guid.NewGuid():N}@example.com",
+                new AddressRequest("Okul", "Operasyon", "02120000000", "Okul Sokak 1", "Cankaya", "Ankara", "06000")),
+            cancellationToken);
+        var order = await PostAsync<CreatedOrderResponse>(admin, "/api/orders", new CreateOrderRequest(
+            customer.Id, customer.Addresses.Single().Id, new DateOnly(2026, 11, 1), new DateOnly(2026, 12, 1),
+            [new OrderLineRequest(model.Id, 1)]), cancellationToken);
+
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+            new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
+        var prepared = await PostAsync<OrderKitPreparationResponse>(admin, $"/api/orders/{order.Id}/kits",
+            new { lines = new[] { new { productModelId = model.Id, quantity = 1 } }, useAvailableKits = true },
+            cancellationToken);
+        Assert.Equal(unit.Id, prepared.Kits.Single().ProductUnitId);
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+            new OrderTransitionRequest(RentalOrderStatus.Preparing), cancellationToken);
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+            new OrderTransitionRequest(RentalOrderStatus.OutboundInTransit), cancellationToken);
+
+        var receipt = await PostAsync<PublicDeliveryResponse>(publicClient, "/api/public/deliveries",
+            new PublicKitDeliveryRequest(unit.QrCode, "Ece", "Yilmaz", "05325550000",
+                "Ataturk Caddesi 12", "Besiktas", "Istanbul"), cancellationToken);
+        Assert.Equal(unit.Id, receipt.ProductUnitId);
+        Assert.Equal(prepared.Kits.Single().AssignmentId, receipt.AssignmentId);
+
+        var dashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
+        var location = Assert.Single(dashboard!.KitLocations, item => item.ProductUnitId == unit.Id);
+        Assert.Equal("Ece Yilmaz", location.RecipientName);
+        Assert.Equal("Besiktas", location.District);
+        Assert.Equal("Istanbul", location.City);
+
+        var detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
+            $"/api/physical-kits/{unit.Id}", cancellationToken);
+        Assert.Contains(detail!.StatusHistory, item =>
+            item.NewStatus == ProductUnitStatus.WithCustomer &&
+            item.Reason.Contains("Ece Yilmaz", StringComparison.OrdinalIgnoreCase) &&
+            item.Reason.Contains("Besiktas", StringComparison.OrdinalIgnoreCase));
+
+        var units = await admin.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
+        Assert.Equal(ProductUnitStatus.WithCustomer, units!.Single(item => item.Id == unit.Id).Status);
+    }
+
+    [Fact]
     public async Task Admin_ManagesFaultGuideEntries_AndPublicReadsActiveOnes()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -248,6 +300,9 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     private sealed record CreatedFaultResponse(Guid Id);
     private sealed record CreatedOrderResponse(Guid Id, OrderType Type);
     private sealed record OrderResponse(Guid Id, RentalOrderStatus Status);
+    private sealed record CustomerResponse(Guid Id, IReadOnlyCollection<AddressResponse> Addresses);
+    private sealed record AddressResponse(Guid Id);
+    private sealed record PublicDeliveryResponse(Guid Id, Guid ProductUnitId, Guid AssignmentId);
     private sealed record ReturnResponse(Guid Id, KitReturnStatus Status);
     private sealed record PublicReturnResponse(Guid Id, KitReturnStatus Status,
         IReadOnlyCollection<PublicReturnItemResponse> Items);

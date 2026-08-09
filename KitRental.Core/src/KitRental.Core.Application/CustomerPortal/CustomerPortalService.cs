@@ -22,8 +22,13 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var modelLookup = productModels.ToDictionary(item => item.Id);
         var orders = await repository.GetOrdersAsync(customerId, cancellationToken);
         var kits = new List<PortalKitResponse>();
+        var kitLocations = new List<PortalKitLocationResponse>();
         var orderResponses = new List<PortalOrderResponse>();
         var customerFaults = await repository.GetFaultTicketsAsync(customerId, cancellationToken);
+        var deliveryReceipts = (await repository.GetKitDeliveryReceiptsAsync(cancellationToken))
+            .Where(receipt => receipt.CustomerId == customerId)
+            .GroupBy(receipt => receipt.ProductUnitId)
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(receipt => receipt.ReceivedAt).First());
 
         foreach (var order in orders.Where(item => item.Type == OrderType.Rental))
         {
@@ -46,6 +51,21 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 kits.Add(new PortalKitResponse(unit.Id, assignment.Id, order.Id, order.OrderNumber, model.Name, model.Sku,
                     model.ImageUrl, unit.SerialNumber, unit.QrCode, unit.Status, assignment.Status, assignment.Period.StartDate,
                     assignment.Period.EndDate, openFaults));
+                if (unit.Status == ProductUnitStatus.WithCustomer &&
+                    assignment.Status == RentalAssignmentStatus.Active)
+                {
+                    if (deliveryReceipts.TryGetValue(unit.Id, out var receipt))
+                    {
+                        kitLocations.Add(new PortalKitLocationResponse(unit.Id, model.Name, unit.SerialNumber,
+                            receipt.RecipientFullName, receipt.AddressLine, receipt.District, receipt.City));
+                    }
+                    else
+                    {
+                        var address = order.DeliveryAddress;
+                        kitLocations.Add(new PortalKitLocationResponse(unit.Id, model.Name, unit.SerialNumber,
+                            address.ContactName, address.Line1, address.District, address.City));
+                    }
+                }
             }
         }
 
@@ -61,7 +81,8 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             customer.Addresses.Select(item => new PortalAddressResponse(item.Id, item.Title, item.ContactName, item.Phone,
                 item.Line1, item.District, item.City, item.PostalCode)).ToArray(),
             productModels.Select(item => new PortalProductModelResponse(item.Id, item.Name, item.Sku, item.Description,
-                item.ImageUrl)).ToArray(), returns);
+                item.ImageUrl)).ToArray(), returns,
+            kitLocations.OrderBy(item => item.City).ThenBy(item => item.District).ThenBy(item => item.SerialNumber).ToArray());
     }
 
     public Task<IReadOnlyCollection<PortalKitReturnResponse>> GetReturnsAsync(Guid? customerId,

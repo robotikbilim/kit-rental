@@ -81,6 +81,13 @@ public sealed class ProductUnit
     public void ConfirmDelivery(Guid actorId, DateTimeOffset occurredAt) =>
         TransitionTo(ProductUnitStatus.WithCustomer, actorId, occurredAt, "Teslimat doğrulandı.", ProductUnitStatus.OutboundInTransit);
 
+    public void ConfirmDeliveryTo(Guid actorId, DateTimeOffset occurredAt, string recipientName, string address)
+    {
+        var reason = $"Teslimat doğrulandı. Teslim alan: {recipientName.Trim()}. Adres: {address.Trim()}";
+        if (reason.Length > 500) reason = reason[..497] + "...";
+        TransitionTo(ProductUnitStatus.WithCustomer, actorId, occurredAt, reason, ProductUnitStatus.OutboundInTransit);
+    }
+
     public void CompleteSale(Guid actorId, DateTimeOffset occurredAt) =>
         TransitionTo(ProductUnitStatus.Sold, actorId, occurredAt, "Satış teslimatı tamamlandı; kit kiralama filosundan çıkarıldı.",
             ProductUnitStatus.OutboundInTransit);

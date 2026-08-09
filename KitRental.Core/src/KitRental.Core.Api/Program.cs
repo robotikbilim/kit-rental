@@ -139,6 +139,15 @@ app.MapPost("/api/public/returns", async (PublicKitReturnRequest request, Custom
     return Results.Created($"/api/public/returns/{result.Id}", result);
 }).AllowAnonymous();
 
+app.MapPost("/api/public/deliveries", async (PublicKitDeliveryRequest request, OperationsService service,
+    CancellationToken cancellationToken) =>
+{
+    var result = await service.CreatePublicKitDeliveryAsync(new CreatePublicKitDeliveryCommand(
+        request.QrCode, request.RecipientFirstName, request.RecipientLastName, request.RecipientPhone,
+        request.AddressLine, request.District, request.City), cancellationToken);
+    return Results.Created($"/api/public/deliveries/{result.Id}", result);
+}).AllowAnonymous();
+
 app.MapGet("/api/public/fault-guides", async (OperationsService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetFaultGuideEntriesAsync(true, cancellationToken))).AllowAnonymous();
 
@@ -726,4 +735,6 @@ public sealed record PublicFaultRequest(string QrCode, string ReporterName, stri
     string ReporterAddress, string Description);
 public sealed record PublicKitReturnRequest(string QrCode, string RequesterFirstName, string RequesterLastName,
     string RequesterPhone, string ReturnAddress, double? Latitude, double? Longitude);
+public sealed record PublicKitDeliveryRequest(string QrCode, string RecipientFirstName, string RecipientLastName,
+    string RecipientPhone, string AddressLine, string District, string City);
 public partial class Program;
