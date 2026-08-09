@@ -11,7 +11,6 @@ namespace KitRental.Core.Api;
 
 public interface IEmailNotificationService
 {
-    Task NotifyCustomerOfStudentFaultAsync(FaultTicket ticket, CancellationToken cancellationToken);
     Task NotifyAdminsOfFaultAsync(FaultTicket ticket, string eventDescription, CancellationToken cancellationToken);
     Task NotifyAdminsOfRentalRequestAsync(RentalOrder order, CancellationToken cancellationToken);
 }
@@ -23,25 +22,6 @@ public sealed class EmailNotificationService(
     ILogger<EmailNotificationService> logger) : IEmailNotificationService
 {
     private readonly HtmlEncoder _html = HtmlEncoder.Default;
-
-    public async Task NotifyCustomerOfStudentFaultAsync(FaultTicket ticket, CancellationToken cancellationToken)
-    {
-        if (!IsEnabled()) return;
-        var customer = await repository.GetCustomerAsync(ticket.CustomerId, cancellationToken);
-        if (customer is null) return;
-        var kit = await GetKitLabelAsync(ticket.ProductUnitId, cancellationToken);
-        await TrySendAsync([new EmailRecipient(customer.Email, customer.Name)],
-            $"Öğrenciden yeni arıza bildirimi: {kit}",
-            $"""
-             <h2>Yeni öğrenci arıza bildirimi</h2>
-             <p><strong>{E(kit)}</strong> için yeni bir arıza bildirimi oluşturuldu.</p>
-             <p><strong>Bildiren:</strong> {E(ticket.ReporterName)}<br>
-             <strong>Telefon:</strong> {E(ticket.ReporterPhone)}</p>
-             <p><strong>Arıza nedeni:</strong><br>{E(ticket.Description)}</p>
-             <p>Kaydı incelemek ve onaylamak için müşteri portalındaki
-             <strong>Öğrencilerden Gelen Arızalar</strong> bölümünü açın.</p>
-             """, cancellationToken);
-    }
 
     public async Task NotifyAdminsOfFaultAsync(FaultTicket ticket, string eventDescription,
         CancellationToken cancellationToken)

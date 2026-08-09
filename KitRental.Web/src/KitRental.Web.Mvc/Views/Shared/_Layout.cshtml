@@ -38,21 +38,22 @@
                 <nav aria-label="Ana menü">
                     @if (isCustomer)
                     {
-                        <div class="nav-group @(currentController == "CustomerPortal" && (currentAction == "Index" || currentAction == "FindKit") ? "is-active" : null)">
+                        <div class="nav-group @(currentController == "CustomerPortal" && (currentAction == "Index" || currentAction == "Kits" || currentAction == "Kit" || currentAction == "FindKit" ) ? "is-active" : null)">
                             <button class="submenu-toggle" type="button" aria-expanded="false">
                                 Kitler <span aria-hidden="true"></span>
                             </button>
                             <div class="submenu">
-                                <a asp-controller="CustomerPortal" asp-action="Index">Kitlerim</a>
-                                <a asp-controller="CustomerPortal" asp-action="Returns">Kit Teslimi</a>
+                                <a asp-controller="CustomerPortal" asp-action="Index">Genel Bakış</a>
+                                <a asp-controller="CustomerPortal" asp-action="Kits">Kiralanmış Kitler</a>
                                 <a asp-controller="CustomerPortal" asp-action="FindKit">QR ile Kit Bul</a>
                             </div>
                         </div>
-                        <div class="nav-group @(currentController == "CustomerPortal" && currentAction == "NewRequest" ? "is-active" : null)">
+                        <div class="nav-group @(currentController == "CustomerPortal" && (currentAction == "Orders" || currentAction == "NewRequest") ? "is-active" : null)">
                             <button class="submenu-toggle" type="button" aria-expanded="false">
                                 Kiralama ve Destek <span aria-hidden="true"></span>
                             </button>
                             <div class="submenu">
+                                <a asp-controller="CustomerPortal" asp-action="Orders">Siparislerim</a>
                                 <a asp-controller="CustomerPortal" asp-action="NewRequest">Yeni Kiralama Talebi</a>
                                 <a asp-controller="CustomerPortal" asp-action="Index" asp-fragment="faults">Arızalarım</a>
                             </div>
@@ -86,7 +87,7 @@
                             </div>
                         </div>
 
-                        <div class="nav-group @(currentController == "SupplyNeeds" || (currentController == "Operations" && (currentAction == "Orders" || currentAction == "Faults")) ? "is-active" : null)">
+                        <div class="nav-group @(currentController == "SupplyNeeds" || (currentController == "Operations" && (currentAction == "Orders" || currentAction == "Faults" || currentAction == "FaultGuide")) ? "is-active" : null)">
                             <button class="submenu-toggle" type="button" aria-expanded="false">
                                 Operasyon <span aria-hidden="true"></span>
                             </button>
@@ -98,6 +99,10 @@
                                   }
                                 <a asp-controller="SupplyNeeds" asp-action="Index">İhtiyaç Listeleri</a>
                                 <a asp-controller="Operations" asp-action="Faults">Arızalar</a>
+                                @if (User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager"))
+                                {
+                                    <a asp-controller="Operations" asp-action="FaultGuide">Problem Rehberi</a>
+                                }
                             </div>
                         </div>
 

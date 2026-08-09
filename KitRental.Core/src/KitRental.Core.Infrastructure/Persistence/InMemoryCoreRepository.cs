@@ -24,6 +24,7 @@ public sealed class InMemoryCoreRepository : ICoreRepository
     private readonly Dictionary<Guid, RentalOrder> _orders = [];
     private readonly Dictionary<Guid, Shipment> _shipments = [];
     private readonly Dictionary<Guid, FaultTicket> _faultTickets = [];
+    private readonly Dictionary<Guid, FaultGuideEntry> _faultGuideEntries = [];
     private readonly Dictionary<Guid, ReturnInspection> _inspections = [];
     private readonly Dictionary<Guid, KitReturnRequest> _kitReturns = [];
     private readonly List<AuditEntry> _auditEntries = [];
@@ -311,6 +312,34 @@ public sealed class InMemoryCoreRepository : ICoreRepository
             IEnumerable<FaultTicket> tickets = customerId.HasValue ? _faultTickets.Values.Where(ticket => ticket.CustomerId == customerId.Value) : _faultTickets.Values;
             return Task.FromResult<IReadOnlyCollection<FaultTicket>>(tickets.ToArray());
         }
+    }
+
+    public Task AddFaultGuideEntryAsync(FaultGuideEntry entry, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) _faultGuideEntries.Add(entry.Id, entry);
+        return Task.CompletedTask;
+    }
+
+    public Task<FaultGuideEntry?> GetFaultGuideEntryAsync(Guid id, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult(_faultGuideEntries.GetValueOrDefault(id));
+    }
+
+    public Task<IReadOnlyCollection<FaultGuideEntry>> GetFaultGuideEntriesAsync(bool activeOnly, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult<IReadOnlyCollection<FaultGuideEntry>>(_faultGuideEntries.Values
+            .Where(item => !activeOnly || item.IsActive)
+            .OrderBy(item => item.DisplayOrder).ThenBy(item => item.Title).ToArray());
+    }
+
+    public Task RemoveFaultGuideEntryAsync(FaultGuideEntry entry, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) _faultGuideEntries.Remove(entry.Id);
+        return Task.CompletedTask;
     }
 
     public Task AddInspectionAsync(ReturnInspection inspection, CancellationToken cancellationToken)

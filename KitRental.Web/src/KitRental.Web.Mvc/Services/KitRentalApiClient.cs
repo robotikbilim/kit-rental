@@ -168,6 +168,39 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         return GetAsync<FaultPageViewModel>($"/core/api/faults/search?{string.Join('&', parameters)}", cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<FaultGuideEntryViewModel>> GetFaultGuideEntriesAsync(
+        CancellationToken cancellationToken) =>
+        await GetAsync<FaultGuideEntryViewModel[]>("/core/api/fault-guides", cancellationToken) ?? [];
+
+    public async Task<IReadOnlyCollection<FaultGuideEntryViewModel>> GetPublicFaultGuideEntriesAsync(
+        CancellationToken cancellationToken) =>
+        await GetAsync<FaultGuideEntryViewModel[]>("/core/api/public/fault-guides", cancellationToken) ?? [];
+
+    public Task<ApiCommandResult<FaultGuideEntryViewModel>> CreateFaultGuideEntryAsync(
+        FaultGuideEntryInputViewModel model, CancellationToken cancellationToken) =>
+        PostAsync<FaultGuideEntryViewModel>("/core/api/fault-guides", new
+        {
+            model.Title,
+            model.Problem,
+            model.Solution,
+            model.DisplayOrder,
+            model.IsActive
+        }, cancellationToken);
+
+    public Task<ApiCommandResult<FaultGuideEntryViewModel>> UpdateFaultGuideEntryAsync(
+        FaultGuideEntryInputViewModel model, CancellationToken cancellationToken) =>
+        SendAsync<FaultGuideEntryViewModel>(HttpMethod.Put, $"/core/api/fault-guides/{model.Id}", new
+        {
+            model.Title,
+            model.Problem,
+            model.Solution,
+            model.DisplayOrder,
+            model.IsActive
+        }, cancellationToken);
+
+    public Task<ApiCommandResult<object>> DeleteFaultGuideEntryAsync(Guid id, CancellationToken cancellationToken) =>
+        SendAsync<object>(HttpMethod.Delete, $"/core/api/fault-guides/{id}", null, cancellationToken);
+
     public async Task<IReadOnlyCollection<ComponentSuggestionViewModel>> SearchComponentsAsync(
         string query,
         CancellationToken cancellationToken) =>
@@ -353,22 +386,20 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.QrCode, model.ReporterName, model.ReporterPhone, model.Description
         }, cancellationToken);
 
-    public Task<ApiCommandResult<object>> ReviewStudentFaultAsync(Guid id, bool approved,
-        CancellationToken cancellationToken) => PostAsync<object>(
-            $"/core/api/customer-portal/student-faults/{id}/review", new { approved }, cancellationToken);
+    public Task<ApiCommandResult<PortalKitReturnViewModel>> CreatePublicReturnAsync(PublicReturnFormViewModel model,
+        CancellationToken cancellationToken) => PostAsync<PortalKitReturnViewModel>("/core/api/public/returns", new
+        {
+            model.QrCode,
+            model.RequesterFirstName,
+            model.RequesterLastName,
+            model.RequesterPhone,
+            model.Latitude,
+            model.Longitude
+        }, cancellationToken);
 
     public Task<ApiCommandResult<OrderViewModel>> ConfirmPortalOrderDeliveryAsync(Guid orderId,
         CancellationToken cancellationToken) =>
         PostAsync<OrderViewModel>($"/core/api/customer-portal/orders/{orderId}/confirm-delivery", new { }, cancellationToken);
-
-    public Task<ApiCommandResult<PortalKitReturnViewModel>> CreatePortalKitReturnAsync(
-        IReadOnlyCollection<Guid> assignmentIds, CancellationToken cancellationToken) =>
-        PostAsync<PortalKitReturnViewModel>("/core/api/customer-portal/returns", new { assignmentIds }, cancellationToken);
-
-    public Task<ApiCommandResult<PortalKitReturnViewModel>> ShipPortalKitReturnAsync(Guid returnId,
-        string carrier, string trackingNumber, CancellationToken cancellationToken) =>
-        PostAsync<PortalKitReturnViewModel>($"/core/api/customer-portal/returns/{returnId}/ship",
-            new { carrier, trackingNumber }, cancellationToken);
 
     public Task<ApiCommandResult<PortalKitReturnViewModel>> ReceiveKitReturnAsync(Guid returnId,
         CancellationToken cancellationToken) => PostAsync<PortalKitReturnViewModel>(

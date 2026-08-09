@@ -24,9 +24,13 @@ public sealed record CreateShipmentCommand(Guid OrderId, Guid? FaultTicketId, Sh
 public sealed record AddShipmentEventCommand(Guid ShipmentId, ShipmentStatus Status, DateTimeOffset OccurredAt, string Location, string Description, Guid ActorId);
 public sealed record OpenFaultCommand(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId,
     string Category, FaultSeverity Severity, string Description, Guid ActorId, string? ReporterName = null,
-    string? ReporterPhone = null, FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired);
+    string? ReporterPhone = null);
 public sealed record PublicFaultKitResponse(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
 public sealed record OpenPublicFaultCommand(string QrCode, string ReporterName, string ReporterPhone, string Description);
+public sealed record FaultGuideEntryResponse(Guid Id, string Title, string Problem, string Solution,
+    int DisplayOrder, bool IsActive, DateTimeOffset UpdatedAt);
+public sealed record SaveFaultGuideEntryCommand(Guid? Id, string Title, string Problem, string Solution,
+    int DisplayOrder, bool IsActive, Guid ActorId);
 public sealed record InspectionItemCommand(string Name, bool IsPresent, bool IsDamaged, string Note);
 public sealed record CompleteInspectionCommand(Guid OrderId, Guid ProductUnitId, IReadOnlyCollection<InspectionItemCommand> Items, decimal DamageCharge, ProductUnitStatus Outcome, Guid ActorId);
 public sealed record FaultPageQuery(string? Query, FaultStatus? Status, FaultSeverity? Severity,
@@ -68,7 +72,8 @@ public sealed record DashboardResponse(
     IReadOnlyCollection<DashboardRentalExpiryResponse> ExpiredRentalKits,
     IReadOnlyCollection<DashboardRentalExpiryResponse> ExpiringRentalKits);
 public sealed record DashboardReturnResponse(Guid Id, string CustomerName, int Status, string? Carrier,
-    string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount);
+    string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount, string? RequesterFirstName = null,
+    string? RequesterLastName = null, string? RequesterPhone = null, double? Latitude = null, double? Longitude = null);
 public sealed record DashboardRentalExpiryResponse(Guid ProductUnitId, string KitName, string SerialNumber,
     string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
 
@@ -533,7 +538,7 @@ public sealed class OperationsService(
         var ticket = FaultTicket.Open(
             Guid.NewGuid(), $"FLT-{now:yyyyMMdd}-{Guid.NewGuid():N}"[..21], command.CustomerId, command.OrderId,
             command.AssignmentId, command.ProductUnitId, command.Category, command.Severity, command.Description, now,
-            command.ReporterName, command.ReporterPhone, command.ApprovalStatus);
+            command.ReporterName, command.ReporterPhone);
         await repository.AddFaultTicketAsync(ticket, cancellationToken);
         await AuditAsync(command.ActorId, nameof(FaultTicket), ticket.Id, "Opened", null, ticket.Status.ToString(), cancellationToken);
         return ticket;
@@ -567,24 +572,54 @@ public sealed class OperationsService(
         var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
         return await OpenFaultAsync(new OpenFaultCommand(assignment.CustomerId, order.Id, assignment.Id, unit.Id,
-            "Öğrenci bildirimi", FaultSeverity.Medium, command.Description,
-            new Guid("00000000-0000-0000-0000-000000000001"), command.ReporterName, command.ReporterPhone,
-            FaultApprovalStatus.PendingCustomerApproval), cancellationToken);
-    }
-
-    public async Task<FaultTicket> ReviewPublicFaultAsync(Guid ticketId, Guid customerId, bool approved,
-        CancellationToken cancellationToken)
-    {
-        var ticket = await repository.GetFaultTicketAsync(ticketId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
-        if (ticket.CustomerId != customerId) throw new ForbiddenException("Bu arıza kaydını onaylayamazsınız.");
-        ticket.ReviewByCustomer(approved, timeProvider.GetUtcNow());
-        await repository.SaveChangesAsync(cancellationToken);
-        return ticket;
+            "Son kullanici bildirimi", FaultSeverity.Medium, command.Description,
+            new Guid("00000000-0000-0000-0000-000000000001"), command.ReporterName, command.ReporterPhone),
+            cancellationToken);
     }
 
     public Task<IReadOnlyCollection<FaultTicket>> GetFaultTicketsAsync(Guid? customerId, CancellationToken cancellationToken) =>
         repository.GetFaultTicketsAsync(customerId, cancellationToken);
+
+    public async Task<IReadOnlyCollection<FaultGuideEntryResponse>> GetFaultGuideEntriesAsync(bool activeOnly,
+        CancellationToken cancellationToken) =>
+        (await repository.GetFaultGuideEntriesAsync(activeOnly, cancellationToken))
+            .Select(MapFaultGuideEntry).ToArray();
+
+    public async Task<FaultGuideEntryResponse> SaveFaultGuideEntryAsync(SaveFaultGuideEntryCommand command,
+        CancellationToken cancellationToken)
+    {
+        FaultGuideEntry entry;
+        var action = "FaultGuideUpdated";
+        if (command.Id.HasValue)
+        {
+            entry = await repository.GetFaultGuideEntryAsync(command.Id.Value, cancellationToken)
+                ?? throw new ResourceNotFoundException("Problem rehberi kaydi bulunamadi.");
+            entry.Update(command.Title, command.Problem, command.Solution, command.DisplayOrder, command.IsActive);
+        }
+        else
+        {
+            entry = FaultGuideEntry.Create(Guid.NewGuid(), command.Title, command.Problem, command.Solution,
+                command.DisplayOrder);
+            if (!command.IsActive)
+                entry.Update(command.Title, command.Problem, command.Solution, command.DisplayOrder, false);
+            await repository.AddFaultGuideEntryAsync(entry, cancellationToken);
+            action = "FaultGuideCreated";
+        }
+        await repository.SaveChangesAsync(cancellationToken);
+        await AuditAsync(command.ActorId, nameof(FaultGuideEntry), entry.Id, action, null, entry.Title,
+            cancellationToken);
+        return MapFaultGuideEntry(entry);
+    }
+
+    public async Task DeleteFaultGuideEntryAsync(Guid id, Guid actorId, CancellationToken cancellationToken)
+    {
+        var entry = await repository.GetFaultGuideEntryAsync(id, cancellationToken)
+            ?? throw new ResourceNotFoundException("Problem rehberi kaydi bulunamadi.");
+        await repository.RemoveFaultGuideEntryAsync(entry, cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+        await AuditAsync(actorId, nameof(FaultGuideEntry), id, "FaultGuideDeleted", entry.Title, null,
+            cancellationToken);
+    }
 
     public async Task<FaultPageResponse> GetFaultPageAsync(FaultPageQuery query,
         CancellationToken cancellationToken)
@@ -727,7 +762,8 @@ public sealed class OperationsService(
             orders.Count(order => order.Type == OrderType.Purchase && order.Status == RentalOrderStatus.Completed),
             returns.Where(x => x.Status != KitReturnStatus.Received).Select(x => new DashboardReturnResponse(
                 x.Id, customerLookup.TryGetValue(x.CustomerId, out var customer) ? customer.Name : "Müşteri",
-                (int)x.Status, x.Carrier, x.TrackingNumber, x.CreatedAt, x.Items.Count)).ToArray(),
+                (int)x.Status, x.Carrier, x.TrackingNumber, x.CreatedAt, x.Items.Count,
+                x.RequesterFirstName, x.RequesterLastName, x.RequesterPhone, x.Latitude, x.Longitude)).ToArray(),
             rentalExpiryItems.Where(x => x.DaysRemaining < 0).OrderBy(x => x.DaysRemaining).ToArray(),
             rentalExpiryItems.Where(x => x.DaysRemaining is >= 0 and <= 7).OrderBy(x => x.DaysRemaining).ToArray());
     }
@@ -741,6 +777,10 @@ public sealed class OperationsService(
             if (await repository.GetProductModelAsync(line.ProductModelId, cancellationToken) is null)
                 throw new ResourceNotFoundException($"{line.ProductModelId} ürün modeli bulunamadı.");
     }
+
+    private static FaultGuideEntryResponse MapFaultGuideEntry(FaultGuideEntry entry) =>
+        new(entry.Id, entry.Title, entry.Problem, entry.Solution, entry.DisplayOrder, entry.IsActive,
+            entry.UpdatedAt);
 
     private async Task AuditAsync(
         Guid actorId,

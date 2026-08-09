@@ -13,11 +13,11 @@ public sealed class FaultTicket
     private FaultTicket() { }
     private FaultTicket(Guid id, string number, Guid customerId, Guid orderId, Guid assignmentId, Guid productUnitId,
         string category, FaultSeverity severity, string description, DateTimeOffset openedAt, string reporterName,
-        string reporterPhone, FaultApprovalStatus approvalStatus)
+        string reporterPhone)
     {
         Id = id; Number = number; CustomerId = customerId; OrderId = orderId; AssignmentId = assignmentId; ProductUnitId = productUnitId;
         Category = category; Severity = severity; Description = description; OpenedAt = openedAt; Status = FaultStatus.Open;
-        ReporterName = reporterName; ReporterPhone = reporterPhone; ApprovalStatus = approvalStatus;
+        ReporterName = reporterName; ReporterPhone = reporterPhone; ApprovalStatus = FaultApprovalStatus.NotRequired;
     }
 
     public Guid Id { get; private set; }
@@ -39,25 +39,13 @@ public sealed class FaultTicket
 
     public static FaultTicket Open(Guid id, string number, Guid customerId, Guid orderId, Guid assignmentId,
         Guid productUnitId, string category, FaultSeverity severity, string description, DateTimeOffset openedAt,
-        string? reporterName = null, string? reporterPhone = null,
-        FaultApprovalStatus approvalStatus = FaultApprovalStatus.NotRequired)
+        string? reporterName = null, string? reporterPhone = null)
     {
         if (new[] { id, customerId, orderId, assignmentId, productUnitId }.Any(value => value == Guid.Empty) || string.IsNullOrWhiteSpace(description))
             throw new DomainException("fault.required_fields", "Arıza için müşteri, sipariş, atama, ürün ve açıklama zorunludur.");
-        if (approvalStatus == FaultApprovalStatus.PendingCustomerApproval &&
-            (string.IsNullOrWhiteSpace(reporterName) || string.IsNullOrWhiteSpace(reporterPhone)))
-            throw new DomainException("fault.reporter_required", "Öğrenci adı soyadı ve telefon numarası zorunludur.");
         return new FaultTicket(id, number, customerId, orderId, assignmentId, productUnitId, category.Trim(),
             severity, description.Trim(), openedAt, reporterName?.Trim() ?? string.Empty,
-            reporterPhone?.Trim() ?? string.Empty, approvalStatus);
-    }
-
-    public void ReviewByCustomer(bool approved, DateTimeOffset now)
-    {
-        if (ApprovalStatus != FaultApprovalStatus.PendingCustomerApproval)
-            throw new DomainException("fault.already_reviewed", "Arıza bildirimi daha önce değerlendirilmiş.");
-        ApprovalStatus = approved ? FaultApprovalStatus.Approved : FaultApprovalStatus.Rejected;
-        ApprovedAt = approved ? now : null;
+            reporterPhone?.Trim() ?? string.Empty);
     }
 
     public void ChangeStatus(FaultStatus next, Guid actorId, DateTimeOffset now, string note)

@@ -26,6 +26,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
     public DbSet<RentalAssignment> RentalAssignments => Set<RentalAssignment>();
     public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<FaultTicket> FaultTickets => Set<FaultTicket>();
+    public DbSet<FaultGuideEntry> FaultGuideEntries => Set<FaultGuideEntry>();
     public DbSet<ReturnInspection> ReturnInspections => Set<ReturnInspection>();
     public DbSet<KitReturnRequest> KitReturnRequests => Set<KitReturnRequest>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
@@ -46,6 +47,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         ConfigureAssignment(modelBuilder.Entity<RentalAssignment>());
         ConfigureShipment(modelBuilder.Entity<Shipment>());
         ConfigureFaultTicket(modelBuilder.Entity<FaultTicket>());
+        ConfigureFaultGuideEntry(modelBuilder.Entity<FaultGuideEntry>());
         ConfigureInspection(modelBuilder.Entity<ReturnInspection>());
         ConfigureKitReturnRequest(modelBuilder.Entity<KitReturnRequest>());
         ConfigureAudit(modelBuilder.Entity<AuditEntry>());
@@ -235,6 +237,17 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         AddRowVersion(builder);
     }
 
+    private static void ConfigureFaultGuideEntry(EntityTypeBuilder<FaultGuideEntry> builder)
+    {
+        builder.ToTable("FaultGuideEntries");
+        builder.HasKey(entry => entry.Id);
+        builder.Property(entry => entry.Title).HasMaxLength(160).IsRequired();
+        builder.Property(entry => entry.Problem).HasMaxLength(2000).IsRequired();
+        builder.Property(entry => entry.Solution).HasMaxLength(4000).IsRequired();
+        builder.HasIndex(entry => new { entry.IsActive, entry.DisplayOrder });
+        AddRowVersion(builder);
+    }
+
     private static void ConfigureInspection(EntityTypeBuilder<ReturnInspection> builder)
     {
         builder.ToTable("ReturnInspections");
@@ -345,6 +358,9 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Carrier).HasMaxLength(120);
         builder.Property(x => x.TrackingNumber).HasMaxLength(160);
+        builder.Property(x => x.RequesterFirstName).HasMaxLength(100);
+        builder.Property(x => x.RequesterLastName).HasMaxLength(100);
+        builder.Property(x => x.RequesterPhone).HasMaxLength(40);
         builder.HasIndex(x => new { x.CustomerId, x.Status });
         builder.HasIndex(x => x.TrackingNumber).IsUnique().HasFilter("[TrackingNumber] IS NOT NULL");
         builder.OwnsMany(x => x.Items, items =>

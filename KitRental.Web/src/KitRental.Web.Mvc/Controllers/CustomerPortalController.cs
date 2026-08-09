@@ -16,6 +16,56 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     }
 
     [HttpGet]
+    public async Task<IActionResult> Orders(CancellationToken cancellationToken)
+    {
+        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        return portal is null ? Forbid() : View(portal);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Kits(string? query, int? status, bool? hasFault, int page = 1,
+        int pageSize = 10, CancellationToken cancellationToken = default)
+    {
+        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        if (portal is null) return Forbid();
+
+        var normalizedQuery = query?.Trim() ?? string.Empty;
+        var normalizedStatus = status is >= 1 and <= 8 ? status : null;
+        var normalizedPageSize = pageSize is 10 or 25 or 50 ? pageSize : 10;
+        var allKits = portal.Kits
+            .Where(item => item.AssignmentStatus is 1 or 2)
+            .OrderByDescending(item => item.StartDate)
+            .ThenBy(item => item.KitName)
+            .ThenBy(item => item.SerialNumber)
+            .ToArray();
+
+        IEnumerable<PortalKitViewModel> filteredKits = allKits;
+        if (normalizedQuery.Length > 0)
+        {
+            filteredKits = filteredKits.Where(item =>
+                item.KitName.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
+                item.KitSku.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
+                item.SerialNumber.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
+                item.OrderNumber.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase));
+        }
+        if (normalizedStatus.HasValue)
+            filteredKits = filteredKits.Where(item => item.UnitStatus == normalizedStatus.Value);
+        if (hasFault.HasValue)
+            filteredKits = filteredKits.Where(item => (item.OpenFaultCount > 0) == hasFault.Value);
+
+        var filtered = filteredKits.ToArray();
+        var totalPages = Math.Max(1, (int)Math.Ceiling(filtered.Length / (double)normalizedPageSize));
+        var normalizedPage = Math.Clamp(page, 1, totalPages);
+        var pagedKits = filtered
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .ToArray();
+
+        return View(new PortalKitsPageViewModel(portal.CustomerName, normalizedQuery, normalizedStatus, hasFault,
+            normalizedPage, normalizedPageSize, filtered.Length, allKits.Length, pagedKits));
+    }
+
+    [HttpGet]
     public async Task<IActionResult> FindKit(string? identifier, CancellationToken cancellationToken)
     {
         var value = QrCodeValue.Normalize(identifier);
@@ -57,33 +107,6 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             ? "Teslimat onaylandı. Kitleriniz artık kullanımınızda görünüyor."
             : result.Error ?? "Teslimat onaylanamadı.";
         return RedirectToAction(nameof(Index));
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> Returns(CancellationToken cancellationToken)
-    {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
-        return portal is null ? Forbid() : View(portal);
-    }
-
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> StartReturn(PortalKitReturnSelectionViewModel model, CancellationToken cancellationToken)
-    {
-        var result = await apiClient.CreatePortalKitReturnAsync(model.AssignmentIds, cancellationToken);
-        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
-            ? "İade süreci başlatıldı. Kargoya verdiğinizde takip bilgilerini girin."
-            : result.Error ?? "İade süreci başlatılamadı.";
-        return RedirectToAction(nameof(Returns));
-    }
-
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> MarkReturnShipped(PortalKitReturnShipmentViewModel model, CancellationToken cancellationToken)
-    {
-        if (!ModelState.IsValid) { TempData["Error"] = "Kargo firması ve takip numarası zorunludur."; return RedirectToAction(nameof(Returns)); }
-        var result = await apiClient.ShipPortalKitReturnAsync(model.ReturnId, model.Carrier, model.TrackingNumber, cancellationToken);
-        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
-            ? "İade kargoya verildi olarak işaretlendi." : result.Error ?? "Kargo bilgisi kaydedilemedi.";
-        return RedirectToAction(nameof(Returns));
     }
 
     [HttpGet]
@@ -150,16 +173,6 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
         return portal is null ? Forbid() : View(new PortalFaultRequestPageViewModel(model,
             portal.Kits.Where(item => item.AssignmentStatus == 2).ToArray()));
-    }
-
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> ReviewStudentFault(Guid id, bool approved, CancellationToken cancellationToken)
-    {
-        var result = await apiClient.ReviewStudentFaultAsync(id, approved, cancellationToken);
-        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
-            ? approved ? "Öğrenci arıza bildirimi teknik ekibe iletildi." : "Öğrenci arıza bildirimi reddedildi."
-            : result.Error ?? "Arıza bildirimi değerlendirilemedi.";
-        return RedirectToAction(nameof(Index), new { section = "student-faults" });
     }
 
     public async Task<IActionResult> Fault(Guid id, CancellationToken cancellationToken)

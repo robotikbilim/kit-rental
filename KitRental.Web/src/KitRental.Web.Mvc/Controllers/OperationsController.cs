@@ -168,6 +168,60 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     }
 
     [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> FaultGuide(Guid? editId, CancellationToken cancellationToken)
+    {
+        var entries = await apiClient.GetFaultGuideEntriesAsync(cancellationToken);
+        var edit = editId.HasValue ? entries.SingleOrDefault(item => item.Id == editId.Value) : null;
+        var form = edit is null
+            ? new FaultGuideEntryInputViewModel
+            {
+                DisplayOrder = entries.Count == 0 ? 10 : entries.Max(item => item.DisplayOrder) + 10
+            }
+            : new FaultGuideEntryInputViewModel
+            {
+                Id = edit.Id,
+                Title = edit.Title,
+                Problem = edit.Problem,
+                Solution = edit.Solution,
+                DisplayOrder = edit.DisplayOrder,
+                IsActive = edit.IsActive
+            };
+        return View(new FaultGuidePageViewModel(entries, form));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> SaveFaultGuide(FaultGuideEntryInputViewModel model,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+            return View("FaultGuide", new FaultGuidePageViewModel(
+                await apiClient.GetFaultGuideEntriesAsync(cancellationToken), model));
+        var result = model.Id.HasValue
+            ? await apiClient.UpdateFaultGuideEntryAsync(model, cancellationToken)
+            : await apiClient.CreateFaultGuideEntryAsync(model, cancellationToken);
+        if (result.IsSuccess)
+        {
+            TempData["Success"] = model.Id.HasValue
+                ? "Problem rehberi guncellendi."
+                : "Problem rehberi eklendi.";
+            return RedirectToAction(nameof(FaultGuide));
+        }
+        ModelState.AddModelError(string.Empty, result.Error ?? "Problem rehberi kaydedilemedi.");
+        return View("FaultGuide", new FaultGuidePageViewModel(
+            await apiClient.GetFaultGuideEntriesAsync(cancellationToken), model));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> DeleteFaultGuide(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await apiClient.DeleteFaultGuideEntryAsync(id, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "Problem rehberi silindi."
+            : result.Error ?? "Problem rehberi silinemedi.";
+        return RedirectToAction(nameof(FaultGuide));
+    }
+
+    [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]
     public async Task<IActionResult> PrepareOrderKits(Guid id, CancellationToken cancellationToken)
     {
         var order = await apiClient.GetOrderDetailAsync(id, cancellationToken);

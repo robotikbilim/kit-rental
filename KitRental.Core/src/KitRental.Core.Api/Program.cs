@@ -124,9 +124,22 @@ app.MapPost("/api/public/faults", async (PublicFaultRequest request, OperationsS
 {
     var result = await service.OpenPublicFaultAsync(new OpenPublicFaultCommand(
         request.QrCode, request.ReporterName, request.ReporterPhone, request.Description), cancellationToken);
-    await notifications.NotifyCustomerOfStudentFaultAsync(result, cancellationToken);
+    await notifications.NotifyAdminsOfFaultAsync(result, "QR Ã¼zerinden yeni arÄ±za kaydÄ± oluÅŸturuldu",
+        cancellationToken);
     return Results.Created($"/api/public/faults/{result.Id}", new { result.Id, result.Number });
 }).AllowAnonymous();
+
+app.MapPost("/api/public/returns", async (PublicKitReturnRequest request, CustomerPortalService service,
+    CancellationToken cancellationToken) =>
+{
+    var result = await service.CreatePublicKitReturnAsync(new CreatePublicKitReturnCommand(
+        request.QrCode, request.RequesterFirstName, request.RequesterLastName, request.RequesterPhone,
+        request.Latitude, request.Longitude), cancellationToken);
+    return Results.Created($"/api/public/returns/{result.Id}", result);
+}).AllowAnonymous();
+
+app.MapGet("/api/public/fault-guides", async (OperationsService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetFaultGuideEntriesAsync(true, cancellationToken))).AllowAnonymous();
 
 var api = app.MapGroup("/api").RequireAuthorization();
 var operationsRoles = new[] { "SystemAdmin", "OperationsManager" };
@@ -166,17 +179,6 @@ api.MapPost("/customer-portal/faults", async (PortalFaultRequest request, Claims
     return Results.Created($"/api/faults/{result.Id}", result);
 }).RequireAuthorization(policy => policy.RequireRole(customerRoles));
 
-api.MapPost("/customer-portal/student-faults/{ticketId:guid}/review", async (Guid ticketId,
-    PublicFaultReviewRequest request, ClaimsPrincipal user, OperationsService service,
-    IEmailNotificationService notifications, CancellationToken cancellationToken) =>
-{
-    var result = await service.ReviewPublicFaultAsync(ticketId, GetRequiredCustomerId(user), request.Approved,
-        cancellationToken);
-    if (request.Approved)
-        await notifications.NotifyAdminsOfFaultAsync(result, "Müşteri öğrenci arıza bildirimini onayladı",
-            cancellationToken);
-    return Results.Ok(result);
-}).RequireAuthorization(policy => policy.RequireRole(customerRoles));
 
 api.MapPost("/customer-portal/orders/{orderId:guid}/confirm-delivery", async (Guid orderId,
     ClaimsPrincipal user, CustomerPortalService service, CancellationToken cancellationToken) =>
@@ -184,20 +186,6 @@ api.MapPost("/customer-portal/orders/{orderId:guid}/confirm-delivery", async (Gu
         GetRequiredCustomerId(user), orderId, user.GetRequiredUserId()), cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(customerRoles));
 
-api.MapPost("/customer-portal/returns", async (PortalKitReturnRequest request, ClaimsPrincipal user,
-    CustomerPortalService service, CancellationToken cancellationToken) =>
-{
-    var result = await service.CreateKitReturnAsync(new CreatePortalKitReturnCommand(GetRequiredCustomerId(user),
-        request.AssignmentIds, user.GetRequiredUserId()), cancellationToken);
-    return Results.Created($"/api/customer-portal/returns/{result.Id}", result);
-}).RequireAuthorization(policy => policy.RequireRole(customerRoles));
-
-api.MapPost("/customer-portal/returns/{returnId:guid}/ship", async (Guid returnId,
-    PortalKitReturnShipmentRequest request, ClaimsPrincipal user, CustomerPortalService service,
-    CancellationToken cancellationToken) => Results.Ok(await service.ShipKitReturnAsync(
-        new ShipPortalKitReturnCommand(GetRequiredCustomerId(user), returnId, request.Carrier,
-            request.TrackingNumber, user.GetRequiredUserId()), cancellationToken)))
-    .RequireAuthorization(policy => policy.RequireRole(customerRoles));
 
 api.MapPost("/kit-returns/{returnId:guid}/receive", async (Guid returnId, ClaimsPrincipal user,
     CustomerPortalService service, CancellationToken cancellationToken) =>
@@ -631,6 +619,33 @@ api.MapPost("/faults/{ticketId:guid}/status", async (Guid ticketId, FaultStatusR
     Results.Ok(await service.ChangeFaultStatusAsync(ticketId, request.Status, user.GetRequiredUserId(), request.Note, cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(serviceRoles));
 
+api.MapGet("/fault-guides", async (OperationsService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetFaultGuideEntriesAsync(false, cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
+api.MapPost("/fault-guides", async (FaultGuideEntryRequest request, ClaimsPrincipal user,
+    OperationsService service, CancellationToken cancellationToken) =>
+{
+    var result = await service.SaveFaultGuideEntryAsync(new SaveFaultGuideEntryCommand(null, request.Title,
+        request.Problem, request.Solution, request.DisplayOrder, request.IsActive, user.GetRequiredUserId()),
+        cancellationToken);
+    return Results.Created($"/api/fault-guides/{result.Id}", result);
+}).RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
+api.MapPut("/fault-guides/{id:guid}", async (Guid id, FaultGuideEntryRequest request, ClaimsPrincipal user,
+    OperationsService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.SaveFaultGuideEntryAsync(new SaveFaultGuideEntryCommand(id, request.Title,
+        request.Problem, request.Solution, request.DisplayOrder, request.IsActive, user.GetRequiredUserId()),
+        cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
+api.MapDelete("/fault-guides/{id:guid}", async (Guid id, ClaimsPrincipal user, OperationsService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteFaultGuideEntryAsync(id, user.GetRequiredUserId(), cancellationToken);
+    return Results.NoContent();
+}).RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
 api.MapPost("/return-inspections", async (CompleteInspectionRequest request, ClaimsPrincipal user, OperationsService service, CancellationToken cancellationToken) =>
 {
     var result = await service.CompleteInspectionAsync(
@@ -713,12 +728,13 @@ public sealed record CreateShipmentRequest(Guid OrderId, Guid? FaultTicketId, Sh
 public sealed record ShipmentEventRequest(ShipmentStatus Status, DateTimeOffset OccurredAt, string Location, string Description);
 public sealed record OpenFaultRequest(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId, string Category, FaultSeverity Severity, string Description);
 public sealed record FaultStatusRequest(FaultStatus Status, string Note);
+public sealed record FaultGuideEntryRequest(string Title, string Problem, string Solution, int DisplayOrder,
+    bool IsActive = true);
 public sealed record InspectionItemRequest(string Name, bool IsPresent, bool IsDamaged, string Note);
 public sealed record CompleteInspectionRequest(Guid OrderId, Guid ProductUnitId, IReadOnlyCollection<InspectionItemRequest> Items, decimal DamageCharge, ProductUnitStatus Outcome);
 public sealed record PortalRentalRequest(Guid AddressId, DateOnly StartDate, DateOnly EndDate, IReadOnlyCollection<OrderLineRequest> Lines);
 public sealed record PortalFaultRequest(Guid AssignmentId, string Category, FaultSeverity Severity, string Description);
 public sealed record PublicFaultRequest(string QrCode, string ReporterName, string ReporterPhone, string Description);
-public sealed record PublicFaultReviewRequest(bool Approved);
-public sealed record PortalKitReturnRequest(IReadOnlyCollection<Guid> AssignmentIds);
-public sealed record PortalKitReturnShipmentRequest(string Carrier, string TrackingNumber);
+public sealed record PublicKitReturnRequest(string QrCode, string RequesterFirstName, string RequesterLastName,
+    string RequesterPhone, double Latitude, double Longitude);
 public partial class Program;

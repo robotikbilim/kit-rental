@@ -27,7 +27,7 @@ public sealed record PortalFaultResponse(Guid Id, string Number, Guid ProductUni
     string ReporterName = "", string ReporterPhone = "",
     FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired);
 public sealed record CustomerPortalResponse(string CustomerName, string CustomerEmail, int ActiveKitCount,
-    int PendingRequestCount, int OpenFaultCount, IReadOnlyCollection<PortalKitResponse> Kits,
+    int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, IReadOnlyCollection<PortalKitResponse> Kits,
     IReadOnlyCollection<PortalOrderResponse> Orders, IReadOnlyCollection<PortalFaultResponse> Faults,
     IReadOnlyCollection<PortalAddressResponse> Addresses, IReadOnlyCollection<PortalProductModelResponse> ProductModels,
     IReadOnlyCollection<PortalKitReturnResponse> Returns);
@@ -35,6 +35,7 @@ public sealed record PortalKitReturnItemResponse(Guid AssignmentId, Guid Product
     string KitName, string SerialNumber);
 public sealed record PortalKitReturnResponse(Guid Id, Guid CustomerId, string CustomerName, KitReturnStatus Status,
     string? Carrier, string? TrackingNumber, DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt,
+    string? RequesterFirstName, string? RequesterLastName, string? RequesterPhone, double? Latitude, double? Longitude,
     IReadOnlyCollection<PortalKitReturnItemResponse> Items);
 
 public sealed record CreatePortalRentalRequestCommand(Guid CustomerId, Guid AddressId, DateOnly StartDate,
@@ -43,5 +44,5 @@ public sealed record PortalRentalLineCommand(Guid ProductModelId, int Quantity);
 public sealed record OpenPortalFaultCommand(Guid CustomerId, Guid AssignmentId, string Category,
     FaultSeverity Severity, string Description, Guid ActorId);
 public sealed record ConfirmPortalOrderDeliveryCommand(Guid CustomerId, Guid OrderId, Guid ActorId);
-public sealed record CreatePortalKitReturnCommand(Guid CustomerId, IReadOnlyCollection<Guid> AssignmentIds, Guid ActorId);
-public sealed record ShipPortalKitReturnCommand(Guid CustomerId, Guid ReturnId, string Carrier, string TrackingNumber, Guid ActorId);
+public sealed record CreatePublicKitReturnCommand(string QrCode, string RequesterFirstName, string RequesterLastName,
+    string RequesterPhone, double Latitude, double Longitude);

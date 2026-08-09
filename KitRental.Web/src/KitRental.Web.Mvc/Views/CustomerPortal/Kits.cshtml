@@ -1,0 +1,145 @@
+@model PortalKitsPageViewModel
+@{
+    ViewData["Title"] = "Kiralanmış Kitler";
+}
+@functions {
+    string UnitStatus(int value) => value switch { 1 => "Hazır", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimat yolunda", 5 => "Kullanımınızda", 6 => "Geri gönderiliyor", 7 => "Kontrolde", 8 => "Serviste", _ => "İşlemde" };
+
+    IEnumerable<int?> PaginationPages(int currentPage, int totalPages)
+    {
+        var pages = new SortedSet<int> { 1, totalPages };
+        for (var page = Math.Max(1, currentPage - 2); page <= Math.Min(totalPages, currentPage + 2); page++)
+            pages.Add(page);
+
+        int? previous = null;
+        foreach (var page in pages)
+        {
+            if (previous.HasValue && page - previous.Value > 1) yield return null;
+            yield return page;
+            previous = page;
+        }
+    }
+}
+
+<div class="portal-heading portal-kits-heading">
+    <div>
+        <span class="eyebrow">KİRALANAN ÜRÜNLER</span>
+        <h1>Kiralanmış Kitler</h1>
+        <p>@Model.CustomerName hesabına ait kitleri arayın, filtreleyin ve yönetin.</p>
+    </div>
+    <div class="recipe-actions">
+        <a class="secondary-action" asp-action="FindKit">▣ QR ile kit bul</a>
+        <a class="primary-action" asp-action="NewRequest">+ Yeni kiralama talebi</a>
+    </div>
+</div>
+
+<section class="portal-kit-list-shell">
+    <form class="portal-kit-filters" asp-action="Kits" method="get">
+        <label class="portal-kit-search">
+            <span>Kit ara</span>
+            <input type="search" name="query" value="@Model.Query" placeholder="Kit adı, seri no, SKU veya sipariş no" />
+        </label>
+        <label>
+            <span>Durum</span>
+            <select name="status">
+                <option value="">Tüm durumlar</option>
+                @for (var status = 1; status <= 8; status++)
+                {
+                    <option value="@status" selected="@(Model.Status == status)">@UnitStatus(status)</option>
+                }
+            </select>
+        </label>
+        <label>
+            <span>Arıza durumu</span>
+            <select name="hasFault">
+                <option value="">Tümü</option>
+                <option value="false" selected="@(Model.HasFault == false)">Arızası olmayanlar</option>
+                <option value="true" selected="@(Model.HasFault == true)">Açık arızası olanlar</option>
+            </select>
+        </label>
+        <label>
+            <span>Sayfa boyutu</span>
+            <select name="pageSize">
+                @foreach (var size in new[] { 10, 25, 50 })
+                {
+                    <option value="@size" selected="@(Model.PageSize == size)">@size kayıt</option>
+                }
+            </select>
+        </label>
+        <div class="portal-kit-filter-actions">
+            <button class="primary-action" type="submit">Filtrele</button>
+            <a class="secondary-action" asp-action="Kits">Temizle</a>
+        </div>
+    </form>
+
+    <div class="portal-kit-result-heading" aria-live="polite">
+        <div><strong>@Model.TotalCount</strong> kit bulundu</div>
+        @if (Model.TotalCount != Model.TotalKitCount)
+        {
+            <span>Toplam @Model.TotalKitCount kiralanmış kit içinde</span>
+        }
+    </div>
+
+    @if (Model.Kits.Count > 0)
+    {
+        <div class="table-scroll portal-kit-table-wrap">
+            <table class="portal-kit-table">
+                <thead><tr><th>Kit</th><th>Seri numarası</th><th>Kiralama dönemi</th><th>Durum</th><th>Arıza</th><th><span class="visually-hidden">İşlemler</span></th></tr></thead>
+                <tbody>
+                @foreach (var kit in Model.Kits)
+                {
+                    <tr>
+                        <td data-mobile-label="Kit"><div class="table-kit"><img src="@(kit.ImageUrl ?? "/images/kit-placeholder.svg")" alt="" /><div><strong>@kit.KitName</strong><small>@kit.KitSku · @kit.OrderNumber</small></div></div></td>
+                        <td data-mobile-label="Seri numarası"><code class="unit-serial">@kit.SerialNumber</code></td>
+                        <td data-mobile-label="Kiralama dönemi"><span class="portal-kit-period">@kit.StartDate.ToString("dd.MM.yyyy")<small>@kit.EndDate.ToString("dd.MM.yyyy") tarihine kadar</small></span></td>
+                        <td data-mobile-label="Durum"><span class="fleet-status status-@kit.UnitStatus">@UnitStatus(kit.UnitStatus)</span></td>
+                        <td data-mobile-label="Arıza">@if (kit.OpenFaultCount > 0) { <span class="portal-alert">@kit.OpenFaultCount açık arıza</span> } else { <span class="portal-no-fault">Arıza yok</span> }</td>
+                        <td data-mobile-label="İşlemler">
+                            @if (kit.AssignmentStatus == 2)
+                            {
+                                <div class="portal-table-actions"><a class="row-link" asp-action="Kit" asp-route-id="@kit.ProductUnitId">Detay</a><a class="row-link fault-link" asp-action="NewFault" asp-route-assignmentId="@kit.AssignmentId">Arıza bildir</a></div>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <footer class="pagination-shell portal-kit-pagination">
+            <span>@Model.FirstItem–@Model.LastItem / @Model.TotalCount kit</span>
+            @if (Model.TotalPages > 1)
+            {
+                <nav class="pagination" aria-label="Kiralanmış kitler sayfaları">
+                    <a class="@(Model.Page == 1 ? "disabled" : null)" aria-disabled="@(Model.Page == 1 ? "true" : null)" aria-label="Önceki sayfa" asp-action="Kits" asp-route-query="@Model.Query" asp-route-status="@Model.Status" asp-route-hasFault="@Model.HasFault" asp-route-pageSize="@Model.PageSize" asp-route-page="@(Model.Page - 1)">‹</a>
+                    @foreach (var paginationPage in PaginationPages(Model.Page, Model.TotalPages))
+                    {
+                        if (paginationPage.HasValue)
+                        {
+                            <a class="@(paginationPage == Model.Page ? "active" : null)" aria-current="@(paginationPage == Model.Page ? "page" : null)" asp-action="Kits" asp-route-query="@Model.Query" asp-route-status="@Model.Status" asp-route-hasFault="@Model.HasFault" asp-route-pageSize="@Model.PageSize" asp-route-page="@paginationPage">@paginationPage</a>
+                        }
+                        else
+                        {
+                            <span class="pagination-ellipsis" aria-hidden="true">…</span>
+                        }
+                    }
+                    <a class="@(Model.Page == Model.TotalPages ? "disabled" : null)" aria-disabled="@(Model.Page == Model.TotalPages ? "true" : null)" aria-label="Sonraki sayfa" asp-action="Kits" asp-route-query="@Model.Query" asp-route-status="@Model.Status" asp-route-hasFault="@Model.HasFault" asp-route-pageSize="@Model.PageSize" asp-route-page="@(Model.Page + 1)">›</a>
+                </nav>
+            }
+        </footer>
+    }
+    else
+    {
+        <div class="empty portal-kit-empty">
+            @if (Model.TotalKitCount == 0)
+            {
+                <strong>Henüz kiralanmış kitiniz bulunmuyor.</strong>
+                <span>Yeni bir kiralama talebi oluşturarak başlayabilirsiniz.</span>
+            }
+            else
+            {
+                <strong>Filtrelerle eşleşen kit bulunamadı.</strong>
+                <span>Arama ölçütlerini değiştirin veya filtreleri temizleyin.</span>
+            }
+        </div>
+    }
+</section>

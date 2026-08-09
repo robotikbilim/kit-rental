@@ -69,7 +69,8 @@ public sealed record DashboardViewModel(
     IReadOnlyCollection<DashboardRentalExpiryViewModel> ExpiredRentalKits,
     IReadOnlyCollection<DashboardRentalExpiryViewModel> ExpiringRentalKits);
 public sealed record DashboardReturnViewModel(Guid Id, string CustomerName, int Status, string? Carrier,
-    string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount);
+    string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount, string? RequesterFirstName = null,
+    string? RequesterLastName = null, string? RequesterPhone = null, double? Latitude = null, double? Longitude = null);
 public sealed record DashboardRentalExpiryViewModel(Guid ProductUnitId, string KitName, string SerialNumber,
     string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
 public sealed record ProductUnitViewModel(Guid Id, Guid ProductModelId, string SerialNumber, string QrCode, int Status);
@@ -98,6 +99,19 @@ public sealed record FaultViewModel(Guid Id, string Number, Guid CustomerId, str
     DateTimeOffset OpenedAt, int ApprovalStatus = 0);
 public sealed record FaultPageViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultViewModel> Items);
+public sealed record FaultGuideEntryViewModel(Guid Id, string Title, string Problem, string Solution,
+    int DisplayOrder, bool IsActive, DateTimeOffset UpdatedAt);
+public sealed class FaultGuideEntryInputViewModel
+{
+    public Guid? Id { get; set; }
+    [Required, StringLength(160), Display(Name = "Baslik")] public string Title { get; set; } = string.Empty;
+    [Required, StringLength(2000), Display(Name = "Karsilasilan problem")] public string Problem { get; set; } = string.Empty;
+    [Required, StringLength(4000), Display(Name = "Cozum onerisi")] public string Solution { get; set; } = string.Empty;
+    [Range(0, 999), Display(Name = "Siralama")] public int DisplayOrder { get; set; }
+    [Display(Name = "Aktif")] public bool IsActive { get; set; } = true;
+}
+public sealed record FaultGuidePageViewModel(IReadOnlyCollection<FaultGuideEntryViewModel> Entries,
+    FaultGuideEntryInputViewModel Form);
 public sealed class FaultFilterViewModel
 {
     public string? Query { get; set; }
@@ -319,6 +333,13 @@ public sealed record PortalKitViewModel(Guid ProductUnitId, Guid AssignmentId, G
 public sealed record PortalKitLookupPageViewModel(string Identifier, bool HasSearched, string? Error);
 public sealed record PortalKitDetailPageViewModel(PortalKitViewModel Kit,
     IReadOnlyCollection<PortalFaultViewModel> Faults);
+public sealed record PortalKitsPageViewModel(string CustomerName, string Query, int? Status, bool? HasFault,
+    int Page, int PageSize, int TotalCount, int TotalKitCount, IReadOnlyCollection<PortalKitViewModel> Kits)
+{
+    public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)PageSize));
+    public int FirstItem => TotalCount == 0 ? 0 : ((Page - 1) * PageSize) + 1;
+    public int LastItem => Math.Min(Page * PageSize, TotalCount);
+}
 public sealed record PortalOrderLineViewModel(Guid ProductModelId, string ProductName, string ProductSku, int Quantity);
 public sealed record PortalOrderViewModel(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName, int Type,
     int Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt, IReadOnlyCollection<PortalOrderLineViewModel> Lines,
@@ -414,6 +435,9 @@ public sealed record PortalFaultViewModel(Guid Id, string Number, Guid ProductUn
     IReadOnlyCollection<PortalFaultStatusViewModel> History, IReadOnlyCollection<PortalShipmentViewModel> Shipments,
     string ReporterName = "", string ReporterPhone = "", int ApprovalStatus = 0);
 public sealed record PublicFaultKitViewModel(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
+public sealed record PublicKitActionViewModel(string QrCode, string KitName, string SerialNumber);
+public sealed record PublicFaultTroubleshootingViewModel(string QrCode, string KitName, string SerialNumber,
+    IReadOnlyCollection<FaultGuideEntryViewModel> Entries);
 
 public sealed record EmailDeliveryViewModel(Guid Id, string Recipient, string RecipientName, string Subject,
     string Body, int Status, DateTimeOffset OccurredAt, string? Error);
@@ -427,8 +451,19 @@ public sealed class PublicFaultFormViewModel
     [Required, StringLength(4000, MinimumLength = 10), Display(Name = "Arıza nedeni")]
     public string Description { get; set; } = string.Empty;
 }
+public sealed class PublicReturnFormViewModel
+{
+    [Required] public string QrCode { get; set; } = string.Empty;
+    public string KitName { get; set; } = string.Empty;
+    public string SerialNumber { get; set; } = string.Empty;
+    [Required, StringLength(100), Display(Name = "Ad")] public string RequesterFirstName { get; set; } = string.Empty;
+    [Required, StringLength(100), Display(Name = "Soyad")] public string RequesterLastName { get; set; } = string.Empty;
+    [Required, Phone, StringLength(40), Display(Name = "Telefon numarasÄ±")] public string RequesterPhone { get; set; } = string.Empty;
+    [Required, Range(-90, 90), Display(Name = "Enlem")] public double? Latitude { get; set; }
+    [Required, Range(-180, 180), Display(Name = "Boylam")] public double? Longitude { get; set; }
+}
 public sealed record CustomerPortalViewModel(string CustomerName, string CustomerEmail, int ActiveKitCount,
-    int PendingRequestCount, int OpenFaultCount, IReadOnlyCollection<PortalKitViewModel> Kits,
+    int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, IReadOnlyCollection<PortalKitViewModel> Kits,
     IReadOnlyCollection<PortalOrderViewModel> Orders, IReadOnlyCollection<PortalFaultViewModel> Faults,
     IReadOnlyCollection<PortalAddressViewModel> Addresses, IReadOnlyCollection<PortalProductModelViewModel> ProductModels,
     IReadOnlyCollection<PortalKitReturnViewModel> Returns);
@@ -436,18 +471,8 @@ public sealed record PortalKitReturnItemViewModel(Guid AssignmentId, Guid Produc
     string KitName, string SerialNumber);
 public sealed record PortalKitReturnViewModel(Guid Id, Guid CustomerId, string CustomerName, int Status,
     string? Carrier, string? TrackingNumber, DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt,
+    string? RequesterFirstName, string? RequesterLastName, string? RequesterPhone, double? Latitude, double? Longitude,
     IReadOnlyCollection<PortalKitReturnItemViewModel> Items);
-public sealed class PortalKitReturnSelectionViewModel
-{
-    public List<Guid> AssignmentIds { get; set; } = [];
-}
-public sealed class PortalKitReturnShipmentViewModel
-{
-    public Guid ReturnId { get; set; }
-    [Required, StringLength(120), Display(Name = "Kargo firması")] public string Carrier { get; set; } = string.Empty;
-    [Required, StringLength(160), Display(Name = "Takip numarası")] public string TrackingNumber { get; set; } = string.Empty;
-}
-
 public sealed class PortalRentalRequestViewModel
 {
     [Required, Display(Name = "Teslimat adresi")] public Guid AddressId { get; set; }

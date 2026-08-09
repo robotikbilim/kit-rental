@@ -1,0 +1,40 @@
+@model PublicFaultTroubleshootingViewModel
+@{ ViewData["Title"] = "Problem Cozum Rehberi"; }
+<div class="public-fault-shell public-guide-shell">
+    <section class="public-fault-card">
+        <span class="eyebrow">SIK KARSILASILAN PROBLEMLER</span>
+        <h1>Once hizli cozumleri deneyin</h1>
+        <p class="block-muted">Asagidaki basliklara goz atin. Problem devam ediyorsa ariza kaydini olusturabilirsiniz.</p>
+        <div class="public-kit-summary"><span>Okutulan urun</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
+
+        @if (Model.Entries.Count == 0)
+        {
+            <div class="empty">Bu kit icin henuz yayinlanmis cozum rehberi yok.</div>
+        }
+        else
+        {
+            <div class="fault-guide-accordion">
+                @foreach (var item in Model.Entries)
+                {
+                    <details class="fault-guide-item">
+                        <summary>
+                            <span>@item.Title</span>
+                            <b>Ac</b>
+                        </summary>
+                        <div class="fault-guide-content">
+                            <h2>Karsilasilan problem</h2>
+                            <p>@item.Problem</p>
+                            <h2>Cozum onerisi</h2>
+                            <p>@item.Solution</p>
+                        </div>
+                    </details>
+                }
+            </div>
+        }
+
+        <div class="public-guide-actions">
+            <a class="secondary-action" asp-action="Index" asp-route-qrCode="@Model.QrCode">Geri don</a>
+            <a class="primary-action" asp-action="Report" asp-route-qrCode="@Model.QrCode">Sorunum devam ediyor</a>
+        </div>
+    </section>
+</div>

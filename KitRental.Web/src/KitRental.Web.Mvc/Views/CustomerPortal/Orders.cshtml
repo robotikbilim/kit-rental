@@ -1,0 +1,42 @@
+@model CustomerPortalViewModel
+@{
+    ViewData["Title"] = "Siparislerim";
+}
+@functions {
+    string OrderType(int value) => value switch { 2 => "Satin alma", _ => "Kiralama" };
+    string OrderStatus(int value) => value switch { 2 => "Onay bekliyor", 3 => "Onaylandi", 4 => "Hazirlaniyor", 5 => "Kargoya hazir", 6 => "Teslimat yolunda", 7 => "Teslim edildi", 8 => "Kiralama aktif", 9 => "Iade bekleniyor", 10 => "Iade yolunda", 11 => "Kontrolde", 13 => "Tamamlandi", 14 => "Reddedildi", 15 => "Iptal edildi", _ => "Taslak" };
+}
+
+<div class="portal-heading">
+    <div><span class="eyebrow">SIPARIS TAKIBI</span><h1>Siparislerim</h1><p>Hesabiniz icin olusturulan kiralama ve satin alma siparislerini takip edin.</p></div>
+    <div class="recipe-actions"><a class="primary-action" asp-action="NewRequest">+ Yeni kiralama talebi</a></div>
+</div>
+
+<section class="portal-section">
+    <div class="section-heading"><div><span class="eyebrow">TUM SIPARISLER</span><h2>Siparis gecmisi</h2></div><b class="portal-kit-count">@Model.Orders.Count kayit</b></div>
+    @if (Model.Orders.Count == 0)
+    {
+        <div class="empty">Henuz siparis kaydiniz yok.</div>
+    }
+    else
+    {
+        <div class="table-scroll">
+            <table>
+                <thead><tr><th>Siparis</th><th>Tur</th><th>Kitler</th><th>Donem</th><th>Olusturulma</th><th>Durum</th></tr></thead>
+                <tbody>
+                @foreach (var order in Model.Orders.OrderByDescending(item => item.CreatedAt))
+                {
+                    <tr>
+                        <td><strong>@order.OrderNumber</strong></td>
+                        <td>@OrderType(order.Type)</td>
+                        <td>@string.Join(", ", order.Lines.Select(line => $"{line.ProductName} x {line.Quantity}"))</td>
+                        <td>@(order.StartDate.HasValue && order.EndDate.HasValue ? $"{order.StartDate:dd.MM.yyyy} - {order.EndDate:dd.MM.yyyy}" : "-")</td>
+                        <td>@order.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                        <td><span class="badge order-status-@order.Status">@OrderStatus(order.Status)</span></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

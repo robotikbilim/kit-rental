@@ -12,9 +12,15 @@ public sealed class KitReturnRequest
     private KitReturnRequest() { }
 
     private KitReturnRequest(Guid id, Guid customerId, DateTimeOffset createdAt, Guid createdBy,
-        IReadOnlyCollection<KitReturnItem> items)
+        IReadOnlyCollection<KitReturnItem> items, string? requesterFirstName = null, string? requesterLastName = null,
+        string? requesterPhone = null, double? latitude = null, double? longitude = null)
     {
         Id = id; CustomerId = customerId; CreatedAt = createdAt; CreatedBy = createdBy;
+        RequesterFirstName = requesterFirstName?.Trim();
+        RequesterLastName = requesterLastName?.Trim();
+        RequesterPhone = requesterPhone?.Trim();
+        Latitude = latitude;
+        Longitude = longitude;
         Status = KitReturnStatus.Requested; _items.AddRange(items);
     }
 
@@ -27,6 +33,11 @@ public sealed class KitReturnRequest
     public DateTimeOffset? ShippedAt { get; private set; }
     public DateTimeOffset? ReceivedAt { get; private set; }
     public Guid CreatedBy { get; private set; }
+    public string? RequesterFirstName { get; private set; }
+    public string? RequesterLastName { get; private set; }
+    public string? RequesterPhone { get; private set; }
+    public double? Latitude { get; private set; }
+    public double? Longitude { get; private set; }
     public IReadOnlyCollection<KitReturnItem> Items => _items.AsReadOnly();
 
     public static KitReturnRequest Create(Guid id, Guid customerId, DateTimeOffset createdAt, Guid createdBy,
@@ -38,6 +49,20 @@ public sealed class KitReturnRequest
         if (items.Select(x => x.ProductUnitId).Distinct().Count() != items.Count)
             throw new DomainException("kit_return.duplicate_unit", "Aynı kit bir iadeye birden fazla eklenemez.");
         return new KitReturnRequest(id, customerId, createdAt, createdBy, items);
+    }
+
+    public static KitReturnRequest CreatePublic(Guid id, Guid customerId, DateTimeOffset createdAt, Guid createdBy,
+        IReadOnlyCollection<KitReturnItem> items, string requesterFirstName, string requesterLastName,
+        string requesterPhone, double latitude, double longitude)
+    {
+        if (string.IsNullOrWhiteSpace(requesterFirstName) || string.IsNullOrWhiteSpace(requesterLastName) ||
+            string.IsNullOrWhiteSpace(requesterPhone))
+            throw new DomainException("kit_return.requester_required", "Ad, soyad ve telefon zorunludur.");
+        if (latitude is < -90 or > 90 || longitude is < -180 or > 180)
+            throw new DomainException("kit_return.invalid_location", "GeÃ§erli bir konum seÃ§ilmelidir.");
+        var request = Create(id, customerId, createdAt, createdBy, items);
+        return new KitReturnRequest(request.Id, request.CustomerId, request.CreatedAt, request.CreatedBy, request.Items,
+            requesterFirstName, requesterLastName, requesterPhone, latitude, longitude);
     }
 
     public void MarkShipped(string carrier, string trackingNumber, DateTimeOffset shippedAt)

@@ -192,6 +192,27 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
         return await query.OrderByDescending(ticket => ticket.OpenedAt).ToArrayAsync(cancellationToken);
     }
 
+    public Task AddFaultGuideEntryAsync(FaultGuideEntry entry, CancellationToken cancellationToken) =>
+        dbContext.FaultGuideEntries.AddAsync(entry, cancellationToken).AsTask();
+
+    public Task<FaultGuideEntry?> GetFaultGuideEntryAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.FaultGuideEntries.SingleOrDefaultAsync(entry => entry.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyCollection<FaultGuideEntry>> GetFaultGuideEntriesAsync(bool activeOnly,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.FaultGuideEntries.AsQueryable();
+        if (activeOnly) query = query.Where(entry => entry.IsActive);
+        return await query.OrderBy(entry => entry.DisplayOrder).ThenBy(entry => entry.Title)
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public Task RemoveFaultGuideEntryAsync(FaultGuideEntry entry, CancellationToken cancellationToken)
+    {
+        dbContext.FaultGuideEntries.Remove(entry);
+        return Task.CompletedTask;
+    }
+
     public Task AddInspectionAsync(ReturnInspection inspection, CancellationToken cancellationToken) =>
         dbContext.ReturnInspections.AddAsync(inspection, cancellationToken).AsTask();
 

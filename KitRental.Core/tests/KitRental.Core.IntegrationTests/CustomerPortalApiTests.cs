@@ -113,6 +113,89 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
+    public async Task PublicQr_CreatesOpenFaultAndReturnRequest_ForActiveRental()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin-public-qr@test.local", "SystemAdmin", null));
+        var publicClient = _factory.CreateClient();
+        var model = await PostAsync<ProductModelResponse>(admin, "/api/product-models",
+            new CreateProductModelRequest("Public QR Test Kiti", $"PQR-{Guid.NewGuid():N}"), cancellationToken);
+        var unit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
+            new CreateProductUnitRequest(model.Id, $"PQR-SN-{Guid.NewGuid():N}", $"PQR-QR-{Guid.NewGuid():N}"), cancellationToken);
+        var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rent",
+            new RentPhysicalKitRequest("Public QR Musterisi", $"public-{Guid.NewGuid():N}@example.com",
+                "05320000000", "Test Sokak 10", "Kadikoy", "Istanbul", "34000",
+                today.AddDays(-1), today.AddDays(30)), cancellationToken);
+
+        var fault = await publicClient.PostAsJsonAsync("/api/public/faults", new PublicFaultRequest(
+            unit.QrCode, "Ayse Test", "05321112233", "Kit acildiginda sensor okumasi yapmiyor."), cancellationToken);
+        fault.EnsureSuccessStatusCode();
+        var createdFault = (await fault.Content.ReadFromJsonAsync<CreatedFaultResponse>(cancellationToken))!;
+        var faultPage = await admin.GetFromJsonAsync<FaultPageResponse>(
+            "/api/faults/search?page=1&pageSize=10&query=05321112233", cancellationToken);
+        var listedFault = Assert.Single(faultPage!.Items, item => item.Id == createdFault.Id);
+        Assert.Equal(FaultApprovalStatus.NotRequired, listedFault.ApprovalStatus);
+        Assert.Equal(FaultStatus.Open, listedFault.Status);
+
+        var createdReturn = await PostAsync<PublicReturnResponse>(publicClient, "/api/public/returns",
+            new PublicKitReturnRequest(unit.QrCode, "Ayse", "Test", "05321112233", 41.012345, 29.012345),
+            cancellationToken);
+        Assert.Equal(KitReturnStatus.Requested, createdReturn.Status);
+
+        var duplicateReturn = await publicClient.PostAsJsonAsync("/api/public/returns",
+            new PublicKitReturnRequest(unit.QrCode, "Ayse", "Test", "05321112233", 41.012345, 29.012345),
+            cancellationToken);
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, duplicateReturn.StatusCode);
+
+        var dashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
+        var dashboardReturn = Assert.Single(dashboard!.ReturnsInProgress, item => item.Id == createdReturn.Id);
+        Assert.Equal("Ayse", dashboardReturn.RequesterFirstName);
+        Assert.Equal("Test", dashboardReturn.RequesterLastName);
+        Assert.Equal("05321112233", dashboardReturn.RequesterPhone);
+        Assert.Equal(41.012345, dashboardReturn.Latitude);
+        Assert.Equal(29.012345, dashboardReturn.Longitude);
+        Assert.Equal(rental.AssignmentId, createdReturn.Items.Single().AssignmentId);
+
+        var availableUnit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
+            new CreateProductUnitRequest(model.Id, $"PQR-FREE-{Guid.NewGuid():N}", $"PQR-FREE-QR-{Guid.NewGuid():N}"),
+            cancellationToken);
+        var unavailableFault = await publicClient.PostAsJsonAsync("/api/public/faults", new PublicFaultRequest(
+            availableUnit.QrCode, "Ayse Test", "05321112233", "Aktif kiralamasi olmayan kit."), cancellationToken);
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, unavailableFault.StatusCode);
+        var unavailableReturn = await publicClient.PostAsJsonAsync("/api/public/returns",
+            new PublicKitReturnRequest(availableUnit.QrCode, "Ayse", "Test", "05321112233", 41.012345, 29.012345),
+            cancellationToken);
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, unavailableReturn.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_ManagesFaultGuideEntries_AndPublicReadsActiveOnes()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin-guide@test.local", "SystemAdmin", null));
+        var publicClient = _factory.CreateClient();
+
+        var created = await PostAsync<FaultGuideEntryResponse>(admin, "/api/fault-guides",
+            new FaultGuideEntryRequest("Sensor okumuyor", "Sensor degeri surekli sifir gorunuyor.",
+                "Kablo yonunu ve port secimini kontrol edin.", 10, true), cancellationToken);
+        var passive = await PostAsync<FaultGuideEntryResponse>(admin, "/api/fault-guides",
+            new FaultGuideEntryRequest("Pasif rehber", "Public ekranda gorunmemeli.",
+                "Admin tarafinda sakli kalir.", 20, false), cancellationToken);
+
+        var publicEntries = await publicClient.GetFromJsonAsync<FaultGuideEntryResponse[]>(
+            "/api/public/fault-guides", cancellationToken);
+        Assert.Contains(publicEntries!, item => item.Id == created.Id);
+        Assert.DoesNotContain(publicEntries!, item => item.Id == passive.Id);
+
+        var delete = await admin.DeleteAsync($"/api/fault-guides/{created.Id}", cancellationToken);
+        delete.EnsureSuccessStatusCode();
+        publicEntries = await publicClient.GetFromJsonAsync<FaultGuideEntryResponse[]>(
+            "/api/public/fault-guides", cancellationToken);
+        Assert.DoesNotContain(publicEntries!, item => item.Id == created.Id);
+    }
+
+    [Fact]
     public async Task Customer_CanReturnExpiredSelectedKit_AndAdminReceivesItIntoAvailableStock()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -158,4 +241,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     private sealed record CreatedOrderResponse(Guid Id, OrderType Type);
     private sealed record OrderResponse(Guid Id, RentalOrderStatus Status);
     private sealed record ReturnResponse(Guid Id, KitReturnStatus Status);
+    private sealed record PublicReturnResponse(Guid Id, KitReturnStatus Status,
+        IReadOnlyCollection<PublicReturnItemResponse> Items);
+    private sealed record PublicReturnItemResponse(Guid AssignmentId, Guid ProductUnitId, Guid OrderId);
 }

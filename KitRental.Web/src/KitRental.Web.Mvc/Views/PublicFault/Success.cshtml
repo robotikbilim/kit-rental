@@ -1,10 +1,15 @@
-@model PublicFaultFormViewModel
-@{ ViewData["Title"] = "Bildirim Alındı"; }
+@model PublicKitActionViewModel
+@{
+    ViewData["Title"] = "Islem Alindi";
+    var title = ViewData["SuccessTitle"] as string ?? "Islem alindi";
+    var message = ViewData["SuccessMessage"] as string ?? "Talebiniz operasyon ekibine iletildi.";
+}
 <div class="public-fault-shell">
     <section class="public-fault-card public-fault-success">
-        <span class="success-mark">✓</span>
-        <span class="eyebrow">BİLDİRİM ALINDI</span>
-        <h1>Teşekkürler, @Model.ReporterName.</h1>
-        <p><strong>@Model.KitName</strong> için arıza bildiriminiz TACEV yetkilisine iletildi. Onaydan sonra teknik ekip incelemeye başlayacak.</p>
+        <span class="success-mark">OK</span>
+        <span class="eyebrow">ISLEM ALINDI</span>
+        <h1>@title</h1>
+        <p>@message</p>
+        <div class="public-kit-summary"><span>Okutulan urun</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
     </section>
 </div>

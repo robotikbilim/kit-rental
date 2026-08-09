@@ -1,0 +1,55 @@
+@model FaultGuidePageViewModel
+@{
+    ViewData["Title"] = "Problem Rehberi";
+    var isEdit = Model.Form.Id.HasValue;
+}
+<div class="page-heading">
+    <div><span class="eyebrow">SERVIS & DESTEK</span><h1>Sik Karsilasilan Problemler</h1><p class="block-muted">QR ariza akisi oncesinde kullanicilara gosterilecek problem ve cozum onerilerini yonetin.</p></div>
+</div>
+@if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
+@if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
+
+<section class="panel fault-guide-admin">
+    <form asp-action="SaveFaultGuide" method="post" class="fault-guide-form">
+        <input type="hidden" name="Id" value="@Model.Form.Id" />
+        <div asp-validation-summary="ModelOnly" class="error"></div>
+        <div class="field"><label for="Title">Baslik</label><input id="Title" name="Title" value="@Model.Form.Title" placeholder="Orn. Motor calismiyor" /></div>
+        <div class="field"><label for="DisplayOrder">Siralama</label><input id="DisplayOrder" name="DisplayOrder" value="@Model.Form.DisplayOrder" type="number" min="0" max="999" /></div>
+        <label class="toggle-field"><input name="IsActive" type="checkbox" value="true" checked="@Model.Form.IsActive" /><input name="IsActive" type="hidden" value="false" /> Public ekranda yayinla</label>
+        <div class="field wide"><label for="Problem">Karsilasilan problem</label><textarea id="Problem" name="Problem" rows="4" placeholder="Kullanicinin gorecegi problem tanimi">@Model.Form.Problem</textarea></div>
+        <div class="field wide"><label for="Solution">Cozum onerisi</label><textarea id="Solution" name="Solution" rows="5" placeholder="Adim adim cozum onerisi">@Model.Form.Solution</textarea></div>
+        <div class="form-actions">
+            @if (isEdit) { <a class="secondary-action" asp-action="FaultGuide">Vazgec</a> }
+            <button class="primary-action" type="submit">@(isEdit ? "Guncelle" : "Yeni rehber ekle")</button>
+        </div>
+    </form>
+</section>
+
+<section class="fault-guide-admin-list">
+    @if (Model.Entries.Count == 0)
+    {
+        <div class="empty">Henuz problem rehberi eklenmedi.</div>
+    }
+    else
+    {
+        @foreach (var item in Model.Entries)
+        {
+            <article class="fault-guide-admin-card @(item.IsActive ? null : "is-passive")">
+                <header>
+                    <div><span class="eyebrow">SIRA @item.DisplayOrder</span><h2>@item.Title</h2></div>
+                    <span class="status-badge @(item.IsActive ? "success" : "warning")">@(item.IsActive ? "Aktif" : "Pasif")</span>
+                </header>
+                <dl>
+                    <div><dt>Problem</dt><dd>@item.Problem</dd></div>
+                    <div><dt>Cozum onerisi</dt><dd>@item.Solution</dd></div>
+                </dl>
+                <footer>
+                    <a class="secondary-action" asp-action="FaultGuide" asp-route-editId="@item.Id">Duzenle</a>
+                    <form asp-action="DeleteFaultGuide" asp-route-id="@item.Id" method="post" onsubmit="return confirm('Bu problem rehberi silinsin mi?');">
+                        <button class="table-action danger" type="submit">Sil</button>
+                    </form>
+                </footer>
+            </article>
+        }
+    }
+</section>
