@@ -156,18 +156,6 @@ api.MapGet("/customer-portal", async (ClaimsPrincipal user, CustomerPortalServic
     Results.Ok(await service.GetOverviewAsync(GetRequiredCustomerId(user), cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(customerRoles));
 
-api.MapPost("/customer-portal/rental-requests", async (PortalRentalRequest request, ClaimsPrincipal user,
-    CustomerPortalService service, IEmailNotificationService notifications,
-    CancellationToken cancellationToken) =>
-{
-    var result = await service.CreateRentalRequestAsync(new CreatePortalRentalRequestCommand(
-        GetRequiredCustomerId(user), request.AddressId, request.StartDate, request.EndDate,
-        request.Lines.Select(line => new PortalRentalLineCommand(line.ProductModelId, line.Quantity)).ToArray(),
-        user.GetRequiredUserId()), cancellationToken);
-    await notifications.NotifyAdminsOfRentalRequestAsync(result, cancellationToken);
-    return Results.Created($"/api/orders/{result.Id}", result);
-}).RequireAuthorization(policy => policy.RequireRole(customerRoles));
-
 api.MapPost("/customer-portal/faults", async (PortalFaultRequest request, ClaimsPrincipal user,
     CustomerPortalService service, IEmailNotificationService notifications,
     CancellationToken cancellationToken) =>
@@ -733,7 +721,6 @@ public sealed record FaultGuideEntryRequest(string Title, string Problem, string
     bool IsActive = true);
 public sealed record InspectionItemRequest(string Name, bool IsPresent, bool IsDamaged, string Note);
 public sealed record CompleteInspectionRequest(Guid OrderId, Guid ProductUnitId, IReadOnlyCollection<InspectionItemRequest> Items, decimal DamageCharge, ProductUnitStatus Outcome);
-public sealed record PortalRentalRequest(Guid AddressId, DateOnly StartDate, DateOnly EndDate, IReadOnlyCollection<OrderLineRequest> Lines);
 public sealed record PortalFaultRequest(Guid AssignmentId, string Category, FaultSeverity Severity, string Description);
 public sealed record PublicFaultRequest(string QrCode, string ReporterName, string ReporterPhone,
     string ReporterAddress, string Description);

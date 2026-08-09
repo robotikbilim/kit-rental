@@ -38,26 +38,10 @@
                 <nav aria-label="Ana menü">
                     @if (isCustomer)
                     {
-                        <div class="nav-group @(currentController == "CustomerPortal" && (currentAction == "Index" || currentAction == "Kits" || currentAction == "Kit" || currentAction == "FindKit" ) ? "is-active" : null)">
-                            <button class="submenu-toggle" type="button" aria-expanded="false">
-                                Kitler <span aria-hidden="true"></span>
-                            </button>
-                            <div class="submenu">
-                                <a asp-controller="CustomerPortal" asp-action="Index">Genel Bakış</a>
-                                <a asp-controller="CustomerPortal" asp-action="Kits">Kiralanmış Kitler</a>
-                                <a asp-controller="CustomerPortal" asp-action="FindKit">QR ile Kit Bul</a>
-                            </div>
-                        </div>
-                        <div class="nav-group @(currentController == "CustomerPortal" && (currentAction == "Orders" || currentAction == "NewRequest") ? "is-active" : null)">
-                            <button class="submenu-toggle" type="button" aria-expanded="false">
-                                Kiralama ve Destek <span aria-hidden="true"></span>
-                            </button>
-                            <div class="submenu">
-                                <a asp-controller="CustomerPortal" asp-action="Orders">Siparislerim</a>
-                                <a asp-controller="CustomerPortal" asp-action="NewRequest">Yeni Kiralama Talebi</a>
-                                <a asp-controller="CustomerPortal" asp-action="Index" asp-fragment="faults">Arızalarım</a>
-                            </div>
-                        </div>
+                        <a class="nav-direct @(currentController == "CustomerPortal" && currentAction == "Index" ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Index">Genel Bakis</a>
+                        <a class="nav-direct @(currentController == "CustomerPortal" && (currentAction == "Faults" || currentAction == "Fault" || currentAction == "NewFault") ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Faults">Arizalar</a>
+                        <a class="nav-direct @(currentController == "CustomerPortal" && (currentAction == "Kits" || currentAction == "Kit" || currentAction == "FindKit") ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Kits">Kitler</a>
+                        <a class="nav-direct @(currentController == "CustomerPortal" && currentAction == "Orders" ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Orders">Siparisler</a>
                     }
                     else
                     {

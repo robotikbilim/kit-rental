@@ -1,7 +1,7 @@
 @model PortalFaultRequestPageViewModel
 @{ ViewData["Title"] = "Arıza Bildir"; }
 <div class="form-shell">
-    <div class="form-heading"><a asp-action="Index" asp-fragment="faults">← Arıza kayıtlarıma dön</a><span class="eyebrow">TEKNİK DESTEK</span><h1>Arıza bildir</h1><p>Kit üzerindeki sorunu ayrıntılı açıklayın. Servis ekibinin tüm güncellemelerini portalda görebilirsiniz.</p></div>
+    <div class="form-heading"><a asp-action="Faults">← Arıza kayıtlarıma dön</a><span class="eyebrow">TEKNİK DESTEK</span><h1>Arıza bildir</h1><p>Kit üzerindeki sorunu ayrıntılı açıklayın. Servis ekibinin tüm güncellemelerini portalda görebilirsiniz.</p></div>
     @if (Model.ActiveKits.Count == 0) { <div class="empty">Arıza kaydı oluşturabileceğiniz aktif bir kit bulunmuyor.</div> }
     else {
     <form class="catalog-form" asp-action="NewFault" method="post">

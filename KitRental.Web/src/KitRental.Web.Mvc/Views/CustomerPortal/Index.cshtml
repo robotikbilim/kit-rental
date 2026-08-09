@@ -2,32 +2,14 @@
 @{
     ViewData["Title"] = "Genel Bakis";
 }
-@functions {
-    string OrderStatus(int value) => value switch { 2 => "Onay bekliyor", 3 => "Onaylandi", 4 => "Hazirlaniyor", 5 => "Kargoya hazir", 6 => "Teslimat yolunda", 7 => "Teslim edildi", 8 => "Kiralama aktif", 9 => "Iade bekleniyor", 10 => "Iade yolunda", 11 => "Kontrolde", 13 => "Tamamlandi", 14 => "Reddedildi", 15 => "Iptal edildi", _ => "Taslak" };
-    string FaultStatus(int value) => value switch { 1 => "Kayit acildi", 2 => "Inceleniyor", 3 => "Bilgi bekleniyor", 4 => "Kitin gonderilmesi bekleniyor", 5 => "Serviste", 6 => "Geri gonderiliyor", 7 => "Cozuldu", 8 => "Tamamlandi", _ => "Islemde" };
-}
 <div class="portal-heading">
-    <div><span class="eyebrow">TACEV KIRALAMA PORTALI</span><h1>Merhaba, @Model.CustomerName</h1><p>Kitlerinizi, kiralama taleplerinizi ve servis sureclerinizi tek ekrandan takip edin.</p></div>
-    <div class="recipe-actions"><a class="secondary-action" asp-action="FindKit">QR ile kit bul</a><a class="primary-action" asp-action="NewRequest">+ Yeni kiralama talebi</a></div>
+    <div><span class="eyebrow">TACEV KIRALAMA PORTALI</span><h1>Merhaba, @Model.CustomerName</h1><p>Kitlerinizi, siparislerinizi ve servis sureclerinizi tek ekrandan takip edin.</p></div>
+    <div class="recipe-actions"><a class="secondary-action" asp-action="FindKit">QR ile kit bul</a></div>
 </div>
 @if (TempData["Success"] is string message) { <div class="success-banner">@message</div> }
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 <section class="metrics portal-metrics">
-    <article><span>Kullanimdaki kit</span><strong>@Model.ActiveKitCount</strong></article>
-    <article><span>Acik ariza kaydi</span><strong>@Model.OpenFaultCount</strong></article>
-    <article><span>Tamamlanmis ariza kaydi</span><strong>@Model.CompletedFaultCount</strong></article>
-</section>
-
-<section class="portal-section" id="faults">
-    <div class="section-heading"><div><span class="eyebrow">SERVIS TAKIBI</span><h2>Ariza kayitlarim</h2></div><a class="secondary-action" asp-action="NewFault">Ariza bildir</a></div>
-    <div class="portal-fault-grid">
-    @foreach (var fault in Model.Faults)
-    {
-        <a asp-action="Fault" asp-route-id="@fault.Id" class="portal-fault-card">
-            <div><small>@fault.Number - @fault.SerialNumber</small><h3>@fault.KitName</h3><p>@fault.Description</p></div>
-            <div><span class="fault-stage status-@fault.Status">@FaultStatus(fault.Status)</span><small>@fault.OpenedAt.ToLocalTime().ToString("dd.MM.yyyy")</small></div>
-        </a>
-    }
-    </div>
-    @if (Model.Faults.Count == 0) { <div class="empty">Henuz ariza kaydiniz yok.</div> }
+    <a class="metric-card" asp-action="Kits" asp-route-status="5"><span>Kullanimdaki kit</span><strong>@Model.ActiveKitCount</strong><small>Kitleri filtrele</small></a>
+    <a class="metric-card" asp-action="Faults" asp-route-state="open"><span>Acik ariza kaydi</span><strong>@Model.OpenFaultCount</strong><small>Acik arizalari gor</small></a>
+    <a class="metric-card" asp-action="Faults" asp-route-state="completed"><span>Tamamlanmis ariza kaydi</span><strong>@Model.CompletedFaultCount</strong><small>Tamamlananlari gor</small></a>
 </section>

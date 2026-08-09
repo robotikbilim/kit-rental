@@ -39,9 +39,6 @@ public sealed record PortalKitReturnResponse(Guid Id, Guid CustomerId, string Cu
     double? Latitude, double? Longitude,
     IReadOnlyCollection<PortalKitReturnItemResponse> Items);
 
-public sealed record CreatePortalRentalRequestCommand(Guid CustomerId, Guid AddressId, DateOnly StartDate,
-    DateOnly EndDate, IReadOnlyCollection<PortalRentalLineCommand> Lines, Guid ActorId);
-public sealed record PortalRentalLineCommand(Guid ProductModelId, int Quantity);
 public sealed record OpenPortalFaultCommand(Guid CustomerId, Guid AssignmentId, string Category,
     FaultSeverity Severity, string Description, Guid ActorId);
 public sealed record ConfirmPortalOrderDeliveryCommand(Guid CustomerId, Guid OrderId, Guid ActorId);

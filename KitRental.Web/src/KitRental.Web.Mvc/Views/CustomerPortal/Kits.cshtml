@@ -29,7 +29,6 @@
     </div>
     <div class="recipe-actions">
         <a class="secondary-action" asp-action="FindKit">▣ QR ile kit bul</a>
-        <a class="primary-action" asp-action="NewRequest">+ Yeni kiralama talebi</a>
     </div>
 </div>
 
@@ -89,7 +88,7 @@
                 @foreach (var kit in Model.Kits)
                 {
                     <tr>
-                        <td data-mobile-label="Kit"><div class="table-kit"><img src="@(kit.ImageUrl ?? "/images/kit-placeholder.svg")" alt="" /><div><strong>@kit.KitName</strong><small>@kit.KitSku · @kit.OrderNumber</small></div></div></td>
+                        <td data-mobile-label="Kit"><div class="table-kit"><img src="@ImageUrl.Kit(kit.ImageUrl)" alt="" /><div><strong>@kit.KitName</strong><small>@kit.KitSku · @kit.OrderNumber</small></div></div></td>
                         <td data-mobile-label="Seri numarası"><code class="unit-serial">@kit.SerialNumber</code></td>
                         <td data-mobile-label="Kiralama dönemi"><span class="portal-kit-period">@kit.StartDate.ToString("dd.MM.yyyy")<small>@kit.EndDate.ToString("dd.MM.yyyy") tarihine kadar</small></span></td>
                         <td data-mobile-label="Durum"><span class="fleet-status status-@kit.UnitStatus">@UnitStatus(kit.UnitStatus)</span></td>

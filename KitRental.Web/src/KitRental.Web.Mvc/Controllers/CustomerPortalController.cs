@@ -23,6 +23,51 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     }
 
     [HttpGet]
+    public async Task<IActionResult> Faults(string? query, int? status, string state = "all", int page = 1,
+        int pageSize = 10, CancellationToken cancellationToken = default)
+    {
+        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        if (portal is null) return Forbid();
+
+        var normalizedQuery = query?.Trim() ?? string.Empty;
+        var normalizedStatus = status is >= 1 and <= 8 ? status : null;
+        var normalizedState = state is "open" or "completed" ? state : "all";
+        var normalizedPageSize = pageSize is 10 or 25 or 50 ? pageSize : 10;
+        var allFaults = portal.Faults
+            .OrderByDescending(item => item.OpenedAt)
+            .ThenBy(item => item.Number)
+            .ToArray();
+
+        IEnumerable<PortalFaultViewModel> filteredFaults = allFaults;
+        if (normalizedQuery.Length > 0)
+        {
+            filteredFaults = filteredFaults.Where(item =>
+                item.Number.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
+                item.KitName.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
+                item.SerialNumber.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
+                item.Category.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
+                item.Description.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase));
+        }
+        if (normalizedStatus.HasValue)
+            filteredFaults = filteredFaults.Where(item => item.Status == normalizedStatus.Value);
+        if (normalizedState == "open")
+            filteredFaults = filteredFaults.Where(item => item.Status is not (7 or 8));
+        if (normalizedState == "completed")
+            filteredFaults = filteredFaults.Where(item => item.Status is 7 or 8);
+
+        var filtered = filteredFaults.ToArray();
+        var totalPages = Math.Max(1, (int)Math.Ceiling(filtered.Length / (double)normalizedPageSize));
+        var normalizedPage = Math.Clamp(page, 1, totalPages);
+        var pagedFaults = filtered
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .ToArray();
+
+        return View(new PortalFaultsPageViewModel(portal.CustomerName, normalizedQuery, normalizedStatus,
+            normalizedState, normalizedPage, normalizedPageSize, filtered.Length, allFaults.Length, pagedFaults));
+    }
+
+    [HttpGet]
     public async Task<IActionResult> Kits(string? query, int? status, bool? hasFault, int page = 1,
         int pageSize = 10, CancellationToken cancellationToken = default)
     {
@@ -110,41 +155,6 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     }
 
     [HttpGet]
-    public async Task<IActionResult> NewRequest(CancellationToken cancellationToken)
-    {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
-        if (portal is null) return Forbid();
-        return View(new PortalRentalRequestPageViewModel(new PortalRentalRequestViewModel
-        {
-            AddressId = portal.Addresses.FirstOrDefault()?.Id ?? Guid.Empty,
-            StartDate = DateOnly.FromDateTime(DateTime.Today.AddDays(7)),
-            EndDate = DateOnly.FromDateTime(DateTime.Today.AddMonths(1).AddDays(7))
-        }, portal.Addresses, portal.ProductModels));
-    }
-
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> NewRequest(PortalRentalRequestViewModel model, CancellationToken cancellationToken)
-    {
-        model.Lines = model.Lines.Where(line => line.ProductModelId != Guid.Empty && line.Quantity > 0).ToList();
-        if (model.Lines.Count == 0)
-            ModelState.AddModelError(string.Empty, "En az bir eğitim kiti seçmelisiniz.");
-        if (model.EndDate <= model.StartDate)
-            ModelState.AddModelError(string.Empty, "Bitiş tarihi başlangıç tarihinden sonra olmalıdır.");
-        if (ModelState.IsValid)
-        {
-            var result = await apiClient.CreatePortalRentalRequestAsync(model, cancellationToken);
-            if (result.IsSuccess)
-            {
-                TempData["Success"] = "Kiralama talebiniz yöneticinin onayına gönderildi.";
-                return RedirectToAction(nameof(Index));
-            }
-            ModelState.AddModelError(string.Empty, result.Error ?? "Talep oluşturulamadı.");
-        }
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
-        return portal is null ? Forbid() : View(new PortalRentalRequestPageViewModel(model, portal.Addresses, portal.ProductModels));
-    }
-
-    [HttpGet]
     public async Task<IActionResult> NewFault(Guid? assignmentId, CancellationToken cancellationToken)
     {
         var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
@@ -166,7 +176,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             if (result.IsSuccess)
             {
                 TempData["Success"] = "Arıza kaydınız oluşturuldu. Servis sürecini bu ekrandan takip edebilirsiniz.";
-                return RedirectToAction(nameof(Index), new { section = "faults" });
+                return RedirectToAction(nameof(Faults), new { state = "open" });
             }
             ModelState.AddModelError(string.Empty, result.Error ?? "Arıza kaydı oluşturulamadı.");
         }

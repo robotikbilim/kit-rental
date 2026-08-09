@@ -369,10 +369,6 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<CustomerPortalViewModel?> GetCustomerPortalAsync(CancellationToken cancellationToken) =>
         GetAsync<CustomerPortalViewModel>("/core/api/customer-portal", cancellationToken);
 
-    public Task<ApiCommandResult<OrderViewModel>> CreatePortalRentalRequestAsync(PortalRentalRequestViewModel model,
-        CancellationToken cancellationToken) => PostAsync<OrderViewModel>("/core/api/customer-portal/rental-requests",
-            new { model.AddressId, model.StartDate, model.EndDate, lines = model.Lines }, cancellationToken);
-
     public Task<ApiCommandResult<FaultViewModel>> CreatePortalFaultAsync(PortalFaultRequestViewModel model,
         CancellationToken cancellationToken) => PostAsync<FaultViewModel>("/core/api/customer-portal/faults",
             new { model.AssignmentId, model.Category, model.Severity, model.Description }, cancellationToken);

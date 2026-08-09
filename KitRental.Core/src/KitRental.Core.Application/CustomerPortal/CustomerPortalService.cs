@@ -169,12 +169,6 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         return result;
     }
 
-    public Task<RentalOrder> CreateRentalRequestAsync(CreatePortalRentalRequestCommand command,
-        CancellationToken cancellationToken) => operationsService.CreateOrderAsync(new CreateOrderCommand(
-        command.CustomerId, command.AddressId, command.StartDate, command.EndDate,
-        command.Lines.Select(line => new OrderLineCommand(line.ProductModelId, line.Quantity)).ToArray(),
-        command.ActorId), cancellationToken);
-
     public async Task<RentalOrder> ConfirmOrderDeliveryAsync(ConfirmPortalOrderDeliveryCommand command,
         CancellationToken cancellationToken)
     {

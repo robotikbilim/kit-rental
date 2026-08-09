@@ -334,6 +334,13 @@ public sealed record PortalKitViewModel(Guid ProductUnitId, Guid AssignmentId, G
 public sealed record PortalKitLookupPageViewModel(string Identifier, bool HasSearched, string? Error);
 public sealed record PortalKitDetailPageViewModel(PortalKitViewModel Kit,
     IReadOnlyCollection<PortalFaultViewModel> Faults);
+public sealed record PortalFaultsPageViewModel(string CustomerName, string Query, int? Status, string State,
+    int Page, int PageSize, int TotalCount, int TotalFaultCount, IReadOnlyCollection<PortalFaultViewModel> Faults)
+{
+    public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)PageSize));
+    public int FirstItem => TotalCount == 0 ? 0 : ((Page - 1) * PageSize) + 1;
+    public int LastItem => Math.Min(Page * PageSize, TotalCount);
+}
 public sealed record PortalKitsPageViewModel(string CustomerName, string Query, int? Status, bool? HasFault,
     int Page, int PageSize, int TotalCount, int TotalKitCount, IReadOnlyCollection<PortalKitViewModel> Kits)
 {
@@ -477,21 +484,11 @@ public sealed record PortalKitReturnViewModel(Guid Id, Guid CustomerId, string C
     string? RequesterFirstName, string? RequesterLastName, string? RequesterPhone, string? ReturnAddress,
     double? Latitude, double? Longitude,
     IReadOnlyCollection<PortalKitReturnItemViewModel> Items);
-public sealed class PortalRentalRequestViewModel
-{
-    [Required, Display(Name = "Teslimat adresi")] public Guid AddressId { get; set; }
-    [Required, DataType(DataType.Date), Display(Name = "Başlangıç tarihi")] public DateOnly StartDate { get; set; }
-    [Required, DataType(DataType.Date), Display(Name = "Bitiş tarihi")] public DateOnly EndDate { get; set; }
-    public List<PortalRentalLineInputViewModel> Lines { get; set; } = [new()];
-}
 public sealed class PortalRentalLineInputViewModel
 {
     [Required, Display(Name = "Eğitim kiti")] public Guid ProductModelId { get; set; }
     [Range(1, 100), Display(Name = "Adet")] public int Quantity { get; set; } = 1;
 }
-public sealed record PortalRentalRequestPageViewModel(PortalRentalRequestViewModel Form,
-    IReadOnlyCollection<PortalAddressViewModel> Addresses, IReadOnlyCollection<PortalProductModelViewModel> ProductModels);
-
 public sealed class PortalFaultRequestViewModel
 {
     [Required] public Guid AssignmentId { get; set; }

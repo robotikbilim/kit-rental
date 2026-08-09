@@ -14,7 +14,7 @@
 }
 <a class="back-link" asp-action="Index">← Kitlerime dön</a>
 <section class="portal-kit-detail-hero">
-    <div class="portal-detail-image"><img src="@(Model.Kit.ImageUrl ?? "/images/catalog/kit.svg")" alt="@Model.Kit.KitName" /></div>
+    <div class="portal-detail-image"><img src="@ImageUrl.Kit(Model.Kit.ImageUrl)" alt="@Model.Kit.KitName" /></div>
     <div class="portal-detail-copy"><span class="eyebrow">@Model.Kit.KitSku</span><h1>@Model.Kit.KitName</h1><strong class="serial-number">@Model.Kit.SerialNumber</strong><p>@Model.Kit.StartDate.ToString("dd.MM.yyyy") – @Model.Kit.EndDate.ToString("dd.MM.yyyy") · @Model.Kit.OrderNumber</p><span class="fleet-status status-@Model.Kit.UnitStatus">@UnitStatus(Model.Kit.UnitStatus)</span></div>
     <div class="portal-detail-qr"><img src="@Url.Action("Qr", new { value = faultReportUrl })" alt="Arıza bildirim sayfasını açan kit QR kodu" /><small>@Model.Kit.QrCode</small></div>
 </section>

@@ -24,7 +24,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         _factory = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Testing"));
 
     [Fact]
-    public async Task CustomerPortal_ListsOwnKit_CreatesRequestAndFault()
+    public async Task CustomerPortal_ListsOwnKit_BlocksRentalRequestAndCreatesFault()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin@portal.test", "SystemAdmin", null));
@@ -47,11 +47,18 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
                 [new OrderLineRequest(model.Id, 1)]), cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Forbidden, forbiddenPurchase.StatusCode);
 
-        var request = await customer.PostAsJsonAsync("/api/customer-portal/rental-requests", new PortalRentalRequest(
-            overview.Addresses.Single().Id, new DateOnly(2026, 11, 1), new DateOnly(2026, 12, 1),
+        var blockedRequest = await customer.PostAsJsonAsync("/api/customer-portal/rental-requests", new
+        {
+            addressId = overview.Addresses.Single().Id,
+            startDate = new DateOnly(2026, 11, 1),
+            endDate = new DateOnly(2026, 12, 1),
+            lines = new[] { new OrderLineRequest(model.Id, 1) }
+        }, cancellationToken);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, blockedRequest.StatusCode);
+
+        var deliveryOrder = await PostAsync<CreatedOrderResponse>(admin, "/api/orders", new CreateOrderRequest(
+            rental.CustomerId, overview.Addresses.Single().Id, new DateOnly(2026, 11, 1), new DateOnly(2026, 12, 1),
             [new OrderLineRequest(model.Id, 1)]), cancellationToken);
-        request.EnsureSuccessStatusCode();
-        var deliveryOrder = (await request.Content.ReadFromJsonAsync<CreatedOrderResponse>(cancellationToken))!;
         Assert.Equal(OrderType.Rental, deliveryOrder.Type);
 
         var fault = await customer.PostAsJsonAsync("/api/customer-portal/faults", new PortalFaultRequest(
