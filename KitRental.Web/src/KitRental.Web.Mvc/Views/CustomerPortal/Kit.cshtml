@@ -1,7 +1,7 @@
 @model PortalKitDetailPageViewModel
 @{
     var faultReportUrl = Url.Action(
-        "Report",
+        "Index",
         "PublicFault",
         new { qrCode = Model.Kit.QrCode },
         Context.Request.Scheme,

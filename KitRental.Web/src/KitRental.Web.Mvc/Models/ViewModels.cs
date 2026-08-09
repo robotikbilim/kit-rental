@@ -70,7 +70,8 @@ public sealed record DashboardViewModel(
     IReadOnlyCollection<DashboardRentalExpiryViewModel> ExpiringRentalKits);
 public sealed record DashboardReturnViewModel(Guid Id, string CustomerName, int Status, string? Carrier,
     string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount, string? RequesterFirstName = null,
-    string? RequesterLastName = null, string? RequesterPhone = null, double? Latitude = null, double? Longitude = null);
+    string? RequesterLastName = null, string? RequesterPhone = null, string? ReturnAddress = null,
+    double? Latitude = null, double? Longitude = null);
 public sealed record DashboardRentalExpiryViewModel(Guid ProductUnitId, string KitName, string SerialNumber,
     string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
 public sealed record ProductUnitViewModel(Guid Id, Guid ProductModelId, string SerialNumber, string QrCode, int Status);
@@ -95,7 +96,7 @@ public sealed record OrderViewModel(Guid Id, string OrderNumber, Guid CustomerId
 public sealed record PeriodViewModel(DateOnly StartDate, DateOnly EndDate);
 public sealed record OrderLineViewModel(Guid Id, Guid ProductModelId, int Quantity);
 public sealed record FaultViewModel(Guid Id, string Number, Guid CustomerId, string CustomerName,
-    string ReporterName, string ReporterPhone, string Category, int Severity, string Description, int Status,
+    string ReporterName, string ReporterPhone, string ReporterAddress, string Category, int Severity, string Description, int Status,
     DateTimeOffset OpenedAt, int ApprovalStatus = 0);
 public sealed record FaultPageViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultViewModel> Items);
@@ -433,7 +434,7 @@ public sealed record PortalShipmentViewModel(int Type, string Carrier, string Tr
 public sealed record PortalFaultViewModel(Guid Id, string Number, Guid ProductUnitId, string KitName, string SerialNumber,
     string Category, int Severity, string Description, int Status, DateTimeOffset OpenedAt,
     IReadOnlyCollection<PortalFaultStatusViewModel> History, IReadOnlyCollection<PortalShipmentViewModel> Shipments,
-    string ReporterName = "", string ReporterPhone = "", int ApprovalStatus = 0);
+    string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "", int ApprovalStatus = 0);
 public sealed record PublicFaultKitViewModel(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
 public sealed record PublicKitActionViewModel(string QrCode, string KitName, string SerialNumber);
 public sealed record PublicFaultTroubleshootingViewModel(string QrCode, string KitName, string SerialNumber,
@@ -448,6 +449,7 @@ public sealed class PublicFaultFormViewModel
     public string SerialNumber { get; set; } = string.Empty;
     [Required, StringLength(160), Display(Name = "Ad soyad")] public string ReporterName { get; set; } = string.Empty;
     [Required, Phone, StringLength(40), Display(Name = "Telefon numarası")] public string ReporterPhone { get; set; } = string.Empty;
+    [Required, StringLength(1000), Display(Name = "Adres")] public string ReporterAddress { get; set; } = string.Empty;
     [Required, StringLength(4000, MinimumLength = 10), Display(Name = "Arıza nedeni")]
     public string Description { get; set; } = string.Empty;
 }
@@ -459,8 +461,9 @@ public sealed class PublicReturnFormViewModel
     [Required, StringLength(100), Display(Name = "Ad")] public string RequesterFirstName { get; set; } = string.Empty;
     [Required, StringLength(100), Display(Name = "Soyad")] public string RequesterLastName { get; set; } = string.Empty;
     [Required, Phone, StringLength(40), Display(Name = "Telefon numarasÄ±")] public string RequesterPhone { get; set; } = string.Empty;
-    [Required, Range(-90, 90), Display(Name = "Enlem")] public double? Latitude { get; set; }
-    [Required, Range(-180, 180), Display(Name = "Boylam")] public double? Longitude { get; set; }
+    [Required, StringLength(1000), Display(Name = "Adres")] public string ReturnAddress { get; set; } = string.Empty;
+    [Range(-90, 90), Display(Name = "Enlem")] public double? Latitude { get; set; }
+    [Range(-180, 180), Display(Name = "Boylam")] public double? Longitude { get; set; }
 }
 public sealed record CustomerPortalViewModel(string CustomerName, string CustomerEmail, int ActiveKitCount,
     int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, IReadOnlyCollection<PortalKitViewModel> Kits,
@@ -471,7 +474,8 @@ public sealed record PortalKitReturnItemViewModel(Guid AssignmentId, Guid Produc
     string KitName, string SerialNumber);
 public sealed record PortalKitReturnViewModel(Guid Id, Guid CustomerId, string CustomerName, int Status,
     string? Carrier, string? TrackingNumber, DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt,
-    string? RequesterFirstName, string? RequesterLastName, string? RequesterPhone, double? Latitude, double? Longitude,
+    string? RequesterFirstName, string? RequesterLastName, string? RequesterPhone, string? ReturnAddress,
+    double? Latitude, double? Longitude,
     IReadOnlyCollection<PortalKitReturnItemViewModel> Items);
 public sealed class PortalRentalRequestViewModel
 {

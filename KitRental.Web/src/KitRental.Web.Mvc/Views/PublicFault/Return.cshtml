@@ -4,7 +4,7 @@
     <section class="public-fault-card">
         <span class="eyebrow">KIT IADESI</span>
         <h1>Iade talebi baslat</h1>
-        <p class="block-muted">Iade talebiniz operasyon ekibinin ekranina duser. Konumunuzu isaretlemeden form gonderilemez.</p>
+        <p class="block-muted">Iade talebiniz operasyon ekibinin ekranina duser. Adresi yazabilir, isterseniz ek olarak konumunuzu paylasabilirsiniz.</p>
         <div class="public-kit-summary"><span>Okutulan urun</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
         <form method="post" class="public-fault-form" id="public-return-form">
             <input asp-for="QrCode" type="hidden" />
@@ -16,9 +16,10 @@
                 <div class="field"><label asp-for="RequesterLastName"></label><input asp-for="RequesterLastName" autocomplete="family-name" placeholder="Soyadiniz" /><span asp-validation-for="RequesterLastName" class="error"></span></div>
             </div>
             <div class="field"><label asp-for="RequesterPhone"></label><input asp-for="RequesterPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="05xx xxx xx xx" /><span asp-validation-for="RequesterPhone" class="error"></span></div>
+            <div class="field"><label asp-for="ReturnAddress"></label><textarea asp-for="ReturnAddress" rows="3" autocomplete="street-address" placeholder="Kargo alinacak acik adresi yazin."></textarea><span asp-validation-for="ReturnAddress" class="error"></span></div>
             <div class="public-location-box">
-                <button class="secondary-action" id="use-location" type="button">Konumumu isaretle</button>
-                <span id="location-status">Konum bekleniyor.</span>
+                <button class="secondary-action" id="use-location" type="button">Konumumu ekle</button>
+                <span id="location-status">Konum eklemek istege baglidir.</span>
                 <span asp-validation-for="Latitude" class="error"></span>
                 <span asp-validation-for="Longitude" class="error"></span>
             </div>
@@ -50,19 +51,11 @@
             latitude.value = position.coords.latitude.toFixed(6);
             longitude.value = position.coords.longitude.toFixed(6);
             setStatus(`Konum isaretlendi: ${latitude.value}, ${longitude.value}`);
-        }, () => setStatus("Konum izni alinmadi. Iade talebi icin konum zorunludur.", true), {
+        }, () => setStatus("Konum izni alinmadi. Adresle devam edebilirsiniz.", true), {
             enableHighAccuracy: true,
             timeout: 15000,
             maximumAge: 60000
         });
-    });
-
-    form?.addEventListener("submit", event => {
-        if (!latitude.value || !longitude.value) {
-            event.preventDefault();
-            setStatus("Iade talebi icin once konumunuzu isaretleyin.", true);
-            button?.focus();
-        }
     });
 })();
 </script>

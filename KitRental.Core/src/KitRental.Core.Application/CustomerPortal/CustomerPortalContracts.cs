@@ -24,7 +24,7 @@ public sealed record PortalShipmentResponse(ShipmentType Type, string Carrier, s
 public sealed record PortalFaultResponse(Guid Id, string Number, Guid ProductUnitId, string KitName, string SerialNumber,
     string Category, FaultSeverity Severity, string Description, FaultStatus Status, DateTimeOffset OpenedAt,
     IReadOnlyCollection<PortalFaultStatusResponse> History, IReadOnlyCollection<PortalShipmentResponse> Shipments,
-    string ReporterName = "", string ReporterPhone = "",
+    string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "",
     FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired);
 public sealed record CustomerPortalResponse(string CustomerName, string CustomerEmail, int ActiveKitCount,
     int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, IReadOnlyCollection<PortalKitResponse> Kits,
@@ -35,7 +35,8 @@ public sealed record PortalKitReturnItemResponse(Guid AssignmentId, Guid Product
     string KitName, string SerialNumber);
 public sealed record PortalKitReturnResponse(Guid Id, Guid CustomerId, string CustomerName, KitReturnStatus Status,
     string? Carrier, string? TrackingNumber, DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt,
-    string? RequesterFirstName, string? RequesterLastName, string? RequesterPhone, double? Latitude, double? Longitude,
+    string? RequesterFirstName, string? RequesterLastName, string? RequesterPhone, string? ReturnAddress,
+    double? Latitude, double? Longitude,
     IReadOnlyCollection<PortalKitReturnItemResponse> Items);
 
 public sealed record CreatePortalRentalRequestCommand(Guid CustomerId, Guid AddressId, DateOnly StartDate,
@@ -45,4 +46,4 @@ public sealed record OpenPortalFaultCommand(Guid CustomerId, Guid AssignmentId, 
     FaultSeverity Severity, string Description, Guid ActorId);
 public sealed record ConfirmPortalOrderDeliveryCommand(Guid CustomerId, Guid OrderId, Guid ActorId);
 public sealed record CreatePublicKitReturnCommand(string QrCode, string RequesterFirstName, string RequesterLastName,
-    string RequesterPhone, double Latitude, double Longitude);
+    string RequesterPhone, string ReturnAddress, double? Latitude, double? Longitude);

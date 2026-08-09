@@ -49,7 +49,7 @@ else
     {
         <tr>
             <td><strong>@item.Number</strong><small class="block-muted">@item.OpenedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></td>
-            <td><strong>@item.ReporterName</strong><a class="fault-phone" href="tel:@item.ReporterPhone">@item.ReporterPhone</a><small class="block-muted">@item.CustomerName</small></td>
+            <td><strong>@item.ReporterName</strong><a class="fault-phone" href="tel:@item.ReporterPhone">@item.ReporterPhone</a><small class="block-muted">@item.ReporterAddress</small><small class="block-muted">@item.CustomerName</small></td>
             <td><span class="fault-category">@item.Category</span><p>@item.Description</p></td>
             <td><span class="fault-severity severity-@item.Severity">@SeverityName(item.Severity)</span></td>
             <td><span class="fault-stage status-@item.Status">@StatusName(item.Status)</span></td>

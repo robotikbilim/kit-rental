@@ -91,7 +91,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var request = KitReturnRequest.CreatePublic(Guid.NewGuid(), assignment.CustomerId, now, PublicActorId,
             [new KitReturnItem(Guid.NewGuid(), assignment.Id, assignment.ProductUnitId, order.Id)],
             command.RequesterFirstName, command.RequesterLastName, command.RequesterPhone,
-            command.Latitude, command.Longitude);
+            command.ReturnAddress, command.Latitude, command.Longitude);
         await repository.AddKitReturnRequestAsync(request, cancellationToken);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), PublicActorId,
             nameof(KitReturnRequest), request.Id, "PublicReturnRequested", null,
@@ -142,7 +142,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 customers.TryGetValue(request.CustomerId, out var customer) ? customer.Name : "Müşteri",
                 request.Status, request.Carrier, request.TrackingNumber, request.CreatedAt, request.ShippedAt,
                 request.RequesterFirstName, request.RequesterLastName, request.RequesterPhone,
-                request.Latitude, request.Longitude, items));
+                request.ReturnAddress, request.Latitude, request.Longitude, items));
         }
         return result;
     }
@@ -223,7 +223,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 unit?.SerialNumber ?? "-", ticket.Category, ticket.Severity, ticket.Description, ticket.Status,
                 ticket.OpenedAt, ticket.History.OrderBy(item => item.OccurredAt).Select(item =>
                     new PortalFaultStatusResponse(item.Previous, item.Current, item.OccurredAt, item.Note)).ToArray(), shipments,
-                ticket.ReporterName, ticket.ReporterPhone, ticket.ApprovalStatus));
+                ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress, ticket.ApprovalStatus));
         }
         return result.OrderByDescending(item => item.OpenedAt).ToArray();
     }

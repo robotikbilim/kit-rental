@@ -9,7 +9,7 @@
     <section class="label-grid">
         @foreach (var label in Model.Labels)
         {
-            var reportUrl = $"{Context.Request.Scheme}://{Context.Request.Host}{Url.Action("Report", "PublicFault", new { qrCode = label.QrCode })}";
+            var reportUrl = $"{Context.Request.Scheme}://{Context.Request.Host}{Url.Action("Index", "PublicFault", new { qrCode = label.QrCode })}";
             <article class="kit-label">
                 <img src="@Url.Action("Qr", new { value = reportUrl })" alt="@label.SerialNumber arıza bildirim QR kodu" />
                 <div class="kit-label-copy">

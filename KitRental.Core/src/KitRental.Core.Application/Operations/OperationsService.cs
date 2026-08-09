@@ -24,9 +24,10 @@ public sealed record CreateShipmentCommand(Guid OrderId, Guid? FaultTicketId, Sh
 public sealed record AddShipmentEventCommand(Guid ShipmentId, ShipmentStatus Status, DateTimeOffset OccurredAt, string Location, string Description, Guid ActorId);
 public sealed record OpenFaultCommand(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId,
     string Category, FaultSeverity Severity, string Description, Guid ActorId, string? ReporterName = null,
-    string? ReporterPhone = null);
+    string? ReporterPhone = null, string? ReporterAddress = null);
 public sealed record PublicFaultKitResponse(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
-public sealed record OpenPublicFaultCommand(string QrCode, string ReporterName, string ReporterPhone, string Description);
+public sealed record OpenPublicFaultCommand(string QrCode, string ReporterName, string ReporterPhone,
+    string ReporterAddress, string Description);
 public sealed record FaultGuideEntryResponse(Guid Id, string Title, string Problem, string Solution,
     int DisplayOrder, bool IsActive, DateTimeOffset UpdatedAt);
 public sealed record SaveFaultGuideEntryCommand(Guid? Id, string Title, string Problem, string Solution,
@@ -36,7 +37,7 @@ public sealed record CompleteInspectionCommand(Guid OrderId, Guid ProductUnitId,
 public sealed record FaultPageQuery(string? Query, FaultStatus? Status, FaultSeverity? Severity,
     DateOnly? OpenedFrom, DateOnly? OpenedTo, int Page = 1, int PageSize = 20);
 public sealed record FaultListItemResponse(Guid Id, string Number, Guid CustomerId, string CustomerName,
-    string ReporterName, string ReporterPhone, string Category, FaultSeverity Severity, string Description,
+    string ReporterName, string ReporterPhone, string ReporterAddress, string Category, FaultSeverity Severity, string Description,
     FaultStatus Status, DateTimeOffset OpenedAt, FaultApprovalStatus ApprovalStatus);
 public sealed record FaultPageResponse(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultListItemResponse> Items);
@@ -73,7 +74,8 @@ public sealed record DashboardResponse(
     IReadOnlyCollection<DashboardRentalExpiryResponse> ExpiringRentalKits);
 public sealed record DashboardReturnResponse(Guid Id, string CustomerName, int Status, string? Carrier,
     string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount, string? RequesterFirstName = null,
-    string? RequesterLastName = null, string? RequesterPhone = null, double? Latitude = null, double? Longitude = null);
+    string? RequesterLastName = null, string? RequesterPhone = null, string? ReturnAddress = null,
+    double? Latitude = null, double? Longitude = null);
 public sealed record DashboardRentalExpiryResponse(Guid ProductUnitId, string KitName, string SerialNumber,
     string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
 
@@ -538,7 +540,7 @@ public sealed class OperationsService(
         var ticket = FaultTicket.Open(
             Guid.NewGuid(), $"FLT-{now:yyyyMMdd}-{Guid.NewGuid():N}"[..21], command.CustomerId, command.OrderId,
             command.AssignmentId, command.ProductUnitId, command.Category, command.Severity, command.Description, now,
-            command.ReporterName, command.ReporterPhone);
+            command.ReporterName, command.ReporterPhone, command.ReporterAddress);
         await repository.AddFaultTicketAsync(ticket, cancellationToken);
         await AuditAsync(command.ActorId, nameof(FaultTicket), ticket.Id, "Opened", null, ticket.Status.ToString(), cancellationToken);
         return ticket;
@@ -573,7 +575,8 @@ public sealed class OperationsService(
             ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
         return await OpenFaultAsync(new OpenFaultCommand(assignment.CustomerId, order.Id, assignment.Id, unit.Id,
             "Son kullanici bildirimi", FaultSeverity.Medium, command.Description,
-            new Guid("00000000-0000-0000-0000-000000000001"), command.ReporterName, command.ReporterPhone),
+            new Guid("00000000-0000-0000-0000-000000000001"), command.ReporterName, command.ReporterPhone,
+            command.ReporterAddress),
             cancellationToken);
     }
 
@@ -637,8 +640,11 @@ public sealed class OperationsService(
             var reporterPhone = !string.IsNullOrWhiteSpace(ticket.ReporterPhone) ? ticket.ReporterPhone : order?.DeliveryAddress.Phone
                 ?? customer?.Addresses.FirstOrDefault()?.Phone
                 ?? "-";
+            var reporterAddress = !string.IsNullOrWhiteSpace(ticket.ReporterAddress) ? ticket.ReporterAddress : order?.DeliveryAddress.Line1
+                ?? customer?.Addresses.FirstOrDefault()?.Line1
+                ?? "-";
             return new FaultListItemResponse(ticket.Id, ticket.Number, ticket.CustomerId,
-                customer?.Name ?? "Müşteri", reporterName, reporterPhone, ticket.Category, ticket.Severity,
+                customer?.Name ?? "Müşteri", reporterName, reporterPhone, reporterAddress, ticket.Category, ticket.Severity,
                 ticket.Description, ticket.Status, ticket.OpenedAt, ticket.ApprovalStatus);
         });
 
@@ -652,6 +658,7 @@ public sealed class OperationsService(
                 item.CustomerName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                 item.ReporterName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                 item.ReporterPhone.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                item.ReporterAddress.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                 item.Category.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                 item.Description.Contains(term, StringComparison.OrdinalIgnoreCase));
         }
@@ -763,7 +770,7 @@ public sealed class OperationsService(
             returns.Where(x => x.Status != KitReturnStatus.Received).Select(x => new DashboardReturnResponse(
                 x.Id, customerLookup.TryGetValue(x.CustomerId, out var customer) ? customer.Name : "Müşteri",
                 (int)x.Status, x.Carrier, x.TrackingNumber, x.CreatedAt, x.Items.Count,
-                x.RequesterFirstName, x.RequesterLastName, x.RequesterPhone, x.Latitude, x.Longitude)).ToArray(),
+                x.RequesterFirstName, x.RequesterLastName, x.RequesterPhone, x.ReturnAddress, x.Latitude, x.Longitude)).ToArray(),
             rentalExpiryItems.Where(x => x.DaysRemaining < 0).OrderBy(x => x.DaysRemaining).ToArray(),
             rentalExpiryItems.Where(x => x.DaysRemaining is >= 0 and <= 7).OrderBy(x => x.DaysRemaining).ToArray());
     }

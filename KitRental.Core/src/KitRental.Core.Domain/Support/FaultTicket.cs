@@ -13,11 +13,12 @@ public sealed class FaultTicket
     private FaultTicket() { }
     private FaultTicket(Guid id, string number, Guid customerId, Guid orderId, Guid assignmentId, Guid productUnitId,
         string category, FaultSeverity severity, string description, DateTimeOffset openedAt, string reporterName,
-        string reporterPhone)
+        string reporterPhone, string reporterAddress)
     {
         Id = id; Number = number; CustomerId = customerId; OrderId = orderId; AssignmentId = assignmentId; ProductUnitId = productUnitId;
         Category = category; Severity = severity; Description = description; OpenedAt = openedAt; Status = FaultStatus.Open;
-        ReporterName = reporterName; ReporterPhone = reporterPhone; ApprovalStatus = FaultApprovalStatus.NotRequired;
+        ReporterName = reporterName; ReporterPhone = reporterPhone; ReporterAddress = reporterAddress;
+        ApprovalStatus = FaultApprovalStatus.NotRequired;
     }
 
     public Guid Id { get; private set; }
@@ -31,6 +32,7 @@ public sealed class FaultTicket
     public string Description { get; private set; } = string.Empty;
     public string ReporterName { get; private set; } = string.Empty;
     public string ReporterPhone { get; private set; } = string.Empty;
+    public string ReporterAddress { get; private set; } = string.Empty;
     public FaultApprovalStatus ApprovalStatus { get; private set; }
     public DateTimeOffset? ApprovedAt { get; private set; }
     public FaultStatus Status { get; private set; }
@@ -39,13 +41,13 @@ public sealed class FaultTicket
 
     public static FaultTicket Open(Guid id, string number, Guid customerId, Guid orderId, Guid assignmentId,
         Guid productUnitId, string category, FaultSeverity severity, string description, DateTimeOffset openedAt,
-        string? reporterName = null, string? reporterPhone = null)
+        string? reporterName = null, string? reporterPhone = null, string? reporterAddress = null)
     {
         if (new[] { id, customerId, orderId, assignmentId, productUnitId }.Any(value => value == Guid.Empty) || string.IsNullOrWhiteSpace(description))
             throw new DomainException("fault.required_fields", "Arıza için müşteri, sipariş, atama, ürün ve açıklama zorunludur.");
         return new FaultTicket(id, number, customerId, orderId, assignmentId, productUnitId, category.Trim(),
             severity, description.Trim(), openedAt, reporterName?.Trim() ?? string.Empty,
-            reporterPhone?.Trim() ?? string.Empty);
+            reporterPhone?.Trim() ?? string.Empty, reporterAddress?.Trim() ?? string.Empty);
     }
 
     public void ChangeStatus(FaultStatus next, Guid actorId, DateTimeOffset now, string note)

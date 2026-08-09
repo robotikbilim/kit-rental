@@ -223,6 +223,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(ticket => ticket.Description).HasMaxLength(4000).IsRequired();
         builder.Property(ticket => ticket.ReporterName).HasMaxLength(160).IsRequired();
         builder.Property(ticket => ticket.ReporterPhone).HasMaxLength(40).IsRequired();
+        builder.Property(ticket => ticket.ReporterAddress).HasMaxLength(1000).IsRequired();
         builder.HasIndex(ticket => ticket.Number).IsUnique();
         builder.HasIndex(ticket => new { ticket.CustomerId, ticket.Status });
         builder.OwnsMany(ticket => ticket.History, history =>
@@ -361,6 +362,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(x => x.RequesterFirstName).HasMaxLength(100);
         builder.Property(x => x.RequesterLastName).HasMaxLength(100);
         builder.Property(x => x.RequesterPhone).HasMaxLength(40);
+        builder.Property(x => x.ReturnAddress).HasMaxLength(1000);
         builder.HasIndex(x => new { x.CustomerId, x.Status });
         builder.HasIndex(x => x.TrackingNumber).IsUnique().HasFilter("[TrackingNumber] IS NOT NULL");
         builder.OwnsMany(x => x.Items, items =>

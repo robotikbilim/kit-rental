@@ -383,7 +383,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<ApiCommandResult<object>> CreatePublicFaultAsync(PublicFaultFormViewModel model,
         CancellationToken cancellationToken) => PostAsync<object>("/core/api/public/faults", new
         {
-            model.QrCode, model.ReporterName, model.ReporterPhone, model.Description
+            model.QrCode, model.ReporterName, model.ReporterPhone, model.ReporterAddress, model.Description
         }, cancellationToken);
 
     public Task<ApiCommandResult<PortalKitReturnViewModel>> CreatePublicReturnAsync(PublicReturnFormViewModel model,
@@ -393,6 +393,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.RequesterFirstName,
             model.RequesterLastName,
             model.RequesterPhone,
+            model.ReturnAddress,
             model.Latitude,
             model.Longitude
         }, cancellationToken);
