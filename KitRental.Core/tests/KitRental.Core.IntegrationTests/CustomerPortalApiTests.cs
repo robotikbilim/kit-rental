@@ -222,6 +222,13 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         var detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
             $"/api/physical-kits/{unit.Id}", cancellationToken);
+        Assert.Equal("Ece Yilmaz", detail!.CurrentLocation!.RecipientName);
+        Assert.Equal("Ataturk Caddesi 12", detail.CurrentLocation.AddressLine);
+        Assert.Equal("Besiktas", detail.CurrentLocation.District);
+        Assert.Equal("Istanbul", detail.CurrentLocation.City);
+        var rentalHistory = Assert.Single(detail.RentalHistory);
+        Assert.Equal("Ece Yilmaz", rentalHistory.RecipientName);
+        Assert.Equal("Ataturk Caddesi 12", rentalHistory.AddressLine);
         Assert.Contains(detail!.StatusHistory, item =>
             item.NewStatus == ProductUnitStatus.WithCustomer &&
             item.Reason.Contains("Ece Yilmaz", StringComparison.OrdinalIgnoreCase) &&

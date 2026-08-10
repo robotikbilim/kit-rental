@@ -257,10 +257,13 @@ public sealed record PhysicalKitUnitPageViewModel(Guid ProductModelId, string Ki
 public sealed record PhysicalKitStatusEventViewModel(int? PreviousStatus, int NewStatus, DateTimeOffset OccurredAt, string Reason);
 public sealed record PhysicalKitRentalHistoryViewModel(Guid AssignmentId, string OrderNumber, int OrderStatus,
     int AssignmentStatus, string CustomerName, string CustomerEmail, string Address, DateOnly StartDate,
-    DateOnly EndDate, DateTimeOffset CreatedAt);
+    DateOnly EndDate, DateTimeOffset CreatedAt, string RecipientName, string Phone, string AddressLine,
+    string District, string City, DateTimeOffset? DeliveredAt, double? Latitude, double? Longitude);
 public sealed record PhysicalKitFaultHistoryViewModel(string Number, string Category, int Severity, int Status,
     string Description, DateTimeOffset OpenedAt, IReadOnlyCollection<string> StatusNotes);
-public sealed record PhysicalKitDetailViewModel(PhysicalKitListItemViewModel Kit,
+public sealed record PhysicalKitLocationViewModel(string RecipientName, string Phone, string AddressLine,
+    string District, string City, DateTimeOffset? DeliveredAt, double? Latitude, double? Longitude);
+public sealed record PhysicalKitDetailViewModel(PhysicalKitListItemViewModel Kit, PhysicalKitLocationViewModel? CurrentLocation,
     IReadOnlyCollection<PhysicalKitRentalHistoryViewModel> RentalHistory,
     IReadOnlyCollection<PhysicalKitFaultHistoryViewModel> FaultHistory,
     IReadOnlyCollection<PhysicalKitStatusEventViewModel> StatusHistory);
@@ -270,7 +273,7 @@ public sealed record PhysicalKitLookupPageViewModel(string Identifier, bool HasS
 public sealed class CreatePhysicalKitViewModel
 {
     [Required, Display(Name = "Eğitim kiti")] public Guid ProductModelId { get; set; }
-    [Range(1, 200), Display(Name = "Oluşturulacak kit adedi")] public int Quantity { get; set; } = 1;
+    [Range(1, int.MaxValue), Display(Name = "Oluşturulacak kit adedi")] public int Quantity { get; set; } = 1;
 }
 public sealed record CreatePhysicalKitPageViewModel(CreatePhysicalKitViewModel Form,
     IReadOnlyCollection<ProductModelCatalogViewModel> KitModels);
@@ -486,8 +489,8 @@ public sealed class PublicDeliveryFormViewModel
     [Required, StringLength(100), Display(Name = "Ad")] public string RecipientFirstName { get; set; } = string.Empty;
     [Required, StringLength(100), Display(Name = "Soyad")] public string RecipientLastName { get; set; } = string.Empty;
     [Required, Phone, StringLength(40), Display(Name = "Telefon numarası")] public string RecipientPhone { get; set; } = string.Empty;
-    [Required, StringLength(120), Display(Name = "İl")] public string City { get; set; } = string.Empty;
-    [Required, StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
+    [StringLength(120), Display(Name = "İl")] public string City { get; set; } = string.Empty;
+    [StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
     [Required, StringLength(1000), Display(Name = "Adres")] public string AddressLine { get; set; } = string.Empty;
     [Range(-90, 90), Display(Name = "Enlem")] public double? Latitude { get; set; }
     [Range(-180, 180), Display(Name = "Boylam")] public double? Longitude { get; set; }
@@ -508,7 +511,7 @@ public sealed record PortalKitReturnViewModel(Guid Id, Guid CustomerId, string C
 public sealed class PortalRentalLineInputViewModel
 {
     [Required, Display(Name = "Eğitim kiti")] public Guid ProductModelId { get; set; }
-    [Range(1, 100), Display(Name = "Adet")] public int Quantity { get; set; } = 1;
+    [Range(1, int.MaxValue), Display(Name = "Adet")] public int Quantity { get; set; } = 1;
 }
 public sealed class PortalFaultRequestViewModel
 {

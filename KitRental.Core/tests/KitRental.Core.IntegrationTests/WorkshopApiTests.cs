@@ -150,9 +150,9 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Equal(10, page.Items.Count);
         Assert.Equal(23, labels!.Length);
 
-        var invalid = await _client.PostAsJsonAsync("/api/product-units/bulk",
+        var additionalUnits = await PostAsync<ProductUnitResponse[]>("/api/product-units/bulk",
             new { ProductModelId = model.Id, Quantity = 201 }, cancellationToken);
-        Assert.Equal(System.Net.HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.Equal(201, additionalUnits.Length);
     }
 
     [Fact]

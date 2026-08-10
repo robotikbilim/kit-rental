@@ -277,8 +277,6 @@ public sealed class OperationsService(
             .ToArray();
         if (lines.Length == 0)
             throw new ConflictException("order.lines_required", "En az bir kit ve adet seçilmelidir.");
-        if (lines.Sum(line => line.Quantity) > 200)
-            throw new ConflictException("order.kit_limit_exceeded", "Tek siparişte en fazla 200 fiziksel kit oluşturulabilir.");
         var models = new Dictionary<Guid, ProductModel>();
         foreach (var requestedLine in lines)
         {
@@ -602,10 +600,12 @@ public sealed class OperationsService(
         var now = timeProvider.GetUtcNow();
         var actorId = new Guid("00000000-0000-0000-0000-000000000001");
         var recipientName = $"{command.RecipientFirstName.Trim()} {command.RecipientLastName.Trim()}";
-        var fullAddress = $"{command.AddressLine.Trim()}, {command.District.Trim()} / {command.City.Trim()}";
+        var city = string.IsNullOrWhiteSpace(command.City) ? "Bilinmiyor" : command.City.Trim();
+        var district = string.IsNullOrWhiteSpace(command.District) ? "Bilinmiyor" : command.District.Trim();
+        var fullAddress = $"{command.AddressLine.Trim()}, {district} / {city}";
         var receipt = KitDeliveryReceipt.Create(Guid.NewGuid(), unit.Id, assignment.Id, order.Id,
             assignment.CustomerId, command.RecipientFirstName, command.RecipientLastName, command.RecipientPhone,
-            command.AddressLine, command.District, command.City, now, actorId, command.Latitude, command.Longitude);
+            command.AddressLine, district, city, now, actorId, command.Latitude, command.Longitude);
 
         unit.ConfirmDeliveryTo(actorId, now, recipientName, fullAddress);
         if (assignment.Status == RentalAssignmentStatus.Reserved) assignment.Activate();

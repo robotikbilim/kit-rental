@@ -18,12 +18,15 @@ public sealed record PhysicalKitUnitPageResponse(Guid ProductModelId, string Kit
     IReadOnlyCollection<PhysicalKitListItemResponse> Items);
 public sealed record PhysicalKitStatusEventResponse(ProductUnitStatus? PreviousStatus, ProductUnitStatus NewStatus,
     DateTimeOffset OccurredAt, string Reason);
+public sealed record PhysicalKitLocationResponse(string RecipientName, string Phone, string AddressLine,
+    string District, string City, DateTimeOffset? DeliveredAt, double? Latitude, double? Longitude);
 public sealed record PhysicalKitRentalHistoryResponse(Guid AssignmentId, string OrderNumber, RentalOrderStatus OrderStatus,
     RentalAssignmentStatus AssignmentStatus, string CustomerName, string CustomerEmail, string Address,
-    DateOnly StartDate, DateOnly EndDate, DateTimeOffset CreatedAt);
+    DateOnly StartDate, DateOnly EndDate, DateTimeOffset CreatedAt, string RecipientName, string Phone,
+    string AddressLine, string District, string City, DateTimeOffset? DeliveredAt, double? Latitude, double? Longitude);
 public sealed record PhysicalKitFaultHistoryResponse(string Number, string Category, FaultSeverity Severity,
     FaultStatus Status, string Description, DateTimeOffset OpenedAt, IReadOnlyCollection<string> StatusNotes);
-public sealed record PhysicalKitDetailResponse(PhysicalKitListItemResponse Kit,
+public sealed record PhysicalKitDetailResponse(PhysicalKitListItemResponse Kit, PhysicalKitLocationResponse? CurrentLocation,
     IReadOnlyCollection<PhysicalKitRentalHistoryResponse> RentalHistory,
     IReadOnlyCollection<PhysicalKitFaultHistoryResponse> FaultHistory,
     IReadOnlyCollection<PhysicalKitStatusEventResponse> StatusHistory);

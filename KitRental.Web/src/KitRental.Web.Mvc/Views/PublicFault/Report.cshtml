@@ -16,7 +16,7 @@
             <div class="field"><label asp-for="ReporterAddress"></label><textarea asp-for="ReporterAddress" rows="3" autocomplete="street-address" placeholder="Kitin bulundugu acik adresi yazin."></textarea><span asp-validation-for="ReporterAddress" class="error"></span></div>
             <div class="public-location-box">
                 <button class="secondary-action" id="use-location" type="button">Konumumu ekle</button>
-                <span id="location-status">Konum eklemek istege baglidir.</span>
+                <span id="location-status">Konum eklemek istege baglidir; adres girilirse koordinat otomatik denenir.</span>
                 <span asp-validation-for="Latitude" class="error"></span>
                 <span asp-validation-for="Longitude" class="error"></span>
             </div>

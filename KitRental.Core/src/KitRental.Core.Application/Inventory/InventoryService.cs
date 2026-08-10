@@ -106,8 +106,8 @@ public sealed class InventoryService(
         CreateProductUnitsCommand command,
         CancellationToken cancellationToken)
     {
-        if (command.Quantity is < 1 or > 200)
-            throw new DomainException("product_unit.quantity_invalid", "Tek işlemde 1 ile 200 arasında fiziksel kit oluşturulabilir.");
+        if (command.Quantity < 1)
+            throw new DomainException("product_unit.quantity_invalid", "En az 1 fiziksel kit olusturulabilir.");
         var model = await repository.GetProductModelAsync(command.ProductModelId, cancellationToken)
             ?? throw new ResourceNotFoundException("Ürün modeli bulunamadı.");
 

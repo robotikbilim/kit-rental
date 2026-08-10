@@ -137,8 +137,6 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         model.Lines = model.Lines.Where(line => line.ProductModelId != Guid.Empty && line.Quantity > 0).ToList();
         if (model.Lines.Count == 0)
             ModelState.AddModelError(string.Empty, "En az bir eğitim kiti seçmelisiniz.");
-        if (model.Lines.Sum(line => line.Quantity) > 200)
-            ModelState.AddModelError(string.Empty, "Tek siparişte en fazla 200 fiziksel kit bulunabilir.");
         if (ModelState.IsValid)
         {
             var result = await apiClient.CreatePurchaseOrderAsync(model, cancellationToken);
@@ -249,8 +247,6 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         model.Lines = model.Lines.Where(line => line.ProductModelId != Guid.Empty && line.Quantity > 0).ToList();
         if (model.Lines.Count == 0)
             ModelState.AddModelError(string.Empty, "En az bir eğitim kiti seçmelisiniz.");
-        if (model.Lines.Sum(line => line.Quantity) > 200)
-            ModelState.AddModelError(string.Empty, "Tek siparişte en fazla 200 fiziksel kit oluşturulabilir.");
         if (ModelState.IsValid)
         {
             var result = await apiClient.CreateOrderKitsAsync(

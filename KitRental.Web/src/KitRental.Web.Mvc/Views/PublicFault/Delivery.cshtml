@@ -10,20 +10,18 @@
             <input asp-for="QrCode" type="hidden" />
             <input asp-for="Latitude" type="hidden" />
             <input asp-for="Longitude" type="hidden" />
+            <input asp-for="City" type="hidden" />
+            <input asp-for="District" type="hidden" />
             <div asp-validation-summary="ModelOnly" class="error"></div>
             <div class="public-return-name-grid">
                 <div class="field"><label asp-for="RecipientFirstName"></label><input asp-for="RecipientFirstName" autocomplete="given-name" placeholder="Adiniz" /><span asp-validation-for="RecipientFirstName" class="error"></span></div>
                 <div class="field"><label asp-for="RecipientLastName"></label><input asp-for="RecipientLastName" autocomplete="family-name" placeholder="Soyadiniz" /><span asp-validation-for="RecipientLastName" class="error"></span></div>
             </div>
             <div class="field"><label asp-for="RecipientPhone"></label><input asp-for="RecipientPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="05xx xxx xx xx" /><span asp-validation-for="RecipientPhone" class="error"></span></div>
-            <div class="public-return-name-grid">
-                <div class="field"><label asp-for="City"></label><input asp-for="City" autocomplete="address-level1" list="turkey-cities" placeholder="Il secin" /><span asp-validation-for="City" class="error"></span></div>
-                <div class="field"><label asp-for="District"></label><input asp-for="District" autocomplete="address-level2" placeholder="Ilce" /><span asp-validation-for="District" class="error"></span></div>
-            </div>
             <div class="field"><label asp-for="AddressLine"></label><textarea asp-for="AddressLine" rows="3" autocomplete="street-address" placeholder="Kitin teslim edildigi acik adres"></textarea><span asp-validation-for="AddressLine" class="error"></span></div>
             <div class="public-location-box">
                 <button class="secondary-action" id="use-location" type="button">Konumumu ekle</button>
-                <span id="location-status">Konum eklemek istege baglidir.</span>
+                <span id="location-status">Konum eklemek istege baglidir; adres girilirse koordinat otomatik denenir.</span>
                 <span asp-validation-for="Latitude" class="error"></span>
                 <span asp-validation-for="Longitude" class="error"></span>
             </div>
@@ -31,7 +29,4 @@
         </form>
     </section>
 </div>
-<datalist id="turkey-cities">
-    <option value="Adana"></option><option value="Adiyaman"></option><option value="Afyonkarahisar"></option><option value="Agri"></option><option value="Aksaray"></option><option value="Amasya"></option><option value="Ankara"></option><option value="Antalya"></option><option value="Ardahan"></option><option value="Artvin"></option><option value="Aydin"></option><option value="Balikesir"></option><option value="Bartin"></option><option value="Batman"></option><option value="Bayburt"></option><option value="Bilecik"></option><option value="Bingol"></option><option value="Bitlis"></option><option value="Bolu"></option><option value="Burdur"></option><option value="Bursa"></option><option value="Canakkale"></option><option value="Cankiri"></option><option value="Corum"></option><option value="Denizli"></option><option value="Diyarbakir"></option><option value="Duzce"></option><option value="Edirne"></option><option value="Elazig"></option><option value="Erzincan"></option><option value="Erzurum"></option><option value="Eskisehir"></option><option value="Gaziantep"></option><option value="Giresun"></option><option value="Gumushane"></option><option value="Hakkari"></option><option value="Hatay"></option><option value="Igdir"></option><option value="Isparta"></option><option value="Istanbul"></option><option value="Izmir"></option><option value="Kahramanmaras"></option><option value="Karabuk"></option><option value="Karaman"></option><option value="Kars"></option><option value="Kastamonu"></option><option value="Kayseri"></option><option value="Kilis"></option><option value="Kirikkale"></option><option value="Kirklareli"></option><option value="Kirsehir"></option><option value="Kocaeli"></option><option value="Konya"></option><option value="Kutahya"></option><option value="Malatya"></option><option value="Manisa"></option><option value="Mardin"></option><option value="Mersin"></option><option value="Mugla"></option><option value="Mus"></option><option value="Nevsehir"></option><option value="Nigde"></option><option value="Ordu"></option><option value="Osmaniye"></option><option value="Rize"></option><option value="Sakarya"></option><option value="Samsun"></option><option value="Sanliurfa"></option><option value="Siirt"></option><option value="Sinop"></option><option value="Sirnak"></option><option value="Sivas"></option><option value="Tekirdag"></option><option value="Tokat"></option><option value="Trabzon"></option><option value="Tunceli"></option><option value="Usak"></option><option value="Van"></option><option value="Yalova"></option><option value="Yozgat"></option><option value="Zonguldak"></option>
-</datalist>
 <script src="~/js/public-location.js" asp-append-version="true"></script>
