@@ -115,7 +115,7 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
             var location = receipt is null
                 ? new PhysicalKitLocationResponse(address.ContactName, address.Phone, address.Line1,
                     address.District, address.City, null, null, null)
-                : new PhysicalKitLocationResponse(receipt.RecipientFullName, receipt.RecipientPhone,
+                : new PhysicalKitLocationResponse(receipt.RecipientName, receipt.RecipientPhone,
                     receipt.AddressLine, receipt.District, receipt.City, receipt.ReceivedAt,
                     receipt.Latitude, receipt.Longitude);
             if (assignment.Status is RentalAssignmentStatus.Active or RentalAssignmentStatus.Reserved &&

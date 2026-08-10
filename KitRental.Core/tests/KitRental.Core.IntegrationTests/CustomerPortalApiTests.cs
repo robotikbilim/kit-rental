@@ -136,7 +136,8 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
                 today.AddDays(-1), today.AddDays(30)), cancellationToken);
 
         var fault = await publicClient.PostAsJsonAsync("/api/public/faults", new PublicFaultRequest(
-            unit.QrCode, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", "Kit acildiginda sensor okumasi yapmiyor."), cancellationToken);
+            null, unit.QrCode, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul",
+            "Kit acildiginda sensor okumasi yapmiyor."), cancellationToken);
         fault.EnsureSuccessStatusCode();
         var createdFault = (await fault.Content.ReadFromJsonAsync<CreatedFaultResponse>(cancellationToken))!;
         var faultPage = await admin.GetFromJsonAsync<FaultPageResponse>(
@@ -146,19 +147,18 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal(FaultStatus.Open, listedFault.Status);
 
         var createdReturn = await PostAsync<PublicReturnResponse>(publicClient, "/api/public/returns",
-            new PublicKitReturnRequest(unit.QrCode, "Ayse", "Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", null, null),
+            new PublicKitReturnRequest(unit.QrCode, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", null, null),
             cancellationToken);
         Assert.Equal(KitReturnStatus.Requested, createdReturn.Status);
 
         var duplicateReturn = await publicClient.PostAsJsonAsync("/api/public/returns",
-            new PublicKitReturnRequest(unit.QrCode, "Ayse", "Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345),
+            new PublicKitReturnRequest(unit.QrCode, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345),
             cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, duplicateReturn.StatusCode);
 
         var dashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
         var dashboardReturn = Assert.Single(dashboard!.ReturnsInProgress, item => item.Id == createdReturn.Id);
-        Assert.Equal("Ayse", dashboardReturn.RequesterFirstName);
-        Assert.Equal("Test", dashboardReturn.RequesterLastName);
+        Assert.Equal("Ayse Test", dashboardReturn.RequesterName);
         Assert.Equal("05321112233", dashboardReturn.RequesterPhone);
         Assert.Equal("Test Sokak 10 Kadikoy Istanbul", dashboardReturn.ReturnAddress);
         Assert.Null(dashboardReturn.Latitude);
@@ -169,10 +169,11 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             new CreateProductUnitRequest(model.Id, $"PQR-FREE-{Guid.NewGuid():N}", $"PQR-FREE-QR-{Guid.NewGuid():N}"),
             cancellationToken);
         var unavailableFault = await publicClient.PostAsJsonAsync("/api/public/faults", new PublicFaultRequest(
-            availableUnit.QrCode, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", "Aktif kiralamasi olmayan kit."), cancellationToken);
+            null, availableUnit.QrCode, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul",
+            "Aktif kiralamasi olmayan kit."), cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, unavailableFault.StatusCode);
         var unavailableReturn = await publicClient.PostAsJsonAsync("/api/public/returns",
-            new PublicKitReturnRequest(availableUnit.QrCode, "Ayse", "Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345),
+            new PublicKitReturnRequest(availableUnit.QrCode, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345),
             cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, unavailableReturn.StatusCode);
     }
@@ -207,7 +208,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             new OrderTransitionRequest(RentalOrderStatus.OutboundInTransit), cancellationToken);
 
         var receipt = await PostAsync<PublicDeliveryResponse>(publicClient, "/api/public/deliveries",
-            new PublicKitDeliveryRequest(unit.QrCode, "Ece", "Yilmaz", "05325550000",
+            new PublicKitDeliveryRequest(unit.QrCode, "Ece Yilmaz", "05325550000",
                 "Ataturk Caddesi 12", "Besiktas", "Istanbul", 41.0438, 29.0094), cancellationToken);
         Assert.Equal(unit.Id, receipt.ProductUnitId);
         Assert.Equal(prepared.Kits.Single().AssignmentId, receipt.AssignmentId);

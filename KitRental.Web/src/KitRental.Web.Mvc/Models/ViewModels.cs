@@ -70,8 +70,8 @@ public sealed record DashboardViewModel(
     IReadOnlyCollection<DashboardRentalExpiryViewModel> ExpiringRentalKits,
     IReadOnlyCollection<DashboardKitLocationViewModel> KitLocations);
 public sealed record DashboardReturnViewModel(Guid Id, string CustomerName, int Status, string? Carrier,
-    string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount, string? RequesterFirstName = null,
-    string? RequesterLastName = null, string? RequesterPhone = null, string? ReturnAddress = null,
+    string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount, string? RequesterName = null,
+    string? RequesterPhone = null, string? ReturnAddress = null,
     double? Latitude = null, double? Longitude = null);
 public sealed record DashboardRentalExpiryViewModel(Guid ProductUnitId, string KitName, string SerialNumber,
     string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
@@ -458,6 +458,7 @@ public sealed record EmailDeliveryViewModel(Guid Id, string Recipient, string Re
     string Body, int Status, DateTimeOffset OccurredAt, string? Error);
 public sealed class PublicFaultFormViewModel
 {
+    public Guid? FaultId { get; set; }
     [Required] public string QrCode { get; set; } = string.Empty;
     public string KitName { get; set; } = string.Empty;
     public string SerialNumber { get; set; } = string.Empty;
@@ -469,25 +470,27 @@ public sealed class PublicFaultFormViewModel
     [Required, StringLength(4000, MinimumLength = 10), Display(Name = "Ariza nedeni")]
     public string Description { get; set; } = string.Empty;
 }
+public sealed record PublicFaultContextViewModel(Guid? FaultId, string? ReporterName, string? ReporterPhone,
+    string? ReporterAddress, string? Category, string? Description, double? Latitude, double? Longitude);
 public sealed class PublicReturnFormViewModel
 {
     [Required] public string QrCode { get; set; } = string.Empty;
     public string KitName { get; set; } = string.Empty;
     public string SerialNumber { get; set; } = string.Empty;
-    [Required, StringLength(100), Display(Name = "Ad")] public string RequesterFirstName { get; set; } = string.Empty;
-    [Required, StringLength(100), Display(Name = "Soyad")] public string RequesterLastName { get; set; } = string.Empty;
+    [Required, StringLength(160), Display(Name = "Ad soyad")] public string RequesterName { get; set; } = string.Empty;
     [Required, Phone, StringLength(40), Display(Name = "Telefon numarasÄ±")] public string RequesterPhone { get; set; } = string.Empty;
     [Required, StringLength(1000), Display(Name = "Adres")] public string ReturnAddress { get; set; } = string.Empty;
     [Range(-90, 90), Display(Name = "Enlem")] public double? Latitude { get; set; }
     [Range(-180, 180), Display(Name = "Boylam")] public double? Longitude { get; set; }
 }
+public sealed record PublicKitDeliveryContextViewModel(string? RecipientName, string? RecipientPhone,
+    string? AddressLine, string? District, string? City, double? Latitude, double? Longitude);
 public sealed class PublicDeliveryFormViewModel
 {
     [Required] public string QrCode { get; set; } = string.Empty;
     public string KitName { get; set; } = string.Empty;
     public string SerialNumber { get; set; } = string.Empty;
-    [Required, StringLength(100), Display(Name = "Ad")] public string RecipientFirstName { get; set; } = string.Empty;
-    [Required, StringLength(100), Display(Name = "Soyad")] public string RecipientLastName { get; set; } = string.Empty;
+    [Required, StringLength(160), Display(Name = "Ad soyad")] public string RecipientName { get; set; } = string.Empty;
     [Required, Phone, StringLength(40), Display(Name = "Telefon numarası")] public string RecipientPhone { get; set; } = string.Empty;
     [StringLength(120), Display(Name = "İl")] public string City { get; set; } = string.Empty;
     [StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
@@ -505,7 +508,7 @@ public sealed record PortalKitReturnItemViewModel(Guid AssignmentId, Guid Produc
     string KitName, string SerialNumber);
 public sealed record PortalKitReturnViewModel(Guid Id, Guid CustomerId, string CustomerName, int Status,
     string? Carrier, string? TrackingNumber, DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt,
-    string? RequesterFirstName, string? RequesterLastName, string? RequesterPhone, string? ReturnAddress,
+    string? RequesterName, string? RequesterPhone, string? ReturnAddress,
     double? Latitude, double? Longitude,
     IReadOnlyCollection<PortalKitReturnItemViewModel> Items);
 public sealed class PortalRentalLineInputViewModel

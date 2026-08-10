@@ -57,7 +57,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                     if (deliveryReceipts.TryGetValue(unit.Id, out var receipt))
                     {
                         kitLocations.Add(new PortalKitLocationResponse(unit.Id, model.Name, unit.SerialNumber,
-                            receipt.RecipientFullName, receipt.AddressLine, receipt.District, receipt.City,
+                            receipt.RecipientName, receipt.AddressLine, receipt.District, receipt.City,
                             receipt.Latitude, receipt.Longitude));
                     }
                     else
@@ -112,12 +112,12 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var now = DateTimeOffset.UtcNow;
         var request = KitReturnRequest.CreatePublic(Guid.NewGuid(), assignment.CustomerId, now, PublicActorId,
             [new KitReturnItem(Guid.NewGuid(), assignment.Id, assignment.ProductUnitId, order.Id)],
-            command.RequesterFirstName, command.RequesterLastName, command.RequesterPhone,
+            command.RequesterName, command.RequesterPhone,
             command.ReturnAddress, command.Latitude, command.Longitude);
         await repository.AddKitReturnRequestAsync(request, cancellationToken);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), PublicActorId,
             nameof(KitReturnRequest), request.Id, "PublicReturnRequested", null,
-            $"{command.RequesterFirstName.Trim()} {command.RequesterLastName.Trim()}", now), cancellationToken);
+            command.RequesterName.Trim(), now), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return request;
     }
@@ -163,7 +163,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             result.Add(new PortalKitReturnResponse(request.Id, request.CustomerId,
                 customers.TryGetValue(request.CustomerId, out var customer) ? customer.Name : "Müşteri",
                 request.Status, request.Carrier, request.TrackingNumber, request.CreatedAt, request.ShippedAt,
-                request.RequesterFirstName, request.RequesterLastName, request.RequesterPhone,
+                request.RequesterName, request.RequesterPhone,
                 request.ReturnAddress, request.Latitude, request.Longitude, items));
         }
         return result;

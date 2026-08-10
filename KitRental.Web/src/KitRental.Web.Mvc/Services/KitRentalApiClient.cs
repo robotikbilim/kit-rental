@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.IO;
 using Microsoft.AspNetCore.Authentication;
 using KitRental.Web.Mvc.Models;
 
@@ -376,9 +377,18 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<PublicFaultKitViewModel?> GetPublicFaultKitAsync(string qrCode, CancellationToken cancellationToken) =>
         GetAsync<PublicFaultKitViewModel>($"/core/api/public/faults/kit/{Uri.EscapeDataString(qrCode)}", cancellationToken);
 
+    public Task<PublicFaultContextViewModel?> GetPublicFaultContextAsync(string qrCode, CancellationToken cancellationToken) =>
+        GetAsync<PublicFaultContextViewModel>($"/core/api/public/faults/context/{Uri.EscapeDataString(qrCode)}", cancellationToken);
+
+    public Task<PublicKitDeliveryContextViewModel?> GetPublicKitDeliveryContextAsync(string qrCode,
+        CancellationToken cancellationToken) =>
+        GetAsync<PublicKitDeliveryContextViewModel>(
+            $"/core/api/public/deliveries/context/{Uri.EscapeDataString(qrCode)}", cancellationToken);
+
     public Task<ApiCommandResult<object>> CreatePublicFaultAsync(PublicFaultFormViewModel model,
         CancellationToken cancellationToken) => PostAsync<object>("/core/api/public/faults", new
         {
+            model.FaultId,
             model.QrCode, model.ReporterName, model.ReporterPhone, model.ReporterAddress, model.Description,
             model.Latitude, model.Longitude
         }, cancellationToken);
@@ -387,8 +397,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => PostAsync<PortalKitReturnViewModel>("/core/api/public/returns", new
         {
             model.QrCode,
-            model.RequesterFirstName,
-            model.RequesterLastName,
+            model.RequesterName,
             model.RequesterPhone,
             model.ReturnAddress,
             model.Latitude,
@@ -399,8 +408,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => PostAsync<object>("/core/api/public/deliveries", new
         {
             model.QrCode,
-            model.RecipientFirstName,
-            model.RecipientLastName,
+            model.RecipientName,
             model.RecipientPhone,
             model.AddressLine,
             model.District,

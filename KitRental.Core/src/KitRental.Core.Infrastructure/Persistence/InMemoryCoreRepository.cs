@@ -319,6 +319,17 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         lock (_gate) return Task.FromResult(_faultTickets.GetValueOrDefault(id));
     }
 
+    public Task<FaultTicket?> GetOpenFaultTicketAsync(Guid productUnitId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+            return Task.FromResult(_faultTickets.Values
+                .Where(ticket => ticket.ProductUnitId == productUnitId &&
+                    ticket.Status is not (FaultStatus.Resolved or FaultStatus.Closed))
+                .OrderByDescending(ticket => ticket.OpenedAt)
+                .FirstOrDefault());
+    }
+
     public Task<IReadOnlyCollection<FaultTicket>> GetFaultTicketsAsync(Guid? customerId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

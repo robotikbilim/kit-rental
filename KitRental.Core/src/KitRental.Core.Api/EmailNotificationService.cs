@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Mail;
+using System.IO;
 using System.Text;
 using System.Text.Encodings.Web;
 using KitRental.Core.Application.Abstractions;
@@ -93,7 +94,7 @@ public sealed class EmailNotificationService(
             }
             return await response.Content.ReadFromJsonAsync<EmailRecipient[]>(cancellationToken) ?? [];
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or IOException)
         {
             logger.LogWarning(exception, "Admin e-posta alıcıları Identity servisinden alınamadı.");
             return [];

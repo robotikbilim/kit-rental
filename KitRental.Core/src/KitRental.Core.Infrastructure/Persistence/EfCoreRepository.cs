@@ -191,6 +191,13 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
     public Task<FaultTicket?> GetFaultTicketAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.FaultTickets.Include(ticket => ticket.History).SingleOrDefaultAsync(ticket => ticket.Id == id, cancellationToken);
 
+    public Task<FaultTicket?> GetOpenFaultTicketAsync(Guid productUnitId, CancellationToken cancellationToken) =>
+        dbContext.FaultTickets.Include(ticket => ticket.History)
+            .Where(ticket => ticket.ProductUnitId == productUnitId &&
+                ticket.Status != FaultStatus.Resolved && ticket.Status != FaultStatus.Closed)
+            .OrderByDescending(ticket => ticket.OpenedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public async Task<IReadOnlyCollection<FaultTicket>> GetFaultTicketsAsync(Guid? customerId, CancellationToken cancellationToken)
     {
         var query = dbContext.FaultTickets.Include(ticket => ticket.History).AsQueryable();

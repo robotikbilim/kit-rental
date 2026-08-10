@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace KitRental.Core.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(KitRentalDbContext))]
-    [Migration("20260722192510_AddCustomerKitReturns")]
-    partial class AddCustomerKitReturns
+    [Migration("20260810200257_InitialCore")]
+    partial class InitialCore
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -174,6 +174,81 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.ToTable("ProductUnits", (string)null);
                 });
 
+            modelBuilder.Entity("KitRental.Core.Domain.Logistics.KitDeliveryReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AddressLine")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("AssignmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("District")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("float");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductUnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("RecipientName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("RecipientPhone")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignmentId");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("City", "District");
+
+                    b.HasIndex("ProductUnitId", "ReceivedAt");
+
+                    b.ToTable("KitDeliveryReceipts", (string)null);
+                });
+
             modelBuilder.Entity("KitRental.Core.Domain.Logistics.Shipment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -245,6 +320,50 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.ToTable("BillsOfMaterials", (string)null);
                 });
 
+            modelBuilder.Entity("KitRental.Core.Domain.Notifications.EmailDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Recipient")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<string>("RecipientName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurredAt");
+
+                    b.HasIndex("Recipient", "OccurredAt");
+
+                    b.ToTable("EmailDeliveries", (string)null);
+                });
+
             modelBuilder.Entity("KitRental.Core.Domain.Orders.RentalOrder", b =>
                 {
                     b.Property<Guid>("Id")
@@ -263,7 +382,6 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("Period")
-                        .IsRequired()
                         .HasMaxLength(21)
                         .HasColumnType("nvarchar(21)");
 
@@ -273,6 +391,9 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                         .HasColumnType("rowversion");
 
                     b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
@@ -372,8 +493,26 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("float");
+
                     b.Property<DateTimeOffset?>("ReceivedAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("RequesterName")
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("RequesterPhone")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ReturnAddress")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -438,11 +577,62 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.ToTable("ReturnInspections", (string)null);
                 });
 
+            modelBuilder.Entity("KitRental.Core.Domain.Support.FaultGuideEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Problem")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Solution")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive", "DisplayOrder");
+
+                    b.ToTable("FaultGuideEntries", (string)null);
+                });
+
             modelBuilder.Entity("KitRental.Core.Domain.Support.FaultTicket", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ApprovalStatus")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<Guid>("AssignmentId")
                         .HasColumnType("uniqueidentifier");
@@ -460,6 +650,12 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
 
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("float");
+
                     b.Property<string>("Number")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -473,6 +669,21 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("ProductUnitId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReporterAddress")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ReporterName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("ReporterPhone")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -784,6 +995,33 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.Navigation("History");
                 });
 
+            modelBuilder.Entity("KitRental.Core.Domain.Logistics.KitDeliveryReceipt", b =>
+                {
+                    b.HasOne("KitRental.Core.Domain.Rentals.RentalAssignment", null)
+                        .WithMany()
+                        .HasForeignKey("AssignmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("KitRental.Core.Domain.Customers.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("KitRental.Core.Domain.Orders.RentalOrder", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("KitRental.Core.Domain.Inventory.ProductUnit", null)
+                        .WithMany()
+                        .HasForeignKey("ProductUnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("KitRental.Core.Domain.Logistics.Shipment", b =>
                 {
                     b.OwnsMany("KitRental.Core.Domain.Logistics.ShipmentEvent", "Events", b1 =>
@@ -924,6 +1162,39 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                                 .HasForeignKey("RentalOrderId");
                         });
 
+                    b.OwnsMany("KitRental.Core.Domain.Orders.OrderProductUnit", "ProductUnits", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<Guid>("OrderLineId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<Guid>("ProductUnitId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<Guid>("RentalOrderId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("ProductUnitId")
+                                .IsUnique();
+
+                            b1.HasIndex("RentalOrderId");
+
+                            b1.ToTable("OrderProductUnits", (string)null);
+
+                            b1.HasOne("KitRental.Core.Domain.Inventory.ProductUnit", null)
+                                .WithMany()
+                                .HasForeignKey("ProductUnitId")
+                                .OnDelete(DeleteBehavior.Restrict)
+                                .IsRequired();
+
+                            b1.WithOwner()
+                                .HasForeignKey("RentalOrderId");
+                        });
+
                     b.OwnsMany("KitRental.Core.Domain.Orders.OrderStatusEvent", "History", b1 =>
                         {
                             b1.Property<Guid>("Id")
@@ -997,6 +1268,8 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.Navigation("History");
 
                     b.Navigation("Lines");
+
+                    b.Navigation("ProductUnits");
                 });
 
             modelBuilder.Entity("KitRental.Core.Domain.Procurement.SupplyNeedList", b =>

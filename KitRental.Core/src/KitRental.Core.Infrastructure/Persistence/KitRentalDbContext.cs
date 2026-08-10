@@ -220,13 +220,11 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
     {
         builder.ToTable("KitDeliveryReceipts");
         builder.HasKey(receipt => receipt.Id);
-        builder.Property(receipt => receipt.RecipientFirstName).HasMaxLength(100).IsRequired();
-        builder.Property(receipt => receipt.RecipientLastName).HasMaxLength(100).IsRequired();
+        builder.Property(receipt => receipt.RecipientName).HasMaxLength(160).IsRequired();
         builder.Property(receipt => receipt.RecipientPhone).HasMaxLength(40).IsRequired();
         builder.Property(receipt => receipt.AddressLine).HasMaxLength(1000).IsRequired();
         builder.Property(receipt => receipt.District).HasMaxLength(120).IsRequired();
         builder.Property(receipt => receipt.City).HasMaxLength(120).IsRequired();
-        builder.Ignore(receipt => receipt.RecipientFullName);
         builder.HasIndex(receipt => new { receipt.ProductUnitId, receipt.ReceivedAt });
         builder.HasIndex(receipt => new { receipt.City, receipt.District });
         builder.HasOne<ProductUnit>().WithMany().HasForeignKey(receipt => receipt.ProductUnitId)
@@ -385,8 +383,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Carrier).HasMaxLength(120);
         builder.Property(x => x.TrackingNumber).HasMaxLength(160);
-        builder.Property(x => x.RequesterFirstName).HasMaxLength(100);
-        builder.Property(x => x.RequesterLastName).HasMaxLength(100);
+        builder.Property(x => x.RequesterName).HasMaxLength(160);
         builder.Property(x => x.RequesterPhone).HasMaxLength(40);
         builder.Property(x => x.ReturnAddress).HasMaxLength(1000);
         builder.HasIndex(x => new { x.CustomerId, x.Status });

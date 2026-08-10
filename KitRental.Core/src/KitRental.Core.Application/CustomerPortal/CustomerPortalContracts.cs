@@ -39,12 +39,12 @@ public sealed record PortalKitReturnItemResponse(Guid AssignmentId, Guid Product
     string KitName, string SerialNumber);
 public sealed record PortalKitReturnResponse(Guid Id, Guid CustomerId, string CustomerName, KitReturnStatus Status,
     string? Carrier, string? TrackingNumber, DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt,
-    string? RequesterFirstName, string? RequesterLastName, string? RequesterPhone, string? ReturnAddress,
+    string? RequesterName, string? RequesterPhone, string? ReturnAddress,
     double? Latitude, double? Longitude,
     IReadOnlyCollection<PortalKitReturnItemResponse> Items);
 
 public sealed record OpenPortalFaultCommand(Guid CustomerId, Guid AssignmentId, string Category,
     FaultSeverity Severity, string Description, Guid ActorId);
 public sealed record ConfirmPortalOrderDeliveryCommand(Guid CustomerId, Guid OrderId, Guid ActorId);
-public sealed record CreatePublicKitReturnCommand(string QrCode, string RequesterFirstName, string RequesterLastName,
+public sealed record CreatePublicKitReturnCommand(string QrCode, string RequesterName,
     string RequesterPhone, string ReturnAddress, double? Latitude, double? Longitude);

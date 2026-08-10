@@ -9,7 +9,7 @@ public sealed class KitDeliveryReceipt
     }
 
     private KitDeliveryReceipt(Guid id, Guid productUnitId, Guid assignmentId, Guid orderId,
-        Guid customerId, string recipientFirstName, string recipientLastName, string recipientPhone,
+        Guid customerId, string recipientName, string recipientPhone,
         string addressLine, string district, string city, DateTimeOffset receivedAt, Guid actorId,
         double? latitude, double? longitude)
     {
@@ -18,8 +18,7 @@ public sealed class KitDeliveryReceipt
         AssignmentId = assignmentId;
         OrderId = orderId;
         CustomerId = customerId;
-        RecipientFirstName = recipientFirstName;
-        RecipientLastName = recipientLastName;
+        RecipientName = recipientName;
         RecipientPhone = recipientPhone;
         AddressLine = addressLine;
         District = district;
@@ -35,8 +34,7 @@ public sealed class KitDeliveryReceipt
     public Guid AssignmentId { get; private set; }
     public Guid OrderId { get; private set; }
     public Guid CustomerId { get; private set; }
-    public string RecipientFirstName { get; private set; } = string.Empty;
-    public string RecipientLastName { get; private set; } = string.Empty;
+    public string RecipientName { get; private set; } = string.Empty;
     public string RecipientPhone { get; private set; } = string.Empty;
     public string AddressLine { get; private set; } = string.Empty;
     public string District { get; private set; } = string.Empty;
@@ -46,10 +44,8 @@ public sealed class KitDeliveryReceipt
     public double? Latitude { get; private set; }
     public double? Longitude { get; private set; }
 
-    public string RecipientFullName => $"{RecipientFirstName} {RecipientLastName}".Trim();
-
     public static KitDeliveryReceipt Create(Guid id, Guid productUnitId, Guid assignmentId, Guid orderId,
-        Guid customerId, string recipientFirstName, string recipientLastName, string recipientPhone,
+        Guid customerId, string recipientName, string recipientPhone,
         string addressLine, string district, string city, DateTimeOffset receivedAt, Guid actorId,
         double? latitude = null, double? longitude = null)
     {
@@ -57,13 +53,12 @@ public sealed class KitDeliveryReceipt
             orderId == Guid.Empty || customerId == Guid.Empty || actorId == Guid.Empty)
             throw new DomainException("kit_delivery.id_required", "Teslim kaydi icin kimlik bilgileri zorunludur.");
 
-        if (string.IsNullOrWhiteSpace(recipientFirstName) || string.IsNullOrWhiteSpace(recipientLastName) ||
-            string.IsNullOrWhiteSpace(recipientPhone) || string.IsNullOrWhiteSpace(addressLine) ||
+        if (string.IsNullOrWhiteSpace(recipientName) || string.IsNullOrWhiteSpace(recipientPhone) || string.IsNullOrWhiteSpace(addressLine) ||
             string.IsNullOrWhiteSpace(district) || string.IsNullOrWhiteSpace(city))
             throw new DomainException("kit_delivery.contact_required", "Teslim alan kisi, telefon ve adres zorunludur.");
 
         return new KitDeliveryReceipt(id, productUnitId, assignmentId, orderId, customerId,
-            recipientFirstName.Trim(), recipientLastName.Trim(), recipientPhone.Trim(), addressLine.Trim(),
+            recipientName.Trim(), recipientPhone.Trim(), addressLine.Trim(),
             district.Trim(), city.Trim(), receivedAt, actorId, latitude, longitude);
     }
 }

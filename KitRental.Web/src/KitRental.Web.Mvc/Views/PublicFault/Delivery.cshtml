@@ -13,10 +13,7 @@
             <input asp-for="City" type="hidden" />
             <input asp-for="District" type="hidden" />
             <div asp-validation-summary="ModelOnly" class="error"></div>
-            <div class="public-return-name-grid">
-                <div class="field"><label asp-for="RecipientFirstName"></label><input asp-for="RecipientFirstName" autocomplete="given-name" placeholder="Adiniz" /><span asp-validation-for="RecipientFirstName" class="error"></span></div>
-                <div class="field"><label asp-for="RecipientLastName"></label><input asp-for="RecipientLastName" autocomplete="family-name" placeholder="Soyadiniz" /><span asp-validation-for="RecipientLastName" class="error"></span></div>
-            </div>
+            <div class="field"><label asp-for="RecipientName"></label><input asp-for="RecipientName" autocomplete="name" placeholder="Ad soyad" /><span asp-validation-for="RecipientName" class="error"></span></div>
             <div class="field"><label asp-for="RecipientPhone"></label><input asp-for="RecipientPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="05xx xxx xx xx" /><span asp-validation-for="RecipientPhone" class="error"></span></div>
             <div class="field"><label asp-for="AddressLine"></label><textarea asp-for="AddressLine" rows="3" autocomplete="street-address" placeholder="Kitin teslim edildigi acik adres"></textarea><span asp-validation-for="AddressLine" class="error"></span></div>
             <div class="public-location-box">

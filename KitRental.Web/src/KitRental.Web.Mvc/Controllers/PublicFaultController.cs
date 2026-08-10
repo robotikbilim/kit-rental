@@ -33,9 +33,26 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
     {
         if (RedirectAuthenticated(qrCode) is { } redirect) return redirect;
         var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
-        return kit is null ? NotFound() : View(new PublicFaultFormViewModel
+        if (kit is null) return NotFound();
+        var faultContext = await apiClient.GetPublicFaultContextAsync(qrCode, cancellationToken);
+        var deliveryContext = await apiClient.GetPublicKitDeliveryContextAsync(qrCode, cancellationToken);
+        return View(new PublicFaultFormViewModel
         {
-            QrCode = kit.QrCode, KitName = kit.KitName, SerialNumber = kit.SerialNumber
+            FaultId = faultContext?.FaultId,
+            QrCode = kit.QrCode,
+            KitName = kit.KitName,
+            SerialNumber = kit.SerialNumber,
+            ReporterName = faultContext?.ReporterName
+                ?? deliveryContext?.RecipientName
+                ?? string.Empty,
+            ReporterPhone = faultContext?.ReporterPhone
+                ?? deliveryContext?.RecipientPhone
+                ?? string.Empty,
+            ReporterAddress = faultContext?.ReporterAddress
+                ?? FormatAddress(deliveryContext?.AddressLine, deliveryContext?.District, deliveryContext?.City),
+            Description = faultContext?.Description ?? string.Empty,
+            Latitude = faultContext?.Latitude ?? deliveryContext?.Latitude,
+            Longitude = faultContext?.Longitude ?? deliveryContext?.Longitude
         });
     }
 
@@ -46,8 +63,16 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
         model.QrCode = qrCode;
         var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
         if (kit is null) return NotFound();
+        var faultContext = await apiClient.GetPublicFaultContextAsync(qrCode, cancellationToken);
         model.KitName = kit.KitName;
         model.SerialNumber = kit.SerialNumber;
+        model.FaultId = faultContext?.FaultId;
+        model.ReporterName = faultContext?.ReporterName ?? model.ReporterName;
+        model.ReporterPhone = faultContext?.ReporterPhone ?? model.ReporterPhone;
+        model.ReporterAddress = faultContext?.ReporterAddress ?? model.ReporterAddress;
+        model.Description = faultContext?.Description ?? model.Description;
+        model.Latitude = faultContext?.Latitude ?? model.Latitude;
+        model.Longitude = faultContext?.Longitude ?? model.Longitude;
         if (!ModelState.IsValid) return View(model);
         var result = await apiClient.CreatePublicFaultAsync(model, cancellationToken);
         if (!result.IsSuccess)
@@ -65,9 +90,16 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
     {
         if (RedirectAuthenticated(qrCode) is { } redirect) return redirect;
         var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
-        return kit is null ? NotFound() : View(new PublicReturnFormViewModel
+        if (kit is null) return NotFound();
+        var deliveryContext = await apiClient.GetPublicKitDeliveryContextAsync(qrCode, cancellationToken);
+        return View(new PublicReturnFormViewModel
         {
-            QrCode = kit.QrCode, KitName = kit.KitName, SerialNumber = kit.SerialNumber
+            QrCode = kit.QrCode,
+            KitName = kit.KitName,
+            SerialNumber = kit.SerialNumber,
+            RequesterName = deliveryContext?.RecipientName ?? string.Empty,
+            RequesterPhone = deliveryContext?.RecipientPhone ?? string.Empty,
+            ReturnAddress = FormatAddress(deliveryContext?.AddressLine, deliveryContext?.District, deliveryContext?.City)
         });
     }
 
@@ -130,5 +162,17 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
         return User.IsInRole("CustomerAccountManager") || User.IsInRole("CustomerUser")
             ? RedirectToAction("FindKit", "CustomerPortal", new { identifier = qrCode })
             : RedirectToAction("Lookup", "PhysicalKits", new { identifier = qrCode });
+    }
+
+    private static string FormatAddress(string? addressLine, string? district, string? city)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(addressLine)) parts.Add(addressLine.Trim());
+        if (!string.IsNullOrWhiteSpace(district) || !string.IsNullOrWhiteSpace(city))
+        {
+            var districtCity = string.Join(" / ", new[] { district, city }.Where(item => !string.IsNullOrWhiteSpace(item)));
+            if (districtCity.Length > 0) parts.Add(districtCity);
+        }
+        return string.Join(", ", parts);
     }
 }

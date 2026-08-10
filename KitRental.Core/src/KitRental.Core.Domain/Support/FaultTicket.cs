@@ -63,4 +63,20 @@ public sealed class FaultTicket
         Status = next;
         _history.Add(new FaultStatusEvent(Guid.NewGuid(), previous, next, now, actorId, note.Trim()));
     }
+    public void UpdatePublicDetails(string category, string description, string reporterName,
+        string reporterPhone, string reporterAddress, double? latitude, double? longitude)
+    {
+        if (string.IsNullOrWhiteSpace(category) || string.IsNullOrWhiteSpace(description) ||
+            string.IsNullOrWhiteSpace(reporterName) || string.IsNullOrWhiteSpace(reporterPhone) ||
+            string.IsNullOrWhiteSpace(reporterAddress))
+            throw new DomainException("fault.required_fields", "Arıza için bildiren kişi, telefon, adres, kategori ve açıklama zorunludur.");
+
+        Category = category.Trim();
+        Description = description.Trim();
+        ReporterName = reporterName.Trim();
+        ReporterPhone = reporterPhone.Trim();
+        ReporterAddress = reporterAddress.Trim();
+        Latitude = latitude;
+        Longitude = longitude;
+    }
 }
