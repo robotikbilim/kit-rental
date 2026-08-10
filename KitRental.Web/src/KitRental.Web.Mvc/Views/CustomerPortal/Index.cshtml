@@ -2,8 +2,9 @@
 @using System.Text.Json
 @{
     ViewData["Title"] = "Genel Bakis";
+    var mapLocations = Model.KitLocations.Where(item => item.Latitude.HasValue && item.Longitude.HasValue).ToArray();
     var mapLocationsJson = JsonSerializer.Serialize(
-        Model.KitLocations,
+        mapLocations,
         new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 }
 @section Head {
@@ -25,19 +26,19 @@
 <section class="dashboard-group kit-map-section">
     <header class="dashboard-group-heading">
         <div><span class="eyebrow">KIT KONUM HARITASI</span><h2>Türkiye genelinde kit dağılımı</h2></div>
-        <p>Hesabınıza ait teslim alınmış kitler il ve ilçe bilgisine göre gruplanır.</p>
+        <p>Hesabınıza ait teslim alınmış kitler teslim formundaki enlem ve boylam bilgisine göre yerleştirilir.</p>
     </header>
-    @if (Model.KitLocations.Count == 0)
+    @if (mapLocations.Length == 0)
     {
-        <div class="empty">Konumu kaydedilmiş teslim edilmiş kit bulunmuyor.</div>
+        <div class="empty">Enlem ve boylam bilgisi kaydedilmiş teslim edilmiş kit bulunmuyor.</div>
     }
     else
     {
         <div class="kit-map-layout">
-            <div id="turkey-kit-map" class="turkey-kit-map" data-locations='@Html.Raw(mapLocationsJson)'></div>
+            <div id="turkey-kit-map" class="turkey-kit-map" data-locations='@Html.Raw(mapLocationsJson)' data-detail-url-template='@Url.Action("Kit", "CustomerPortal", new { id = "__id__" })'></div>
             <aside class="kit-map-summary">
-                <strong>@Model.KitLocations.Count kit sahada</strong>
-                @foreach (var city in Model.KitLocations.GroupBy(item => item.City).OrderByDescending(group => group.Count()).ThenBy(group => group.Key).Take(8))
+                <strong>@mapLocations.Length kit sahada</strong>
+                @foreach (var city in mapLocations.GroupBy(item => item.City).OrderByDescending(group => group.Count()).ThenBy(group => group.Key).Take(8))
                 {
                     <span><b>@city.Key</b>@city.Count() kit · @city.Select(item => item.District).Distinct().Count() ilçe</span>
                 }

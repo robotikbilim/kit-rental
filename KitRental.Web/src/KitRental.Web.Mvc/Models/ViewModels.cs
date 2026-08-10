@@ -76,7 +76,8 @@ public sealed record DashboardReturnViewModel(Guid Id, string CustomerName, int 
 public sealed record DashboardRentalExpiryViewModel(Guid ProductUnitId, string KitName, string SerialNumber,
     string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
 public sealed record DashboardKitLocationViewModel(Guid ProductUnitId, string KitName, string SerialNumber,
-    string RecipientName, string AddressLine, string District, string City);
+    string RecipientName, string AddressLine, string District, string City,
+    double? Latitude = null, double? Longitude = null);
 public sealed record ProductUnitViewModel(Guid Id, Guid ProductModelId, string SerialNumber, string QrCode, int Status);
 public sealed record InventoryItemViewModel(Guid Id, Guid ProductModelId, string ProductModelName,
     string ProductModelSku, string SerialNumber, string QrCode, int Status, DateTimeOffset CreatedAt);

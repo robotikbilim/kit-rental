@@ -57,7 +57,8 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                     if (deliveryReceipts.TryGetValue(unit.Id, out var receipt))
                     {
                         kitLocations.Add(new PortalKitLocationResponse(unit.Id, model.Name, unit.SerialNumber,
-                            receipt.RecipientFullName, receipt.AddressLine, receipt.District, receipt.City));
+                            receipt.RecipientFullName, receipt.AddressLine, receipt.District, receipt.City,
+                            receipt.Latitude, receipt.Longitude));
                     }
                     else
                     {

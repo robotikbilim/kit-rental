@@ -83,7 +83,8 @@ public sealed record DashboardReturnResponse(Guid Id, string CustomerName, int S
 public sealed record DashboardRentalExpiryResponse(Guid ProductUnitId, string KitName, string SerialNumber,
     string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
 public sealed record DashboardKitLocationResponse(Guid ProductUnitId, string KitName, string SerialNumber,
-    string RecipientName, string AddressLine, string District, string City);
+    string RecipientName, string AddressLine, string District, string City,
+    double? Latitude = null, double? Longitude = null);
 
 public sealed class OperationsService(
     ICoreRepository repository,
@@ -813,7 +814,8 @@ public sealed class OperationsService(
                 if (latestReceiptsByUnit.TryGetValue(unit.Id, out var receipt))
                 {
                     kitLocations.Add(new DashboardKitLocationResponse(unit.Id, kitName, unit.SerialNumber,
-                        receipt.RecipientFullName, receipt.AddressLine, receipt.District, receipt.City));
+                        receipt.RecipientFullName, receipt.AddressLine, receipt.District, receipt.City,
+                        receipt.Latitude, receipt.Longitude));
                 }
                 else
                 {

@@ -208,7 +208,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         var receipt = await PostAsync<PublicDeliveryResponse>(publicClient, "/api/public/deliveries",
             new PublicKitDeliveryRequest(unit.QrCode, "Ece", "Yilmaz", "05325550000",
-                "Ataturk Caddesi 12", "Besiktas", "Istanbul"), cancellationToken);
+                "Ataturk Caddesi 12", "Besiktas", "Istanbul", 41.0438, 29.0094), cancellationToken);
         Assert.Equal(unit.Id, receipt.ProductUnitId);
         Assert.Equal(prepared.Kits.Single().AssignmentId, receipt.AssignmentId);
 
@@ -217,6 +217,8 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal("Ece Yilmaz", location.RecipientName);
         Assert.Equal("Besiktas", location.District);
         Assert.Equal("Istanbul", location.City);
+        Assert.Equal(41.0438, location.Latitude);
+        Assert.Equal(29.0094, location.Longitude);
 
         var detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
             $"/api/physical-kits/{unit.Id}", cancellationToken);
