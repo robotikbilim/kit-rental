@@ -78,18 +78,21 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
 
         var faults = await MapFaultsAsync(customerId, modelLookup, cancellationToken);
         var returns = await MapReturnsAsync(customerId, cancellationToken);
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var expiredRentalKitCount = kits.Count(item =>
-            item.AssignmentStatus == RentalAssignmentStatus.Active && item.EndDate < today);
-        var returnProcessStartedUnitIds = customerReturns
+        var turkeyNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow, "Turkey Standard Time");
+        var today = DateOnly.FromDateTime(turkeyNow.DateTime);
+        var returnProcessStartedAssignmentIds = customerReturns
             .Where(item => item.Status is KitReturnStatus.Requested or KitReturnStatus.InTransit)
             .SelectMany(item => item.Items)
-            .Select(item => item.ProductUnitId)
+            .Select(item => item.AssignmentId)
             .ToHashSet();
-        var returnedUnitIds = customerReturns
+        var expiredRentalKitCount = kits.Count(item =>
+            item.AssignmentStatus == RentalAssignmentStatus.Active &&
+            item.EndDate < today &&
+            !returnProcessStartedAssignmentIds.Contains(item.AssignmentId));
+        var returnedAssignmentIds = customerReturns
             .Where(item => item.Status == KitReturnStatus.Received)
             .SelectMany(item => item.Items)
-            .Select(item => item.ProductUnitId)
+            .Select(item => item.AssignmentId)
             .ToHashSet();
         return new CustomerPortalResponse(customer.Name, customer.Email,
             kits.Count(item => item.AssignmentStatus == RentalAssignmentStatus.Active),
@@ -97,8 +100,8 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             faults.Count(item => item.Status is not (FaultStatus.Resolved or FaultStatus.Closed)),
             faults.Count(item => item.Status is FaultStatus.Resolved or FaultStatus.Closed),
             expiredRentalKitCount,
-            returnProcessStartedUnitIds.Count,
-            returnedUnitIds.Count,
+            returnProcessStartedAssignmentIds.Count,
+            returnedAssignmentIds.Count,
             kits.OrderByDescending(item => item.AssignmentStatus).ThenBy(item => item.KitName).ToArray(),
             orderResponses, faults,
             customer.Addresses.Select(item => new PortalAddressResponse(item.Id, item.Title, item.ContactName, item.Phone,
@@ -169,6 +172,8 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         {
             var unit = await repository.GetProductUnitAsync(item.ProductUnitId, cancellationToken)
                 ?? throw new ResourceNotFoundException("Fiziksel kit bulunamadı.");
+            if (unit.Status == ProductUnitStatus.WithCustomer)
+                unit.StartReturn(actorId, now);
             unit.ReceiveReturnToAvailable(actorId, now);
             var assignment = await repository.GetRentalAssignmentAsync(item.AssignmentId, cancellationToken);
             if (assignment?.Status == RentalAssignmentStatus.Active) assignment.Complete();

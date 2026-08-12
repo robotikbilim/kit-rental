@@ -217,6 +217,10 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Customer portal return counts now come from `KitReturnRequest` states and rental expiry counts from active assignments whose `EndDate` is before today.
 - Added a dedicated customer portal `Returns` page with filters for pending, in-progress, and returned states, plus expired kits that have not started a return yet.
 - Added customer portal navigation entry for `İadeler`.
+- Customer portal expired-rental checks now use the app server local date (`DateTime.Today`) instead of UTC so locally expired kits appear immediately after midnight.
+- Customer portal returns filter now matches on a dedicated state key (`pending`/`processing`/`returned`) while the table keeps separate Turkish status labels for display.
+- Customer portal return semantics are assignment-based: on Wednesday, August 12, 2026, `pending` means an active rental ended before today and still has no return form, `processing` means a return request exists regardless of due date, and `returned` means warehouse/admin accepted the return back into available stock.
+- Admin dashboard now exposes `Iadeyi kabul et` for active return requests, and receiving a return is allowed from both `Requested` and `InTransit`.
 - Verified with `dotnet build KitRental.slnx`.
 
 ## Development Checklist

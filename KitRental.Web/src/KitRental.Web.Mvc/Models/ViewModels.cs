@@ -515,7 +515,8 @@ public sealed record CustomerPortalViewModel(string CustomerName, string Custome
     IReadOnlyCollection<DashboardKitLocationViewModel> KitLocations);
 public sealed record PortalReturnListItemViewModel(Guid ProductUnitId, Guid AssignmentId, Guid? ReturnId,
     string KitName, string KitSku, string SerialNumber, string OrderNumber, DateOnly StartDate, DateOnly EndDate,
-    int UnitStatus, int AssignmentStatus, int ReturnStatus, int OpenFaultCount, string ReturnState);
+    int UnitStatus, int AssignmentStatus, int ReturnStatus, int OpenFaultCount, string ReturnStateKey,
+    string ReturnState);
 public sealed record PortalReturnsPageViewModel(string CustomerName, string Query, string State, int Page,
     int PageSize, int TotalCount, int TotalKitCount, int TotalPages, int FirstItem, int LastItem,
     IReadOnlyCollection<PortalReturnListItemViewModel> Returns);

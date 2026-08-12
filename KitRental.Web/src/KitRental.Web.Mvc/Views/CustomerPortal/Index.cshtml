@@ -10,8 +10,16 @@
     var activeKits = Model.Kits.Where(item => item.AssignmentStatus == 2).ToArray();
     var activeFaultyKits = activeKits.Count(item => item.OpenFaultCount > 0 || item.UnitStatus is 8);
     var activeHealthyKits = activeKits.Length - activeFaultyKits;
-    var expiredWithoutReturn = activeKits.Count(item => item.EndDate < DateOnly.FromDateTime(DateTime.UtcNow) && item.OpenFaultCount == 0);
-    var expiredWithReturn = activeKits.Count(item => item.EndDate < DateOnly.FromDateTime(DateTime.UtcNow) && item.OpenFaultCount > 0);
+    var turkeyNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow, "Turkey Standard Time");
+    var today = DateOnly.FromDateTime(turkeyNow.DateTime);
+    var returnAssignmentLookup = Model.Returns
+        .SelectMany(request => request.Items.Select(item => new { item.AssignmentId, request.Status, request.CreatedAt }))
+        .GroupBy(item => item.AssignmentId)
+        .ToDictionary(group => group.Key, group => group.OrderByDescending(item => item.CreatedAt).First());
+    var expiredWithoutReturn = activeKits.Count(item =>
+        item.EndDate < today && !returnAssignmentLookup.ContainsKey(item.AssignmentId));
+    var returnInProgressCount = returnAssignmentLookup.Values.Count(item => item.Status is 1 or 2);
+    var returnedCount = returnAssignmentLookup.Values.Count(item => item.Status == 3);
     var missingLocationCount = allKitLocations.Length - mapLocations.Length;
     var modelOptions = allKitLocations
         .GroupBy(item => item.ProductModelId)
@@ -47,9 +55,9 @@
     <a class="metric-card portal-metric-active" asp-action="Kits" asp-route-status="5" title="@activeKits.Length aktif kit. @activeHealthyKits kit arızasız, @activeFaultyKits kit açık arıza veya servis durumunda."><span>Aktif Kitler</span><strong>@Model.ActiveKitCount</strong></a>
     <a class="metric-card portal-metric-faults" asp-action="Faults" asp-route-state="open" title="@Model.OpenFaultCount açık arıza kaydı."><span>Açık Arızalar</span><strong>@Model.OpenFaultCount</strong></a>
     <a class="metric-card portal-metric-closed" asp-action="Faults" asp-route-state="completed" title="@Model.CompletedFaultCount kapalı arıza kaydı."><span>Kapalı Arızalar</span><strong>@Model.CompletedFaultCount</strong></a>
-    <a class="metric-card portal-metric-expired" asp-action="Returns" asp-route-state="pending" title="@Model.ExpiredRentalKitCount süresi dolan kit. Bunların @expiredWithReturn tanesinde iade süreci başlamış, @expiredWithoutReturn tanesinde henüz iade açılmamış."><span>Süresi Dolanlar</span><strong>@Model.ExpiredRentalKitCount</strong></a>
-    <a class="metric-card portal-metric-processing" asp-action="Returns" asp-route-state="processing" title="@Model.ReturnProcessStartedKitCount kit iade sürecinde."><span>İade Sürecindekiler</span><strong>@Model.ReturnProcessStartedKitCount</strong></a>
-    <a class="metric-card portal-metric-returned" asp-action="Returns" asp-route-state="returned" title="@Model.ReturnedKitCount kit iade edilmiş."><span>İade Edilenler</span><strong>@Model.ReturnedKitCount</strong></a>
+    <a class="metric-card portal-metric-expired" asp-action="Returns" asp-route-state="pending" title="@expiredWithoutReturn kit 12.08.2026 itibarıyla süresi dolmuş ve henüz iade formu doldurulmamış durumda."><span>Süresi Dolanlar</span><strong>@Model.ExpiredRentalKitCount</strong></a>
+    <a class="metric-card portal-metric-processing" asp-action="Returns" asp-route-state="processing" title="@returnInProgressCount kit için iade formu doldurulmuş durumda; süreye bakılmaksızın burada sayılır."><span>İade Sürecindekiler</span><strong>@Model.ReturnProcessStartedKitCount</strong></a>
+    <a class="metric-card portal-metric-returned" asp-action="Returns" asp-route-state="returned" title="@returnedCount kit admin tarafından teslim alınıp yeniden kiralanabilir stoğa döndü."><span>İade Edilenler</span><strong>@Model.ReturnedKitCount</strong></a>
 </section>
 <section class="dashboard-group kit-map-section">
     <header class="dashboard-group-heading">

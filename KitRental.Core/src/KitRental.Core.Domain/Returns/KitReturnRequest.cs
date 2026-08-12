@@ -74,7 +74,7 @@ public sealed class KitReturnRequest
 
     public void Receive(DateTimeOffset receivedAt)
     {
-        if (Status != KitReturnStatus.InTransit)
+        if (Status is not (KitReturnStatus.Requested or KitReturnStatus.InTransit))
             throw new DomainException("kit_return.invalid_receive", "Yalnızca kargoya verilmiş iadeler teslim alınabilir.");
         ReceivedAt = receivedAt; Status = KitReturnStatus.Received;
     }

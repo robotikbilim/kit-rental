@@ -120,28 +120,30 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         var normalizedQuery = query?.Trim() ?? string.Empty;
         var normalizedState = state is "all" or "pending" or "processing" or "returned" ? state : "all";
         var normalizedPageSize = pageSize is 10 or 25 or 50 ? pageSize : 10;
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var turkeyNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow, "Turkey Standard Time");
+        var today = DateOnly.FromDateTime(turkeyNow.DateTime);
         var faultLookup = portal.Faults
             .GroupBy(item => item.ProductUnitId)
             .ToDictionary(group => group.Key, group => group.Count(item => item.Status is not (7 or 8)));
         var returnLookup = portal.Returns
             .SelectMany(request => request.Items.Select(item => new
             {
-                item.ProductUnitId,
                 item.AssignmentId,
                 RequestId = request.Id,
                 request.Status,
                 request.CreatedAt
             }))
-            .GroupBy(item => item.ProductUnitId)
+            .GroupBy(item => item.AssignmentId)
             .ToDictionary(group => group.Key,
                 group => group.OrderByDescending(item => item.CreatedAt).First());
 
         var allReturns = portal.Kits
-            .Where(item => (item.AssignmentStatus == 2 && item.EndDate < today) || returnLookup.ContainsKey(item.ProductUnitId))
+            .Where(item =>
+                (item.AssignmentStatus == 2 && item.EndDate < today && !returnLookup.ContainsKey(item.AssignmentId)) ||
+                returnLookup.ContainsKey(item.AssignmentId))
             .Select(item =>
             {
-                returnLookup.TryGetValue(item.ProductUnitId, out var currentReturn);
+                returnLookup.TryGetValue(item.AssignmentId, out var currentReturn);
                 var returnState = currentReturn is null
                     ? "pending"
                     : currentReturn.Status switch
@@ -174,9 +176,10 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
                     (int)item.AssignmentStatus,
                     currentReturn is null ? 0 : currentReturn.Status,
                     faultLookup.TryGetValue(item.ProductUnitId, out var openFaultCount) ? openFaultCount : 0,
+                    returnState,
                     stateLabel);
             })
-            .Where(item => normalizedState == "all" || item.ReturnState == normalizedState)
+            .Where(item => normalizedState == "all" || item.ReturnStateKey == normalizedState)
             .Where(item => normalizedQuery.Length == 0 ||
                 item.KitName.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
                 item.KitSku.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
