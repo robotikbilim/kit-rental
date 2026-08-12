@@ -23,7 +23,7 @@ public sealed class InMemoryCoreRepository : ICoreRepository
     private readonly Dictionary<Guid, Customer> _customers = [];
     private readonly Dictionary<Guid, RentalOrder> _orders = [];
     private readonly Dictionary<Guid, Shipment> _shipments = [];
-    private readonly Dictionary<Guid, KitDeliveryReceipt> _kitDeliveryReceipts = [];
+    private readonly Dictionary<Guid, KitLocationEvent> _kitLocationEvents = [];
     private readonly Dictionary<Guid, FaultTicket> _faultTickets = [];
     private readonly Dictionary<Guid, FaultGuideEntry> _faultGuideEntries = [];
     private readonly Dictionary<Guid, ReturnInspection> _inspections = [];
@@ -292,18 +292,21 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         lock (_gate) return Task.FromResult<IReadOnlyCollection<Shipment>>(_shipments.Values.Where(shipment => shipment.OrderId == orderId).ToArray());
     }
 
-    public Task AddKitDeliveryReceiptAsync(KitDeliveryReceipt receipt, CancellationToken cancellationToken)
+    public Task AddKitLocationEventAsync(KitLocationEvent locationEvent, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        lock (_gate) _kitDeliveryReceipts.Add(receipt.Id, receipt);
+        lock (_gate) _kitLocationEvents.Add(locationEvent.Id, locationEvent);
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyCollection<KitDeliveryReceipt>> GetKitDeliveryReceiptsAsync(CancellationToken cancellationToken)
+    public Task<IReadOnlyCollection<KitLocationEvent>> GetKitLocationEventsAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        lock (_gate) return Task.FromResult<IReadOnlyCollection<KitDeliveryReceipt>>(
-            _kitDeliveryReceipts.Values.OrderByDescending(item => item.ReceivedAt).ToArray());
+        lock (_gate) return Task.FromResult<IReadOnlyCollection<KitLocationEvent>>(
+            _kitLocationEvents.Values
+                .OrderByDescending(item => item.OccurredAt)
+                .ThenByDescending(item => item.Id)
+                .ToArray());
     }
 
     public Task AddFaultTicketAsync(FaultTicket ticket, CancellationToken cancellationToken)

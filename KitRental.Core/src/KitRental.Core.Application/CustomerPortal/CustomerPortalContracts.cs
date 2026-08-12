@@ -32,9 +32,9 @@ public sealed record CustomerPortalResponse(string CustomerName, string Customer
     IReadOnlyCollection<PortalAddressResponse> Addresses, IReadOnlyCollection<PortalProductModelResponse> ProductModels,
     IReadOnlyCollection<PortalKitReturnResponse> Returns,
     IReadOnlyCollection<PortalKitLocationResponse> KitLocations);
-public sealed record PortalKitLocationResponse(Guid ProductUnitId, string KitName, string SerialNumber,
-    string RecipientName, string AddressLine, string District, string City,
-    double? Latitude = null, double? Longitude = null);
+public sealed record PortalKitLocationResponse(Guid ProductUnitId, Guid ProductModelId, string KitName,
+    string KitSku, string SerialNumber, string RecipientName, string AddressLine, string District, string City,
+    int Status, double? Latitude = null, double? Longitude = null, string LocationCategory = "active");
 public sealed record PortalKitReturnItemResponse(Guid AssignmentId, Guid ProductUnitId, Guid OrderId,
     string KitName, string SerialNumber);
 public sealed record PortalKitReturnResponse(Guid Id, Guid CustomerId, string CustomerName, KitReturnStatus Status,

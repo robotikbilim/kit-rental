@@ -7,10 +7,12 @@ using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Support;
 using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Auditing;
+using KitRental.Core.Domain.Logistics;
 
 namespace KitRental.Core.Application.CustomerPortal;
 
-public sealed class CustomerPortalService(ICoreRepository repository, OperationsService operationsService)
+public sealed class CustomerPortalService(ICoreRepository repository, OperationsService operationsService,
+    IAddressGeocoder addressGeocoder)
 {
     private static readonly Guid PublicActorId = new("00000000-0000-0000-0000-000000000001");
 
@@ -25,11 +27,11 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var kitLocations = new List<PortalKitLocationResponse>();
         var orderResponses = new List<PortalOrderResponse>();
         var customerFaults = await repository.GetFaultTicketsAsync(customerId, cancellationToken);
-        var deliveryReceipts = (await repository.GetKitDeliveryReceiptsAsync(cancellationToken))
-            .Where(receipt => receipt.CustomerId == customerId)
-            .GroupBy(receipt => receipt.ProductUnitId)
-            .ToDictionary(group => group.Key, group => group.OrderByDescending(receipt => receipt.ReceivedAt).First());
-
+        var latestLocationsByUnit = (await repository.GetKitLocationEventsAsync(cancellationToken))
+            .Where(location => location.CustomerId == customerId)
+            .GroupBy(location => location.ProductUnitId)
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(location => location.OccurredAt)
+                .ThenByDescending(location => location.Id).First());
         foreach (var order in orders.Where(item => item.Type == OrderType.Rental))
         {
             orderResponses.Add(new PortalOrderResponse(order.Id, order.OrderNumber, customer.Id, customer.Name,
@@ -51,20 +53,23 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 kits.Add(new PortalKitResponse(unit.Id, assignment.Id, order.Id, order.OrderNumber, model.Name, model.Sku,
                     model.ImageUrl, unit.SerialNumber, unit.QrCode, unit.Status, assignment.Status, assignment.Period.StartDate,
                     assignment.Period.EndDate, openFaults));
-                if (unit.Status == ProductUnitStatus.WithCustomer &&
-                    assignment.Status == RentalAssignmentStatus.Active)
+                if (assignment.Status == RentalAssignmentStatus.Active)
                 {
-                    if (deliveryReceipts.TryGetValue(unit.Id, out var receipt))
+                    var locationCategory = GetKitLocationCategory(unit.Status, openFaults > 0);
+                    if (latestLocationsByUnit.TryGetValue(unit.Id, out var location))
                     {
-                        kitLocations.Add(new PortalKitLocationResponse(unit.Id, model.Name, unit.SerialNumber,
-                            receipt.RecipientName, receipt.AddressLine, receipt.District, receipt.City,
-                            receipt.Latitude, receipt.Longitude));
+                        kitLocations.Add(new PortalKitLocationResponse(unit.Id, unit.ProductModelId, model.Name,
+                            model.Sku, unit.SerialNumber,
+                            location.ContactName, location.AddressLine, location.District, location.City,
+                            (int)unit.Status, location.Latitude, location.Longitude, locationCategory));
                     }
                     else
                     {
                         var address = order.DeliveryAddress;
-                        kitLocations.Add(new PortalKitLocationResponse(unit.Id, model.Name, unit.SerialNumber,
-                            address.ContactName, address.Line1, address.District, address.City));
+                        kitLocations.Add(new PortalKitLocationResponse(unit.Id, unit.ProductModelId, model.Name,
+                            model.Sku, unit.SerialNumber,
+                            address.ContactName, address.Line1, address.District, address.City, (int)unit.Status,
+                            null, null, locationCategory));
                     }
                 }
             }
@@ -85,6 +90,13 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 item.ImageUrl)).ToArray(), returns,
             kitLocations.OrderBy(item => item.City).ThenBy(item => item.District).ThenBy(item => item.SerialNumber).ToArray());
     }
+
+    private static string GetKitLocationCategory(ProductUnitStatus status, bool hasOpenFault) =>
+        hasOpenFault || status is ProductUnitStatus.InMaintenance or ProductUnitStatus.Quarantined
+            ? "faulty"
+            : status == ProductUnitStatus.ReturnInTransit
+                ? "returning"
+                : "active";
 
     public Task<IReadOnlyCollection<PortalKitReturnResponse>> GetReturnsAsync(Guid? customerId,
         CancellationToken cancellationToken) => MapReturnsAsync(customerId, cancellationToken);
@@ -110,11 +122,18 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kiralama sipariÅŸi bulunamadÄ±.");
         var now = DateTimeOffset.UtcNow;
+        var resolvedLocation = await ResolveLocationAsync(command.ReturnAddress, command.Latitude, command.Longitude,
+            cancellationToken);
         var request = KitReturnRequest.CreatePublic(Guid.NewGuid(), assignment.CustomerId, now, PublicActorId,
             [new KitReturnItem(Guid.NewGuid(), assignment.Id, assignment.ProductUnitId, order.Id)],
             command.RequesterName, command.RequesterPhone,
-            command.ReturnAddress, command.Latitude, command.Longitude);
+            command.ReturnAddress, resolvedLocation.Latitude, resolvedLocation.Longitude);
         await repository.AddKitReturnRequestAsync(request, cancellationToken);
+        await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id, assignment.Id,
+            order.Id, assignment.CustomerId, KitLocationEventSource.ReturnRequest, request.Id,
+            command.RequesterName, command.RequesterPhone, command.ReturnAddress, resolvedLocation.District,
+            resolvedLocation.City, resolvedLocation.Latitude, resolvedLocation.Longitude, now, PublicActorId),
+            cancellationToken);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), PublicActorId,
             nameof(KitReturnRequest), request.Id, "PublicReturnRequested", null,
             command.RequesterName.Trim(), now), cancellationToken);
@@ -243,4 +262,25 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         }
         return result.OrderByDescending(item => item.OpenedAt).ToArray();
     }
+
+    private async Task<ResolvedLocation> ResolveLocationAsync(string addressLine, double? latitude, double? longitude,
+        CancellationToken cancellationToken)
+    {
+        if (CoordinatesAreValid(latitude, longitude))
+            return new ResolvedLocation(latitude, longitude, "Bilinmiyor", "Bilinmiyor");
+
+        var geocoded = await addressGeocoder.GeocodeAsync(addressLine, null, null, cancellationToken);
+        return geocoded is null
+            ? new ResolvedLocation(null, null, "Bilinmiyor", "Bilinmiyor")
+            : new ResolvedLocation(geocoded.Latitude, geocoded.Longitude,
+                string.IsNullOrWhiteSpace(geocoded.District) ? "Bilinmiyor" : geocoded.District.Trim(),
+                string.IsNullOrWhiteSpace(geocoded.City) ? "Bilinmiyor" : geocoded.City.Trim());
+    }
+
+    private static bool CoordinatesAreValid(double? latitude, double? longitude) =>
+        latitude is >= -90 and <= 90 && longitude is >= -180 and <= 180;
+
+    private sealed record ResolvedLocation(double? Latitude, double? Longitude, string District, string City);
 }
+
+

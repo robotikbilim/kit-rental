@@ -3,6 +3,7 @@ using KitRental.Core.Application.Common;
 using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Customers;
 using KitRental.Core.Domain.Inventory;
+using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Support;
@@ -99,11 +100,19 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
         var model = await repository.GetProductModelAsync(unit.ProductModelId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kit modeli bulunamadı.");
         var assignments = await repository.GetAssignmentsForProductUnitAsync(id, cancellationToken);
-        var deliveryReceipts = (await repository.GetKitDeliveryReceiptsAsync(cancellationToken))
-            .Where(receipt => receipt.ProductUnitId == id)
-            .GroupBy(receipt => receipt.AssignmentId)
-            .ToDictionary(group => group.Key, group => group.OrderByDescending(receipt => receipt.ReceivedAt).First());
-        var rentals = new List<PhysicalKitRentalHistoryResponse>();
+        var locationEvents = (await repository.GetKitLocationEventsAsync(cancellationToken))
+            .Where(location => location.ProductUnitId == id)
+            .ToArray();
+        var latestLocation = locationEvents
+            .OrderByDescending(location => location.OccurredAt)
+            .ThenByDescending(location => location.Id)
+            .FirstOrDefault();
+        var latestLocationsByAssignment = locationEvents
+            .Where(location => location.AssignmentId.HasValue)
+            .GroupBy(location => location.AssignmentId!.Value)
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(location => location.OccurredAt)
+                .ThenByDescending(location => location.Id).First());
+        var deliveries = new List<PhysicalKitDeliveryHistoryResponse>();
         PhysicalKitLocationResponse? currentLocation = null;
         foreach (var assignment in assignments)
         {
@@ -111,28 +120,31 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
             var customer = await repository.GetCustomerAsync(assignment.CustomerId, cancellationToken);
             if (order is null || customer is null) continue;
             var address = order.DeliveryAddress;
-            deliveryReceipts.TryGetValue(assignment.Id, out var receipt);
-            var location = receipt is null
+            var assignmentLocation = latestLocationsByAssignment.GetValueOrDefault(assignment.Id);
+            var location = assignmentLocation is null
                 ? new PhysicalKitLocationResponse(address.ContactName, address.Phone, address.Line1,
                     address.District, address.City, null, null, null)
-                : new PhysicalKitLocationResponse(receipt.RecipientName, receipt.RecipientPhone,
-                    receipt.AddressLine, receipt.District, receipt.City, receipt.ReceivedAt,
-                    receipt.Latitude, receipt.Longitude);
+                : new PhysicalKitLocationResponse(assignmentLocation.ContactName, assignmentLocation.ContactPhone,
+                    assignmentLocation.AddressLine, assignmentLocation.District, assignmentLocation.City,
+                    assignmentLocation.OccurredAt, assignmentLocation.Latitude, assignmentLocation.Longitude);
             if (assignment.Status is RentalAssignmentStatus.Active or RentalAssignmentStatus.Reserved &&
                 unit.Status is ProductUnitStatus.WithCustomer or ProductUnitStatus.OutboundInTransit
                     or ProductUnitStatus.Reserved or ProductUnitStatus.Preparing)
             {
-                currentLocation = location;
+                currentLocation = latestLocation is null
+                    ? location
+                    : new PhysicalKitLocationResponse(latestLocation.ContactName, latestLocation.ContactPhone,
+                        latestLocation.AddressLine, latestLocation.District, latestLocation.City,
+                        latestLocation.OccurredAt, latestLocation.Latitude, latestLocation.Longitude);
             }
-            rentals.Add(new PhysicalKitRentalHistoryResponse(assignment.Id, order.OrderNumber, order.Status,
-                assignment.Status, customer.Name, customer.Email,
-                $"{location.AddressLine}, {location.District} / {location.City}", assignment.Period.StartDate,
+            deliveries.Add(new PhysicalKitDeliveryHistoryResponse(assignment.Id, order.OrderNumber, order.Status,
+                assignment.Status, customer.Name, customer.Email, assignment.Period.StartDate,
                 assignment.Period.EndDate, assignment.CreatedAt, location.RecipientName, location.Phone,
                 location.AddressLine, location.District, location.City, location.DeliveredAt,
                 location.Latitude, location.Longitude));
         }
-        rentals = rentals.OrderByDescending(item => item.CreatedAt).ToList();
-        currentLocation ??= rentals
+        deliveries = deliveries.OrderByDescending(item => item.CreatedAt).ToList();
+        currentLocation ??= deliveries
             .Where(item => item.AssignmentStatus is RentalAssignmentStatus.Active or RentalAssignmentStatus.Reserved)
             .Select(item => new PhysicalKitLocationResponse(item.RecipientName, item.Phone, item.AddressLine,
                 item.District, item.City, item.DeliveredAt, item.Latitude, item.Longitude))
@@ -142,10 +154,26 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
             .Select(item => new PhysicalKitFaultHistoryResponse(item.Number, item.Category, item.Severity, item.Status,
                 item.Description, item.OpenedAt, item.History.OrderByDescending(history => history.OccurredAt)
                     .Select(history => $"{history.OccurredAt:dd.MM.yyyy}: {history.Note}").ToArray())).ToArray();
+        var returnRequests = new List<PhysicalKitReturnHistoryResponse>();
+        foreach (var request in await repository.GetKitReturnRequestsAsync(null, cancellationToken))
+        {
+            var match = request.Items.FirstOrDefault(item => item.ProductUnitId == id);
+            if (match is null) continue;
+            var order = await repository.GetOrderAsync(match.OrderId, cancellationToken);
+            var customer = order is null ? null : await repository.GetCustomerAsync(order.CustomerId, cancellationToken);
+            returnRequests.Add(new PhysicalKitReturnHistoryResponse(request.Id,
+                $"IADE-{request.CreatedAt:yyyyMMdd}-{request.Id.ToString("N")[..8]}",
+                request.Status,
+                customer?.Name ?? "Müşteri",
+                request.RequesterName ?? "Bilinmiyor", request.RequesterPhone ?? "-",
+                request.ReturnAddress ?? "-", request.CreatedAt, request.ShippedAt, request.ReceivedAt,
+                request.Latitude, request.Longitude));
+        }
+        returnRequests = returnRequests.OrderByDescending(item => item.CreatedAt).ToList();
         var status = unit.History.OrderByDescending(item => item.OccurredAt)
             .Select(item => new PhysicalKitStatusEventResponse(item.PreviousStatus, item.NewStatus, item.OccurredAt, item.Reason)).ToArray();
         return new PhysicalKitDetailResponse(await MapListItemAsync(unit, model, cancellationToken),
-            currentLocation, rentals, faults, status);
+            currentLocation, faults, deliveries, returnRequests, status);
     }
 
     public async Task<PhysicalKitDetailResponse> LookupAsync(string identifier, CancellationToken cancellationToken)
@@ -327,3 +355,5 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
         _ => true
     };
 }
+
+

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -12,7 +13,7 @@ public sealed class BrandingPageTests : IClassFixture<WebApplicationFactory<Prog
 
     public BrandingPageTests(WebApplicationFactory<Program> factory)
     {
-        _factory = factory;
+        _factory = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Local"));
     }
 
     [Theory]
@@ -34,7 +35,7 @@ public sealed class BrandingPageTests : IClassFixture<WebApplicationFactory<Prog
             await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
 
         response.EnsureSuccessStatusCode();
-        Assert.Contains($"class=\"{themeClass}\"", html);
+        Assert.Contains($"<body class=\"{themeClass} app-public\">", html);
         Assert.Contains(brandName, html);
         Assert.Contains($"Giriş - {title}", html);
     }

@@ -10,6 +10,12 @@ namespace KitRental.Web.Mvc.Controllers;
 
 public sealed class AccountController(KitRentalApiClient apiClient, IBrandResolver brandResolver) : Controller
 {
+    private static readonly HashSet<string> CustomerRoles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CustomerAccountManager",
+        "CustomerUser"
+    };
+
     [HttpGet]
     public IActionResult Login() => View(CreateLoginViewModel());
 
@@ -47,7 +53,7 @@ public sealed class AccountController(KitRentalApiClient apiClient, IBrandResolv
             CookieAuthenticationDefaults.AuthenticationScheme,
             new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)),
             properties);
-        return result.User.CustomerId.HasValue
+        return ShouldOpenCustomerPortal(result)
             ? RedirectToAction("Index", "CustomerPortal")
             : RedirectToAction("Dashboard", "Operations");
     }
@@ -60,6 +66,21 @@ public sealed class AccountController(KitRentalApiClient apiClient, IBrandResolv
     }
 
     public IActionResult AccessDenied() => View();
+
+    private static bool ShouldOpenCustomerPortal(LoginApiResponse user) =>
+        user.User.CustomerId.HasValue || CustomerRoles.Contains(GetRoleName(user.User.Role));
+
+    private static string GetRoleName(int role) => role switch
+    {
+        1 => "SystemAdmin",
+        2 => "OperationsManager",
+        3 => "WarehouseStaff",
+        4 => "ServiceTechnician",
+        5 => "CustomerAccountManager",
+        6 => "CustomerUser",
+        7 => "Auditor",
+        _ => role.ToString()
+    };
 
     private LoginViewModel CreateLoginViewModel() => new()
     {

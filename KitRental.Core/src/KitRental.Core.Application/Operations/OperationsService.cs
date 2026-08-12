@@ -86,15 +86,18 @@ public sealed record DashboardReturnResponse(Guid Id, string CustomerName, int S
     double? Latitude = null, double? Longitude = null);
 public sealed record DashboardRentalExpiryResponse(Guid ProductUnitId, string KitName, string SerialNumber,
     string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
-public sealed record DashboardKitLocationResponse(Guid ProductUnitId, string KitName, string SerialNumber,
-    string RecipientName, string AddressLine, string District, string City,
-    double? Latitude = null, double? Longitude = null);
+public sealed record DashboardKitLocationResponse(Guid ProductUnitId, Guid ProductModelId, string KitName,
+    string KitSku, string SerialNumber, string RecipientName, string AddressLine, string District, string City,
+    int Status, double? Latitude = null, double? Longitude = null, string LocationCategory = "active");
 
 public sealed class OperationsService(
     ICoreRepository repository,
     TimeProvider timeProvider,
-    ProductUnitStockConsumptionPlanner stockConsumptionPlanner)
+    ProductUnitStockConsumptionPlanner stockConsumptionPlanner,
+    IAddressGeocoder addressGeocoder)
 {
+    private static readonly Guid PublicActorId = new("00000000-0000-0000-0000-000000000001");
+
     public async Task<Customer> CreateCustomerAsync(CreateCustomerCommand command, CancellationToken cancellationToken)
     {
         var customer = Customer.Create(Guid.NewGuid(), command.Name, command.Email);
@@ -572,14 +575,15 @@ public sealed class OperationsService(
         var unit = (await repository.GetProductUnitsAsync(cancellationToken))
             .SingleOrDefault(item => string.Equals(item.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase))
             ?? throw new ResourceNotFoundException("Bu QR kodla eÅŸleÅŸen fiziksel kit bulunamadÄ±.");
-        var receipt = (await repository.GetKitDeliveryReceiptsAsync(cancellationToken))
+        var location = (await repository.GetKitLocationEventsAsync(cancellationToken))
             .Where(item => item.ProductUnitId == unit.Id)
-            .OrderByDescending(item => item.ReceivedAt)
+            .OrderByDescending(item => item.OccurredAt)
+            .ThenByDescending(item => item.Id)
             .FirstOrDefault();
-        return receipt is null
+        return location is null
             ? new PublicKitDeliveryContextResponse(null, null, null, null, null, null, null)
-            : new PublicKitDeliveryContextResponse(receipt.RecipientName, receipt.RecipientPhone, receipt.AddressLine,
-                receipt.District, receipt.City, receipt.Latitude, receipt.Longitude);
+            : new PublicKitDeliveryContextResponse(location.ContactName, location.ContactPhone, location.AddressLine,
+                location.District, location.City, location.Latitude, location.Longitude);
     }
 
     public async Task<PublicFaultContextResponse> GetPublicFaultContextAsync(string qrCode,
@@ -606,8 +610,16 @@ public sealed class OperationsService(
             ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
         if (ticket.ProductUnitId != unit.Id || ticket.Status is FaultStatus.Resolved or FaultStatus.Closed)
             throw new ConflictException("fault.edit_not_allowed", "Bu arıza kaydı güncellenemez.");
+        var resolvedLocation = await ResolveLocationAsync(reporterAddress, null, null, latitude, longitude,
+            cancellationToken);
         ticket.UpdatePublicDetails(ticket.Category, description, reporterName, reporterPhone, reporterAddress,
-            latitude, longitude);
+            resolvedLocation.Latitude, resolvedLocation.Longitude);
+        var now = timeProvider.GetUtcNow();
+        await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id, ticket.AssignmentId,
+            ticket.OrderId, ticket.CustomerId, KitLocationEventSource.FaultUpdate, ticket.Id, reporterName,
+            reporterPhone, reporterAddress, resolvedLocation.District, resolvedLocation.City,
+            resolvedLocation.Latitude, resolvedLocation.Longitude, now, PublicActorId),
+            cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return ticket;
     }
@@ -621,8 +633,17 @@ public sealed class OperationsService(
         var existing = await repository.GetOpenFaultTicketAsync(unit.Id, cancellationToken);
         if (existing is not null)
         {
+            var resolvedLocation = await ResolveLocationAsync(command.ReporterAddress, null, null,
+                command.Latitude, command.Longitude, cancellationToken);
             existing.UpdatePublicDetails("Son kullanıcı bildirimi", command.Description, command.ReporterName,
-                command.ReporterPhone, command.ReporterAddress, command.Latitude, command.Longitude);
+                command.ReporterPhone, command.ReporterAddress, resolvedLocation.Latitude, resolvedLocation.Longitude);
+            var now = timeProvider.GetUtcNow();
+            await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id,
+                existing.AssignmentId, existing.OrderId, existing.CustomerId, KitLocationEventSource.FaultUpdate,
+                existing.Id, command.ReporterName, command.ReporterPhone, command.ReporterAddress,
+                resolvedLocation.District, resolvedLocation.City, resolvedLocation.Latitude,
+                resolvedLocation.Longitude, now, PublicActorId),
+                cancellationToken);
             await repository.SaveChangesAsync(cancellationToken);
             return existing;
         }
@@ -632,14 +653,23 @@ public sealed class OperationsService(
             ?? throw new ConflictException("fault.no_active_rental", "Bu kit için aktif bir kiralama bulunmuyor.");
         var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
-        return await OpenFaultAsync(new OpenFaultCommand(assignment.CustomerId, order.Id, assignment.Id, unit.Id,
+        var newFaultLocation = await ResolveLocationAsync(command.ReporterAddress, null, null,
+            command.Latitude, command.Longitude, cancellationToken);
+        var ticket = await OpenFaultAsync(new OpenFaultCommand(assignment.CustomerId, order.Id, assignment.Id, unit.Id,
             "Son kullanici bildirimi", FaultSeverity.Medium, command.Description,
-            new Guid("00000000-0000-0000-0000-000000000001"), command.ReporterName, command.ReporterPhone,
-            command.ReporterAddress, command.Latitude, command.Longitude),
+            PublicActorId, command.ReporterName, command.ReporterPhone,
+            command.ReporterAddress, newFaultLocation.Latitude, newFaultLocation.Longitude),
             cancellationToken);
+        await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id, assignment.Id,
+            order.Id, assignment.CustomerId, KitLocationEventSource.FaultReport, ticket.Id, command.ReporterName,
+            command.ReporterPhone, command.ReporterAddress, newFaultLocation.District, newFaultLocation.City,
+            newFaultLocation.Latitude, newFaultLocation.Longitude, timeProvider.GetUtcNow(), PublicActorId),
+            cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+        return ticket;
     }
 
-    public async Task<KitDeliveryReceipt> CreatePublicKitDeliveryAsync(CreatePublicKitDeliveryCommand command,
+    public async Task<KitLocationEvent> CreatePublicKitDeliveryAsync(CreatePublicKitDeliveryCommand command,
         CancellationToken cancellationToken)
     {
         var unit = (await repository.GetProductUnitsAsync(cancellationToken))
@@ -656,18 +686,22 @@ public sealed class OperationsService(
         var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
         var now = timeProvider.GetUtcNow();
-        var actorId = new Guid("00000000-0000-0000-0000-000000000001");
+        var actorId = PublicActorId;
         var recipientName = command.RecipientName.Trim();
         var city = string.IsNullOrWhiteSpace(command.City) ? "Bilinmiyor" : command.City.Trim();
         var district = string.IsNullOrWhiteSpace(command.District) ? "Bilinmiyor" : command.District.Trim();
+        var resolvedLocation = await ResolveLocationAsync(command.AddressLine, district, city,
+            command.Latitude, command.Longitude, cancellationToken);
+        city = resolvedLocation.City;
+        district = resolvedLocation.District;
         var fullAddress = $"{command.AddressLine.Trim()}, {district} / {city}";
-        var receipt = KitDeliveryReceipt.Create(Guid.NewGuid(), unit.Id, assignment.Id, order.Id,
-            assignment.CustomerId, command.RecipientName, command.RecipientPhone,
-            command.AddressLine, district, city, now, actorId, command.Latitude, command.Longitude);
-
         unit.ConfirmDeliveryTo(actorId, now, recipientName, fullAddress);
         if (assignment.Status == RentalAssignmentStatus.Reserved) assignment.Activate();
-        await repository.AddKitDeliveryReceiptAsync(receipt, cancellationToken);
+        var locationEvent = KitLocationEvent.Create(Guid.NewGuid(), unit.Id, assignment.Id,
+            order.Id, assignment.CustomerId, KitLocationEventSource.DeliveryReceipt, null,
+            command.RecipientName, command.RecipientPhone, command.AddressLine, district, city,
+            resolvedLocation.Latitude, resolvedLocation.Longitude, now, actorId);
+        await repository.AddKitLocationEventAsync(locationEvent, cancellationToken);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId, nameof(ProductUnit), unit.Id,
             "PublicDeliveryReceived", ProductUnitStatus.OutboundInTransit.ToString(), unit.Status.ToString(), now),
             cancellationToken);
@@ -682,7 +716,7 @@ public sealed class OperationsService(
         }
 
         await repository.SaveChangesAsync(cancellationToken);
-        return receipt;
+        return locationEvent;
     }
 
     public Task<IReadOnlyCollection<FaultTicket>> GetFaultTicketsAsync(Guid? customerId, CancellationToken cancellationToken) =>
@@ -820,7 +854,6 @@ public sealed class OperationsService(
         var orders = await repository.GetOrdersAsync(null, cancellationToken);
         var faults = await repository.GetFaultTicketsAsync(null, cancellationToken);
         var returns = await repository.GetKitReturnRequestsAsync(null, cancellationToken);
-        var deliveryReceipts = await repository.GetKitDeliveryReceiptsAsync(cancellationToken);
         var customerLookup = customers.ToDictionary(x => x.Id);
         var modelLookup = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(x => x.Id);
         var unitLookup = units.ToDictionary(x => x.Id);
@@ -855,31 +888,36 @@ public sealed class OperationsService(
             .Select(unit => unit.Id)
             .Concat(openFaultUnitIds)
             .ToHashSet();
-        var latestReceiptsByUnit = deliveryReceipts
-            .GroupBy(receipt => receipt.ProductUnitId)
-            .ToDictionary(group => group.Key, group => group.OrderByDescending(receipt => receipt.ReceivedAt).First());
+        var latestLocationsByUnit = (await repository.GetKitLocationEventsAsync(cancellationToken))
+            .GroupBy(location => location.ProductUnitId)
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(location => location.OccurredAt)
+                .ThenByDescending(location => location.Id).First());
         var kitLocations = new List<DashboardKitLocationResponse>();
         foreach (var order in orders.Where(item => item.Type == OrderType.Rental))
         {
             foreach (var assignment in await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken))
             {
                 if (assignment.Status != RentalAssignmentStatus.Active ||
-                    !unitLookup.TryGetValue(assignment.ProductUnitId, out var unit) ||
-                    unit.Status != ProductUnitStatus.WithCustomer)
+                    !unitLookup.TryGetValue(assignment.ProductUnitId, out var unit))
                     continue;
 
                 var kitName = modelLookup.TryGetValue(unit.ProductModelId, out var model) ? model.Name : "Eğitim kiti";
-                if (latestReceiptsByUnit.TryGetValue(unit.Id, out var receipt))
+                var kitSku = modelLookup.TryGetValue(unit.ProductModelId, out model) ? model.Sku : "-";
+                var locationCategory = GetKitLocationCategory(unit.Status, faultyUnitIds.Contains(unit.Id));
+                if (latestLocationsByUnit.TryGetValue(unit.Id, out var location))
                 {
-                    kitLocations.Add(new DashboardKitLocationResponse(unit.Id, kitName, unit.SerialNumber,
-                        receipt.RecipientName, receipt.AddressLine, receipt.District, receipt.City,
-                        receipt.Latitude, receipt.Longitude));
+                    kitLocations.Add(new DashboardKitLocationResponse(unit.Id, unit.ProductModelId, kitName, kitSku,
+                        unit.SerialNumber,
+                        location.ContactName, location.AddressLine, location.District, location.City,
+                        (int)unit.Status, location.Latitude, location.Longitude, locationCategory));
                 }
                 else
                 {
                     var address = order.DeliveryAddress;
-                    kitLocations.Add(new DashboardKitLocationResponse(unit.Id, kitName, unit.SerialNumber,
-                        address.ContactName, address.Line1, address.District, address.City));
+                    kitLocations.Add(new DashboardKitLocationResponse(unit.Id, unit.ProductModelId, kitName, kitSku,
+                        unit.SerialNumber,
+                        address.ContactName, address.Line1, address.District, address.City, (int)unit.Status, null, null,
+                        locationCategory));
                 }
             }
         }
@@ -910,6 +948,13 @@ public sealed class OperationsService(
             kitLocations.OrderBy(item => item.City).ThenBy(item => item.District).ThenBy(item => item.SerialNumber).ToArray());
     }
 
+    private static string GetKitLocationCategory(ProductUnitStatus status, bool hasOpenFault) =>
+        hasOpenFault || status is ProductUnitStatus.InMaintenance or ProductUnitStatus.Quarantined
+            ? "faulty"
+            : status == ProductUnitStatus.ReturnInTransit
+                ? "returning"
+                : "active";
+
     private async Task ValidateOrderLinesAsync(IReadOnlyCollection<OrderLineCommand> lines,
         CancellationToken cancellationToken)
     {
@@ -923,6 +968,27 @@ public sealed class OperationsService(
     private static FaultGuideEntryResponse MapFaultGuideEntry(FaultGuideEntry entry) =>
         new(entry.Id, entry.Title, entry.Problem, entry.Solution, entry.DisplayOrder, entry.IsActive,
             entry.UpdatedAt);
+
+    private async Task<ResolvedLocation> ResolveLocationAsync(string addressLine, string? district, string? city,
+        double? latitude, double? longitude, CancellationToken cancellationToken)
+    {
+        var resolvedDistrict = string.IsNullOrWhiteSpace(district) ? "Bilinmiyor" : district.Trim();
+        var resolvedCity = string.IsNullOrWhiteSpace(city) ? "Bilinmiyor" : city.Trim();
+        if (CoordinatesAreValid(latitude, longitude))
+            return new ResolvedLocation(latitude, longitude, resolvedDistrict, resolvedCity);
+
+        var geocoded = await addressGeocoder.GeocodeAsync(addressLine, district, city, cancellationToken);
+        return geocoded is null
+            ? new ResolvedLocation(null, null, resolvedDistrict, resolvedCity)
+            : new ResolvedLocation(geocoded.Latitude, geocoded.Longitude,
+                string.IsNullOrWhiteSpace(geocoded.District) ? resolvedDistrict : geocoded.District.Trim(),
+                string.IsNullOrWhiteSpace(geocoded.City) ? resolvedCity : geocoded.City.Trim());
+    }
+
+    private static bool CoordinatesAreValid(double? latitude, double? longitude) =>
+        latitude is >= -90 and <= 90 && longitude is >= -180 and <= 180;
+
+    private sealed record ResolvedLocation(double? Latitude, double? Longitude, string District, string City);
 
     private async Task AuditAsync(
         Guid actorId,
@@ -939,3 +1005,7 @@ public sealed class OperationsService(
         await repository.SaveChangesAsync(cancellationToken);
     }
 }
+
+
+
+

@@ -1,26 +1,200 @@
 @model PhysicalKitDetailViewModel
 @{
     ViewData["Title"] = Model.Kit.SerialNumber;
-    string StatusName(int status) => status switch { 1 => "Kiralanabilir", 2 => "Rezerve", 3 => "Gönderim bekliyor", 4 => "Kargoya verildi", 5 => "Teslim edildi / kirada", 6 => "İade yolunda", 7 => "Kontrolde", 8 => "Serviste", 9 => "Karantina", 10 => "Kayıp", 11 => "Emekli", 12 => "Satıldı", _ => "Bilinmiyor" };
+    string StatusName(int status) => status switch
+    {
+        1 => "Kiralanabilir",
+        2 => "Rezerve",
+        3 => "Gönderim bekliyor",
+        4 => "Kargoya verildi",
+        5 => "Teslim edildi / kirada",
+        6 => "İade yolunda",
+        7 => "Kontrolde",
+        8 => "Serviste",
+        9 => "Karantina",
+        10 => "Kayıp",
+        11 => "Emekli",
+        12 => "Satıldı",
+        _ => "Bilinmiyor"
+    };
+    string ReturnStatusName(int status) => status switch
+    {
+        1 => "Talep edildi",
+        2 => "Yolda",
+        3 => "Teslim alındı",
+        _ => "Bilinmiyor"
+    };
 }
 <a class="back-link" asp-action="Index">← Fiziksel kitlere dön</a>
 @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
 <section class="detail-hero fleet-hero">
     <div class="detail-image"><img src="@ImageUrl.Kit(Model.Kit.ImageUrl)" alt="@Model.Kit.KitName" /></div>
-    <div><span class="eyebrow">@Model.Kit.KitSku</span><h1>@Model.Kit.KitName</h1><p>Seri: <strong>@Model.Kit.SerialNumber</strong><br />QR: @Model.Kit.QrCode</p><span class="fleet-status status-@Model.Kit.Status">@StatusName(Model.Kit.Status)</span></div>
-    <div>@if(Model.Kit.Status == 1){<a class="primary-action" asp-action="Rent" asp-route-id="@Model.Kit.Id">Bu kiti kirala</a>}</div>
+    <div>
+        <span class="eyebrow">@Model.Kit.KitSku</span>
+        <h1>@Model.Kit.KitName</h1>
+        <p>Seri: <strong>@Model.Kit.SerialNumber</strong><br />QR: @Model.Kit.QrCode</p>
+        <span class="fleet-status status-@Model.Kit.Status">@StatusName(Model.Kit.Status)</span>
+    </div>
+    <div>@if (Model.Kit.Status == 1) { <a class="primary-action" asp-action="Rent" asp-route-id="@Model.Kit.Id">Bu kiti kirala</a> }</div>
 </section>
 
-<section class="detail-section"><div class="section-heading"><div><span class="eyebrow">MEVCUT KONUM</span><h2>Şu an hangi adreste?</h2></div></div>
-@if(Model.CurrentLocation is null){<div class="empty">Bu kit şu anda bir müşteri adresinde görünmüyor.</div>}else{<div class="address-grid"><section class="address-card"><div class="address-pin">⌖</div><div class="address-copy"><strong>@Model.CurrentLocation.RecipientName</strong><span>@Model.CurrentLocation.Phone</span><p>@Model.CurrentLocation.AddressLine<br />@Model.CurrentLocation.District / @Model.CurrentLocation.City</p>@if(Model.CurrentLocation.DeliveredAt.HasValue){<small>Teslim alındı: @Model.CurrentLocation.DeliveredAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>}@if(Model.CurrentLocation.Latitude.HasValue && Model.CurrentLocation.Longitude.HasValue){<small>Konum: @Model.CurrentLocation.Latitude.Value.ToString("0.######") , @Model.CurrentLocation.Longitude.Value.ToString("0.######")</small>}</div></section></div>}
+<section class="detail-section">
+    <div class="section-heading">
+        <div><span class="eyebrow">MEVCUT KONUM</span><h2>Şu an hangi adreste?</h2></div>
+    </div>
+    @if (Model.CurrentLocation is null)
+    {
+        <div class="empty">Bu kit şu anda bir müşteri adresinde görünmüyor.</div>
+    }
+    else
+    {
+        <div class="address-grid">
+            <section class="address-card">
+                <div class="address-pin">⌖</div>
+                <div class="address-copy">
+                    <strong>@Model.CurrentLocation.RecipientName</strong>
+                    <span>@Model.CurrentLocation.Phone</span>
+                    <p>@Model.CurrentLocation.AddressLine<br />@Model.CurrentLocation.District / @Model.CurrentLocation.City</p>
+                    @if (Model.CurrentLocation.DeliveredAt.HasValue)
+                    {
+                        <small>Teslim alındı: @Model.CurrentLocation.DeliveredAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                    }
+                    @if (Model.CurrentLocation.Latitude.HasValue && Model.CurrentLocation.Longitude.HasValue)
+                    {
+                        <small>Konum: @Model.CurrentLocation.Latitude.Value.ToString("0.######") , @Model.CurrentLocation.Longitude.Value.ToString("0.######")</small>
+                    }
+                </div>
+            </section>
+        </div>
+    }
 </section>
 
-<section class="detail-section"><div class="section-heading"><div><span class="eyebrow">KİRALAMA GEÇMİŞİ</span><h2>Kime, nereye ve ne zaman?</h2></div><b>@Model.RentalHistory.Count kayıt</b></div>
-@if(Model.RentalHistory.Count == 0){<div class="empty">Bu kit daha önce kiralanmamış.</div>}else{<div class="history-list">@foreach(var rental in Model.RentalHistory){<article><div class="history-date">@rental.StartDate.ToString("dd MMM")<small>@rental.EndDate.ToString("dd MMM yyyy")</small></div><div><strong>@rental.CustomerName</strong><span>@rental.CustomerEmail</span><small>@rental.OrderNumber</small><p><b>@rental.RecipientName</b> · @rental.Phone<br />@rental.AddressLine, @rental.District / @rental.City</p>@if(rental.DeliveredAt.HasValue){<small>Teslim alındı: @rental.DeliveredAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>}@if(rental.Latitude.HasValue && rental.Longitude.HasValue){<small>Konum: @rental.Latitude.Value.ToString("0.######") , @rental.Longitude.Value.ToString("0.######")</small>}</div><span class="fleet-status">@(rental.AssignmentStatus == 2 ? "Aktif" : rental.AssignmentStatus == 3 ? "Tamamlandı" : "Rezerve")</span></article>}</div>}
+<section class="detail-section">
+    <div class="section-heading">
+        <div><span class="eyebrow">TESLİM ALMA OLAYLARI</span><h2>Bu kit kimlere hangi teslimatta geçti?</h2></div>
+        <b>@Model.DeliveryHistory.Count kayıt</b>
+    </div>
+    @if (Model.DeliveryHistory.Count == 0)
+    {
+        <div class="empty">Bu kit için teslim alma kaydı yok.</div>
+    }
+    else
+    {
+        <div class="fault-cards">
+            @foreach (var delivery in Model.DeliveryHistory)
+            {
+                <article>
+                    <div>
+                        <small>@delivery.OrderNumber · @delivery.StartDate.ToString("dd.MM.yyyy") - @delivery.EndDate.ToString("dd.MM.yyyy")</small>
+                        <h3>@delivery.CustomerName</h3>
+                        <p>@delivery.AddressLine, @delivery.District / @delivery.City</p>
+                        <small>@delivery.CustomerEmail</small>
+                        @if (delivery.DeliveredAt.HasValue)
+                        {
+                            <small>Teslim alındı: @delivery.DeliveredAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                        }
+                        else
+                        {
+                            <small>Teslim bilgisi henüz işlenmemiş.</small>
+                        }
+                        @if (delivery.Latitude.HasValue && delivery.Longitude.HasValue)
+                        {
+                            <small>Konum: @delivery.Latitude.Value.ToString("0.######") , @delivery.Longitude.Value.ToString("0.######")</small>
+                        }
+                    </div>
+                    <b>@(delivery.AssignmentStatus == 2 ? "Aktif" : delivery.AssignmentStatus == 3 ? "Tamamlandı" : "Rezerve")</b>
+                </article>
+            }
+        </div>
+    }
 </section>
 
-<section class="detail-section"><div class="section-heading"><div><span class="eyebrow">ARIZA / SERVİS</span><h2>Arıza geçmişi</h2></div><b>@Model.FaultHistory.Count kayıt</b></div>
-@if(Model.FaultHistory.Count == 0){<div class="empty">Bu kit için arıza kaydı yok.</div>}else{<div class="fault-cards">@foreach(var fault in Model.FaultHistory){<article><div><small>@fault.Number · @fault.OpenedAt.ToString("dd.MM.yyyy")</small><h3>@fault.Category</h3><p>@fault.Description</p>@foreach(var note in fault.StatusNotes){<span>@note</span>}</div><b>Seviye @fault.Severity</b></article>}</div>}
+<section class="detail-section">
+    <div class="section-heading">
+        <div><span class="eyebrow">ARIZA / SERVİS</span><h2>Arıza geçmişi</h2></div>
+        <b>@Model.FaultHistory.Count kayıt</b>
+    </div>
+    @if (Model.FaultHistory.Count == 0)
+    {
+        <div class="empty">Bu kit için arıza kaydı yok.</div>
+    }
+    else
+    {
+        <div class="fault-cards">
+            @foreach (var fault in Model.FaultHistory)
+            {
+                <article>
+                    <div>
+                        <small>@fault.Number · @fault.OpenedAt.ToString("dd.MM.yyyy")</small>
+                        <h3>@fault.Category</h3>
+                        <p>@fault.Description</p>
+                        @foreach (var note in fault.StatusNotes)
+                        {
+                            <span>@note</span>
+                        }
+                    </div>
+                    <b>Seviye @fault.Severity</b>
+                </article>
+            }
+        </div>
+    }
 </section>
 
-<section class="detail-section"><div class="section-heading"><div><span class="eyebrow">DURUM HAREKETLERİ</span><h2>Kit yaşam döngüsü</h2></div></div><div class="timeline">@foreach(var item in Model.StatusHistory){<article><i></i><div><strong>@StatusName(item.NewStatus)</strong><span>@item.Reason</span><small>@item.OccurredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></div></article>}</div></section>
+<section class="detail-section">
+    <div class="section-heading">
+        <div><span class="eyebrow">İADE SÜRECİ</span><h2>Bu kit için başlatılan iade talepleri</h2></div>
+        <b>@Model.ReturnHistory.Count kayıt</b>
+    </div>
+    @if (Model.ReturnHistory.Count == 0)
+    {
+        <div class="empty">Bu kit için iade süreci başlatılmamış.</div>
+    }
+    else
+    {
+        <div class="fault-cards">
+            @foreach (var request in Model.ReturnHistory)
+            {
+                <article>
+                    <div>
+                        <small>@request.ReturnNumber · @request.CreatedAt.ToString("dd.MM.yyyy HH:mm")</small>
+                        <h3>@request.CustomerName</h3>
+                        <p>@request.RequesterName · @request.RequesterPhone</p>
+                        <small>@request.ReturnAddress</small>
+                        @if (request.ShippedAt.HasValue)
+                        {
+                            <small>Kargoya verildi: @request.ShippedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                        }
+                        @if (request.ReceivedAt.HasValue)
+                        {
+                            <small>Teslim alındı: @request.ReceivedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                        }
+                        @if (request.Latitude.HasValue && request.Longitude.HasValue)
+                        {
+                            <small>Konum: @request.Latitude.Value.ToString("0.######") , @request.Longitude.Value.ToString("0.######")</small>
+                        }
+                    </div>
+                    <b>@ReturnStatusName(request.Status)</b>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+<section class="detail-section">
+    <div class="section-heading">
+        <div><span class="eyebrow">DURUM HAREKETLERİ</span><h2>Kit yaşam döngüsü</h2></div>
+    </div>
+    <div class="timeline">
+        @foreach (var item in Model.StatusHistory)
+        {
+            <article>
+                <i></i>
+                <div>
+                    <strong>@StatusName(item.NewStatus)</strong>
+                    <span>@item.Reason</span>
+                    <small>@item.OccurredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                </div>
+            </article>
+        }
+    </div>
+</section>

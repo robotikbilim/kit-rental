@@ -75,9 +75,9 @@ public sealed record DashboardReturnViewModel(Guid Id, string CustomerName, int 
     double? Latitude = null, double? Longitude = null);
 public sealed record DashboardRentalExpiryViewModel(Guid ProductUnitId, string KitName, string SerialNumber,
     string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
-public sealed record DashboardKitLocationViewModel(Guid ProductUnitId, string KitName, string SerialNumber,
-    string RecipientName, string AddressLine, string District, string City,
-    double? Latitude = null, double? Longitude = null);
+public sealed record DashboardKitLocationViewModel(Guid ProductUnitId, Guid ProductModelId, string KitName,
+    string KitSku, string SerialNumber, string RecipientName, string AddressLine, string District, string City,
+    int Status, double? Latitude = null, double? Longitude = null, string LocationCategory = "active");
 public sealed record ProductUnitViewModel(Guid Id, Guid ProductModelId, string SerialNumber, string QrCode, int Status);
 public sealed record InventoryItemViewModel(Guid Id, Guid ProductModelId, string ProductModelName,
     string ProductModelSku, string SerialNumber, string QrCode, int Status, DateTimeOffset CreatedAt);
@@ -255,18 +255,26 @@ public sealed record PhysicalKitUnitPageViewModel(Guid ProductModelId, string Ki
     string Filter, int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<PhysicalKitListItemViewModel> Items);
 public sealed record PhysicalKitStatusEventViewModel(int? PreviousStatus, int NewStatus, DateTimeOffset OccurredAt, string Reason);
-public sealed record PhysicalKitRentalHistoryViewModel(Guid AssignmentId, string OrderNumber, int OrderStatus,
-    int AssignmentStatus, string CustomerName, string CustomerEmail, string Address, DateOnly StartDate,
-    DateOnly EndDate, DateTimeOffset CreatedAt, string RecipientName, string Phone, string AddressLine,
-    string District, string City, DateTimeOffset? DeliveredAt, double? Latitude, double? Longitude);
 public sealed record PhysicalKitFaultHistoryViewModel(string Number, string Category, int Severity, int Status,
     string Description, DateTimeOffset OpenedAt, IReadOnlyCollection<string> StatusNotes);
+public sealed record PhysicalKitDeliveryHistoryViewModel(Guid AssignmentId, string OrderNumber, int OrderStatus,
+    int AssignmentStatus, string CustomerName, string CustomerEmail, DateOnly StartDate, DateOnly EndDate,
+    DateTimeOffset CreatedAt, string RecipientName, string Phone, string AddressLine, string District,
+    string City, DateTimeOffset? DeliveredAt, double? Latitude, double? Longitude);
+public sealed record PhysicalKitReturnHistoryViewModel(Guid ReturnId, string ReturnNumber, int Status,
+    string CustomerName, string RequesterName, string RequesterPhone, string ReturnAddress,
+    DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt, DateTimeOffset? ReceivedAt,
+    double? Latitude, double? Longitude);
 public sealed record PhysicalKitLocationViewModel(string RecipientName, string Phone, string AddressLine,
     string District, string City, DateTimeOffset? DeliveredAt, double? Latitude, double? Longitude);
 public sealed record PhysicalKitDetailViewModel(PhysicalKitListItemViewModel Kit, PhysicalKitLocationViewModel? CurrentLocation,
-    IReadOnlyCollection<PhysicalKitRentalHistoryViewModel> RentalHistory,
     IReadOnlyCollection<PhysicalKitFaultHistoryViewModel> FaultHistory,
-    IReadOnlyCollection<PhysicalKitStatusEventViewModel> StatusHistory);
+    IReadOnlyCollection<PhysicalKitDeliveryHistoryViewModel> DeliveryHistory,
+    IReadOnlyCollection<PhysicalKitReturnHistoryViewModel> ReturnHistory,
+    IReadOnlyCollection<PhysicalKitStatusEventViewModel> StatusHistory)
+{
+    public IReadOnlyCollection<PhysicalKitDeliveryHistoryViewModel> RentalHistory => DeliveryHistory;
+}
 public sealed record PhysicalKitLookupPageViewModel(string Identifier, bool HasSearched,
     PhysicalKitDetailViewModel? Result, string? Error);
 
@@ -465,8 +473,8 @@ public sealed class PublicFaultFormViewModel
     [Required, StringLength(160), Display(Name = "Ad soyad")] public string ReporterName { get; set; } = string.Empty;
     [Required, Phone, StringLength(40), Display(Name = "Telefon numarası")] public string ReporterPhone { get; set; } = string.Empty;
     [Required, StringLength(1000), Display(Name = "Adres")] public string ReporterAddress { get; set; } = string.Empty;
-    [Range(-90, 90), Display(Name = "Enlem")] public double? Latitude { get; set; }
-    [Range(-180, 180), Display(Name = "Boylam")] public double? Longitude { get; set; }
+    [Display(Name = "Enlem")] public double? Latitude { get; set; }
+    [Display(Name = "Boylam")] public double? Longitude { get; set; }
     [Required, StringLength(4000, MinimumLength = 10), Display(Name = "Ariza nedeni")]
     public string Description { get; set; } = string.Empty;
 }
@@ -480,8 +488,8 @@ public sealed class PublicReturnFormViewModel
     [Required, StringLength(160), Display(Name = "Ad soyad")] public string RequesterName { get; set; } = string.Empty;
     [Required, Phone, StringLength(40), Display(Name = "Telefon numarasÄ±")] public string RequesterPhone { get; set; } = string.Empty;
     [Required, StringLength(1000), Display(Name = "Adres")] public string ReturnAddress { get; set; } = string.Empty;
-    [Range(-90, 90), Display(Name = "Enlem")] public double? Latitude { get; set; }
-    [Range(-180, 180), Display(Name = "Boylam")] public double? Longitude { get; set; }
+    [Display(Name = "Enlem")] public double? Latitude { get; set; }
+    [Display(Name = "Boylam")] public double? Longitude { get; set; }
 }
 public sealed record PublicKitDeliveryContextViewModel(string? RecipientName, string? RecipientPhone,
     string? AddressLine, string? District, string? City, double? Latitude, double? Longitude);
@@ -495,8 +503,8 @@ public sealed class PublicDeliveryFormViewModel
     [StringLength(120), Display(Name = "İl")] public string City { get; set; } = string.Empty;
     [StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
     [Required, StringLength(1000), Display(Name = "Adres")] public string AddressLine { get; set; } = string.Empty;
-    [Range(-90, 90), Display(Name = "Enlem")] public double? Latitude { get; set; }
-    [Range(-180, 180), Display(Name = "Boylam")] public double? Longitude { get; set; }
+    [Display(Name = "Enlem")] public double? Latitude { get; set; }
+    [Display(Name = "Boylam")] public double? Longitude { get; set; }
 }
 public sealed record CustomerPortalViewModel(string CustomerName, string CustomerEmail, int ActiveKitCount,
     int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, IReadOnlyCollection<PortalKitViewModel> Kits,

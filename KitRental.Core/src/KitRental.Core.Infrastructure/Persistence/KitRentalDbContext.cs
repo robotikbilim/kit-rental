@@ -25,7 +25,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
     public DbSet<RentalOrder> RentalOrders => Set<RentalOrder>();
     public DbSet<RentalAssignment> RentalAssignments => Set<RentalAssignment>();
     public DbSet<Shipment> Shipments => Set<Shipment>();
-    public DbSet<KitDeliveryReceipt> KitDeliveryReceipts => Set<KitDeliveryReceipt>();
+    public DbSet<KitLocationEvent> KitLocationEvents => Set<KitLocationEvent>();
     public DbSet<FaultTicket> FaultTickets => Set<FaultTicket>();
     public DbSet<FaultGuideEntry> FaultGuideEntries => Set<FaultGuideEntry>();
     public DbSet<ReturnInspection> ReturnInspections => Set<ReturnInspection>();
@@ -47,7 +47,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         ConfigureOrder(modelBuilder.Entity<RentalOrder>());
         ConfigureAssignment(modelBuilder.Entity<RentalAssignment>());
         ConfigureShipment(modelBuilder.Entity<Shipment>());
-        ConfigureKitDeliveryReceipt(modelBuilder.Entity<KitDeliveryReceipt>());
+        ConfigureKitLocationEvent(modelBuilder.Entity<KitLocationEvent>());
         ConfigureFaultTicket(modelBuilder.Entity<FaultTicket>());
         ConfigureFaultGuideEntry(modelBuilder.Entity<FaultGuideEntry>());
         ConfigureInspection(modelBuilder.Entity<ReturnInspection>());
@@ -216,24 +216,25 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         AddRowVersion(builder);
     }
 
-    private static void ConfigureKitDeliveryReceipt(EntityTypeBuilder<KitDeliveryReceipt> builder)
+    private static void ConfigureKitLocationEvent(EntityTypeBuilder<KitLocationEvent> builder)
     {
-        builder.ToTable("KitDeliveryReceipts");
-        builder.HasKey(receipt => receipt.Id);
-        builder.Property(receipt => receipt.RecipientName).HasMaxLength(160).IsRequired();
-        builder.Property(receipt => receipt.RecipientPhone).HasMaxLength(40).IsRequired();
-        builder.Property(receipt => receipt.AddressLine).HasMaxLength(1000).IsRequired();
-        builder.Property(receipt => receipt.District).HasMaxLength(120).IsRequired();
-        builder.Property(receipt => receipt.City).HasMaxLength(120).IsRequired();
-        builder.HasIndex(receipt => new { receipt.ProductUnitId, receipt.ReceivedAt });
-        builder.HasIndex(receipt => new { receipt.City, receipt.District });
-        builder.HasOne<ProductUnit>().WithMany().HasForeignKey(receipt => receipt.ProductUnitId)
+        builder.ToTable("KitLocationEvents");
+        builder.HasKey(item => item.Id);
+        builder.Property(item => item.ContactName).HasMaxLength(160).IsRequired();
+        builder.Property(item => item.ContactPhone).HasMaxLength(40).IsRequired();
+        builder.Property(item => item.AddressLine).HasMaxLength(1000).IsRequired();
+        builder.Property(item => item.District).HasMaxLength(120).IsRequired();
+        builder.Property(item => item.City).HasMaxLength(120).IsRequired();
+        builder.HasIndex(item => new { item.ProductUnitId, item.OccurredAt });
+        builder.HasIndex(item => new { item.Source, item.SourceId });
+        builder.HasIndex(item => new { item.City, item.District });
+        builder.HasOne<ProductUnit>().WithMany().HasForeignKey(item => item.ProductUnitId)
             .OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<RentalAssignment>().WithMany().HasForeignKey(receipt => receipt.AssignmentId)
+        builder.HasOne<RentalAssignment>().WithMany().HasForeignKey(item => item.AssignmentId)
             .OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<RentalOrder>().WithMany().HasForeignKey(receipt => receipt.OrderId)
+        builder.HasOne<RentalOrder>().WithMany().HasForeignKey(item => item.OrderId)
             .OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Customer>().WithMany().HasForeignKey(receipt => receipt.CustomerId)
+        builder.HasOne<Customer>().WithMany().HasForeignKey(item => item.CustomerId)
             .OnDelete(DeleteBehavior.Restrict);
         AddRowVersion(builder);
     }
