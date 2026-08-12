@@ -42,6 +42,7 @@
                         <a class="nav-direct @(currentController == "CustomerPortal" && currentAction == "Index" ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Index">Genel Bakis</a>
                         <a class="nav-direct @(currentController == "CustomerPortal" && (currentAction == "Faults" || currentAction == "Fault" || currentAction == "NewFault") ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Faults">Arizalar</a>
                         <a class="nav-direct @(currentController == "CustomerPortal" && (currentAction == "Kits" || currentAction == "Kit" || currentAction == "FindKit") ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Kits">Kitler</a>
+                        <a class="nav-direct @(currentController == "CustomerPortal" && currentAction == "Returns" ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Returns">Iadeler</a>
                         <a class="nav-direct @(currentController == "CustomerPortal" && currentAction == "Orders" ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Orders">Siparisler</a>
                     }
                     else

@@ -507,11 +507,18 @@ public sealed class PublicDeliveryFormViewModel
     [Display(Name = "Boylam")] public double? Longitude { get; set; }
 }
 public sealed record CustomerPortalViewModel(string CustomerName, string CustomerEmail, int ActiveKitCount,
-    int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, IReadOnlyCollection<PortalKitViewModel> Kits,
+    int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, int ExpiredRentalKitCount,
+    int ReturnProcessStartedKitCount, int ReturnedKitCount, IReadOnlyCollection<PortalKitViewModel> Kits,
     IReadOnlyCollection<PortalOrderViewModel> Orders, IReadOnlyCollection<PortalFaultViewModel> Faults,
     IReadOnlyCollection<PortalAddressViewModel> Addresses, IReadOnlyCollection<PortalProductModelViewModel> ProductModels,
     IReadOnlyCollection<PortalKitReturnViewModel> Returns,
     IReadOnlyCollection<DashboardKitLocationViewModel> KitLocations);
+public sealed record PortalReturnListItemViewModel(Guid ProductUnitId, Guid AssignmentId, Guid? ReturnId,
+    string KitName, string KitSku, string SerialNumber, string OrderNumber, DateOnly StartDate, DateOnly EndDate,
+    int UnitStatus, int AssignmentStatus, int ReturnStatus, int OpenFaultCount, string ReturnState);
+public sealed record PortalReturnsPageViewModel(string CustomerName, string Query, string State, int Page,
+    int PageSize, int TotalCount, int TotalKitCount, int TotalPages, int FirstItem, int LastItem,
+    IReadOnlyCollection<PortalReturnListItemViewModel> Returns);
 public sealed record PortalKitReturnItemViewModel(Guid AssignmentId, Guid ProductUnitId, Guid OrderId,
     string KitName, string SerialNumber);
 public sealed record PortalKitReturnViewModel(Guid Id, Guid CustomerId, string CustomerName, int Status,

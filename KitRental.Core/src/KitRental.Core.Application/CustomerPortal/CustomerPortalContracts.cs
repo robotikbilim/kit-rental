@@ -27,7 +27,8 @@ public sealed record PortalFaultResponse(Guid Id, string Number, Guid ProductUni
     string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "",
     FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired);
 public sealed record CustomerPortalResponse(string CustomerName, string CustomerEmail, int ActiveKitCount,
-    int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, IReadOnlyCollection<PortalKitResponse> Kits,
+    int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, int ExpiredRentalKitCount,
+    int ReturnProcessStartedKitCount, int ReturnedKitCount, IReadOnlyCollection<PortalKitResponse> Kits,
     IReadOnlyCollection<PortalOrderResponse> Orders, IReadOnlyCollection<PortalFaultResponse> Faults,
     IReadOnlyCollection<PortalAddressResponse> Addresses, IReadOnlyCollection<PortalProductModelResponse> ProductModels,
     IReadOnlyCollection<PortalKitReturnResponse> Returns,

@@ -27,6 +27,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var kitLocations = new List<PortalKitLocationResponse>();
         var orderResponses = new List<PortalOrderResponse>();
         var customerFaults = await repository.GetFaultTicketsAsync(customerId, cancellationToken);
+        var customerReturns = await repository.GetKitReturnRequestsAsync(customerId, cancellationToken);
         var latestLocationsByUnit = (await repository.GetKitLocationEventsAsync(cancellationToken))
             .Where(location => location.CustomerId == customerId)
             .GroupBy(location => location.ProductUnitId)
@@ -77,11 +78,27 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
 
         var faults = await MapFaultsAsync(customerId, modelLookup, cancellationToken);
         var returns = await MapReturnsAsync(customerId, cancellationToken);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var expiredRentalKitCount = kits.Count(item =>
+            item.AssignmentStatus == RentalAssignmentStatus.Active && item.EndDate < today);
+        var returnProcessStartedUnitIds = customerReturns
+            .Where(item => item.Status is KitReturnStatus.Requested or KitReturnStatus.InTransit)
+            .SelectMany(item => item.Items)
+            .Select(item => item.ProductUnitId)
+            .ToHashSet();
+        var returnedUnitIds = customerReturns
+            .Where(item => item.Status == KitReturnStatus.Received)
+            .SelectMany(item => item.Items)
+            .Select(item => item.ProductUnitId)
+            .ToHashSet();
         return new CustomerPortalResponse(customer.Name, customer.Email,
             kits.Count(item => item.AssignmentStatus == RentalAssignmentStatus.Active),
             orders.Count(item => item.Status == RentalOrderStatus.PendingApproval),
             faults.Count(item => item.Status is not (FaultStatus.Resolved or FaultStatus.Closed)),
             faults.Count(item => item.Status is FaultStatus.Resolved or FaultStatus.Closed),
+            expiredRentalKitCount,
+            returnProcessStartedUnitIds.Count,
+            returnedUnitIds.Count,
             kits.OrderByDescending(item => item.AssignmentStatus).ThenBy(item => item.KitName).ToArray(),
             orderResponses, faults,
             customer.Addresses.Select(item => new PortalAddressResponse(item.Id, item.Title, item.ContactName, item.Phone,

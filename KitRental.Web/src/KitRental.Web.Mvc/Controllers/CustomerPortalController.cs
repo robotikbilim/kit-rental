@@ -111,6 +111,97 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     }
 
     [HttpGet]
+    public async Task<IActionResult> Returns(string? query, string state = "all", int page = 1,
+        int pageSize = 10, CancellationToken cancellationToken = default)
+    {
+        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        if (portal is null) return Forbid();
+
+        var normalizedQuery = query?.Trim() ?? string.Empty;
+        var normalizedState = state is "all" or "pending" or "processing" or "returned" ? state : "all";
+        var normalizedPageSize = pageSize is 10 or 25 or 50 ? pageSize : 10;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var faultLookup = portal.Faults
+            .GroupBy(item => item.ProductUnitId)
+            .ToDictionary(group => group.Key, group => group.Count(item => item.Status is not (7 or 8)));
+        var returnLookup = portal.Returns
+            .SelectMany(request => request.Items.Select(item => new
+            {
+                item.ProductUnitId,
+                item.AssignmentId,
+                RequestId = request.Id,
+                request.Status,
+                request.CreatedAt
+            }))
+            .GroupBy(item => item.ProductUnitId)
+            .ToDictionary(group => group.Key,
+                group => group.OrderByDescending(item => item.CreatedAt).First());
+
+        var allReturns = portal.Kits
+            .Where(item => (item.AssignmentStatus == 2 && item.EndDate < today) || returnLookup.ContainsKey(item.ProductUnitId))
+            .Select(item =>
+            {
+                returnLookup.TryGetValue(item.ProductUnitId, out var currentReturn);
+                var returnState = currentReturn is null
+                    ? "pending"
+                    : currentReturn.Status switch
+                    {
+                        1 => "pending",
+                        2 => "processing",
+                        3 => "returned",
+                        _ => "pending"
+                    };
+                var stateLabel = currentReturn is null
+                    ? "İade Bekleniyor"
+                    : currentReturn.Status switch
+                    {
+                        1 => "İade Bekleniyor",
+                        2 => "İade Sürecinde",
+                        3 => "İade Edildi",
+                        _ => "İade Bekleniyor"
+                    };
+                return new PortalReturnListItemViewModel(
+                    item.ProductUnitId,
+                    item.AssignmentId,
+                    currentReturn?.RequestId,
+                    item.KitName,
+                    item.KitSku,
+                    item.SerialNumber,
+                    item.OrderNumber,
+                    item.StartDate,
+                    item.EndDate,
+                    (int)item.UnitStatus,
+                    (int)item.AssignmentStatus,
+                    currentReturn is null ? 0 : currentReturn.Status,
+                    faultLookup.TryGetValue(item.ProductUnitId, out var openFaultCount) ? openFaultCount : 0,
+                    stateLabel);
+            })
+            .Where(item => normalizedState == "all" || item.ReturnState == normalizedState)
+            .Where(item => normalizedQuery.Length == 0 ||
+                item.KitName.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
+                item.KitSku.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
+                item.SerialNumber.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
+                item.OrderNumber.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(item => item.ReturnStatus)
+            .ThenBy(item => item.EndDate)
+            .ThenBy(item => item.KitName)
+            .ToArray();
+
+        var totalPages = Math.Max(1, (int)Math.Ceiling(allReturns.Length / (double)normalizedPageSize));
+        var normalizedPage = Math.Clamp(page, 1, totalPages);
+        var pagedReturns = allReturns
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .ToArray();
+        var firstItem = allReturns.Length == 0 ? 0 : (normalizedPage - 1) * normalizedPageSize + 1;
+        var lastItem = allReturns.Length == 0 ? 0 : Math.Min(normalizedPage * normalizedPageSize, allReturns.Length);
+
+        return View(new PortalReturnsPageViewModel(portal.CustomerName, normalizedQuery, normalizedState,
+            normalizedPage, normalizedPageSize, allReturns.Length, portal.Kits.Count, totalPages, firstItem, lastItem,
+            pagedReturns));
+    }
+
+    [HttpGet]
     public async Task<IActionResult> FindKit(string? identifier, CancellationToken cancellationToken)
     {
         var value = QrCodeValue.Normalize(identifier);

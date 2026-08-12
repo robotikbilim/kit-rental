@@ -1,0 +1,142 @@
+@model PortalReturnsPageViewModel
+@{
+    ViewData["Title"] = "İadeler";
+}
+@functions {
+    string StateName(string value) => value switch
+    {
+        "pending" => "İade Bekleniyor",
+        "processing" => "İade Sürecinde",
+        "returned" => "İade Edildi",
+        _ => "Tümü"
+    };
+
+    IEnumerable<int?> PaginationPages(int currentPage, int totalPages)
+    {
+        var pages = new SortedSet<int> { 1, totalPages };
+        for (var page = Math.Max(1, currentPage - 2); page <= Math.Min(totalPages, currentPage + 2); page++)
+            pages.Add(page);
+
+        int? previous = null;
+        foreach (var page in pages)
+        {
+            if (previous.HasValue && page - previous.Value > 1) yield return null;
+            yield return page;
+            previous = page;
+        }
+    }
+}
+
+<div class="portal-heading portal-kits-heading">
+    <div>
+        <span class="eyebrow">İADE TAKİBİ</span>
+        <h1>İadeler</h1>
+        <p>@Model.CustomerName hesabına ait süresi dolan ve iade akışındaki kitleri filtreleyin.</p>
+    </div>
+    <div class="recipe-actions"><a class="secondary-action" asp-action="Kits">Kitler</a></div>
+</div>
+
+<section class="portal-kit-list-shell">
+    <form class="portal-kit-filters" asp-action="Returns" method="get">
+        <label class="portal-kit-search">
+            <span>Kit ara</span>
+            <input type="search" name="query" value="@Model.Query" placeholder="Kit adı, seri no, SKU veya sipariş no" />
+        </label>
+        <label>
+            <span>Durum</span>
+            <select name="state">
+                <option value="all" selected="@(Model.State == "all")">Tümü</option>
+                <option value="pending" selected="@(Model.State == "pending")">İade bekleniyor</option>
+                <option value="processing" selected="@(Model.State == "processing")">İade sürecinde</option>
+                <option value="returned" selected="@(Model.State == "returned")">İade edilmiş</option>
+            </select>
+        </label>
+        <label>
+            <span>Sayfa boyutu</span>
+            <select name="pageSize">
+                @foreach (var size in new[] { 10, 25, 50 })
+                {
+                    <option value="@size" selected="@(Model.PageSize == size)">@size kayıt</option>
+                }
+            </select>
+        </label>
+        <div class="portal-kit-filter-actions">
+            <button class="primary-action" type="submit">Filtrele</button>
+            <a class="secondary-action" asp-action="Returns">Temizle</a>
+        </div>
+    </form>
+
+    <div class="portal-kit-result-heading" aria-live="polite">
+        <div><strong>@Model.TotalCount</strong> iade kaydı bulundu</div>
+        @if (Model.TotalCount != Model.TotalKitCount)
+        {
+            <span>Toplam @Model.TotalKitCount kit içinde</span>
+        }
+    </div>
+
+    @if (Model.Returns.Count > 0)
+    {
+        <div class="table-scroll portal-kit-table-wrap">
+            <table class="portal-kit-table">
+                <thead><tr><th>Kit</th><th>Seri numarası</th><th>Kiralama dönemi</th><th>Durum</th><th>Arıza</th><th><span class="visually-hidden">İşlemler</span></th></tr></thead>
+                <tbody>
+                @foreach (var item in Model.Returns)
+                {
+                    <tr>
+                        <td data-mobile-label="Kit"><div class="table-kit"><div><strong>@item.KitName</strong><small>@item.KitSku · @item.OrderNumber</small></div></div></td>
+                        <td data-mobile-label="Seri numarası"><code class="unit-serial">@item.SerialNumber</code></td>
+                        <td data-mobile-label="Kiralama dönemi"><span class="portal-kit-period">@item.StartDate.ToString("dd.MM.yyyy")<small>@item.EndDate.ToString("dd.MM.yyyy") tarihine kadar</small></span></td>
+                        <td data-mobile-label="Durum"><span class="badge order-status-@item.ReturnStatus">@item.ReturnState</span></td>
+                        <td data-mobile-label="Arıza">@if (item.OpenFaultCount > 0) { <span class="portal-alert">@item.OpenFaultCount açık arıza</span> } else { <span class="portal-no-fault">Arıza yok</span> }</td>
+                        <td data-mobile-label="İşlemler">
+                            <div class="portal-table-actions">
+                                <a class="row-link" asp-action="Kit" asp-route-id="@item.ProductUnitId">Detay</a>
+                                @if (item.AssignmentStatus == 2)
+                                {
+                                    <a class="row-link fault-link" asp-action="NewFault" asp-route-assignmentId="@item.AssignmentId">Arıza bildir</a>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <footer class="pagination-shell portal-kit-pagination">
+            <span>@Model.FirstItem-@Model.LastItem / @Model.TotalCount kayıt</span>
+            @if (Model.TotalPages > 1)
+            {
+                <nav class="pagination" aria-label="İade kayıtları sayfaları">
+                    <a class="@(Model.Page == 1 ? "disabled" : null)" aria-disabled="@(Model.Page == 1 ? "true" : null)" aria-label="Önceki sayfa" asp-action="Returns" asp-route-query="@Model.Query" asp-route-state="@Model.State" asp-route-pageSize="@Model.PageSize" asp-route-page="@(Model.Page - 1)">&lsaquo;</a>
+                    @foreach (var paginationPage in PaginationPages(Model.Page, Model.TotalPages))
+                    {
+                        if (paginationPage.HasValue)
+                        {
+                            <a class="@(paginationPage == Model.Page ? "active" : null)" aria-current="@(paginationPage == Model.Page ? "page" : null)" asp-action="Returns" asp-route-query="@Model.Query" asp-route-state="@Model.State" asp-route-pageSize="@Model.PageSize" asp-route-page="@paginationPage">@paginationPage</a>
+                        }
+                        else
+                        {
+                            <span class="pagination-ellipsis" aria-hidden="true">...</span>
+                        }
+                    }
+                    <a class="@(Model.Page == Model.TotalPages ? "disabled" : null)" aria-disabled="@(Model.Page == Model.TotalPages ? "true" : null)" aria-label="Sonraki sayfa" asp-action="Returns" asp-route-query="@Model.Query" asp-route-state="@Model.State" asp-route-pageSize="@Model.PageSize" asp-route-page="@(Model.Page + 1)">&rsaquo;</a>
+                </nav>
+            }
+        </footer>
+    }
+    else
+    {
+        <div class="empty portal-kit-empty">
+            @if (Model.TotalCount == 0)
+            {
+                <strong>Henüz iade kaydı bulunmuyor.</strong>
+                <span>Süresi dolan kitler veya başlatılmış iade akışları burada görünecek.</span>
+            }
+            else
+            {
+                <strong>Filtrelerle eşleşen iade kaydı bulunamadı.</strong>
+                <span>Arama ölçütlerini değiştirin veya filtreleri temizleyin.</span>
+            }
+        </div>
+    }
+</section>

@@ -1,12 +1,17 @@
 @model CustomerPortalViewModel
 @using System.Text.Json
 @{
-    ViewData["Title"] = "Genel Bakis";
+    ViewData["Title"] = "Genel Bakış";
     var allKitLocations = Model.KitLocations.ToArray();
     var mapLocations = allKitLocations.Where(item => item.Latitude.HasValue && item.Longitude.HasValue).ToArray();
     var faultyCount = allKitLocations.Count(item => item.LocationCategory == "faulty");
     var returnCount = allKitLocations.Count(item => item.LocationCategory == "returning");
     var activeCount = allKitLocations.Count(item => item.LocationCategory == "active");
+    var activeKits = Model.Kits.Where(item => item.AssignmentStatus == 2).ToArray();
+    var activeFaultyKits = activeKits.Count(item => item.OpenFaultCount > 0 || item.UnitStatus is 8);
+    var activeHealthyKits = activeKits.Length - activeFaultyKits;
+    var expiredWithoutReturn = activeKits.Count(item => item.EndDate < DateOnly.FromDateTime(DateTime.UtcNow) && item.OpenFaultCount == 0);
+    var expiredWithReturn = activeKits.Count(item => item.EndDate < DateOnly.FromDateTime(DateTime.UtcNow) && item.OpenFaultCount > 0);
     var missingLocationCount = allKitLocations.Length - mapLocations.Length;
     var modelOptions = allKitLocations
         .GroupBy(item => item.ProductModelId)
@@ -20,8 +25,7 @@
         .OrderBy(item => item.KitSku)
         .ThenBy(item => item.KitName)
         .ToArray();
-    var mapLocationsJson = JsonSerializer.Serialize(
-        mapLocations,
+    var mapLocationsJson = JsonSerializer.Serialize(mapLocations,
         new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 }
 @section Head {
@@ -30,19 +34,26 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 }
 <div class="portal-heading">
-    <div><span class="eyebrow">TACEV KIRALAMA PORTALI</span><h1>Merhaba, @Model.CustomerName</h1><p>Kitlerinizi, siparislerinizi ve servis sureclerinizi tek ekrandan takip edin.</p></div>
+    <div>
+        <span class="eyebrow">TACEV KIRALAMA PORTALI</span>
+        <h1>Merhaba, @Model.CustomerName</h1>
+        <p>Kitlerinizi, siparişlerinizi ve servis süreçlerinizi tek ekrandan takip edin.</p>
+    </div>
     <div class="recipe-actions"><a class="secondary-action" asp-action="FindKit">QR ile kit bul</a></div>
 </div>
 @if (TempData["Success"] is string message) { <div class="success-banner">@message</div> }
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 <section class="metrics portal-metrics">
-    <a class="metric-card" asp-action="Kits" asp-route-status="5"><span>Kullanimdaki kit</span><strong>@Model.ActiveKitCount</strong><small>Kitleri filtrele</small></a>
-    <a class="metric-card" asp-action="Faults" asp-route-state="open"><span>Acik ariza kaydi</span><strong>@Model.OpenFaultCount</strong><small>Acik arizalari gor</small></a>
-    <a class="metric-card" asp-action="Faults" asp-route-state="completed"><span>Tamamlanmis ariza kaydi</span><strong>@Model.CompletedFaultCount</strong><small>Tamamlananlari gor</small></a>
+    <a class="metric-card portal-metric-active" asp-action="Kits" asp-route-status="5" title="@activeKits.Length aktif kit. @activeHealthyKits kit arızasız, @activeFaultyKits kit açık arıza veya servis durumunda."><span>Aktif Kitler</span><strong>@Model.ActiveKitCount</strong></a>
+    <a class="metric-card portal-metric-faults" asp-action="Faults" asp-route-state="open" title="@Model.OpenFaultCount açık arıza kaydı."><span>Açık Arızalar</span><strong>@Model.OpenFaultCount</strong></a>
+    <a class="metric-card portal-metric-closed" asp-action="Faults" asp-route-state="completed" title="@Model.CompletedFaultCount kapalı arıza kaydı."><span>Kapalı Arızalar</span><strong>@Model.CompletedFaultCount</strong></a>
+    <a class="metric-card portal-metric-expired" asp-action="Returns" asp-route-state="pending" title="@Model.ExpiredRentalKitCount süresi dolan kit. Bunların @expiredWithReturn tanesinde iade süreci başlamış, @expiredWithoutReturn tanesinde henüz iade açılmamış."><span>Süresi Dolanlar</span><strong>@Model.ExpiredRentalKitCount</strong></a>
+    <a class="metric-card portal-metric-processing" asp-action="Returns" asp-route-state="processing" title="@Model.ReturnProcessStartedKitCount kit iade sürecinde."><span>İade Sürecindekiler</span><strong>@Model.ReturnProcessStartedKitCount</strong></a>
+    <a class="metric-card portal-metric-returned" asp-action="Returns" asp-route-state="returned" title="@Model.ReturnedKitCount kit iade edilmiş."><span>İade Edilenler</span><strong>@Model.ReturnedKitCount</strong></a>
 </section>
 <section class="dashboard-group kit-map-section">
     <header class="dashboard-group-heading">
-        <div><span class="eyebrow">KIT KONUM HARITASI</span><h2>Türkiye genelinde kit dağılımı</h2></div>
+        <div><span class="eyebrow">KİT KONUM HARİTASI</span><h2>Türkiye genelinde kit dağılımı</h2></div>
         <p>Hesabınıza ait teslim alınmış kitler teslim formundaki enlem ve boylam bilgisine göre yerleştirilir.</p>
     </header>
     @if (allKitLocations.Length == 0)

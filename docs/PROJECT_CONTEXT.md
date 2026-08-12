@@ -37,6 +37,7 @@ Main user surfaces:
 - EF Core schema changes require a migration before finishing the task.
 - Update this file after each development task when project behavior, schema, routes, or conventions change.
 - Avoid unrelated refactors and do not revert unrelated working-tree changes.
+- Ask for user approval before running build/compilation checks such as `dotnet build`.
 
 ## Persistence Rules
 
@@ -212,6 +213,10 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Added map filters for faulty kits, return-process kits, active kits, serial number, and product model.
 - Added a missing-location label under the map filters; map counts now include coordinate-less active rental rows while markers still require coordinates.
 - Split physical kit detail and lookup history into separate card groups for deliveries, faults, and return requests.
+- Added customer portal summary cards for expired rental kits, kits with started return flow, and returned kits.
+- Customer portal return counts now come from `KitReturnRequest` states and rental expiry counts from active assignments whose `EndDate` is before today.
+- Added a dedicated customer portal `Returns` page with filters for pending, in-progress, and returned states, plus expired kits that have not started a return yet.
+- Added customer portal navigation entry for `İadeler`.
 - Verified with `dotnet build KitRental.slnx`.
 
 ## Development Checklist
