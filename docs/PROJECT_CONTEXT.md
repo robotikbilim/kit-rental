@@ -225,14 +225,16 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Customer portal `Aktif Kitler` summary card now counts only healthy kits that still have an active assignment, are still in `WithCustomer`, and have no open fault.
 - Dashboard and customer portal maps now classify `faulty` only from open fault tickets, and kits whose returns were already received are removed from map rows.
 - Added a dedicated customer portal `Returns` page with filters for pending, in-progress, and returned states, plus expired kits that have not started a return yet.
-- Added customer portal navigation entry for `Ä°adeler`.
+- Added customer portal navigation entry for `İadeler`.
 - Customer portal expired-rental checks now use the app server local date (`DateTime.Today`) instead of UTC so locally expired kits appear immediately after midnight.
 - Customer portal returns filter now matches on a dedicated state key (`pending`/`processing`/`returned`) while the table keeps separate Turkish status labels for display.
 - Customer portal return semantics are assignment-based: on Wednesday, August 12, 2026, `pending` means an active rental ended before today and still has no return form, `processing` means a return request exists regardless of due date, and `returned` means warehouse/admin accepted the return back into available stock.
 - Admin dashboard now exposes `Iadeyi kabul et` for active return requests, and receiving a return is allowed from both `Requested` and `InTransit`.
-- Customer portal returns list status mapping now treats `KitReturnStatus.Requested` as `processing` / `Ä°ade SÃ¼recinde` so the list matches the summary cards once a return form exists.
+- Customer portal returns list status mapping now treats `KitReturnStatus.Requested` as `processing` / `İade Sürecinde` so the list matches the summary cards once a return form exists.
 - Map `returning` / `expired` categories now use the same assignment-based rules as the dashboard and customer portal cards, so the filters stay aligned.
 - Top map status filters on dashboard and customer portal now render as `col-md-3` items so the four status checkboxes share a single row on medium+ widths.
+- Time-stamped operations and UI log/history displays are now standardized on Turkey time via shared helpers instead of mixing UTC and server-local conversions.
+- Fixed repository-wide Turkish text encoding issues in MVC/Core user-facing strings, API descriptions, and related test data by normalizing mojibake back to proper UTF-8 Turkish characters.
 - Verified with `dotnet build KitRental.slnx`.
 
 ## Development Checklist

@@ -38,7 +38,7 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
         {
             var movement = StockMovement.Create(Guid.NewGuid(), component.Id,
                 defaultStorageLocationId!.Value, StockMovementType.Receipt, command.InitialStock,
-                "Komponent oluşturma başlangıç stoğu", command.ActorId, timeProvider.GetUtcNow());
+                "Komponent oluşturma başlangıç stoğu", command.ActorId, timeProvider.GetTurkeyNow());
             await repository.ApplyStockMovementsAsync([movement], cancellationToken);
         }
         else
@@ -59,7 +59,7 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
             .OrderByDescending(item => item.StorageLocationId == component.DefaultStorageLocationId)
             .ThenBy(item => item.StorageLocationId)
             .ToArray();
-        var now = timeProvider.GetUtcNow();
+        var now = timeProvider.GetTurkeyNow();
         var movements = new List<StockMovement>();
 
         if (command.Change > 0)
@@ -264,7 +264,7 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
             [command.FromStorageLocationId, command.ToStorageLocationId],
             cancellationToken);
 
-        var now = timeProvider.GetUtcNow();
+        var now = timeProvider.GetTurkeyNow();
         var transferId = Guid.NewGuid();
         var movements = new[]
         {
@@ -431,7 +431,7 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
     {
         await EnsureComponentAndLocationsAsync(command.ComponentId, [command.StorageLocationId], cancellationToken);
         var movement = StockMovement.Create(Guid.NewGuid(), command.ComponentId, command.StorageLocationId,
-            type, command.Quantity, command.Reference, command.ActorId, timeProvider.GetUtcNow());
+            type, command.Quantity, command.Reference, command.ActorId, timeProvider.GetTurkeyNow());
         await AuditAsync(command.ActorId, nameof(ComponentStock), command.ComponentId, type.ToString(), null,
             $"{command.Quantity}@{command.StorageLocationId}", cancellationToken);
         await repository.ApplyStockMovementsAsync([movement], cancellationToken);
@@ -461,7 +461,7 @@ public sealed class WorkshopService(ICoreRepository repository, TimeProvider tim
     private Task AuditAsync(Guid actorId, string entityType, Guid entityId, string action,
         string? previous, string? next, CancellationToken cancellationToken) =>
         repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId, entityType, entityId, action,
-            previous, next, timeProvider.GetUtcNow()), cancellationToken);
+            previous, next, timeProvider.GetTurkeyNow()), cancellationToken);
 
     private static ComponentResponse MapComponent(Component component, decimal totalStock) =>
         new(component.Id, component.Name, component.Sku, component.UnitOfMeasure, component.MinimumStock, component.ImageUrl,

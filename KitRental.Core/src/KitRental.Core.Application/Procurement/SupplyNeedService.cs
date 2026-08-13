@@ -3,6 +3,7 @@ using KitRental.Core.Application.Common;
 using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Procurement;
 using KitRental.Core.Domain.Warehouse;
+using KitRental.SharedKernel;
 
 namespace KitRental.Core.Application.Procurement;
 
@@ -28,7 +29,7 @@ public sealed class SupplyNeedService(ICoreRepository repository, TimeProvider t
         CancellationToken cancellationToken)
     {
         var components = await EnsureComponentsAsync(command.Lines, cancellationToken);
-        var now = timeProvider.GetUtcNow();
+        var now = timeProvider.GetTurkeyNow();
         var list = SupplyNeedList.Create(Guid.NewGuid(), now,
             command.Lines.Select(line => (line.ComponentId, line.Quantity)));
         await repository.AddSupplyNeedListAsync(list, cancellationToken);
@@ -45,7 +46,7 @@ public sealed class SupplyNeedService(ICoreRepository repository, TimeProvider t
         if (list.Status == SupplyNeedStatus.Supplied)
             throw new ConflictException("supply_need.already_supplied", "Tedarik edilmiş ihtiyaç listesi düzenlenemez.");
         var components = await EnsureComponentsAsync(command.Lines, cancellationToken);
-        list.Update(command.Lines.Select(line => (line.ComponentId, line.Quantity)), timeProvider.GetUtcNow());
+        list.Update(command.Lines.Select(line => (line.ComponentId, line.Quantity)), timeProvider.GetTurkeyNow());
         await AuditAsync(command.ActorId, list.Id, "Updated", null, $"{list.Lines.Count} kalem", cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return Map(list, components);
@@ -58,7 +59,7 @@ public sealed class SupplyNeedService(ICoreRepository repository, TimeProvider t
             ?? throw new ResourceNotFoundException("Tavsiye edilen ihtiyaç listesi bulunamadı.");
         if (recommendation.Status != SupplyNeedStatus.Recommended)
             throw new ConflictException("supply_need.not_recommendation", "Bu liste bir tavsiye taslağı değil.");
-        var now = timeProvider.GetUtcNow();
+        var now = timeProvider.GetTurkeyNow();
         recommendation.ApproveRecommendation(now);
         var nextRecommendation = SupplyNeedList.CreateRecommendation(Guid.NewGuid(), now);
         await repository.AddSupplyNeedListAsync(nextRecommendation, cancellationToken);
@@ -73,7 +74,7 @@ public sealed class SupplyNeedService(ICoreRepository repository, TimeProvider t
     {
         var lists = await repository.GetSupplyNeedListsAsync(cancellationToken);
         var recommendation = lists.FirstOrDefault(item => item.Status == SupplyNeedStatus.Recommended);
-        var now = timeProvider.GetUtcNow();
+        var now = timeProvider.GetTurkeyNow();
         if (recommendation is null)
         {
             recommendation = SupplyNeedList.CreateRecommendation(Guid.NewGuid(), now);
@@ -120,7 +121,7 @@ public sealed class SupplyNeedService(ICoreRepository repository, TimeProvider t
         else if (await repository.GetStorageLocationAsync(storageLocationId, cancellationToken) is null)
             throw new ResourceNotFoundException("Stokların ekleneceği depo/raf konumu bulunamadı.");
         var components = await EnsureComponentsAsync(command.Lines, cancellationToken);
-        var now = timeProvider.GetUtcNow();
+        var now = timeProvider.GetTurkeyNow();
         list.Complete(command.Lines.Select(line => (line.ComponentId, line.Quantity)), now);
         var movements = list.Lines.Select(line => StockMovement.Create(Guid.NewGuid(), line.ComponentId,
             storageLocationId, StockMovementType.Receipt, line.SuppliedQuantity!.Value,
@@ -153,7 +154,7 @@ public sealed class SupplyNeedService(ICoreRepository repository, TimeProvider t
 
     private Task AuditAsync(Guid actorId, Guid entityId, string action, string? previous, string? next,
         CancellationToken cancellationToken) => repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId,
-        nameof(SupplyNeedList), entityId, action, previous, next, timeProvider.GetUtcNow()), cancellationToken);
+        nameof(SupplyNeedList), entityId, action, previous, next, timeProvider.GetTurkeyNow()), cancellationToken);
 
     private static SupplyNeedResponse Map(SupplyNeedList list, IReadOnlyDictionary<Guid, Component> components) =>
         new(list.Id, list.Status, list.CreatedAt, list.UpdatedAt, list.Lines.Select(line =>

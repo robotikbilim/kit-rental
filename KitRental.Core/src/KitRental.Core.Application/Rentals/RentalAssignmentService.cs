@@ -4,6 +4,7 @@ using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Inventory;
 using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Rentals;
+using KitRental.SharedKernel;
 
 namespace KitRental.Core.Application.Rentals;
 
@@ -38,7 +39,7 @@ public sealed class RentalAssignmentService(ICoreRepository repository, TimeProv
             throw new ConflictException("rental_assignment.unit_not_rentable", "Ürün birimi mevcut durumunda kiralanamaz.");
         }
 
-        var now = timeProvider.GetUtcNow();
+        var now = timeProvider.GetTurkeyNow();
         var assignment = RentalAssignment.Create(
             Guid.NewGuid(),
             command.OrderLineId,

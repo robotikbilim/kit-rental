@@ -39,7 +39,7 @@ else
     {
         var requestedKitCount = item.Lines.Sum(line => line.Quantity);
         <tr class="@(item.Status == 2 ? "pending-order" : null)">
-            <td><strong>@item.OrderNumber</strong><small class="block-muted">@item.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></td>
+            <td><strong>@item.OrderNumber</strong><small class="block-muted">@item.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small></td>
             <td><span class="badge">@(item.Type == 2 ? "Satın alma" : "Kiralama")</span></td>
             <td>@item.CustomerName</td>
             <td>@string.Join(", ", item.Lines.Select(line => $"{line.ProductName} × {line.Quantity}"))</td>
@@ -51,3 +51,4 @@ else
     }
     </tbody></table></div>
 }
+

@@ -1,5 +1,6 @@
 using KitRental.Web.Mvc.Models;
 using KitRental.Web.Mvc.Services;
+using KitRental.SharedKernel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QRCoder;
@@ -58,7 +59,7 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
         var selectedKit = kits.Single(kit => kit.Id == model.ProductModelId);
         var labels = result.Data.Select(unit => new PhysicalKitLabelViewModel(unit.Id, selectedKit.Name,
             selectedKit.Sku, unit.SerialNumber, unit.QrCode)).ToArray();
-        return View("Labels", new PhysicalKitLabelsPageViewModel(DateTimeOffset.Now, labels));
+        return View("Labels", new PhysicalKitLabelsPageViewModel(TurkeyTime.Now(), labels));
     }
 
     [HttpGet]
@@ -105,7 +106,7 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
         var labels = units.Select(unit => new PhysicalKitLabelViewModel(unit.Id, unit.KitName, unit.KitSku,
             unit.SerialNumber, unit.QrCode)).ToArray();
         var backUrl = Url.Action(nameof(Units), new { id, filter });
-        return View(new PhysicalKitLabelsPageViewModel(DateTimeOffset.Now, labels, backUrl));
+        return View(new PhysicalKitLabelsPageViewModel(TurkeyTime.Now(), labels, backUrl));
     }
 
     [HttpGet]
@@ -117,7 +118,7 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
         var labels = order.Kits.Select(kit => new PhysicalKitLabelViewModel(kit.Id, kit.ProductName,
             kit.ProductSku, kit.SerialNumber, kit.QrCode)).ToArray();
         var backUrl = Url.Action("OrderDetails", "Operations", new { id = orderId });
-        return View("Labels", new PhysicalKitLabelsPageViewModel(DateTimeOffset.Now, labels, backUrl));
+        return View("Labels", new PhysicalKitLabelsPageViewModel(TurkeyTime.Now(), labels, backUrl));
     }
 
     [HttpGet]

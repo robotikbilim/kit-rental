@@ -37,7 +37,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var email = $"tacev-{Guid.NewGuid():N}@example.com";
         var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rent",
             new RentPhysicalKitRequest("TACEV Test Merkezi", email, "02165550000", "Bilim Sokak 1",
-                "KadÄ±kÃ¶y", "Ä°stanbul", "34000", new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1)), cancellationToken);
+                "Kadıköy", "İstanbul", "34000", new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1)), cancellationToken);
 
         var customer = CreateClient(new TokenUser(Guid.NewGuid(), email, "CustomerAccountManager", rental.CustomerId));
         var overview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
@@ -62,7 +62,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal(OrderType.Rental, deliveryOrder.Type);
 
         var fault = await customer.PostAsJsonAsync("/api/customer-portal/faults", new PortalFaultRequest(
-            rental.AssignmentId, "Motor", FaultSeverity.High, "Sol motor yÃ¼k altÄ±nda dÃ¶nmÃ¼yor."), cancellationToken);
+            rental.AssignmentId, "Motor", FaultSeverity.High, "Sol motor yük altında dönmüyor."), cancellationToken);
         fault.EnsureSuccessStatusCode();
         var createdFault = (await fault.Content.ReadFromJsonAsync<CreatedFaultResponse>(cancellationToken))!;
 
@@ -322,19 +322,19 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin@return.test", "SystemAdmin", null));
         var model = await PostAsync<ProductModelResponse>(admin, "/api/product-models",
-            new CreateProductModelRequest("Ä°ade Test Kiti", $"RET-{Guid.NewGuid():N}"), cancellationToken);
+            new CreateProductModelRequest("İade Test Kiti", $"RET-{Guid.NewGuid():N}"), cancellationToken);
         var unit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
             new CreateProductUnitRequest(model.Id, $"RET-SN-{Guid.NewGuid():N}", $"RET-QR-{Guid.NewGuid():N}"), cancellationToken);
         var expiringUnit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
             new CreateProductUnitRequest(model.Id, $"EXP-SN-{Guid.NewGuid():N}", $"EXP-QR-{Guid.NewGuid():N}"), cancellationToken);
         var email = $"return-{Guid.NewGuid():N}@example.com";
         var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rent",
-            new RentPhysicalKitRequest("Ä°ade MÃ¼ÅŸterisi", email, "02120000000", "Test Sokak 1",
-                "KadÄ±kÃ¶y", "Ä°stanbul", "34000", today.AddMonths(-2), today.AddDays(-1)), cancellationToken);
+            new RentPhysicalKitRequest("İade Müşterisi", email, "02120000000", "Test Sokak 1",
+                "Kadıköy", "İstanbul", "34000", today.AddMonths(-2), today.AddDays(-1)), cancellationToken);
         var customer = CreateClient(new TokenUser(Guid.NewGuid(), email, "CustomerAccountManager", rental.CustomerId));
         await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{expiringUnit.Id}/rent",
-            new RentPhysicalKitRequest("YaklaÅŸan Kiralama", $"expiring-{Guid.NewGuid():N}@example.com", "02120000001",
-                "Test Sokak 2", "KadÄ±kÃ¶y", "Ä°stanbul", "34000", today.AddDays(-10), today.AddDays(7)), cancellationToken);
+            new RentPhysicalKitRequest("Yaklaşan Kiralama", $"expiring-{Guid.NewGuid():N}@example.com", "02120000001",
+                "Test Sokak 2", "Kadıköy", "İstanbul", "34000", today.AddDays(-10), today.AddDays(7)), cancellationToken);
 
         var expiryDashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
         Assert.Contains(expiryDashboard!.ExpiredRentalKits, x => x.ProductUnitId == unit.Id && x.DaysRemaining < 0);

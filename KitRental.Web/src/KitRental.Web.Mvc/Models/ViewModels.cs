@@ -20,12 +20,12 @@ public sealed class CreateAdminUserViewModel
     [Required, StringLength(160), Display(Name = "Ad soyad")]
     public string DisplayName { get; set; } = string.Empty;
 
-    [Required, EmailAddress, StringLength(320), Display(Name = "KullanÄ±cÄ± adÄ± (e-posta)")]
+    [Required, EmailAddress, StringLength(320), Display(Name = "Kullanıcı adı (e-posta)")]
     public string Email { get; set; } = string.Empty;
-    [Required, MinLength(10), DataType(DataType.Password), Display(Name = "Åifre")]
+    [Required, MinLength(10), DataType(DataType.Password), Display(Name = "Şifre")]
     public string Password { get; set; } = string.Empty;
 
-    [Required, Compare(nameof(Password)), DataType(DataType.Password), Display(Name = "Åifre tekrarÄ±")]
+    [Required, Compare(nameof(Password)), DataType(DataType.Password), Display(Name = "Şifre tekrarı")]
     public string PasswordConfirmation { get; set; } = string.Empty;
 }
 public sealed record AdminUsersPageViewModel(IReadOnlyCollection<UserApiResponse> Users);
@@ -170,8 +170,8 @@ public sealed class StorageLocationInputViewModel
     [Required, StringLength(160), Display(Name = "Depo")] public string Warehouse { get; set; } = string.Empty;
     [Required, StringLength(40), Display(Name = "Koridor")] public string Aisle { get; set; } = string.Empty;
     [Required, StringLength(40), Display(Name = "Raf")] public string Rack { get; set; } = string.Empty;
-    [Required, StringLength(40), Display(Name = "GÃ¶z")] public string Shelf { get; set; } = string.Empty;
-    [Display(Name = "Yeni komponentlerde varsayÄ±lan raf")] public bool IsDefaultForNewComponents { get; set; }
+    [Required, StringLength(40), Display(Name = "Göz")] public string Shelf { get; set; } = string.Empty;
+    [Display(Name = "Yeni komponentlerde varsayılan raf")] public bool IsDefaultForNewComponents { get; set; }
 }
 public sealed class CompleteSupplyNeedLineViewModel
 {
@@ -195,11 +195,11 @@ public class CreateComponentViewModel
 {
     [Required, StringLength(200)] public string Name { get; set; } = string.Empty;
     [Required, StringLength(80)] public string Sku { get; set; } = string.Empty;
-    [Required, StringLength(40), Display(Name = "Ã–lÃ§Ã¼ birimi")] public string UnitOfMeasure { get; set; } = "adet";
+    [Required, StringLength(40), Display(Name = "Ölçü birimi")] public string UnitOfMeasure { get; set; } = "adet";
     [Range(0, 999999), Display(Name = "Minimum stok")] public decimal MinimumStock { get; set; }
-    [Url, Display(Name = "GÃ¶rsel adresi")] public string? ImageUrl { get; set; }
-    [Display(Name = "VarsayÄ±lan raf")] public Guid? DefaultStorageLocationId { get; set; }
-    [Range(0, 999999), Display(Name = "BaÅŸlangÄ±Ã§ stok adedi")] public decimal InitialStock { get; set; }
+    [Url, Display(Name = "Görsel adresi")] public string? ImageUrl { get; set; }
+    [Display(Name = "Varsayılan raf")] public Guid? DefaultStorageLocationId { get; set; }
+    [Range(0, 999999), Display(Name = "Başlangıç stok adedi")] public decimal InitialStock { get; set; }
 }
 
 public sealed class CreateKitViewModel
@@ -207,8 +207,8 @@ public sealed class CreateKitViewModel
     [Required, StringLength(200)] public string Name { get; set; } = string.Empty;
     [Required, StringLength(80)] public string Sku { get; set; } = string.Empty;
     [StringLength(2000)] public string? Description { get; set; }
-    [Url, Display(Name = "GÃ¶rsel adresi")] public string? ImageUrl { get; set; }
-    [Range(1, 999), Display(Name = "ReÃ§ete sÃ¼rÃ¼mÃ¼")] public int BomVersion { get; set; } = 1;
+    [Url, Display(Name = "Görsel adresi")] public string? ImageUrl { get; set; }
+    [Range(1, 999), Display(Name = "Reçete sürümü")] public int BomVersion { get; set; } = 1;
     public List<CreateKitBomLineViewModel> Lines { get; set; } = [];
 }
 
@@ -228,14 +228,14 @@ public sealed class EditKitViewModel
     [Required, StringLength(200)] public string Name { get; set; } = string.Empty;
     [Required, StringLength(80)] public string Sku { get; set; } = string.Empty;
     [StringLength(2000)] public string? Description { get; set; }
-    [Url, Display(Name = "GÃ¶rsel adresi")] public string? ImageUrl { get; set; }
+    [Url, Display(Name = "Görsel adresi")] public string? ImageUrl { get; set; }
 }
 public sealed record KitDetailPageViewModel(ProductModelCatalogViewModel Kit, BomViewModel? Bom);
 public sealed class EditRecipeViewModel
 {
     public Guid ProductModelId { get; set; }
     public string ProductName { get; set; } = string.Empty;
-    [Range(1, 999), Display(Name = "ReÃ§ete sÃ¼rÃ¼mÃ¼")] public int Version { get; set; } = 1;
+    [Range(1, 999), Display(Name = "Reçete sürümü")] public int Version { get; set; } = 1;
     public List<CreateKitBomLineViewModel> Lines { get; set; } = [];
 }
 public sealed record EditRecipePageViewModel(EditRecipeViewModel Form,
@@ -279,8 +279,8 @@ public sealed record PhysicalKitLookupPageViewModel(string Identifier, bool HasS
 
 public sealed class CreatePhysicalKitViewModel
 {
-    [Required, Display(Name = "EÄŸitim kiti")] public Guid ProductModelId { get; set; }
-    [Range(1, int.MaxValue), Display(Name = "OluÅŸturulacak kit adedi")] public int Quantity { get; set; } = 1;
+    [Required, Display(Name = "Eğitim kiti")] public Guid ProductModelId { get; set; }
+    [Range(1, int.MaxValue), Display(Name = "Oluşturulacak kit adedi")] public int Quantity { get; set; } = 1;
 }
 public sealed record CreatePhysicalKitPageViewModel(CreatePhysicalKitViewModel Form,
     IReadOnlyCollection<ProductModelCatalogViewModel> KitModels);
@@ -288,7 +288,7 @@ public sealed class EditPhysicalKitViewModel
 {
     public Guid Id { get; set; }
     public Guid ProductModelId { get; set; }
-    [Required, StringLength(100), Display(Name = "Seri numarasÄ±")] public string SerialNumber { get; set; } = string.Empty;
+    [Required, StringLength(100), Display(Name = "Seri numarası")] public string SerialNumber { get; set; } = string.Empty;
     [Required, StringLength(200), Display(Name = "QR kod")] public string QrCode { get; set; } = string.Empty;
 }
 public sealed record PhysicalKitLabelViewModel(Guid Id, string KitName, string KitSku, string SerialNumber, string QrCode);
@@ -300,15 +300,15 @@ public sealed class RentPhysicalKitViewModel
     public string KitName { get; set; } = string.Empty;
     public string SerialNumber { get; set; } = string.Empty;
     public string? ImageUrl { get; set; }
-    [Required, Display(Name = "Kiralayan kiÅŸi / kurum")] public string CustomerName { get; set; } = string.Empty;
+    [Required, Display(Name = "Kiralayan kişi / kurum")] public string CustomerName { get; set; } = string.Empty;
     [Required, EmailAddress, Display(Name = "E-posta")] public string Email { get; set; } = string.Empty;
     [Required, Phone, Display(Name = "Telefon")] public string Phone { get; set; } = string.Empty;
-    [Required, Display(Name = "AÃ§Ä±k adres")] public string AddressLine { get; set; } = string.Empty;
-    [Required, Display(Name = "Ä°lÃ§e")] public string District { get; set; } = string.Empty;
-    [Required, Display(Name = "Åehir")] public string City { get; set; } = string.Empty;
+    [Required, Display(Name = "Açık adres")] public string AddressLine { get; set; } = string.Empty;
+    [Required, Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
+    [Required, Display(Name = "Şehir")] public string City { get; set; } = string.Empty;
     [Display(Name = "Posta kodu")] public string PostalCode { get; set; } = string.Empty;
-    [Required, DataType(DataType.Date), Display(Name = "BaÅŸlangÄ±Ã§")] public DateOnly StartDate { get; set; }
-    [Required, DataType(DataType.Date), Display(Name = "BitiÅŸ")] public DateOnly EndDate { get; set; }
+    [Required, DataType(DataType.Date), Display(Name = "Başlangıç")] public DateOnly StartDate { get; set; }
+    [Required, DataType(DataType.Date), Display(Name = "Bitiş")] public DateOnly EndDate { get; set; }
 }
 public sealed record RentPhysicalKitResultViewModel(Guid ProductUnitId, Guid CustomerId, Guid OrderId,
     Guid AssignmentId, string OrderNumber, string SerialNumber, int Status);
@@ -324,15 +324,15 @@ public sealed class BulkRentPhysicalKitsViewModel
     public string KitName { get; set; } = string.Empty;
     [MinLength(1)] public List<Guid> ProductUnitIds { get; set; } = [];
     public List<string> SerialNumbers { get; set; } = [];
-    [Required, Display(Name = "Kiralayan kiÅŸi / kurum")] public string CustomerName { get; set; } = string.Empty;
+    [Required, Display(Name = "Kiralayan kişi / kurum")] public string CustomerName { get; set; } = string.Empty;
     [Required, EmailAddress, Display(Name = "E-posta")] public string Email { get; set; } = string.Empty;
     [Required, Phone, Display(Name = "Telefon")] public string Phone { get; set; } = string.Empty;
-    [Required, Display(Name = "AÃ§Ä±k adres")] public string AddressLine { get; set; } = string.Empty;
-    [Required, Display(Name = "Ä°lÃ§e")] public string District { get; set; } = string.Empty;
-    [Required, Display(Name = "Åehir")] public string City { get; set; } = string.Empty;
+    [Required, Display(Name = "Açık adres")] public string AddressLine { get; set; } = string.Empty;
+    [Required, Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
+    [Required, Display(Name = "Şehir")] public string City { get; set; } = string.Empty;
     [Display(Name = "Posta kodu")] public string PostalCode { get; set; } = string.Empty;
-    [Required, DataType(DataType.Date), Display(Name = "BaÅŸlangÄ±Ã§")] public DateOnly StartDate { get; set; }
-    [Required, DataType(DataType.Date), Display(Name = "BitiÅŸ")] public DateOnly EndDate { get; set; }
+    [Required, DataType(DataType.Date), Display(Name = "Başlangıç")] public DateOnly StartDate { get; set; }
+    [Required, DataType(DataType.Date), Display(Name = "Bitiş")] public DateOnly EndDate { get; set; }
 }
 public sealed record BulkRentPhysicalKitsResultViewModel(Guid CustomerId, Guid OrderId, string OrderNumber,
     int KitCount, IReadOnlyCollection<BulkRentPhysicalKitItemViewModel> Kits);
@@ -380,27 +380,27 @@ public sealed class CustomerContactAccountViewModel
     public string CustomerName { get; set; } = string.Empty;
     [Required, StringLength(100), Display(Name = "Ad")] public string FirstName { get; set; } = string.Empty;
     [Required, StringLength(100), Display(Name = "Soyad")] public string LastName { get; set; } = string.Empty;
-    [Required, EmailAddress, StringLength(320), Display(Name = "KullanÄ±cÄ± adÄ± (e-posta)")] public string Username { get; set; } = string.Empty;
-    [Required, MinLength(10), DataType(DataType.Password), Display(Name = "Åifre")] public string Password { get; set; } = string.Empty;
+    [Required, EmailAddress, StringLength(320), Display(Name = "Kullanıcı adı (e-posta)")] public string Username { get; set; } = string.Empty;
+    [Required, MinLength(10), DataType(DataType.Password), Display(Name = "Şifre")] public string Password { get; set; } = string.Empty;
 }
 public sealed class CustomerInputViewModel
 {
     public Guid Id { get; set; }
-    [Required, StringLength(250), Display(Name = "MÃ¼ÅŸteri / kurum adÄ±")] public string Name { get; set; } = string.Empty;
+    [Required, StringLength(250), Display(Name = "Müşteri / kurum adı")] public string Name { get; set; } = string.Empty;
     [Required, EmailAddress, StringLength(320), Display(Name = "E-posta adresi")] public string Email { get; set; } = string.Empty;
-    [Display(Name = "Aktif mÃ¼ÅŸteri")] public bool IsActive { get; set; } = true;
+    [Display(Name = "Aktif müşteri")] public bool IsActive { get; set; } = true;
 }
 public sealed class CustomerAddressInputViewModel
 {
     public Guid CustomerId { get; set; }
     public Guid Id { get; set; }
     public string CustomerName { get; set; } = string.Empty;
-    [Required, StringLength(100), Display(Name = "Adres baÅŸlÄ±ÄŸÄ±")] public string Title { get; set; } = string.Empty;
-    [Required, StringLength(160), Display(Name = "Ä°letiÅŸim kiÅŸisi")] public string ContactName { get; set; } = string.Empty;
+    [Required, StringLength(100), Display(Name = "Adres başlığı")] public string Title { get; set; } = string.Empty;
+    [Required, StringLength(160), Display(Name = "İletişim kişisi")] public string ContactName { get; set; } = string.Empty;
     [Required, Phone, StringLength(40), Display(Name = "Telefon")] public string Phone { get; set; } = string.Empty;
-    [Required, StringLength(500), Display(Name = "AÃ§Ä±k adres")] public string Line1 { get; set; } = string.Empty;
-    [Required, StringLength(120), Display(Name = "Ä°lÃ§e")] public string District { get; set; } = string.Empty;
-    [Required, StringLength(120), Display(Name = "Åehir")] public string City { get; set; } = string.Empty;
+    [Required, StringLength(500), Display(Name = "Açık adres")] public string Line1 { get; set; } = string.Empty;
+    [Required, StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
+    [Required, StringLength(120), Display(Name = "Şehir")] public string City { get; set; } = string.Empty;
     [StringLength(20), Display(Name = "Posta kodu")] public string PostalCode { get; set; } = string.Empty;
 }
 public sealed class CreateCustomerViewModel
@@ -410,10 +410,10 @@ public sealed class CreateCustomerViewModel
 }
 public sealed class AdminOrderInputViewModel
 {
-    [Required, Display(Name = "MÃ¼ÅŸteri")] public Guid CustomerId { get; set; }
+    [Required, Display(Name = "Müşteri")] public Guid CustomerId { get; set; }
     [Required, Display(Name = "Teslimat adresi")] public Guid AddressId { get; set; }
-    [Required, DataType(DataType.Date), Display(Name = "BaÅŸlangÄ±Ã§ tarihi")] public DateOnly StartDate { get; set; }
-    [Required, DataType(DataType.Date), Display(Name = "BitiÅŸ tarihi")] public DateOnly EndDate { get; set; }
+    [Required, DataType(DataType.Date), Display(Name = "Başlangıç tarihi")] public DateOnly StartDate { get; set; }
+    [Required, DataType(DataType.Date), Display(Name = "Bitiş tarihi")] public DateOnly EndDate { get; set; }
     public List<PortalRentalLineInputViewModel> Lines { get; set; } = [new()];
 }
 public sealed record AdminOrderPageViewModel(AdminOrderInputViewModel Form,
@@ -421,7 +421,7 @@ public sealed record AdminOrderPageViewModel(AdminOrderInputViewModel Form,
     IReadOnlyCollection<ProductModelCatalogViewModel> ProductModels);
 public sealed class PurchaseOrderInputViewModel
 {
-    [Required, Display(Name = "MÃ¼ÅŸteri")] public Guid CustomerId { get; set; }
+    [Required, Display(Name = "Müşteri")] public Guid CustomerId { get; set; }
     [Required, Display(Name = "Teslimat adresi")] public Guid AddressId { get; set; }
     public List<PortalRentalLineInputViewModel> Lines { get; set; } = [new()];
 }
@@ -533,15 +533,15 @@ public sealed record PortalKitReturnViewModel(Guid Id, Guid CustomerId, string C
     IReadOnlyCollection<PortalKitReturnItemViewModel> Items);
 public sealed class PortalRentalLineInputViewModel
 {
-    [Required, Display(Name = "EÄŸitim kiti")] public Guid ProductModelId { get; set; }
+    [Required, Display(Name = "Eğitim kiti")] public Guid ProductModelId { get; set; }
     [Range(1, int.MaxValue), Display(Name = "Adet")] public int Quantity { get; set; } = 1;
 }
 public sealed class PortalFaultRequestViewModel
 {
     [Required] public Guid AssignmentId { get; set; }
-    [Required, StringLength(160), Display(Name = "ArÄ±za kategorisi")] public string Category { get; set; } = string.Empty;
-    [Range(1, 4), Display(Name = "Ã–nem derecesi")] public int Severity { get; set; } = 2;
-    [Required, StringLength(4000), Display(Name = "ArÄ±za aÃ§Ä±klamasÄ±")] public string Description { get; set; } = string.Empty;
+    [Required, StringLength(160), Display(Name = "Arıza kategorisi")] public string Category { get; set; } = string.Empty;
+    [Range(1, 4), Display(Name = "Önem derecesi")] public int Severity { get; set; } = 2;
+    [Required, StringLength(4000), Display(Name = "Arıza açıklaması")] public string Description { get; set; } = string.Empty;
 }
 public sealed record PortalFaultRequestPageViewModel(PortalFaultRequestViewModel Form,
     IReadOnlyCollection<PortalKitViewModel> ActiveKits);

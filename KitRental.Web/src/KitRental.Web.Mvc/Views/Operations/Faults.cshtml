@@ -48,7 +48,7 @@ else
     @foreach (var item in Model.Result.Items)
     {
         <tr>
-            <td><strong>@item.Number</strong><small class="block-muted">@item.OpenedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></td>
+            <td><strong>@item.Number</strong><small class="block-muted">@item.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small></td>
             <td><strong>@item.ReporterName</strong><a class="fault-phone" href="tel:@item.ReporterPhone">@item.ReporterPhone</a><small class="block-muted">@item.ReporterAddress</small><small class="block-muted">@item.CustomerName</small></td>
             <td><span class="fault-category">@item.Category</span><p>@item.Description</p></td>
             <td><span class="fault-severity severity-@item.Severity">@SeverityName(item.Severity)</span></td>
@@ -78,3 +78,4 @@ else
         @if (Model.Result.Page < Model.Result.TotalPages) { <a asp-action="Faults" asp-route-page="@(Model.Result.Page + 1)" asp-route-pageSize="@Model.Result.PageSize" asp-route-query="@Model.Filter.Query" asp-route-status="@Model.Filter.Status" asp-route-severity="@Model.Filter.Severity" asp-route-openedFrom="@Model.Filter.OpenedFrom" asp-route-openedTo="@Model.Filter.OpenedTo">→</a> }
     </nav></footer>
 }
+

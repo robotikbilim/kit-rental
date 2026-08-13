@@ -7,7 +7,7 @@
 @foreach (var list in Model.Lists)
 {
     <article class="supply-need-card status-@list.Status @(list.Status == 0 ? "recommendation-card" : null)">
-        <header><div><span class="eyebrow">@(list.Status == 0 ? "STOKTAN OLUŞTURULAN TAVSİYE" : "İHTİYAÇ LİSTESİ")</span><h2>@(list.Status == 0 ? "Tavsiye edilen ihtiyaçlar" : list.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"))</h2><small>@(list.Status == 0 ? $"Son kontrol: {list.UpdatedAt.ToLocalTime():dd.MM.yyyy HH:mm}" : $"{list.Lines.Count} komponent kalemi")</small></div><span class="supply-status">@(list.Status == 0 ? "Tavsiye" : list.Status == 1 ? "Bekleniyor" : "Tedarik edildi")</span></header>
+        <header><div><span class="eyebrow">@(list.Status == 0 ? "STOKTAN OLUŞTURULAN TAVSİYE" : "İHTİYAÇ LİSTESİ")</span><h2>@(list.Status == 0 ? "Tavsiye edilen ihtiyaçlar" : list.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm"))</h2><small>@(list.Status == 0 ? $"Son kontrol: {list.UpdatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")}" : $"{list.Lines.Count} komponent kalemi")</small></div><span class="supply-status">@(list.Status == 0 ? "Tavsiye" : list.Status == 1 ? "Bekleniyor" : "Tedarik edildi")</span></header>
         @if (list.Status == 0)
         {
             @if (list.Lines.Count == 0) { <div class="recommendation-empty"><strong>✓ Yeni tedarik tavsiyesi yok</strong><span>Tüm komponent stokları minimum seviyesinde veya bekleyen bir ihtiyaç listesinde bulunuyor.</span></div> }
@@ -26,7 +26,7 @@
         {
             <div class="supply-need-lines">@foreach (var line in list.Lines) { <div><span><strong>@line.ComponentName</strong><small>@line.ComponentSku</small></span><span class="supply-quantities"><small>İstenen: @line.Quantity.ToString("0.###") @line.UnitOfMeasure</small><b>Gelen: @line.SuppliedQuantity?.ToString("0.###") @line.UnitOfMeasure</b></span></div> }</div>
         }
-        @if (list.Status != 0) { <footer><div>@if (list.Status == 1) { <small class="block-muted">Son güncelleme: @list.UpdatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small> } else { <strong class="stock-added-note">✓ Gelen miktarlar stoğa eklendi</strong> }</div><div class="record-actions">@if (list.Status == 1) { <a asp-action="Edit" asp-route-id="@list.Id">Düzenle</a> }<form asp-action="Delete" asp-route-id="@list.Id" method="post" onsubmit="return confirm('Bu ihtiyaç listesini silmek istediğinize emin misiniz?');"><button type="submit">Sil</button></form></div></footer> }
+        @if (list.Status != 0) { <footer><div>@if (list.Status == 1) { <small class="block-muted">Son güncelleme: @list.UpdatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small> } else { <strong class="stock-added-note">✓ Gelen miktarlar stoğa eklendi</strong> }</div><div class="record-actions">@if (list.Status == 1) { <a asp-action="Edit" asp-route-id="@list.Id">Düzenle</a> }<form asp-action="Delete" asp-route-id="@list.Id" method="post" onsubmit="return confirm('Bu ihtiyaç listesini silmek istediğinize emin misiniz?');"><button type="submit">Sil</button></form></div></footer> }
     </article>
 }
 </div>
@@ -37,3 +37,4 @@ document.querySelectorAll('.supply-confirm-form').forEach(form => {
  boxes.forEach(box=>box.addEventListener('change',update));location.addEventListener('change',update);update();
 });
 </script>
+

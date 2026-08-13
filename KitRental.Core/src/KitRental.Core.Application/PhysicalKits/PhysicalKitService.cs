@@ -206,7 +206,7 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
         }
         var address = customer.AddAddress("Kiralama adresi", command.CustomerName, command.Phone,
             command.AddressLine, command.District, command.City, command.PostalCode);
-        var now = timeProvider.GetUtcNow();
+        var now = timeProvider.GetTurkeyNow();
         var period = new RentalPeriod(command.StartDate, command.EndDate);
         var order = RentalOrder.Create(Guid.NewGuid(), $"KR-{now:yyyyMMdd}-{Guid.NewGuid():N}"[..20],
             customer.Id, period, customer.SnapshotAddress(address.Id), now);
@@ -274,7 +274,7 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
 
         var address = customer.AddAddress("Kiralama adresi", command.CustomerName, command.Phone,
             command.AddressLine, command.District, command.City, command.PostalCode);
-        var now = timeProvider.GetUtcNow();
+        var now = timeProvider.GetTurkeyNow();
         var period = new RentalPeriod(command.StartDate, command.EndDate);
         var order = RentalOrder.Create(Guid.NewGuid(), $"KR-{now:yyyyMMdd}-{Guid.NewGuid():N}"[..20],
             customer.Id, period, customer.SnapshotAddress(address.Id), now);
@@ -355,5 +355,6 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
         _ => true
     };
 }
+
 
 

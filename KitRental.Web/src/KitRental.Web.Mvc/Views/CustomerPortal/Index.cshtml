@@ -10,7 +10,7 @@
     var activeCount = allKitLocations.Count(item => item.LocationCategory == "active");
     var activeKits = Model.Kits.Where(item => item.AssignmentStatus == 2).ToArray();
     var activeFaultyKits = activeKits.Count(item => item.OpenFaultCount > 0);
-    var turkeyNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow, "Turkey Standard Time");
+    var turkeyNow = KitRental.SharedKernel.TurkeyTime.Now();
     var today = DateOnly.FromDateTime(turkeyNow.DateTime);
     var returnAssignmentLookup = Model.Returns
         .SelectMany(request => request.Items.Select(item => new { item.AssignmentId, request.Status, request.CreatedAt }))
@@ -125,3 +125,4 @@
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     <script src="~/js/turkey-kit-map.js" asp-append-version="true"></script>
 }
+

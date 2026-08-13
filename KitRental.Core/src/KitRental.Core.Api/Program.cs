@@ -37,14 +37,14 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "KitRental Core API",
         Version = "v1",
-        Description = "MÃ¼ÅŸteri, eÄŸitim kiti, komponent stoÄŸu, reÃ§ete, Ã¼retim, kiralama, kargo, arÄ±za ve iade operasyonlarÄ±."
+        Description = "Müşteri, eğitim kiti, komponent stoğu, reçete, üretim, kiralama, kargo, arıza ve iade operasyonları."
     });
     options.AddSecurityDefinition("bearer", new OpenApiSecurityScheme
     {
         Type = SecuritySchemeType.Http,
         Scheme = "bearer",
         BearerFormat = "JWT",
-        Description = "Identity API'den alÄ±nan eriÅŸim belirtecini girin."
+        Description = "Identity API'den alınan erişim belirtecini girin."
     });
     options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
     {
@@ -62,7 +62,7 @@ if (useInMemoryPersistence)
 else
 {
     var connectionString = builder.Configuration.GetConnectionString("CoreDatabase")
-        ?? throw new InvalidOperationException("CoreDatabase baÄŸlantÄ± dizesi tanÄ±mlanmalÄ±dÄ±r.");
+        ?? throw new InvalidOperationException("CoreDatabase bağlantı dizesi tanımlanmalıdır.");
     builder.Services.AddSqlServerPersistence(connectionString);
 }
 builder.Services.AddScoped<InventoryService>();
@@ -98,10 +98,10 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
     var (status, title, code) = exception switch
     {
-        ResourceNotFoundException => (StatusCodes.Status404NotFound, "KayÄ±t bulunamadÄ±", "resource.not_found"),
-        ForbiddenException => (StatusCodes.Status403Forbidden, "Bu kayda eriÅŸim izniniz yok", "resource.forbidden"),
-        ConflictException conflict => (StatusCodes.Status409Conflict, "Ä°ÅŸ kuralÄ± Ã§akÄ±ÅŸmasÄ±", conflict.Code),
-        DomainException domain => (StatusCodes.Status400BadRequest, "GeÃ§ersiz istek", domain.Code),
+        ResourceNotFoundException => (StatusCodes.Status404NotFound, "Kayıt bulunamadı", "resource.not_found"),
+        ForbiddenException => (StatusCodes.Status403Forbidden, "Bu kayda erişim izniniz yok", "resource.forbidden"),
+        ConflictException conflict => (StatusCodes.Status409Conflict, "İş kuralı çakışması", conflict.Code),
+        DomainException domain => (StatusCodes.Status400BadRequest, "Geçersiz istek", domain.Code),
         _ => (StatusCodes.Status500InternalServerError, "Beklenmeyen hata", "server.error")
     };
     context.Response.StatusCode = status;
@@ -138,7 +138,7 @@ app.MapPost("/api/public/faults", async (PublicFaultRequest request, OperationsS
             request.QrCode, request.ReporterName, request.ReporterPhone, request.ReporterAddress,
             request.District, request.City, request.Description, request.Latitude, request.Longitude),
             cancellationToken);
-    await notifications.NotifyAdminsOfFaultAsync(result, "QR ÃƒÂ¼zerinden yeni arÃ„Â±za kaydÃ„Â± oluÃ…Å¸turuldu",
+    await notifications.NotifyAdminsOfFaultAsync(result, "QR üzerinden yeni arıza kaydı oluşturuldu",
         cancellationToken);
     return Results.Created($"/api/public/faults/{result.Id}", new { result.Id, result.Number });
 }).AllowAnonymous();
@@ -185,7 +185,7 @@ api.MapPost("/customer-portal/faults", async (PortalFaultRequest request, Claims
     var result = await service.OpenFaultAsync(new OpenPortalFaultCommand(GetRequiredCustomerId(user),
         request.AssignmentId, request.Category, request.Severity, request.Description, user.GetRequiredUserId()),
         cancellationToken);
-    await notifications.NotifyAdminsOfFaultAsync(result, "MÃ¼ÅŸteri yeni bir arÄ±za kaydÄ± oluÅŸturdu",
+    await notifications.NotifyAdminsOfFaultAsync(result, "Müşteri yeni bir arıza kaydı oluşturdu",
         cancellationToken);
     return Results.Created($"/api/faults/{result.Id}", result);
 }).RequireAuthorization(policy => policy.RequireRole(customerRoles));
@@ -693,11 +693,11 @@ static void EnsureCustomerScope(ClaimsPrincipal user, Guid requestedCustomerId)
 {
     var customerId = user.GetCustomerId();
     if (customerId.HasValue && customerId.Value != requestedCustomerId)
-        throw new ForbiddenException("BaÅŸka bir mÃ¼ÅŸteri hesabÄ± adÄ±na iÅŸlem yapÄ±lamaz.");
+        throw new ForbiddenException("Başka bir müşteri hesabı adına işlem yapılamaz.");
 }
 
 static Guid GetRequiredCustomerId(ClaimsPrincipal user) => user.GetCustomerId()
-    ?? throw new ForbiddenException("Bu iÅŸlem iÃ§in bir mÃ¼ÅŸteri hesabÄ±na baÄŸlÄ± olmalÄ±sÄ±nÄ±z.");
+    ?? throw new ForbiddenException("Bu işlem için bir müşteri hesabına bağlı olmalısınız.");
 
 public sealed record CreateProductModelRequest(string Name, string Sku, string? Description = null, string? ImageUrl = null);
 public sealed record UpdateProductModelRequest(string Name, string Sku, string? Description = null, string? ImageUrl = null);

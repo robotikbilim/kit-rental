@@ -1,4 +1,4 @@
-using KitRental.SharedKernel;
+﻿using KitRental.SharedKernel;
 
 namespace KitRental.Core.Domain.Returns;
 
@@ -58,7 +58,7 @@ public sealed class KitReturnRequest
         if (string.IsNullOrWhiteSpace(requesterName) || string.IsNullOrWhiteSpace(requesterPhone) || string.IsNullOrWhiteSpace(returnAddress))
             throw new DomainException("kit_return.requester_required", "Ad, soyad ve telefon zorunludur.");
         if (latitude is < -90 or > 90 || longitude is < -180 or > 180)
-            throw new DomainException("kit_return.invalid_location", "GeÃ§erli bir konum seÃ§ilmelidir.");
+            throw new DomainException("kit_return.invalid_location", "Geçerli bir konum seçilmelidir.");
         var request = Create(id, customerId, createdAt, createdBy, items);
         return new KitReturnRequest(request.Id, request.CustomerId, request.CreatedAt, request.CreatedBy, request.Items,
             requesterName, requesterPhone, returnAddress, latitude, longitude);

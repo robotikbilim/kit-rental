@@ -14,7 +14,7 @@ public sealed class FaultGuideEntry
         Solution = Clean(solution, 4000, "fault_guide.solution_required", "Cozum onerisi zorunludur.");
         DisplayOrder = displayOrder;
         IsActive = true;
-        CreatedAt = DateTimeOffset.UtcNow;
+        CreatedAt = TurkeyTime.Now();
         UpdatedAt = CreatedAt;
     }
 
@@ -41,7 +41,7 @@ public sealed class FaultGuideEntry
         Solution = Clean(solution, 4000, "fault_guide.solution_required", "Cozum onerisi zorunludur.");
         DisplayOrder = displayOrder;
         IsActive = isActive;
-        UpdatedAt = DateTimeOffset.UtcNow;
+        UpdatedAt = TurkeyTime.Now();
     }
 
     private static string Clean(string value, int maxLength, string code, string message)

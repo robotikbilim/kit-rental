@@ -120,8 +120,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         var normalizedQuery = query?.Trim() ?? string.Empty;
         var normalizedState = state is "all" or "pending" or "processing" or "returned" ? state : "all";
         var normalizedPageSize = pageSize is 10 or 25 or 50 ? pageSize : 10;
-        var turkeyNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow, "Turkey Standard Time");
-        var today = DateOnly.FromDateTime(turkeyNow.DateTime);
+        var today = KitRental.SharedKernel.TurkeyTime.Today();
         var faultLookup = portal.Faults
             .GroupBy(item => item.ProductUnitId)
             .ToDictionary(group => group.Key, group => group.Count(item => item.Status is not (7 or 8)));

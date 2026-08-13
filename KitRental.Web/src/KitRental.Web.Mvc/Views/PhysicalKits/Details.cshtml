@@ -57,7 +57,7 @@
                     <p>@Model.CurrentLocation.AddressLine<br />@Model.CurrentLocation.District / @Model.CurrentLocation.City</p>
                     @if (Model.CurrentLocation.DeliveredAt.HasValue)
                     {
-                        <small>Teslim alındı: @Model.CurrentLocation.DeliveredAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                        <small>Teslim alındı: @Model.CurrentLocation.DeliveredAt.Value.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>
                     }
                     @if (Model.CurrentLocation.Latitude.HasValue && Model.CurrentLocation.Longitude.HasValue)
                     {
@@ -91,7 +91,7 @@
                         <small>@delivery.CustomerEmail</small>
                         @if (delivery.DeliveredAt.HasValue)
                         {
-                            <small>Teslim alındı: @delivery.DeliveredAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                            <small>Teslim alındı: @delivery.DeliveredAt.Value.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>
                         }
                         else
                         {
@@ -125,7 +125,7 @@
             {
                 <article>
                     <div>
-                        <small>@fault.Number · @fault.OpenedAt.ToString("dd.MM.yyyy")</small>
+                        <small>@fault.Number · @fault.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy")</small>
                         <h3>@fault.Category</h3>
                         <p>@fault.Description</p>
                         @foreach (var note in fault.StatusNotes)
@@ -156,17 +156,17 @@
             {
                 <article>
                     <div>
-                        <small>@request.ReturnNumber · @request.CreatedAt.ToString("dd.MM.yyyy HH:mm")</small>
+                        <small>@request.ReturnNumber · @request.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>
                         <h3>@request.CustomerName</h3>
                         <p>@request.RequesterName · @request.RequesterPhone</p>
                         <small>@request.ReturnAddress</small>
                         @if (request.ShippedAt.HasValue)
                         {
-                            <small>Kargoya verildi: @request.ShippedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                            <small>Kargoya verildi: @request.ShippedAt.Value.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>
                         }
                         @if (request.ReceivedAt.HasValue)
                         {
-                            <small>Teslim alındı: @request.ReceivedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                            <small>Teslim alındı: @request.ReceivedAt.Value.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>
                         }
                         @if (request.Latitude.HasValue && request.Longitude.HasValue)
                         {
@@ -192,9 +192,10 @@
                 <div>
                     <strong>@StatusName(item.NewStatus)</strong>
                     <span>@item.Reason</span>
-                    <small>@item.OccurredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small>
+                    <small>@item.OccurredAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>
                 </div>
             </article>
         }
     </div>
 </section>
+

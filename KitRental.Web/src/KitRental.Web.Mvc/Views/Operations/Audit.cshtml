@@ -76,7 +76,7 @@
 else {
 <div class="table-scroll"><table class="audit-table"><thead><tr><th>Tarih</th><th>Kullanıcı</th><th>İşlem</th><th>Kayıt</th><th>Değişiklik</th></tr></thead><tbody>
 @foreach (var item in Model.Items) { <tr>
-    <td><time datetime="@item.OccurredAt.ToString("O")">@item.OccurredAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</time></td>
+    <td><time datetime="@item.OccurredAt.ToString("O")">@item.OccurredAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm:ss")</time></td>
     <td><strong>@item.ActorName</strong><small class="block-muted">@item.ActorEmail</small>@if (item.IsCustomer) { <span class="audit-customer">Müşteri</span> }</td>
     <td><span class="audit-action">@ActionName(item.Action)</span></td>
     <td><strong>@EntityName(item.EntityType)</strong><small class="audit-id">@item.EntityId</small>
@@ -88,3 +88,4 @@ else {
 @for (var p = Math.Max(1, Model.Page - 2); p <= Math.Min(Model.TotalPages, Model.Page + 2); p++) { <a class="@(p == Model.Page ? "active" : null)" asp-action="Audit" asp-route-page="@p" asp-route-pageSize="@Model.PageSize" asp-route-action="@Model.Filter.Action" asp-route-actorId="@Model.Filter.ActorId" asp-route-occurredFrom="@Model.Filter.OccurredFrom" asp-route-occurredTo="@Model.Filter.OccurredTo">@p</a> }
 @if (Model.Page < Model.TotalPages) { <a asp-action="Audit" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize" asp-route-action="@Model.Filter.Action" asp-route-actorId="@Model.Filter.ActorId" asp-route-occurredFrom="@Model.Filter.OccurredFrom" asp-route-occurredTo="@Model.Filter.OccurredTo">→</a> }
 </nav></footer> }
+

@@ -30,7 +30,7 @@
                         <td>@OrderType(order.Type)</td>
                         <td>@string.Join(", ", order.Lines.Select(line => $"{line.ProductName} x {line.Quantity}"))</td>
                         <td>@(order.StartDate.HasValue && order.EndDate.HasValue ? $"{order.StartDate:dd.MM.yyyy} - {order.EndDate:dd.MM.yyyy}" : "-")</td>
-                        <td>@order.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                        <td>@order.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</td>
                         <td><span class="badge order-status-@order.Status">@OrderStatus(order.Status)</span></td>
                     </tr>
                 }
@@ -39,3 +39,4 @@
         </div>
     }
 </section>
+

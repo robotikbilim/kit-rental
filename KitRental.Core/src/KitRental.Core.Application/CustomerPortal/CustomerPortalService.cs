@@ -8,6 +8,7 @@ using KitRental.Core.Domain.Support;
 using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Logistics;
+using KitRental.SharedKernel;
 
 namespace KitRental.Core.Application.CustomerPortal;
 
@@ -18,7 +19,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
     public async Task<CustomerPortalResponse> GetOverviewAsync(Guid customerId, CancellationToken cancellationToken)
     {
         var customer = await repository.GetCustomerAsync(customerId, cancellationToken)
-            ?? throw new ResourceNotFoundException("MÃ¼ÅŸteri hesabÄ± bulunamadÄ±.");
+            ?? throw new ResourceNotFoundException("Müşteri hesabı bulunamadı.");
         var productModels = await repository.GetProductModelsAsync(cancellationToken);
         var modelLookup = productModels.ToDictionary(item => item.Id);
         var orders = await repository.GetOrdersAsync(customerId, cancellationToken);
@@ -32,8 +33,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             .GroupBy(location => location.ProductUnitId)
             .ToDictionary(group => group.Key, group => group.OrderByDescending(location => location.OccurredAt)
                 .ThenByDescending(location => location.Id).First());
-        var turkeyNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow, "Turkey Standard Time");
-        var today = DateOnly.FromDateTime(turkeyNow.DateTime);
+        var today = TurkeyTime.Today();
         var returnProcessStartedAssignmentIds = customerReturns
             .Where(item => item.Status is KitReturnStatus.Requested or KitReturnStatus.InTransit)
             .SelectMany(item => item.Items)
@@ -49,7 +49,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             orderResponses.Add(new PortalOrderResponse(order.Id, order.OrderNumber, customer.Id, customer.Name,
                 order.Type, order.Status, order.Period!.Value.StartDate, order.Period.Value.EndDate, order.CreatedAt,
                 order.Lines.Select(line => new PortalOrderLineResponse(line.ProductModelId,
-                    modelLookup.TryGetValue(line.ProductModelId, out var lineModel) ? lineModel.Name : "EÄŸitim kiti",
+                    modelLookup.TryGetValue(line.ProductModelId, out var lineModel) ? lineModel.Name : "Eğitim kiti",
                     modelLookup.TryGetValue(line.ProductModelId, out lineModel) ? lineModel.Sku : "-", line.Quantity)).ToArray()));
 
             var lineIds = order.Lines.Select(line => line.Id).ToHashSet();
@@ -135,22 +135,22 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
     {
         var unit = (await repository.GetProductUnitsAsync(cancellationToken))
             .SingleOrDefault(item => string.Equals(item.QrCode, command.QrCode.Trim(), StringComparison.OrdinalIgnoreCase))
-            ?? throw new ResourceNotFoundException("Bu QR kodla eÃ…Å¸leÃ…Å¸en fiziksel kit bulunamadÃ„Â±.");
+            ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
         if (unit.Status != ProductUnitStatus.WithCustomer)
-            throw new ConflictException("kit_return.unit_not_with_customer", "Bu kit Ã…Å¸u anda mÃƒÂ¼Ã…Å¸teride gÃƒÂ¶rÃƒÂ¼nmÃƒÂ¼yor.");
+            throw new ConflictException("kit_return.unit_not_with_customer", "Bu kit şu anda müşteride görünmüyor.");
         var assignment = (await repository.GetAssignmentsForProductUnitAsync(unit.Id, cancellationToken))
             .Where(item => item.Status == RentalAssignmentStatus.Active)
             .OrderByDescending(item => item.Period.EndDate)
             .FirstOrDefault()
-            ?? throw new ConflictException("kit_return.no_active_rental", "Bu kit iÃƒÂ§in aktif bir kiralama bulunmuyor.");
+            ?? throw new ConflictException("kit_return.no_active_rental", "Bu kit için aktif bir kiralama bulunmuyor.");
         var activeReturns = await repository.GetKitReturnRequestsAsync(assignment.CustomerId, cancellationToken);
         if (activeReturns.Where(item => item.Status != KitReturnStatus.Received)
             .SelectMany(item => item.Items)
             .Any(item => item.AssignmentId == assignment.Id))
-            throw new ConflictException("kit_return.already_started", "Bu kit iÃƒÂ§in iade sÃƒÂ¼reci zaten devam ediyor.");
+            throw new ConflictException("kit_return.already_started", "Bu kit için iade süreci zaten devam ediyor.");
         var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Kiralama sipariÃ…Å¸i bulunamadÃ„Â±.");
-        var now = DateTimeOffset.UtcNow;
+            ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
+        var now = TurkeyTime.Now();
         var resolvedLocation = ResolveLocation(command.District, command.City,
             command.Latitude, command.Longitude);
         var request = KitReturnRequest.CreatePublic(Guid.NewGuid(), assignment.CustomerId, now, PublicActorId,
@@ -174,13 +174,13 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         CancellationToken cancellationToken)
     {
         var request = await repository.GetKitReturnRequestAsync(returnId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Ä°ade kaydÄ± bulunamadÄ±.");
-        var now = DateTimeOffset.UtcNow;
+            ?? throw new ResourceNotFoundException("İade kaydı bulunamadı.");
+        var now = TurkeyTime.Now();
         request.Receive(now);
         foreach (var item in request.Items)
         {
             var unit = await repository.GetProductUnitAsync(item.ProductUnitId, cancellationToken)
-                ?? throw new ResourceNotFoundException("Fiziksel kit bulunamadÄ±.");
+                ?? throw new ResourceNotFoundException("Fiziksel kit bulunamadı.");
             if (unit.Status == ProductUnitStatus.WithCustomer)
                 unit.StartReturn(actorId, now);
             unit.ReceiveReturnToAvailable(actorId, now);
@@ -207,11 +207,11 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             {
                 var unit = await repository.GetProductUnitAsync(item.ProductUnitId, cancellationToken);
                 items.Add(new PortalKitReturnItemResponse(item.AssignmentId, item.ProductUnitId, item.OrderId,
-                    unit is not null && models.TryGetValue(unit.ProductModelId, out var model) ? model.Name : "EÄŸitim kiti",
+                    unit is not null && models.TryGetValue(unit.ProductModelId, out var model) ? model.Name : "Eğitim kiti",
                     unit?.SerialNumber ?? "-"));
             }
             result.Add(new PortalKitReturnResponse(request.Id, request.CustomerId,
-                customers.TryGetValue(request.CustomerId, out var customer) ? customer.Name : "MÃ¼ÅŸteri",
+                customers.TryGetValue(request.CustomerId, out var customer) ? customer.Name : "Müşteri",
                 request.Status, request.Carrier, request.TrackingNumber, request.CreatedAt, request.ShippedAt,
                 request.RequesterName, request.RequesterPhone,
                 request.ReturnAddress, request.Latitude, request.Longitude, items));
@@ -231,10 +231,10 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 ? (await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken)).Count
                 : order.ProductUnits.Count;
             result.Add(new PortalOrderResponse(order.Id, order.OrderNumber, order.CustomerId,
-                customers.TryGetValue(order.CustomerId, out var customer) ? customer.Name : "MÃ¼ÅŸteri",
+                customers.TryGetValue(order.CustomerId, out var customer) ? customer.Name : "Müşteri",
                 order.Type, order.Status, order.Period?.StartDate, order.Period?.EndDate, order.CreatedAt,
                 order.Lines.Select(line => new PortalOrderLineResponse(line.ProductModelId,
-                    models.TryGetValue(line.ProductModelId, out var model) ? model.Name : "EÄŸitim kiti",
+                    models.TryGetValue(line.ProductModelId, out var model) ? model.Name : "Eğitim kiti",
                     models.TryGetValue(line.ProductModelId, out model) ? model.Sku : "-", line.Quantity)).ToArray(),
                 assignedKitCount));
         }
@@ -245,14 +245,14 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         CancellationToken cancellationToken)
     {
         var order = await repository.GetOrderAsync(command.OrderId, cancellationToken)
-            ?? throw new ResourceNotFoundException("SipariÅŸ bulunamadÄ±.");
+            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
         if (order.CustomerId != command.CustomerId)
-            throw new ForbiddenException("YalnÄ±zca hesabÄ±nÄ±za ait sipariÅŸlerin teslimatÄ±nÄ± onaylayabilirsiniz.");
+            throw new ForbiddenException("Yalnızca hesabınıza ait siparişlerin teslimatını onaylayabilirsiniz.");
         if (order.Type != OrderType.Rental)
-            throw new ForbiddenException("SatÄ±n alma sipariÅŸleri mÃ¼ÅŸteri portalÄ±ndan yÃ¶netilemez.");
+            throw new ForbiddenException("Satın alma siparişleri müşteri portalından yönetilemez.");
         if (order.Status != RentalOrderStatus.OutboundInTransit)
             throw new ConflictException("order.delivery_confirmation_not_allowed",
-                "YalnÄ±zca kargoya verilmiÅŸ sipariÅŸler teslim alÄ±ndÄ± olarak iÅŸaretlenebilir.");
+                "Yalnızca kargoya verilmiş siparişler teslim alındı olarak işaretlenebilir.");
 
         return await operationsService.TransitionOrderAsync(order.Id, RentalOrderStatus.Delivered,
             command.ActorId, cancellationToken);
@@ -261,11 +261,11 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
     public async Task<FaultTicket> OpenFaultAsync(OpenPortalFaultCommand command, CancellationToken cancellationToken)
     {
         var assignment = await repository.GetRentalAssignmentAsync(command.AssignmentId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Kiralama kaydÄ± bulunamadÄ±.");
+            ?? throw new ResourceNotFoundException("Kiralama kaydı bulunamadı.");
         if (assignment.CustomerId != command.CustomerId || assignment.Status != RentalAssignmentStatus.Active)
-            throw new ForbiddenException("YalnÄ±zca hesabÄ±nÄ±za ait aktif kiralamalar iÃ§in arÄ±za kaydÄ± aÃ§abilirsiniz.");
+            throw new ForbiddenException("Yalnızca hesabınıza ait aktif kiralamalar için arıza kaydı açabilirsiniz.");
         var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Kiralama sipariÅŸi bulunamadÄ±.");
+            ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
         return await operationsService.OpenFaultAsync(new OpenFaultCommand(command.CustomerId, order.Id, assignment.Id,
             assignment.ProductUnitId, command.Category, command.Severity, command.Description, command.ActorId),
             cancellationToken);
@@ -279,7 +279,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         {
             var unit = await repository.GetProductUnitAsync(ticket.ProductUnitId, cancellationToken);
             var modelName = unit is not null && models.TryGetValue(unit.ProductModelId, out var model)
-                ? model.Name : "EÄŸitim kiti";
+                ? model.Name : "Eğitim kiti";
             var shipments = (await repository.GetShipmentsAsync(ticket.OrderId, cancellationToken))
                 .Where(item => item.FaultTicketId == ticket.Id)
                 .Select(item => new PortalShipmentResponse(item.Type, item.Carrier, item.TrackingNumber, item.Status,

@@ -7,6 +7,7 @@ using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Support;
 using KitRental.Core.Domain.Notifications;
+using KitRental.SharedKernel;
 
 namespace KitRental.Core.Api;
 
@@ -138,7 +139,7 @@ public sealed class EmailNotificationService(
         EmailDeliveryStatus status, string? error, CancellationToken cancellationToken)
     {
         await repository.AddEmailDeliveryAsync(EmailDelivery.Create(recipient.Email, recipient.DisplayName,
-            subject, body, status, DateTimeOffset.UtcNow, error), cancellationToken);
+            subject, body, status, TurkeyTime.Now(), error), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
     }
 

@@ -34,7 +34,7 @@ else
     <div class="table-scroll"><table class="inventory-table"><thead><tr><th>Seri numarası</th><th>QR kod</th><th>Eğitim kiti</th><th>Oluşturulma tarihi</th><th>Durum</th><th></th></tr></thead><tbody>
     @foreach (var item in Model.Result.Items)
     {
-        <tr><td><code class="unit-serial">@item.SerialNumber</code></td><td><span class="unit-qr">@item.QrCode</span></td><td><strong>@item.ProductModelName</strong><small class="block-muted">@item.ProductModelSku</small></td><td>@item.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td><td><span class="fleet-status status-@item.Status">@StatusName(item.Status)</span></td><td><a class="row-link" asp-controller="PhysicalKits" asp-action="Details" asp-route-id="@item.Id">Detay →</a></td></tr>
+        <tr><td><code class="unit-serial">@item.SerialNumber</code></td><td><span class="unit-qr">@item.QrCode</span></td><td><strong>@item.ProductModelName</strong><small class="block-muted">@item.ProductModelSku</small></td><td>@item.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</td><td><span class="fleet-status status-@item.Status">@StatusName(item.Status)</span></td><td><a class="row-link" asp-controller="PhysicalKits" asp-action="Details" asp-route-id="@item.Id">Detay →</a></td></tr>
     }
     </tbody></table></div>
     <footer class="pagination-shell"><span>@firstItem–@lastItem / @Model.Result.TotalCount kayıt</span><nav class="pagination" aria-label="Envanter sayfaları">
@@ -43,3 +43,4 @@ else
         @if (Model.Result.Page < Model.Result.TotalPages) { <a asp-action="Inventory" asp-route-page="@(Model.Result.Page + 1)" asp-route-pageSize="@Model.Result.PageSize" asp-route-query="@Model.Filter.Query" asp-route-productModelId="@Model.Filter.ProductModelId" asp-route-status="@Model.Filter.Status" asp-route-createdFrom="@Model.Filter.CreatedFrom" asp-route-createdTo="@Model.Filter.CreatedTo">→</a> }
     </nav></footer>
 }
+

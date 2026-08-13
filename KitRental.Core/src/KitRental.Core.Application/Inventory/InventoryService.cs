@@ -27,7 +27,7 @@ public sealed class InventoryService(
         }
 
         await repository.AddAuditEntryAsync(
-            new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(ProductModel), model.Id, "Created", null, model.Sku, timeProvider.GetUtcNow()),
+            new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(ProductModel), model.Id, "Created", null, model.Sku, timeProvider.GetTurkeyNow()),
             cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
 
@@ -54,7 +54,7 @@ public sealed class InventoryService(
         var previous = model.Sku;
         model.Update(command.Name, command.Sku, command.Description, command.ImageUrl);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(ProductModel),
-            model.Id, "Updated", previous, model.Sku, timeProvider.GetUtcNow()), cancellationToken);
+            model.Id, "Updated", previous, model.Sku, timeProvider.GetTurkeyNow()), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return MapModel(model);
     }
@@ -69,7 +69,7 @@ public sealed class InventoryService(
             throw new ConflictException("product_model.in_use", "Siparişlerde kullanılan eğitim seti silinemez.");
         await repository.RemoveProductModelAsync(model, cancellationToken);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId, nameof(ProductModel), id,
-            "Deleted", model.Sku, null, timeProvider.GetUtcNow()), cancellationToken);
+            "Deleted", model.Sku, null, timeProvider.GetTurkeyNow()), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
     }
 
@@ -79,7 +79,7 @@ public sealed class InventoryService(
     {
         var model = await repository.GetProductModelAsync(command.ProductModelId, cancellationToken)
             ?? throw new ResourceNotFoundException("Ürün modeli bulunamadı.");
-        var now = timeProvider.GetUtcNow();
+        var now = timeProvider.GetTurkeyNow();
         var unitId = Guid.NewGuid();
         var serialNumber = string.IsNullOrWhiteSpace(command.SerialNumber)
             ? ProductUnitSerialNumber.Create(model.Sku, now, unitId)
@@ -111,7 +111,7 @@ public sealed class InventoryService(
         var model = await repository.GetProductModelAsync(command.ProductModelId, cancellationToken)
             ?? throw new ResourceNotFoundException("Ürün modeli bulunamadı.");
 
-        var now = timeProvider.GetUtcNow();
+        var now = timeProvider.GetTurkeyNow();
         var units = new List<ProductUnit>(command.Quantity);
         for (var index = 0; index < command.Quantity; index++)
         {
@@ -158,8 +158,8 @@ public sealed class InventoryService(
                 item.QrCode.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
                 item.ProductModelName.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ||
                 item.ProductModelSku.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
-            .Where(item => !createdFrom.HasValue || DateOnly.FromDateTime(item.CreatedAt.LocalDateTime) >= createdFrom.Value)
-            .Where(item => !createdTo.HasValue || DateOnly.FromDateTime(item.CreatedAt.LocalDateTime) <= createdTo.Value)
+            .Where(item => !createdFrom.HasValue || TurkeyTime.DateOf(item.CreatedAt) >= createdFrom.Value)
+            .Where(item => !createdTo.HasValue || TurkeyTime.DateOf(item.CreatedAt) <= createdTo.Value)
             .OrderByDescending(item => item.CreatedAt)
             .ThenBy(item => item.SerialNumber)
             .ToArray();
@@ -183,7 +183,7 @@ public sealed class InventoryService(
         var previous = $"{unit.SerialNumber}|{unit.QrCode}";
         unit.UpdateIdentifiers(command.SerialNumber, command.QrCode);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(ProductUnit), unit.Id,
-            "Updated", previous, $"{unit.SerialNumber}|{unit.QrCode}", timeProvider.GetUtcNow()), cancellationToken);
+            "Updated", previous, $"{unit.SerialNumber}|{unit.QrCode}", timeProvider.GetTurkeyNow()), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return Map(unit);
     }
@@ -198,7 +198,7 @@ public sealed class InventoryService(
             throw new ConflictException("product_unit.in_use", "Yalnızca hiç kiralanmamış, arızası olmayan ve kiralanabilir durumdaki fiziksel kit silinebilir.");
         var model = await repository.GetProductModelAsync(unit.ProductModelId, cancellationToken)
             ?? throw new ResourceNotFoundException("Ürün modeli bulunamadı.");
-        var now = timeProvider.GetUtcNow();
+        var now = timeProvider.GetTurkeyNow();
         var movements = await stockConsumptionPlanner.CreateRestorationMovementsAsync(
             unit, model, actorId, now, cancellationToken);
         var audit = new AuditEntry(Guid.NewGuid(), actorId, nameof(ProductUnit), id,

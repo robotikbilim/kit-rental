@@ -2,4 +2,7 @@
   <ItemGroup>
     <PackageReference Include="QRCoder" Version="1.8.0" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\KitRental.BuildingBlocks\src\KitRental.SharedKernel\KitRental.SharedKernel.csproj" />
+  </ItemGroup>
 </Project>

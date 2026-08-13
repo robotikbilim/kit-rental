@@ -20,5 +20,6 @@
 </section>
 <div class="portal-fault-cta"><div><span class="eyebrow">TEKNİK DESTEK</span><h2>Bu kitle ilgili bir sorun mu var?</h2><p>Arızayı açıklayın, servis ve geri gönderim sürecini portal üzerinden takip edin.</p></div><a class="primary-action" asp-action="NewFault" asp-route-assignmentId="@Model.Kit.AssignmentId">Bu kit için arıza bildir</a></div>
 <section class="portal-section"><div class="section-heading"><div><span class="eyebrow">ARIZA GEÇMİŞİ</span><h2>Bu kite ait kayıtlar</h2></div><b>@Model.Faults.Count kayıt</b></div>
-@if(Model.Faults.Count == 0){<div class="empty">Bu kit için daha önce arıza kaydı oluşturulmamış.</div>}else{<div class="portal-fault-grid">@foreach(var fault in Model.Faults){<a asp-action="Fault" asp-route-id="@fault.Id" class="portal-fault-card"><div><small>@fault.Number · @fault.OpenedAt.ToLocalTime().ToString("dd.MM.yyyy")</small><h3>@fault.Category</h3><p>@fault.Description</p></div><div><span class="fault-stage status-@fault.Status">@FaultStatus(fault.Status)</span></div></a>}</div>}
+@if(Model.Faults.Count == 0){<div class="empty">Bu kit için daha önce arıza kaydı oluşturulmamış.</div>}else{<div class="portal-fault-grid">@foreach(var fault in Model.Faults){<a asp-action="Fault" asp-route-id="@fault.Id" class="portal-fault-card"><div><small>@fault.Number · @fault.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy")</small><h3>@fault.Category</h3><p>@fault.Description</p></div><div><span class="fault-stage status-@fault.Status">@FaultStatus(fault.Status)</span></div></a>}</div>}
 </section>
+

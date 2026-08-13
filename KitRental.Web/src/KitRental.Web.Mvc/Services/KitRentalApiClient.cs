@@ -486,7 +486,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             return new ApiCommandResult<T>(true, data, null);
         }
         var problem = await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ProblemDetails>(cancellationToken);
-        return new ApiCommandResult<T>(false, default, problem?.Detail ?? "Ä°ÅŸlem tamamlanamadÄ±.");
+        return new ApiCommandResult<T>(false, default, problem?.Detail ?? "İşlem tamamlanamadı.");
     }
 
     private async Task AddAuthorizationAsync(HttpRequestMessage request)
