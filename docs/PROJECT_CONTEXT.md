@@ -194,6 +194,9 @@ Both screens expose status checkboxes for faulty, return-process, expired, and a
 Product-model filter labels show the education set/product model name (`KitName`), not the stock code/SKU.
 Filter counts are calculated from all active rental map rows, not just rows with coordinates.
 Rows without latitude/longitude are not rendered as markers and are shown as a small "missing location" count below the filters.
+Dashboard and customer portal map side summaries list all cities, ordered by kit count, instead of truncating to a top subset.
+Dashboard and customer portal map canvases use a fixed desktop height, while the side city summary uses a 717px desktop height to align with the full left map panel and scrolls independently when all cities do not fit.
+Turkey map overview starts closer in its default state and uses tight initial fit-to-markers padding.
 
 There are existing web UI changes in the working tree unrelated to the kit-location backend work; do not revert them unless explicitly requested.
 

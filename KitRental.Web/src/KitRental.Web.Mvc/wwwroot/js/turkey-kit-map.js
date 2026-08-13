@@ -7,7 +7,7 @@
     const filterInputs = [...document.querySelectorAll(".kit-map-filter-input")];
     const modelFilterInputs = [...document.querySelectorAll(".kit-map-model-filter-input")];
     const serialFilterInput = document.querySelector(".kit-map-serial-filter");
-    const map = L.map(mapElement, { scrollWheelZoom: true }).setView([39.0, 35.0], 5);
+    const map = L.map(mapElement, { scrollWheelZoom: true }).setView([39.0, 35.0], 7);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 18,
         attribution: "&copy; OpenStreetMap"
@@ -99,7 +99,7 @@
         visibleMarkers.forEach(entry => clusters.addLayer(entry.marker));
         if (!map.hasLayer(clusters)) map.addLayer(clusters);
         if (visibleMarkers.length > 0) {
-            map.fitBounds(clusters.getBounds().pad(0.25), { maxZoom: 13 });
+            map.fitBounds(clusters.getBounds().pad(0.08), { maxZoom: 14 });
         }
     };
 

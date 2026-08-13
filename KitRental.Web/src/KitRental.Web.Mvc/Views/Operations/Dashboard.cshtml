@@ -128,7 +128,7 @@ else
                 </div>
                 <aside class="kit-map-summary">
                     <strong>@allKitLocations.Length kit sahada</strong>
-                    @foreach (var city in mapLocations.GroupBy(item => item.City).OrderByDescending(group => group.Count()).ThenBy(group => group.Key).Take(8))
+                    @foreach (var city in mapLocations.GroupBy(item => item.City).OrderByDescending(group => group.Count()).ThenBy(group => group.Key))
                     {
                         <span><b>@city.Key</b>@city.Count() kit · @city.Select(item => item.District).Distinct().Count() ilçe</span>
                     }
