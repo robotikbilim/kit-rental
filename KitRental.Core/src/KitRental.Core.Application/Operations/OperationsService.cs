@@ -95,8 +95,7 @@ public sealed record DashboardKitLocationResponse(Guid ProductUnitId, Guid Produ
 public sealed class OperationsService(
     ICoreRepository repository,
     TimeProvider timeProvider,
-    ProductUnitStockConsumptionPlanner stockConsumptionPlanner,
-    IAddressGeocoder addressGeocoder)
+    ProductUnitStockConsumptionPlanner stockConsumptionPlanner)
 {
     private static readonly Guid PublicActorId = new("00000000-0000-0000-0000-000000000001");
 
@@ -619,8 +618,7 @@ public sealed class OperationsService(
             ?? throw new ResourceNotFoundException("ArÄ±za kaydÄ± bulunamadÄ±.");
         if (ticket.ProductUnitId != unit.Id || ticket.Status is FaultStatus.Resolved or FaultStatus.Closed)
             throw new ConflictException("fault.edit_not_allowed", "Bu arÄ±za kaydÄ± gÃ¼ncellenemez.");
-        var resolvedLocation = await ResolveLocationAsync(reporterAddress, district, city, latitude, longitude,
-            cancellationToken);
+        var resolvedLocation = ResolveLocation(district, city, latitude, longitude);
         ticket.UpdatePublicDetails(ticket.Category, description, reporterName, reporterPhone, reporterAddress,
             resolvedLocation.Latitude, resolvedLocation.Longitude);
         var now = timeProvider.GetUtcNow();
@@ -642,8 +640,8 @@ public sealed class OperationsService(
         var existing = await repository.GetOpenFaultTicketAsync(unit.Id, cancellationToken);
         if (existing is not null)
         {
-            var resolvedLocation = await ResolveLocationAsync(command.ReporterAddress, command.District, command.City,
-                command.Latitude, command.Longitude, cancellationToken);
+            var resolvedLocation = ResolveLocation(command.District, command.City,
+                command.Latitude, command.Longitude);
             existing.UpdatePublicDetails("Son kullanÄ±cÄ± bildirimi", command.Description, command.ReporterName,
                 command.ReporterPhone, command.ReporterAddress, resolvedLocation.Latitude, resolvedLocation.Longitude);
             var now = timeProvider.GetUtcNow();
@@ -662,8 +660,8 @@ public sealed class OperationsService(
             ?? throw new ConflictException("fault.no_active_rental", "Bu kit iÃ§in aktif bir kiralama bulunmuyor.");
         var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kiralama sipariÅŸi bulunamadÄ±.");
-        var newFaultLocation = await ResolveLocationAsync(command.ReporterAddress, command.District, command.City,
-            command.Latitude, command.Longitude, cancellationToken);
+        var newFaultLocation = ResolveLocation(command.District, command.City,
+            command.Latitude, command.Longitude);
         var ticket = await OpenFaultAsync(new OpenFaultCommand(assignment.CustomerId, order.Id, assignment.Id, unit.Id,
             "Son kullanici bildirimi", FaultSeverity.Medium, command.Description,
             PublicActorId, command.ReporterName, command.ReporterPhone,
@@ -699,8 +697,7 @@ public sealed class OperationsService(
         var recipientName = command.RecipientName.Trim();
         var city = string.IsNullOrWhiteSpace(command.City) ? "Bilinmiyor" : command.City.Trim();
         var district = string.IsNullOrWhiteSpace(command.District) ? "Bilinmiyor" : command.District.Trim();
-        var resolvedLocation = await ResolveLocationAsync(command.AddressLine, district, city,
-            command.Latitude, command.Longitude, cancellationToken);
+        var resolvedLocation = ResolveLocation(district, city, command.Latitude, command.Longitude);
         city = resolvedLocation.City;
         district = resolvedLocation.District;
         var fullAddress = $"{command.AddressLine.Trim()}, {district} / {city}";
@@ -993,20 +990,15 @@ public sealed class OperationsService(
         new(entry.Id, entry.Title, entry.Problem, entry.Solution, entry.DisplayOrder, entry.IsActive,
             entry.UpdatedAt);
 
-    private async Task<ResolvedLocation> ResolveLocationAsync(string addressLine, string? district, string? city,
-        double? latitude, double? longitude, CancellationToken cancellationToken)
+    private static ResolvedLocation ResolveLocation(string? district, string? city,
+        double? latitude, double? longitude)
     {
         var resolvedDistrict = string.IsNullOrWhiteSpace(district) ? "Bilinmiyor" : district.Trim();
         var resolvedCity = string.IsNullOrWhiteSpace(city) ? "Bilinmiyor" : city.Trim();
         if (CoordinatesAreValid(latitude, longitude))
             return new ResolvedLocation(latitude, longitude, resolvedDistrict, resolvedCity);
 
-        var geocoded = await addressGeocoder.GeocodeAsync(addressLine, district, city, cancellationToken);
-        return geocoded is null
-            ? new ResolvedLocation(null, null, resolvedDistrict, resolvedCity)
-            : new ResolvedLocation(geocoded.Latitude, geocoded.Longitude,
-                string.IsNullOrWhiteSpace(geocoded.District) ? resolvedDistrict : geocoded.District.Trim(),
-                string.IsNullOrWhiteSpace(geocoded.City) ? resolvedCity : geocoded.City.Trim());
+        return new ResolvedLocation(null, null, resolvedDistrict, resolvedCity);
     }
 
     private static bool CoordinatesAreValid(double? latitude, double? longitude) =>

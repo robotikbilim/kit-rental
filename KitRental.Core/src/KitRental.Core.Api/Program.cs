@@ -75,8 +75,6 @@ builder.Services.AddScoped<PhysicalKitService>();
 builder.Services.AddScoped<CustomerPortalService>();
 builder.Services.AddScoped<SupplyNeedService>();
 builder.Services.AddScoped<IEmailNotificationService, EmailNotificationService>();
-builder.Services.AddHttpClient<IAddressGeocoder, NominatimAddressGeocoder>(client =>
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("KitRental/1.0"));
 builder.Services.AddHttpClient("identity-notifications", client =>
     client.BaseAddress = new Uri(builder.Configuration["Notifications:IdentityBaseUrl"]
         ?? "https://localhost:59592"));

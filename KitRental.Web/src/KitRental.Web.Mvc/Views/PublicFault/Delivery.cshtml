@@ -1,5 +1,9 @@
 ﻿@model PublicDeliveryFormViewModel
 @{ ViewData["Title"] = "Kit Teslim Al"; }
+@section Head {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="~/css/public-location-map.css" asp-append-version="true" />
+}
 <div class="public-fault-shell">
     <section class="public-fault-card">
         <span class="eyebrow">KIT TESLIM</span>
@@ -17,8 +21,9 @@
             <div class="field"><label asp-for="District"></label><select asp-for="District" data-selected="@Model.District"></select><span asp-validation-for="District" class="error"></span></div>
             <div class="field"><label asp-for="AddressLine"></label><textarea asp-for="AddressLine" rows="3" autocomplete="street-address" placeholder="Kitin teslim edildigi acik adres"></textarea><span asp-validation-for="AddressLine" class="error"></span></div>
             <div class="public-location-box">
-                <button class="secondary-action" id="use-location" type="button">Konum bul</button>
-                <span id="location-status">Il, ilce ve acik adresle devam edebilirsiniz. Konum bilgisi istege baglidir.</span>
+                <button class="secondary-action" id="use-location" type="button">Konumumu bul</button>
+                <div id="public-location-map" class="public-location-map"></div>
+                <span id="location-status">Konumumu bul ile pimi yakin noktaya getirin veya haritadan secin. Adres, il ve ilce otomatik doldurulur.</span>
             </div>
             <button class="primary-action" type="submit">Kit teslim al</button>
         </form>
@@ -26,4 +31,5 @@
 </div>
 <script src="~/js/tr-city-districts.js" asp-append-version="true"></script>
 <script src="~/js/public-city-district.js" asp-append-version="true"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="~/js/public-location.js" asp-append-version="true"></script>

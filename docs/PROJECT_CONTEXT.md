@@ -139,7 +139,7 @@ Rules:
 - Public fault update inserts source `FaultUpdate`.
 - Existing open public fault edits also insert source `FaultUpdate`.
 - Public return request inserts source `ReturnRequest`.
-- Public QR forms treat latitude/longitude as optional and untrusted. Invalid or missing coordinates must not block saving; backend geocoding tries to resolve coordinates from the open address and stores null coordinates if geocoding fails.
+- Public QR forms treat latitude/longitude as optional and untrusted. Invalid or missing coordinates must not block saving; backend stores null coordinates when no valid map selection is provided.
 - Public QR fault, delivery, and return forms now collect Turkey il/ilce with dropdowns backed by a bundled city-district dataset. Reopening the forms refills the last saved city, district, address, and any stored coordinates from the latest kit location context.
 - Dashboard and portal maps read latest location events, with order delivery address as fallback for old kits with no event.
 - Physical kit detail uses assignment-specific latest location for rental history, and product-unit latest location for current location.
@@ -175,6 +175,7 @@ The delivery context endpoint now reads the latest kit location event, not deliv
 Map UI is rendered in MVC views and powered by:
 
 - `KitRental.Web/src/KitRental.Web.Mvc/wwwroot/js/turkey-kit-map.js`
+- `KitRental.Web/src/KitRental.Web.Mvc/wwwroot/js/public-location.js`
 - `KitRental.Web/src/KitRental.Web.Mvc/Views/Operations/Dashboard.cshtml`
 - `KitRental.Web/src/KitRental.Web.Mvc/Views/CustomerPortal/Index.cshtml`
 
@@ -210,7 +211,8 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Updated operation dashboard, customer portal map, and physical kit details to read current location from latest location event.
 - Added migration `20260812211046_ReplaceKitDeliveryReceiptsWithLocationEvents`.
 - Migration preserves old delivery receipt data by copying it into `KitLocationEvents` before dropping `KitDeliveryReceipts`.
-- Added backend address geocoding through `IAddressGeocoder` and `NominatimAddressGeocoder`.
+- Removed automatic address geocoding from public QR flows.
+- Public fault, delivery, and return forms now include a small Leaflet map with a `Konumumu bul` action. GPS can place a nearby draggable pin, users can move the pin manually, and reverse geocoding fills the free-text address plus il/ilce from the selected point.
 - Removed MVC range validation from public QR form latitude/longitude fields so invalid hidden coordinates do not block form submission.
 - Added map filters for faulty kits, return-process kits, active kits, serial number, and product model.
 - Added a missing-location label under the map filters; map counts now include coordinate-less active rental rows while markers still require coordinates.

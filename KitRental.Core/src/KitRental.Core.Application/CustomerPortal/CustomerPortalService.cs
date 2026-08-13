@@ -11,8 +11,7 @@ using KitRental.Core.Domain.Logistics;
 
 namespace KitRental.Core.Application.CustomerPortal;
 
-public sealed class CustomerPortalService(ICoreRepository repository, OperationsService operationsService,
-    IAddressGeocoder addressGeocoder)
+public sealed class CustomerPortalService(ICoreRepository repository, OperationsService operationsService)
 {
     private static readonly Guid PublicActorId = new("00000000-0000-0000-0000-000000000001");
 
@@ -152,8 +151,8 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kiralama sipariÃ…Å¸i bulunamadÃ„Â±.");
         var now = DateTimeOffset.UtcNow;
-        var resolvedLocation = await ResolveLocationAsync(command.ReturnAddress, command.District, command.City,
-            command.Latitude, command.Longitude, cancellationToken);
+        var resolvedLocation = ResolveLocation(command.District, command.City,
+            command.Latitude, command.Longitude);
         var request = KitReturnRequest.CreatePublic(Guid.NewGuid(), assignment.CustomerId, now, PublicActorId,
             [new KitReturnItem(Guid.NewGuid(), assignment.Id, assignment.ProductUnitId, order.Id)],
             command.RequesterName, command.RequesterPhone,
@@ -295,20 +294,15 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         return result.OrderByDescending(item => item.OpenedAt).ToArray();
     }
 
-    private async Task<ResolvedLocation> ResolveLocationAsync(string addressLine, string? district, string? city,
-        double? latitude, double? longitude, CancellationToken cancellationToken)
+    private static ResolvedLocation ResolveLocation(string? district, string? city,
+        double? latitude, double? longitude)
     {
         var resolvedDistrict = string.IsNullOrWhiteSpace(district) ? "Bilinmiyor" : district.Trim();
         var resolvedCity = string.IsNullOrWhiteSpace(city) ? "Bilinmiyor" : city.Trim();
         if (CoordinatesAreValid(latitude, longitude))
             return new ResolvedLocation(latitude, longitude, resolvedDistrict, resolvedCity);
 
-        var geocoded = await addressGeocoder.GeocodeAsync(addressLine, district, city, cancellationToken);
-        return geocoded is null
-            ? new ResolvedLocation(null, null, resolvedDistrict, resolvedCity)
-            : new ResolvedLocation(geocoded.Latitude, geocoded.Longitude,
-                string.IsNullOrWhiteSpace(geocoded.District) ? resolvedDistrict : geocoded.District.Trim(),
-                string.IsNullOrWhiteSpace(geocoded.City) ? resolvedCity : geocoded.City.Trim());
+        return new ResolvedLocation(null, null, resolvedDistrict, resolvedCity);
     }
 
     private static bool CoordinatesAreValid(double? latitude, double? longitude) =>
