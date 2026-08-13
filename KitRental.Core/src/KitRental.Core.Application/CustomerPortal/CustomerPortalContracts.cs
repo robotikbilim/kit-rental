@@ -1,4 +1,4 @@
-using KitRental.Core.Domain.Inventory;
+﻿using KitRental.Core.Domain.Inventory;
 using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Rentals;
@@ -48,4 +48,10 @@ public sealed record OpenPortalFaultCommand(Guid CustomerId, Guid AssignmentId, 
     FaultSeverity Severity, string Description, Guid ActorId);
 public sealed record ConfirmPortalOrderDeliveryCommand(Guid CustomerId, Guid OrderId, Guid ActorId);
 public sealed record CreatePublicKitReturnCommand(string QrCode, string RequesterName,
-    string RequesterPhone, string ReturnAddress, double? Latitude, double? Longitude);
+    string RequesterPhone, string District, string City, string ReturnAddress,
+    double? Latitude, double? Longitude);
+
+
+
+
+

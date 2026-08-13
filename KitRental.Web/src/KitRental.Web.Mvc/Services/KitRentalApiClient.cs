@@ -1,4 +1,4 @@
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.IO;
 using Microsoft.AspNetCore.Authentication;
@@ -389,8 +389,8 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => PostAsync<object>("/core/api/public/faults", new
         {
             model.FaultId,
-            model.QrCode, model.ReporterName, model.ReporterPhone, model.ReporterAddress, model.Description,
-            model.Latitude, model.Longitude
+            model.QrCode, model.ReporterName, model.ReporterPhone, model.ReporterAddress,
+            model.District, model.City, model.Description, model.Latitude, model.Longitude
         }, cancellationToken);
 
     public Task<ApiCommandResult<PortalKitReturnViewModel>> CreatePublicReturnAsync(PublicReturnFormViewModel model,
@@ -399,6 +399,8 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.QrCode,
             model.RequesterName,
             model.RequesterPhone,
+            model.District,
+            model.City,
             model.ReturnAddress,
             model.Latitude,
             model.Longitude
@@ -484,7 +486,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             return new ApiCommandResult<T>(true, data, null);
         }
         var problem = await response.Content.ReadFromJsonAsync<Microsoft.AspNetCore.Mvc.ProblemDetails>(cancellationToken);
-        return new ApiCommandResult<T>(false, default, problem?.Detail ?? "İşlem tamamlanamadı.");
+        return new ApiCommandResult<T>(false, default, problem?.Detail ?? "Ä°ÅŸlem tamamlanamadÄ±.");
     }
 
     private async Task AddAuthorizationAsync(HttpRequestMessage request)
@@ -495,3 +497,8 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
 }
+
+
+
+
+

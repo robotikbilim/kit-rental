@@ -1,4 +1,4 @@
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using KitRental.Core.Application.CustomerPortal;
 using KitRental.Core.Application.Inventory;
@@ -37,7 +37,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var email = $"tacev-{Guid.NewGuid():N}@example.com";
         var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rent",
             new RentPhysicalKitRequest("TACEV Test Merkezi", email, "02165550000", "Bilim Sokak 1",
-                "Kadıköy", "İstanbul", "34000", new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1)), cancellationToken);
+                "KadÄ±kÃ¶y", "Ä°stanbul", "34000", new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1)), cancellationToken);
 
         var customer = CreateClient(new TokenUser(Guid.NewGuid(), email, "CustomerAccountManager", rental.CustomerId));
         var overview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
@@ -62,7 +62,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal(OrderType.Rental, deliveryOrder.Type);
 
         var fault = await customer.PostAsJsonAsync("/api/customer-portal/faults", new PortalFaultRequest(
-            rental.AssignmentId, "Motor", FaultSeverity.High, "Sol motor yük altında dönmüyor."), cancellationToken);
+            rental.AssignmentId, "Motor", FaultSeverity.High, "Sol motor yÃ¼k altÄ±nda dÃ¶nmÃ¼yor."), cancellationToken);
         fault.EnsureSuccessStatusCode();
         var createdFault = (await fault.Content.ReadFromJsonAsync<CreatedFaultResponse>(cancellationToken))!;
 
@@ -136,7 +136,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
                 today.AddDays(-1), today.AddDays(30)), cancellationToken);
 
         var fault = await publicClient.PostAsJsonAsync("/api/public/faults", new PublicFaultRequest(
-            null, unit.QrCode, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul",
+            null, unit.QrCode, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", "Kadikoy", "Istanbul",
             "Kit acildiginda sensor okumasi yapmiyor."), cancellationToken);
         fault.EnsureSuccessStatusCode();
         var createdFault = (await fault.Content.ReadFromJsonAsync<CreatedFaultResponse>(cancellationToken))!;
@@ -147,12 +147,12 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal(FaultStatus.Open, listedFault.Status);
 
         var createdReturn = await PostAsync<PublicReturnResponse>(publicClient, "/api/public/returns",
-            new PublicKitReturnRequest(unit.QrCode, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", null, null),
+            new PublicKitReturnRequest(unit.QrCode, "Ayse Test", "05321112233", "Kadikoy", "Istanbul", "Test Sokak 10 Kadikoy Istanbul", null, null),
             cancellationToken);
         Assert.Equal(KitReturnStatus.Requested, createdReturn.Status);
 
         var duplicateReturn = await publicClient.PostAsJsonAsync("/api/public/returns",
-            new PublicKitReturnRequest(unit.QrCode, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345),
+            new PublicKitReturnRequest(unit.QrCode, "Ayse Test", "05321112233", "Kadikoy", "Istanbul", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345),
             cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, duplicateReturn.StatusCode);
 
@@ -169,11 +169,11 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             new CreateProductUnitRequest(model.Id, $"PQR-FREE-{Guid.NewGuid():N}", $"PQR-FREE-QR-{Guid.NewGuid():N}"),
             cancellationToken);
         var unavailableFault = await publicClient.PostAsJsonAsync("/api/public/faults", new PublicFaultRequest(
-            null, availableUnit.QrCode, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul",
+            null, availableUnit.QrCode, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", "Kadikoy", "Istanbul",
             "Aktif kiralamasi olmayan kit."), cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, unavailableFault.StatusCode);
         var unavailableReturn = await publicClient.PostAsJsonAsync("/api/public/returns",
-            new PublicKitReturnRequest(availableUnit.QrCode, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345),
+            new PublicKitReturnRequest(availableUnit.QrCode, "Ayse Test", "05321112233", "Kadikoy", "Istanbul", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345),
             cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, unavailableReturn.StatusCode);
     }
@@ -240,6 +240,56 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
+    public async Task CustomerPortal_ActiveKitCount_ExcludesFaultyAndReturnedKits()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin-active-kit@test.local", "SystemAdmin", null));
+        var publicClient = _factory.CreateClient();
+        var model = await PostAsync<ProductModelResponse>(admin, "/api/product-models",
+            new CreateProductModelRequest("Aktif Kit Sayim Testi", $"AKT-{Guid.NewGuid():N}"), cancellationToken);
+        var faultyUnit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
+            new CreateProductUnitRequest(model.Id, $"AKT-FLT-{Guid.NewGuid():N}", $"AKT-FLT-QR-{Guid.NewGuid():N}"),
+            cancellationToken);
+        var returnedUnit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
+            new CreateProductUnitRequest(model.Id, $"AKT-RET-{Guid.NewGuid():N}", $"AKT-RET-QR-{Guid.NewGuid():N}"),
+            cancellationToken);
+
+        var email = $"active-kit-{Guid.NewGuid():N}@example.com";
+        var faultyRental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{faultyUnit.Id}/rent",
+            new RentPhysicalKitRequest("Aktif Kit Musterisi", email, "05320000000", "Test Sokak 1",
+                "Kadikoy", "Istanbul", "34000", today.AddDays(-5), today.AddDays(10)), cancellationToken);
+        var returnedRental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{returnedUnit.Id}/rent",
+            new RentPhysicalKitRequest("Aktif Kit Musterisi", email, "05320000000", "Test Sokak 2",
+                "Kadikoy", "Istanbul", "34000", today.AddDays(-5), today.AddDays(10)), cancellationToken);
+
+        var customer = CreateClient(new TokenUser(Guid.NewGuid(), email, "CustomerAccountManager", faultyRental.CustomerId));
+        var initialOverview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
+        Assert.Equal(2, initialOverview!.ActiveKitCount);
+
+        var faultResponse = await customer.PostAsJsonAsync("/api/customer-portal/faults", new PortalFaultRequest(
+            faultyRental.AssignmentId, "Sensor", FaultSeverity.High, "Kit calisirken sensor verisi gelmiyor."), cancellationToken);
+        faultResponse.EnsureSuccessStatusCode();
+
+        var publicReturn = await PostAsync<PublicReturnResponse>(publicClient, "/api/public/returns",
+            new PublicKitReturnRequest(returnedUnit.QrCode, "Aktif Kit Musterisi", "05320000000", "Kadikoy", "Istanbul",
+                "Test Sokak 2 Kadikoy Istanbul", null, null), cancellationToken);
+        await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{publicReturn.Id}/receive", new { }, cancellationToken);
+
+        var updatedOverview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
+        Assert.Equal(0, updatedOverview!.ActiveKitCount);
+        var faultyLocation = Assert.Single(updatedOverview.KitLocations);
+        Assert.Equal(faultyUnit.Id, faultyLocation.ProductUnitId);
+        Assert.Equal("faulty", faultyLocation.LocationCategory);
+        Assert.DoesNotContain(updatedOverview.KitLocations, item => item.ProductUnitId == returnedUnit.Id);
+
+        var dashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
+        var dashboardFaultyLocation = Assert.Single(dashboard!.KitLocations, item => item.ProductUnitId == faultyUnit.Id);
+        Assert.Equal("faulty", dashboardFaultyLocation.LocationCategory);
+        Assert.DoesNotContain(dashboard.KitLocations, item => item.ProductUnitId == returnedUnit.Id);
+    }
+
+    [Fact]
     public async Task Admin_ManagesFaultGuideEntries_AndPublicReadsActiveOnes()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -272,19 +322,19 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin@return.test", "SystemAdmin", null));
         var model = await PostAsync<ProductModelResponse>(admin, "/api/product-models",
-            new CreateProductModelRequest("İade Test Kiti", $"RET-{Guid.NewGuid():N}"), cancellationToken);
+            new CreateProductModelRequest("Ä°ade Test Kiti", $"RET-{Guid.NewGuid():N}"), cancellationToken);
         var unit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
             new CreateProductUnitRequest(model.Id, $"RET-SN-{Guid.NewGuid():N}", $"RET-QR-{Guid.NewGuid():N}"), cancellationToken);
         var expiringUnit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
             new CreateProductUnitRequest(model.Id, $"EXP-SN-{Guid.NewGuid():N}", $"EXP-QR-{Guid.NewGuid():N}"), cancellationToken);
         var email = $"return-{Guid.NewGuid():N}@example.com";
         var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rent",
-            new RentPhysicalKitRequest("İade Müşterisi", email, "02120000000", "Test Sokak 1",
-                "Kadıköy", "İstanbul", "34000", today.AddMonths(-2), today.AddDays(-1)), cancellationToken);
+            new RentPhysicalKitRequest("Ä°ade MÃ¼ÅŸterisi", email, "02120000000", "Test Sokak 1",
+                "KadÄ±kÃ¶y", "Ä°stanbul", "34000", today.AddMonths(-2), today.AddDays(-1)), cancellationToken);
         var customer = CreateClient(new TokenUser(Guid.NewGuid(), email, "CustomerAccountManager", rental.CustomerId));
         await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{expiringUnit.Id}/rent",
-            new RentPhysicalKitRequest("Yaklaşan Kiralama", $"expiring-{Guid.NewGuid():N}@example.com", "02120000001",
-                "Test Sokak 2", "Kadıköy", "İstanbul", "34000", today.AddDays(-10), today.AddDays(7)), cancellationToken);
+            new RentPhysicalKitRequest("YaklaÅŸan Kiralama", $"expiring-{Guid.NewGuid():N}@example.com", "02120000001",
+                "Test Sokak 2", "KadÄ±kÃ¶y", "Ä°stanbul", "34000", today.AddDays(-10), today.AddDays(7)), cancellationToken);
 
         var expiryDashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
         Assert.Contains(expiryDashboard!.ExpiredRentalKits, x => x.ProductUnitId == unit.Id && x.DaysRemaining < 0);
@@ -318,3 +368,6 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         IReadOnlyCollection<PublicReturnItemResponse> Items);
     private sealed record PublicReturnItemResponse(Guid AssignmentId, Guid ProductUnitId, Guid OrderId);
 }
+
+
+

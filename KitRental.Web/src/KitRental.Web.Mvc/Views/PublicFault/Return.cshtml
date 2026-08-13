@@ -1,10 +1,10 @@
-@model PublicReturnFormViewModel
+﻿@model PublicReturnFormViewModel
 @{ ViewData["Title"] = "Kit Iadesi"; }
 <div class="public-fault-shell">
     <section class="public-fault-card">
         <span class="eyebrow">KIT IADESI</span>
         <h1>Iade talebi baslat</h1>
-        <p class="block-muted">Iade talebiniz operasyon ekibinin ekranina duser. Adresi yazabilir, isterseniz ek olarak konumunuzu paylasabilirsiniz.</p>
+        <p class="block-muted">Iade talebiniz operasyon ekibinin ekranina duser. Il, ilce ve acik adresi girmeniz yeterlidir; konum paylasimi istege baglidir.</p>
         <div class="public-kit-summary"><span>Okutulan urun</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
         <form method="post" class="public-fault-form" id="public-return-form">
             <input asp-for="QrCode" type="hidden" />
@@ -13,16 +13,17 @@
             <div asp-validation-summary="ModelOnly" class="error"></div>
             <div class="field"><label asp-for="RequesterName"></label><input asp-for="RequesterName" autocomplete="name" placeholder="Ad soyad" /><span asp-validation-for="RequesterName" class="error"></span></div>
             <div class="field"><label asp-for="RequesterPhone"></label><input asp-for="RequesterPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="05xx xxx xx xx" /><span asp-validation-for="RequesterPhone" class="error"></span></div>
+            <div class="field"><label asp-for="City"></label><select asp-for="City" data-selected="@Model.City"></select><span asp-validation-for="City" class="error"></span></div>
+            <div class="field"><label asp-for="District"></label><select asp-for="District" data-selected="@Model.District"></select><span asp-validation-for="District" class="error"></span></div>
             <div class="field"><label asp-for="ReturnAddress"></label><textarea asp-for="ReturnAddress" rows="3" autocomplete="street-address" placeholder="Kargo alinacak acik adresi yazin."></textarea><span asp-validation-for="ReturnAddress" class="error"></span></div>
             <div class="public-location-box">
-                <button class="secondary-action" id="use-location" type="button">Konumumu ekle</button>
-                <span id="location-status">Konum eklemek istege baglidir; adres girilirse koordinat otomatik denenir.</span>
-                <span asp-validation-for="Latitude" class="error"></span>
-                <span asp-validation-for="Longitude" class="error"></span>
+                <button class="secondary-action" id="use-location" type="button">Konum bul</button>
+                <span id="location-status">Il, ilce ve acik adresle devam edebilirsiniz. Konum bilgisi istege baglidir.</span>
             </div>
             <button class="primary-action" type="submit">Iade talebi olustur</button>
         </form>
     </section>
 </div>
-
+<script src="~/js/tr-city-districts.js" asp-append-version="true"></script>
+<script src="~/js/public-city-district.js" asp-append-version="true"></script>
 <script src="~/js/public-location.js" asp-append-version="true"></script>

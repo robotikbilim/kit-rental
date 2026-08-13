@@ -1,4 +1,4 @@
-# Project Context For Future Development
+﻿# Project Context For Future Development
 
 This file is the first-stop project memory for future agent work. Before scanning the full repository, read this file and then inspect only the directly relevant files. After every development task, update this file when behavior, schema, routes, workflows, project structure, or conventions change.
 
@@ -140,6 +140,7 @@ Rules:
 - Existing open public fault edits also insert source `FaultUpdate`.
 - Public return request inserts source `ReturnRequest`.
 - Public QR forms treat latitude/longitude as optional and untrusted. Invalid or missing coordinates must not block saving; backend geocoding tries to resolve coordinates from the open address and stores null coordinates if geocoding fails.
+- Public QR fault, delivery, and return forms now collect Turkey il/ilce with dropdowns backed by a bundled city-district dataset. Reopening the forms refills the last saved city, district, address, and any stored coordinates from the latest kit location context.
 - Dashboard and portal maps read latest location events, with order delivery address as fallback for old kits with no event.
 - Physical kit detail uses assignment-specific latest location for rental history, and product-unit latest location for current location.
 
@@ -183,11 +184,12 @@ Map location response rows include `ProductModelId`, `KitSku`, `Status`, and `Lo
 `LocationCategory` is produced by backend services:
 
 - `faulty`: open fault exists, or the unit is in maintenance/quarantine.
-- `returning`: unit status is `ReturnInTransit`.
+- `returning`: an active assignment already has a non-received `KitReturnRequest`, matching the return-process cards.
+- `expired`: an active assignment is past its end date and still has no return request, matching the expired cards.
 - `active`: all other active rental assignment map rows.
 
 Operations dashboard and customer portal map filters are powered by `turkey-kit-map.js`.
-Both screens expose status checkboxes for faulty, return-process, and active kits; a serial-number search; and product-model checkboxes that are selected by default.
+Both screens expose status checkboxes for faulty, return-process, expired, and active kits; a serial-number search; and product-model checkboxes that are selected by default.
 Product-model filter labels show the education set/product model name (`KitName`), not the stock code/SKU.
 Filter counts are calculated from all active rental map rows, not just rows with coordinates.
 Rows without latitude/longitude are not rendered as markers and are shown as a small "missing location" count below the filters.
@@ -215,13 +217,17 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Split physical kit detail and lookup history into separate card groups for deliveries, faults, and return requests.
 - Added customer portal summary cards for expired rental kits, kits with started return flow, and returned kits.
 - Customer portal return counts now come from `KitReturnRequest` states and rental expiry counts from active assignments whose `EndDate` is before today.
+- Customer portal `Aktif Kitler` summary card now counts only healthy kits that still have an active assignment, are still in `WithCustomer`, and have no open fault.
+- Dashboard and customer portal maps now classify `faulty` only from open fault tickets, and kits whose returns were already received are removed from map rows.
 - Added a dedicated customer portal `Returns` page with filters for pending, in-progress, and returned states, plus expired kits that have not started a return yet.
-- Added customer portal navigation entry for `İadeler`.
+- Added customer portal navigation entry for `Ä°adeler`.
 - Customer portal expired-rental checks now use the app server local date (`DateTime.Today`) instead of UTC so locally expired kits appear immediately after midnight.
 - Customer portal returns filter now matches on a dedicated state key (`pending`/`processing`/`returned`) while the table keeps separate Turkish status labels for display.
 - Customer portal return semantics are assignment-based: on Wednesday, August 12, 2026, `pending` means an active rental ended before today and still has no return form, `processing` means a return request exists regardless of due date, and `returned` means warehouse/admin accepted the return back into available stock.
 - Admin dashboard now exposes `Iadeyi kabul et` for active return requests, and receiving a return is allowed from both `Requested` and `InTransit`.
-- Customer portal returns list status mapping now treats `KitReturnStatus.Requested` as `processing` / `İade Sürecinde` so the list matches the summary cards once a return form exists.
+- Customer portal returns list status mapping now treats `KitReturnStatus.Requested` as `processing` / `Ä°ade SÃ¼recinde` so the list matches the summary cards once a return form exists.
+- Map `returning` / `expired` categories now use the same assignment-based rules as the dashboard and customer portal cards, so the filters stay aligned.
+- Top map status filters on dashboard and customer portal now render as `col-md-3` items so the four status checkboxes share a single row on medium+ widths.
 - Verified with `dotnet build KitRental.slnx`.
 
 ## Development Checklist
@@ -244,3 +250,4 @@ Before finishing:
 - Run `dotnet build KitRental.slnx`.
 - Update this file if the task changed behavior, routes, schema, workflow, or conventions.
 - Mention if database update was not run.
+

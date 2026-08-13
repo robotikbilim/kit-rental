@@ -1,4 +1,4 @@
-using KitRental.Core.Application.Abstractions;
+﻿using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Application.Common;
 using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Customers;
@@ -29,9 +29,11 @@ public sealed record PublicFaultKitResponse(string QrCode, Guid ProductUnitId, s
 public sealed record PublicKitDeliveryContextResponse(string? RecipientName, string? RecipientPhone,
     string? AddressLine, string? District, string? City, double? Latitude, double? Longitude);
 public sealed record PublicFaultContextResponse(Guid? FaultId, string? ReporterName, string? ReporterPhone,
-    string? ReporterAddress, string? Description, double? Latitude, double? Longitude);
+    string? ReporterAddress, string? District, string? City, string? Description,
+    double? Latitude, double? Longitude);
 public sealed record OpenPublicFaultCommand(string QrCode, string ReporterName, string ReporterPhone,
-    string ReporterAddress, string Description, double? Latitude, double? Longitude);
+    string ReporterAddress, string District, string City, string Description,
+    double? Latitude, double? Longitude);
 public sealed record CreatePublicKitDeliveryCommand(string QrCode, string RecipientName,
     string RecipientPhone, string AddressLine, string District, string City,
     double? Latitude, double? Longitude);
@@ -125,10 +127,10 @@ public sealed class OperationsService(
     public async Task<Customer> UpdateCustomerAsync(UpdateCustomerCommand command, CancellationToken cancellationToken)
     {
         var customer = await repository.GetCustomerAsync(command.CustomerId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+            ?? throw new ResourceNotFoundException("MÃ¼ÅŸteri bulunamadÄ±.");
         var duplicate = await repository.FindCustomerByEmailAsync(command.Email, cancellationToken);
         if (duplicate is not null && duplicate.Id != customer.Id)
-            throw new ConflictException("customer.email_not_unique", "Müşteri e-posta adresi benzersiz olmalıdır.");
+            throw new ConflictException("customer.email_not_unique", "MÃ¼ÅŸteri e-posta adresi benzersiz olmalÄ±dÄ±r.");
         var previous = $"{customer.Name}|{customer.Email}|{customer.IsActive}";
         customer.Update(command.Name, command.Email);
         customer.SetActive(command.IsActive);
@@ -142,7 +144,7 @@ public sealed class OperationsService(
         CancellationToken cancellationToken)
     {
         var customer = await repository.GetCustomerAsync(customerId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+            ?? throw new ResourceNotFoundException("MÃ¼ÅŸteri bulunamadÄ±.");
         customer.SetActive(isActive);
         await repository.SaveChangesAsync(cancellationToken);
         await AuditAsync(actorId, nameof(Customer), customer.Id, isActive ? "Activated" : "Deactivated",
@@ -153,7 +155,7 @@ public sealed class OperationsService(
     public async Task<Address> AddCustomerAddressAsync(CustomerAddressCommand command, CancellationToken cancellationToken)
     {
         var customer = await repository.GetCustomerAsync(command.CustomerId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+            ?? throw new ResourceNotFoundException("MÃ¼ÅŸteri bulunamadÄ±.");
         var address = customer.AddAddress(command.Address.Title, command.Address.ContactName, command.Address.Phone,
             command.Address.Line1, command.Address.District, command.Address.City, command.Address.PostalCode);
         await repository.SaveChangesAsync(cancellationToken);
@@ -164,7 +166,7 @@ public sealed class OperationsService(
     public async Task<Address> UpdateCustomerAddressAsync(CustomerAddressCommand command, CancellationToken cancellationToken)
     {
         var customer = await repository.GetCustomerAsync(command.CustomerId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+            ?? throw new ResourceNotFoundException("MÃ¼ÅŸteri bulunamadÄ±.");
         var address = customer.UpdateAddress(command.AddressId ?? Guid.Empty, command.Address.Title,
             command.Address.ContactName, command.Address.Phone, command.Address.Line1, command.Address.District,
             command.Address.City, command.Address.PostalCode);
@@ -177,7 +179,7 @@ public sealed class OperationsService(
         CancellationToken cancellationToken)
     {
         var customer = await repository.GetCustomerAsync(customerId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+            ?? throw new ResourceNotFoundException("MÃ¼ÅŸteri bulunamadÄ±.");
         customer.RemoveAddress(addressId);
         await repository.SaveChangesAsync(cancellationToken);
         await AuditAsync(actorId, nameof(Customer), customer.Id, "AddressRemoved", addressId.ToString(), null, cancellationToken);
@@ -186,14 +188,14 @@ public sealed class OperationsService(
     public async Task<RentalOrder> CreateOrderAsync(CreateOrderCommand command, CancellationToken cancellationToken)
     {
         var customer = await repository.GetCustomerAsync(command.CustomerId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+            ?? throw new ResourceNotFoundException("MÃ¼ÅŸteri bulunamadÄ±.");
         if (command.Lines.Count == 0)
-            throw new ConflictException("order.lines_required", "Siparişte en az bir ürün satırı bulunmalıdır.");
+            throw new ConflictException("order.lines_required", "SipariÅŸte en az bir Ã¼rÃ¼n satÄ±rÄ± bulunmalÄ±dÄ±r.");
 
         foreach (var line in command.Lines)
         {
             if (await repository.GetProductModelAsync(line.ProductModelId, cancellationToken) is null)
-                throw new ResourceNotFoundException($"{line.ProductModelId} ürün modeli bulunamadı.");
+                throw new ResourceNotFoundException($"{line.ProductModelId} Ã¼rÃ¼n modeli bulunamadÄ±.");
         }
 
         var now = timeProvider.GetUtcNow();
@@ -216,7 +218,7 @@ public sealed class OperationsService(
         CancellationToken cancellationToken)
     {
         var customer = await repository.GetCustomerAsync(command.CustomerId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+            ?? throw new ResourceNotFoundException("MÃ¼ÅŸteri bulunamadÄ±.");
         await ValidateOrderLinesAsync(command.Lines, cancellationToken);
         var now = timeProvider.GetUtcNow();
         var order = RentalOrder.CreatePurchase(Guid.NewGuid(),
@@ -238,7 +240,7 @@ public sealed class OperationsService(
     public async Task<OrderDetailResponse> GetOrderDetailAsync(Guid orderId, CancellationToken cancellationToken)
     {
         var order = await repository.GetOrderAsync(orderId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
+            ?? throw new ResourceNotFoundException("SipariÅŸ bulunamadÄ±.");
         var customer = await repository.GetCustomerAsync(order.CustomerId, cancellationToken);
         var models = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(item => item.Id);
         var assignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
@@ -248,7 +250,7 @@ public sealed class OperationsService(
         var assignmentCounts = assignedUnits.GroupBy(item => item.OrderLineId)
             .ToDictionary(group => group.Key, group => group.Count());
         var lines = order.Lines.Select(line => new OrderDetailLineResponse(line.Id, line.ProductModelId,
-            models.TryGetValue(line.ProductModelId, out var model) ? model.Name : "Eğitim kiti",
+            models.TryGetValue(line.ProductModelId, out var model) ? model.Name : "EÄŸitim kiti",
             models.TryGetValue(line.ProductModelId, out model) ? model.Sku : "-", line.Quantity,
             assignmentCounts.GetValueOrDefault(line.Id))).ToArray();
         var kits = new List<OrderDetailKitResponse>();
@@ -258,9 +260,9 @@ public sealed class OperationsService(
             if (unit is null) continue;
             models.TryGetValue(unit.ProductModelId, out var model);
             kits.Add(new OrderDetailKitResponse(unit.Id, assignment.OrderLineId, unit.ProductModelId,
-                model?.Name ?? "Eğitim kiti", model?.Sku ?? "-", unit.SerialNumber, unit.QrCode, unit.Status));
+                model?.Name ?? "EÄŸitim kiti", model?.Sku ?? "-", unit.SerialNumber, unit.QrCode, unit.Status));
         }
-        return new OrderDetailResponse(order.Id, order.OrderNumber, customer?.Name ?? "Müşteri", order.Type,
+        return new OrderDetailResponse(order.Id, order.OrderNumber, customer?.Name ?? "MÃ¼ÅŸteri", order.Type,
             order.Status, order.Period?.StartDate, order.Period?.EndDate, order.CreatedAt, lines,
             kits.OrderBy(item => item.ProductName).ThenBy(item => item.SerialNumber).ToArray());
     }
@@ -270,25 +272,25 @@ public sealed class OperationsService(
         CancellationToken cancellationToken)
     {
         var order = await repository.GetOrderAsync(orderId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
+            ?? throw new ResourceNotFoundException("SipariÅŸ bulunamadÄ±.");
         if (order.Status != RentalOrderStatus.Approved)
-            throw new ConflictException("order.not_approved", "Fiziksel kitler yalnızca onaylanmış sipariş için oluşturulabilir.");
+            throw new ConflictException("order.not_approved", "Fiziksel kitler yalnÄ±zca onaylanmÄ±ÅŸ sipariÅŸ iÃ§in oluÅŸturulabilir.");
 
         var existingAssignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
         if (existingAssignments.Count > 0 || order.ProductUnits.Count > 0)
-            throw new ConflictException("order.kits_already_created", "Bu siparişin fiziksel kitleri daha önce oluşturulmuş.");
+            throw new ConflictException("order.kits_already_created", "Bu sipariÅŸin fiziksel kitleri daha Ã¶nce oluÅŸturulmuÅŸ.");
         var lines = requestedLines
             .Where(line => line.ProductModelId != Guid.Empty && line.Quantity > 0)
             .GroupBy(line => line.ProductModelId)
             .Select(group => new OrderKitLineCommand(group.Key, group.Sum(line => line.Quantity)))
             .ToArray();
         if (lines.Length == 0)
-            throw new ConflictException("order.lines_required", "En az bir kit ve adet seçilmelidir.");
+            throw new ConflictException("order.lines_required", "En az bir kit ve adet seÃ§ilmelidir.");
         var models = new Dictionary<Guid, ProductModel>();
         foreach (var requestedLine in lines)
         {
             var model = await repository.GetProductModelAsync(requestedLine.ProductModelId, cancellationToken)
-                ?? throw new ResourceNotFoundException("Seçilen eğitim kitlerinden biri bulunamadı.");
+                ?? throw new ResourceNotFoundException("SeÃ§ilen eÄŸitim kitlerinden biri bulunamadÄ±.");
             models[model.Id] = model;
         }
         order.ReplaceLines(lines.Select(line => (line.ProductModelId, line.Quantity)).ToArray());
@@ -361,7 +363,7 @@ public sealed class OperationsService(
             foreach (var unit in createdUnits)
                 await repository.RemoveProductUnitAsync(unit, cancellationToken);
             await repository.SaveChangesAsync(cancellationToken);
-            throw new ConflictException("order.kit_reservation_failed", "Sipariş kitleri rezerve edilemedi.");
+            throw new ConflictException("order.kit_reservation_failed", "SipariÅŸ kitleri rezerve edilemedi.");
         }
 
         await AuditAsync(actorId, nameof(RentalOrder), order.Id, "OrderKitsCreated", null,
@@ -377,7 +379,7 @@ public sealed class OperationsService(
     public async Task<RentalOrder> TransitionOrderAsync(Guid orderId, RentalOrderStatus target, Guid actorId, CancellationToken cancellationToken)
     {
         var order = await repository.GetOrderAsync(orderId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
+            ?? throw new ResourceNotFoundException("SipariÅŸ bulunamadÄ±.");
         var now = timeProvider.GetUtcNow();
         var previous = order.Status;
         var assignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
@@ -389,7 +391,7 @@ public sealed class OperationsService(
             var requestedKitCount = order.Lines.Sum(line => line.Quantity);
             if (allocatedUnitIds.Length != requestedKitCount)
                 throw new ConflictException("order.kits_incomplete",
-                    $"Siparişin {requestedKitCount} fiziksel kitinin tamamı oluşturulup rezerve edilmelidir.");
+                    $"SipariÅŸin {requestedKitCount} fiziksel kitinin tamamÄ± oluÅŸturulup rezerve edilmelidir.");
         }
         switch (target)
         {
@@ -438,10 +440,10 @@ public sealed class OperationsService(
                 break;
             case RentalOrderStatus.AwaitingReturn:
                 if (order.Type != OrderType.Rental)
-                    throw new ConflictException("order.purchase_return_not_allowed", "Satın alma siparişinde kiralama iadesi başlatılamaz.");
+                    throw new ConflictException("order.purchase_return_not_allowed", "SatÄ±n alma sipariÅŸinde kiralama iadesi baÅŸlatÄ±lamaz.");
                 order.RequestReturn(actorId, now);
                 break;
-            default: throw new ConflictException("order.unsupported_transition", "Bu durum geçişi ilgili süreç üzerinden yapılmalıdır.");
+            default: throw new ConflictException("order.unsupported_transition", "Bu durum geÃ§iÅŸi ilgili sÃ¼reÃ§ Ã¼zerinden yapÄ±lmalÄ±dÄ±r.");
         }
         await AuditAsync(actorId, nameof(RentalOrder), order.Id, "StatusChanged", previous.ToString(), order.Status.ToString(), cancellationToken);
         return order;
@@ -450,7 +452,7 @@ public sealed class OperationsService(
     public async Task<Shipment> CreateShipmentAsync(CreateShipmentCommand command, CancellationToken cancellationToken)
     {
         var order = await repository.GetOrderAsync(command.OrderId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
+            ?? throw new ResourceNotFoundException("SipariÅŸ bulunamadÄ±.");
         var now = timeProvider.GetUtcNow();
         var assignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
         var outboundUnitIds = order.Type == OrderType.Rental
@@ -473,7 +475,7 @@ public sealed class OperationsService(
         {
             if (order.Type != OrderType.Rental)
                 throw new ConflictException("order.purchase_return_not_allowed",
-                    "Satın alma siparişi için iade kargosu oluşturulamaz.");
+                    "SatÄ±n alma sipariÅŸi iÃ§in iade kargosu oluÅŸturulamaz.");
             order.StartReturnShipment(command.ActorId, now);
             foreach (var assignment in assignments)
             {
@@ -498,14 +500,14 @@ public sealed class OperationsService(
     public async Task<Shipment> AddShipmentEventAsync(AddShipmentEventCommand command, CancellationToken cancellationToken)
     {
         var shipment = await repository.GetShipmentAsync(command.ShipmentId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Kargo kaydı bulunamadı.");
+            ?? throw new ResourceNotFoundException("Kargo kaydÄ± bulunamadÄ±.");
         var previousStatus = shipment.Status;
         shipment.AddEvent(command.Status, command.OccurredAt, command.Location, command.Description);
 
         if (command.Status == ShipmentStatus.Delivered)
         {
             var order = await repository.GetOrderAsync(shipment.OrderId, cancellationToken)
-                ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
+                ?? throw new ResourceNotFoundException("SipariÅŸ bulunamadÄ±.");
             var assignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
             if (shipment.Type == ShipmentType.Outbound)
             {
@@ -542,11 +544,11 @@ public sealed class OperationsService(
     public async Task<FaultTicket> OpenFaultAsync(OpenFaultCommand command, CancellationToken cancellationToken)
     {
         var order = await repository.GetOrderAsync(command.OrderId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
+            ?? throw new ResourceNotFoundException("SipariÅŸ bulunamadÄ±.");
         var assignment = await repository.GetRentalAssignmentAsync(command.AssignmentId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Kiralama ataması bulunamadı.");
+            ?? throw new ResourceNotFoundException("Kiralama atamasÄ± bulunamadÄ±.");
         if (order.CustomerId != command.CustomerId || assignment.CustomerId != command.CustomerId || assignment.ProductUnitId != command.ProductUnitId)
-            throw new ForbiddenException("Arıza kaydı müşteri, sipariş ve ürün atamasıyla eşleşmiyor.");
+            throw new ForbiddenException("ArÄ±za kaydÄ± mÃ¼ÅŸteri, sipariÅŸ ve Ã¼rÃ¼n atamasÄ±yla eÅŸleÅŸmiyor.");
 
         var now = timeProvider.GetUtcNow();
         var ticket = FaultTicket.Open(
@@ -563,9 +565,9 @@ public sealed class OperationsService(
     {
         var unit = (await repository.GetProductUnitsAsync(cancellationToken))
             .SingleOrDefault(item => string.Equals(item.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase))
-            ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
+            ?? throw new ResourceNotFoundException("Bu QR kodla eÅŸleÅŸen fiziksel kit bulunamadÄ±.");
         var model = await repository.GetProductModelAsync(unit.ProductModelId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Kit modeli bulunamadı.");
+            ?? throw new ResourceNotFoundException("Kit modeli bulunamadÄ±.");
         return new PublicFaultKitResponse(unit.QrCode, unit.Id, model.Name, unit.SerialNumber);
     }
 
@@ -574,7 +576,7 @@ public sealed class OperationsService(
     {
         var unit = (await repository.GetProductUnitsAsync(cancellationToken))
             .SingleOrDefault(item => string.Equals(item.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase))
-            ?? throw new ResourceNotFoundException("Bu QR kodla eÅŸleÅŸen fiziksel kit bulunamadÄ±.");
+            ?? throw new ResourceNotFoundException("Bu QR kodla eÃ…Å¸leÃ…Å¸en fiziksel kit bulunamadÃ„Â±.");
         var location = (await repository.GetKitLocationEventsAsync(cancellationToken))
             .Where(item => item.ProductUnitId == unit.Id)
             .OrderByDescending(item => item.OccurredAt)
@@ -591,26 +593,33 @@ public sealed class OperationsService(
     {
         var unit = (await repository.GetProductUnitsAsync(cancellationToken))
             .SingleOrDefault(item => string.Equals(item.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase))
-            ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
+            ?? throw new ResourceNotFoundException("Bu QR kodla eÅŸleÅŸen fiziksel kit bulunamadÄ±.");
         var ticket = await repository.GetOpenFaultTicketAsync(unit.Id, cancellationToken);
+        var latestLocation = (await repository.GetKitLocationEventsAsync(cancellationToken))
+            .Where(item => item.ProductUnitId == unit.Id)
+            .OrderByDescending(item => item.OccurredAt)
+            .ThenByDescending(item => item.Id)
+            .FirstOrDefault();
         return ticket is null
-            ? new PublicFaultContextResponse(null, null, null, null, null, null, null)
+            ? new PublicFaultContextResponse(null, null, null, null, null, null, null, null, null)
             : new PublicFaultContextResponse(ticket.Id, ticket.ReporterName, ticket.ReporterPhone,
-                ticket.ReporterAddress, ticket.Description, ticket.Latitude, ticket.Longitude);
+                ticket.ReporterAddress, latestLocation?.District, latestLocation?.City,
+                ticket.Description, ticket.Latitude, ticket.Longitude);
     }
 
     public async Task<FaultTicket> UpdatePublicFaultAsync(Guid faultId, string qrCode, string reporterName,
-        string reporterPhone, string reporterAddress, string description, double? latitude, double? longitude,
+        string reporterPhone, string reporterAddress, string district, string city, string description,
+        double? latitude, double? longitude,
         CancellationToken cancellationToken)
     {
         var unit = (await repository.GetProductUnitsAsync(cancellationToken))
             .SingleOrDefault(item => string.Equals(item.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase))
-            ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
+            ?? throw new ResourceNotFoundException("Bu QR kodla eÅŸleÅŸen fiziksel kit bulunamadÄ±.");
         var ticket = await repository.GetFaultTicketAsync(faultId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
+            ?? throw new ResourceNotFoundException("ArÄ±za kaydÄ± bulunamadÄ±.");
         if (ticket.ProductUnitId != unit.Id || ticket.Status is FaultStatus.Resolved or FaultStatus.Closed)
-            throw new ConflictException("fault.edit_not_allowed", "Bu arıza kaydı güncellenemez.");
-        var resolvedLocation = await ResolveLocationAsync(reporterAddress, null, null, latitude, longitude,
+            throw new ConflictException("fault.edit_not_allowed", "Bu arÄ±za kaydÄ± gÃ¼ncellenemez.");
+        var resolvedLocation = await ResolveLocationAsync(reporterAddress, district, city, latitude, longitude,
             cancellationToken);
         ticket.UpdatePublicDetails(ticket.Category, description, reporterName, reporterPhone, reporterAddress,
             resolvedLocation.Latitude, resolvedLocation.Longitude);
@@ -629,13 +638,13 @@ public sealed class OperationsService(
     {
         var unit = (await repository.GetProductUnitsAsync(cancellationToken))
             .SingleOrDefault(item => string.Equals(item.QrCode, command.QrCode.Trim(), StringComparison.OrdinalIgnoreCase))
-            ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
+            ?? throw new ResourceNotFoundException("Bu QR kodla eÅŸleÅŸen fiziksel kit bulunamadÄ±.");
         var existing = await repository.GetOpenFaultTicketAsync(unit.Id, cancellationToken);
         if (existing is not null)
         {
-            var resolvedLocation = await ResolveLocationAsync(command.ReporterAddress, null, null,
+            var resolvedLocation = await ResolveLocationAsync(command.ReporterAddress, command.District, command.City,
                 command.Latitude, command.Longitude, cancellationToken);
-            existing.UpdatePublicDetails("Son kullanıcı bildirimi", command.Description, command.ReporterName,
+            existing.UpdatePublicDetails("Son kullanÄ±cÄ± bildirimi", command.Description, command.ReporterName,
                 command.ReporterPhone, command.ReporterAddress, resolvedLocation.Latitude, resolvedLocation.Longitude);
             var now = timeProvider.GetUtcNow();
             await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id,
@@ -650,10 +659,10 @@ public sealed class OperationsService(
         var assignment = (await repository.GetAssignmentsForProductUnitAsync(unit.Id, cancellationToken))
             .Where(item => item.Status == RentalAssignmentStatus.Active)
             .OrderByDescending(item => item.Period.EndDate).FirstOrDefault()
-            ?? throw new ConflictException("fault.no_active_rental", "Bu kit için aktif bir kiralama bulunmuyor.");
+            ?? throw new ConflictException("fault.no_active_rental", "Bu kit iÃ§in aktif bir kiralama bulunmuyor.");
         var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
-        var newFaultLocation = await ResolveLocationAsync(command.ReporterAddress, null, null,
+            ?? throw new ResourceNotFoundException("Kiralama sipariÅŸi bulunamadÄ±.");
+        var newFaultLocation = await ResolveLocationAsync(command.ReporterAddress, command.District, command.City,
             command.Latitude, command.Longitude, cancellationToken);
         var ticket = await OpenFaultAsync(new OpenFaultCommand(assignment.CustomerId, order.Id, assignment.Id, unit.Id,
             "Son kullanici bildirimi", FaultSeverity.Medium, command.Description,
@@ -674,17 +683,17 @@ public sealed class OperationsService(
     {
         var unit = (await repository.GetProductUnitsAsync(cancellationToken))
             .SingleOrDefault(item => string.Equals(item.QrCode, command.QrCode.Trim(), StringComparison.OrdinalIgnoreCase))
-            ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
+            ?? throw new ResourceNotFoundException("Bu QR kodla eÅŸleÅŸen fiziksel kit bulunamadÄ±.");
         if (unit.Status != ProductUnitStatus.OutboundInTransit)
-            throw new ConflictException("kit_delivery.not_in_transit", "Yalnızca kargodaki kit teslim alınabilir.");
+            throw new ConflictException("kit_delivery.not_in_transit", "YalnÄ±zca kargodaki kit teslim alÄ±nabilir.");
 
         var assignment = (await repository.GetAssignmentsForProductUnitAsync(unit.Id, cancellationToken))
             .Where(item => item.Status is RentalAssignmentStatus.Reserved or RentalAssignmentStatus.Active)
             .OrderByDescending(item => item.CreatedAt)
             .FirstOrDefault()
-            ?? throw new ConflictException("kit_delivery.no_reserved_rental", "Bu kit için teslim bekleyen kiralama bulunmuyor.");
+            ?? throw new ConflictException("kit_delivery.no_reserved_rental", "Bu kit iÃ§in teslim bekleyen kiralama bulunmuyor.");
         var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
+            ?? throw new ResourceNotFoundException("Kiralama sipariÅŸi bulunamadÄ±.");
         var now = timeProvider.GetUtcNow();
         var actorId = PublicActorId;
         var recipientName = command.RecipientName.Trim();
@@ -783,7 +792,7 @@ public sealed class OperationsService(
                 ?? customer?.Addresses.FirstOrDefault()?.Line1
                 ?? "-";
             return new FaultListItemResponse(ticket.Id, ticket.Number, ticket.CustomerId,
-                customer?.Name ?? "Müşteri", reporterName, reporterPhone, reporterAddress, ticket.Category, ticket.Severity,
+                customer?.Name ?? "MÃ¼ÅŸteri", reporterName, reporterPhone, reporterAddress, ticket.Category, ticket.Severity,
                 ticket.Description, ticket.Status, ticket.OpenedAt, ticket.ApprovalStatus);
         });
 
@@ -822,7 +831,7 @@ public sealed class OperationsService(
     public async Task<FaultTicket> ChangeFaultStatusAsync(Guid ticketId, FaultStatus status, Guid actorId, string note, CancellationToken cancellationToken)
     {
         var ticket = await repository.GetFaultTicketAsync(ticketId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
+            ?? throw new ResourceNotFoundException("ArÄ±za kaydÄ± bulunamadÄ±.");
         var previous = ticket.Status;
         ticket.ChangeStatus(status, actorId, timeProvider.GetUtcNow(), note);
         await AuditAsync(actorId, nameof(FaultTicket), ticket.Id, "StatusChanged", previous.ToString(), ticket.Status.ToString(), cancellationToken);
@@ -832,15 +841,15 @@ public sealed class OperationsService(
     public async Task<ReturnInspection> CompleteInspectionAsync(CompleteInspectionCommand command, CancellationToken cancellationToken)
     {
         var order = await repository.GetOrderAsync(command.OrderId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
+            ?? throw new ResourceNotFoundException("SipariÅŸ bulunamadÄ±.");
         var unit = await repository.GetProductUnitAsync(command.ProductUnitId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Fiziksel ürün birimi bulunamadı.");
+            ?? throw new ResourceNotFoundException("Fiziksel Ã¼rÃ¼n birimi bulunamadÄ±.");
         var now = timeProvider.GetUtcNow();
         var inspection = ReturnInspection.Complete(
             Guid.NewGuid(), command.OrderId, command.ProductUnitId,
             command.Items.Select(item => new InspectionItem(Guid.NewGuid(), item.Name, item.IsPresent, item.IsDamaged, item.Note)).ToArray(),
             command.DamageCharge, command.Outcome, now, command.ActorId);
-        unit.CompleteInspection(command.Outcome, command.ActorId, now, "İade kontrolü tamamlandı.");
+        unit.CompleteInspection(command.Outcome, command.ActorId, now, "Ä°ade kontrolÃ¼ tamamlandÄ±.");
         order.Complete(command.ActorId, now);
         await repository.AddInspectionAsync(inspection, cancellationToken);
         await AuditAsync(command.ActorId, nameof(ReturnInspection), inspection.Id, "Completed", null, command.Outcome.ToString(), cancellationToken);
@@ -869,9 +878,9 @@ public sealed class OperationsService(
                     continue;
                 var daysRemaining = assignment.Period.EndDate.DayNumber - today.DayNumber;
                 rentalExpiryItems.Add(new DashboardRentalExpiryResponse(unit.Id,
-                    modelLookup.TryGetValue(unit.ProductModelId, out var model) ? model.Name : "Eğitim kiti",
+                    modelLookup.TryGetValue(unit.ProductModelId, out var model) ? model.Name : "EÄŸitim kiti",
                     unit.SerialNumber,
-                    customerLookup.TryGetValue(assignment.CustomerId, out var rentalCustomer) ? rentalCustomer.Name : "Müşteri",
+                    customerLookup.TryGetValue(assignment.CustomerId, out var rentalCustomer) ? rentalCustomer.Name : "MÃ¼ÅŸteri",
                     order.OrderNumber, assignment.Period.EndDate, daysRemaining));
             }
         }
@@ -888,6 +897,16 @@ public sealed class OperationsService(
             .Select(unit => unit.Id)
             .Concat(openFaultUnitIds)
             .ToHashSet();
+        var returnProcessStartedAssignmentIds = returns
+            .Where(item => item.Status is KitReturnStatus.Requested or KitReturnStatus.InTransit)
+            .SelectMany(item => item.Items)
+            .Select(item => item.AssignmentId)
+            .ToHashSet();
+        var returnedAssignmentIds = returns
+            .Where(item => item.Status == KitReturnStatus.Received)
+            .SelectMany(item => item.Items)
+            .Select(item => item.AssignmentId)
+            .ToHashSet();
         var latestLocationsByUnit = (await repository.GetKitLocationEventsAsync(cancellationToken))
             .GroupBy(location => location.ProductUnitId)
             .ToDictionary(group => group.Key, group => group.OrderByDescending(location => location.OccurredAt)
@@ -898,12 +917,14 @@ public sealed class OperationsService(
             foreach (var assignment in await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken))
             {
                 if (assignment.Status != RentalAssignmentStatus.Active ||
+                    returnedAssignmentIds.Contains(assignment.Id) ||
                     !unitLookup.TryGetValue(assignment.ProductUnitId, out var unit))
                     continue;
 
-                var kitName = modelLookup.TryGetValue(unit.ProductModelId, out var model) ? model.Name : "Eğitim kiti";
+                var kitName = modelLookup.TryGetValue(unit.ProductModelId, out var model) ? model.Name : "EÄŸitim kiti";
                 var kitSku = modelLookup.TryGetValue(unit.ProductModelId, out model) ? model.Sku : "-";
-                var locationCategory = GetKitLocationCategory(unit.Status, faultyUnitIds.Contains(unit.Id));
+                var locationCategory = GetKitLocationCategory(unit.Status, faultyUnitIds.Contains(unit.Id),
+                    returnProcessStartedAssignmentIds.Contains(assignment.Id), assignment.Period.EndDate < today);
                 if (latestLocationsByUnit.TryGetValue(unit.Id, out var location))
                 {
                     kitLocations.Add(new DashboardKitLocationResponse(unit.Id, unit.ProductModelId, kitName, kitSku,
@@ -940,7 +961,7 @@ public sealed class OperationsService(
             units.Count(unit => unit.Status == ProductUnitStatus.Sold),
             orders.Count(order => order.Type == OrderType.Purchase && order.Status == RentalOrderStatus.Completed),
             returns.Where(x => x.Status != KitReturnStatus.Received).Select(x => new DashboardReturnResponse(
-                x.Id, customerLookup.TryGetValue(x.CustomerId, out var customer) ? customer.Name : "Müşteri",
+                x.Id, customerLookup.TryGetValue(x.CustomerId, out var customer) ? customer.Name : "MÃ¼ÅŸteri",
                 (int)x.Status, x.Carrier, x.TrackingNumber, x.CreatedAt, x.Items.Count,
                 x.RequesterName, x.RequesterPhone, x.ReturnAddress, x.Latitude, x.Longitude)).ToArray(),
             rentalExpiryItems.Where(x => x.DaysRemaining < 0).OrderBy(x => x.DaysRemaining).ToArray(),
@@ -948,21 +969,24 @@ public sealed class OperationsService(
             kitLocations.OrderBy(item => item.City).ThenBy(item => item.District).ThenBy(item => item.SerialNumber).ToArray());
     }
 
-    private static string GetKitLocationCategory(ProductUnitStatus status, bool hasOpenFault) =>
-        hasOpenFault || status is ProductUnitStatus.InMaintenance or ProductUnitStatus.Quarantined
+    private static string GetKitLocationCategory(ProductUnitStatus status, bool hasOpenFault,
+        bool hasReturnProcessStarted, bool isExpired) =>
+        hasOpenFault
             ? "faulty"
-            : status == ProductUnitStatus.ReturnInTransit
+            : hasReturnProcessStarted
                 ? "returning"
-                : "active";
+                : isExpired
+                    ? "expired"
+                    : "active";
 
     private async Task ValidateOrderLinesAsync(IReadOnlyCollection<OrderLineCommand> lines,
         CancellationToken cancellationToken)
     {
         if (lines.Count == 0 || lines.Any(line => line.ProductModelId == Guid.Empty || line.Quantity <= 0))
-            throw new ConflictException("order.lines_required", "Siparişte en az bir geçerli ürün satırı bulunmalıdır.");
+            throw new ConflictException("order.lines_required", "SipariÅŸte en az bir geÃ§erli Ã¼rÃ¼n satÄ±rÄ± bulunmalÄ±dÄ±r.");
         foreach (var line in lines)
             if (await repository.GetProductModelAsync(line.ProductModelId, cancellationToken) is null)
-                throw new ResourceNotFoundException($"{line.ProductModelId} ürün modeli bulunamadı.");
+                throw new ResourceNotFoundException($"{line.ProductModelId} Ã¼rÃ¼n modeli bulunamadÄ±.");
     }
 
     private static FaultGuideEntryResponse MapFaultGuideEntry(FaultGuideEntry entry) =>
@@ -1005,6 +1029,13 @@ public sealed class OperationsService(
         await repository.SaveChangesAsync(cancellationToken);
     }
 }
+
+
+
+
+
+
+
 
 
 

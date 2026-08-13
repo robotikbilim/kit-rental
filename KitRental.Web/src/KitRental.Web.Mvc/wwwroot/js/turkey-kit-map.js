@@ -51,6 +51,8 @@
                 return "#c0392b";
             case "returning":
                 return "#d97706";
+            case "expired":
+                return "#b45309";
             case "active":
                 return "#227347";
             default:

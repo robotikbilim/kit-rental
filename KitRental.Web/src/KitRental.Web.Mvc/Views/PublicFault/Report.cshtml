@@ -1,4 +1,4 @@
-@model PublicFaultFormViewModel
+﻿@model PublicFaultFormViewModel
 @{ ViewData["Title"] = "Ariza Kaydi"; }
 <div class="public-fault-shell">
     <section class="public-fault-card">
@@ -14,16 +14,18 @@
             <div asp-validation-summary="ModelOnly" class="error"></div>
             <div class="field"><label asp-for="ReporterName"></label><input asp-for="ReporterName" autocomplete="name" placeholder="Adiniz ve soyadiniz" /><span asp-validation-for="ReporterName" class="error"></span></div>
             <div class="field"><label asp-for="ReporterPhone"></label><input asp-for="ReporterPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="05xx xxx xx xx" /><span asp-validation-for="ReporterPhone" class="error"></span></div>
+            <div class="field"><label asp-for="City"></label><select asp-for="City" data-selected="@Model.City"></select><span asp-validation-for="City" class="error"></span></div>
+            <div class="field"><label asp-for="District"></label><select asp-for="District" data-selected="@Model.District"></select><span asp-validation-for="District" class="error"></span></div>
             <div class="field"><label asp-for="ReporterAddress"></label><textarea asp-for="ReporterAddress" rows="3" autocomplete="street-address" placeholder="Kitin bulundugu acik adresi yazin."></textarea><span asp-validation-for="ReporterAddress" class="error"></span></div>
             <div class="public-location-box">
-                <button class="secondary-action" id="use-location" type="button">Konumumu ekle</button>
-                <span id="location-status">Konum eklemek istege baglidir; adres girilirse koordinat otomatik denenir.</span>
-                <span asp-validation-for="Latitude" class="error"></span>
-                <span asp-validation-for="Longitude" class="error"></span>
+                <button class="secondary-action" id="use-location" type="button">Konum bul</button>
+                <span id="location-status">Il, ilce ve acik adresle devam edebilirsiniz. Konum bilgisi istege baglidir.</span>
             </div>
             <div class="field"><label asp-for="Description"></label><textarea asp-for="Description" rows="6" placeholder="Sorunun ne zaman ve nasil olustugunu kisaca anlatin."></textarea><span asp-validation-for="Description" class="error"></span></div>
             <button class="primary-action" type="submit">Ariza kaydini gonder</button>
         </form>
     </section>
 </div>
+<script src="~/js/tr-city-districts.js" asp-append-version="true"></script>
+<script src="~/js/public-city-district.js" asp-append-version="true"></script>
 <script src="~/js/public-location.js" asp-append-version="true"></script>

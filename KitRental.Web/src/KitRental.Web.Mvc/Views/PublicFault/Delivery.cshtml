@@ -1,4 +1,4 @@
-@model PublicDeliveryFormViewModel
+﻿@model PublicDeliveryFormViewModel
 @{ ViewData["Title"] = "Kit Teslim Al"; }
 <div class="public-fault-shell">
     <section class="public-fault-card">
@@ -10,20 +10,20 @@
             <input asp-for="QrCode" type="hidden" />
             <input asp-for="Latitude" type="hidden" />
             <input asp-for="Longitude" type="hidden" />
-            <input asp-for="City" type="hidden" />
-            <input asp-for="District" type="hidden" />
             <div asp-validation-summary="ModelOnly" class="error"></div>
             <div class="field"><label asp-for="RecipientName"></label><input asp-for="RecipientName" autocomplete="name" placeholder="Ad soyad" /><span asp-validation-for="RecipientName" class="error"></span></div>
             <div class="field"><label asp-for="RecipientPhone"></label><input asp-for="RecipientPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="05xx xxx xx xx" /><span asp-validation-for="RecipientPhone" class="error"></span></div>
+            <div class="field"><label asp-for="City"></label><select asp-for="City" data-selected="@Model.City"></select><span asp-validation-for="City" class="error"></span></div>
+            <div class="field"><label asp-for="District"></label><select asp-for="District" data-selected="@Model.District"></select><span asp-validation-for="District" class="error"></span></div>
             <div class="field"><label asp-for="AddressLine"></label><textarea asp-for="AddressLine" rows="3" autocomplete="street-address" placeholder="Kitin teslim edildigi acik adres"></textarea><span asp-validation-for="AddressLine" class="error"></span></div>
             <div class="public-location-box">
-                <button class="secondary-action" id="use-location" type="button">Konumumu ekle</button>
-                <span id="location-status">Konum eklemek istege baglidir; adres girilirse koordinat otomatik denenir.</span>
-                <span asp-validation-for="Latitude" class="error"></span>
-                <span asp-validation-for="Longitude" class="error"></span>
+                <button class="secondary-action" id="use-location" type="button">Konum bul</button>
+                <span id="location-status">Il, ilce ve acik adresle devam edebilirsiniz. Konum bilgisi istege baglidir.</span>
             </div>
             <button class="primary-action" type="submit">Kit teslim al</button>
         </form>
     </section>
 </div>
+<script src="~/js/tr-city-districts.js" asp-append-version="true"></script>
+<script src="~/js/public-city-district.js" asp-append-version="true"></script>
 <script src="~/js/public-location.js" asp-append-version="true"></script>

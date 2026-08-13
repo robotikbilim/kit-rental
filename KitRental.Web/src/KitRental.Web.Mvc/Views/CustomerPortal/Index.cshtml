@@ -6,20 +6,21 @@
     var mapLocations = allKitLocations.Where(item => item.Latitude.HasValue && item.Longitude.HasValue).ToArray();
     var faultyCount = allKitLocations.Count(item => item.LocationCategory == "faulty");
     var returnCount = allKitLocations.Count(item => item.LocationCategory == "returning");
+    var expiredCount = allKitLocations.Count(item => item.LocationCategory == "expired");
     var activeCount = allKitLocations.Count(item => item.LocationCategory == "active");
     var activeKits = Model.Kits.Where(item => item.AssignmentStatus == 2).ToArray();
-    var activeFaultyKits = activeKits.Count(item => item.OpenFaultCount > 0 || item.UnitStatus is 8);
-    var activeHealthyKits = activeKits.Length - activeFaultyKits;
+    var activeFaultyKits = activeKits.Count(item => item.OpenFaultCount > 0);
     var turkeyNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow, "Turkey Standard Time");
     var today = DateOnly.FromDateTime(turkeyNow.DateTime);
     var returnAssignmentLookup = Model.Returns
         .SelectMany(request => request.Items.Select(item => new { item.AssignmentId, request.Status, request.CreatedAt }))
         .GroupBy(item => item.AssignmentId)
         .ToDictionary(group => group.Key, group => group.OrderByDescending(item => item.CreatedAt).First());
+    var returnedCount = returnAssignmentLookup.Values.Count(item => item.Status == 3);
+    var activeHealthyKits = Math.Max(0, activeKits.Length - activeFaultyKits - returnedCount);
     var expiredWithoutReturn = activeKits.Count(item =>
         item.EndDate < today && !returnAssignmentLookup.ContainsKey(item.AssignmentId));
     var returnInProgressCount = returnAssignmentLookup.Values.Count(item => item.Status is 1 or 2);
-    var returnedCount = returnAssignmentLookup.Values.Count(item => item.Status == 3);
     var missingLocationCount = allKitLocations.Length - mapLocations.Length;
     var modelOptions = allKitLocations
         .GroupBy(item => item.ProductModelId)
@@ -52,7 +53,7 @@
 @if (TempData["Success"] is string message) { <div class="success-banner">@message</div> }
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 <section class="metrics portal-metrics">
-    <a class="metric-card portal-metric-active" asp-action="Kits" asp-route-status="5" title="@activeKits.Length aktif kit. @activeHealthyKits kit arızasız, @activeFaultyKits kit açık arıza veya servis durumunda."><span>Aktif Kitler</span><strong>@Model.ActiveKitCount</strong></a>
+    <a class="metric-card portal-metric-active" asp-action="Kits" asp-route-status="5" title="@activeKits.Length aktif kit. @activeHealthyKits kit aktif kullanımda, @activeFaultyKits kit açık arızalı, @returnedCount kit ise iade edilmiş durumda."><span>Aktif Kitler</span><strong>@Model.ActiveKitCount</strong></a>
     <a class="metric-card portal-metric-faults" asp-action="Faults" asp-route-state="open" title="@Model.OpenFaultCount açık arıza kaydı."><span>Açık Arızalar</span><strong>@Model.OpenFaultCount</strong></a>
     <a class="metric-card portal-metric-closed" asp-action="Faults" asp-route-state="completed" title="@Model.CompletedFaultCount kapalı arıza kaydı."><span>Kapalı Arızalar</span><strong>@Model.CompletedFaultCount</strong></a>
     <a class="metric-card portal-metric-expired" asp-action="Returns" asp-route-state="pending" title="@expiredWithoutReturn kit 12.08.2026 itibarıyla süresi dolmuş ve henüz iade formu doldurulmamış durumda."><span>Süresi Dolanlar</span><strong>@Model.ExpiredRentalKitCount</strong></a>
@@ -74,17 +75,20 @@
         {
             ("faulty", "Arızalı Kitler", faultyCount),
             ("returning", "İade Sürecindeki Kitler", returnCount),
+            ("expired", "Suresi Dolan Kitler", expiredCount),
             ("active", "Aktif Kitler", activeCount)
         };
         <div class="kit-map-layout">
             <div class="kit-map-panel">
-                <div class="kit-map-filters" role="group" aria-label="Harita filtreleri">
+                <div class="kit-map-filters row" role="group" aria-label="Harita filtreleri">
                     @foreach (var option in filterOptions)
                     {
-                        <label class="kit-map-filter">
-                            <input type="checkbox" class="kit-map-filter-input" value="@option.Key" checked />
-                            <span><strong>@option.Label</strong><small>@option.Count kit</small></span>
-                        </label>
+                        <div class="col-md-3">
+                            <label class="kit-map-filter">
+                                <input type="checkbox" class="kit-map-filter-input" value="@option.Key" checked />
+                                <span><strong>@option.Label</strong><small>@option.Count kit</small></span>
+                            </label>
+                        </div>
                     }
                 </div>
                 <div class="kit-map-filter-tools">

@@ -1,4 +1,4 @@
-using KitRental.Web.Mvc.Models;
+﻿using KitRental.Web.Mvc.Models;
 using KitRental.Web.Mvc.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -48,8 +48,15 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
             ReporterPhone = faultContext?.ReporterPhone
                 ?? deliveryContext?.RecipientPhone
                 ?? string.Empty,
+            City = faultContext?.City
+                ?? deliveryContext?.City
+                ?? string.Empty,
+            District = faultContext?.District
+                ?? deliveryContext?.District
+                ?? string.Empty,
             ReporterAddress = faultContext?.ReporterAddress
-                ?? FormatAddress(deliveryContext?.AddressLine, deliveryContext?.District, deliveryContext?.City),
+                ?? deliveryContext?.AddressLine
+                ?? string.Empty,
             Description = faultContext?.Description ?? string.Empty,
             Latitude = faultContext?.Latitude ?? deliveryContext?.Latitude,
             Longitude = faultContext?.Longitude ?? deliveryContext?.Longitude
@@ -67,12 +74,6 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
         model.KitName = kit.KitName;
         model.SerialNumber = kit.SerialNumber;
         model.FaultId = faultContext?.FaultId;
-        model.ReporterName = faultContext?.ReporterName ?? model.ReporterName;
-        model.ReporterPhone = faultContext?.ReporterPhone ?? model.ReporterPhone;
-        model.ReporterAddress = faultContext?.ReporterAddress ?? model.ReporterAddress;
-        model.Description = faultContext?.Description ?? model.Description;
-        model.Latitude = faultContext?.Latitude ?? model.Latitude;
-        model.Longitude = faultContext?.Longitude ?? model.Longitude;
         if (!ModelState.IsValid) return View(model);
         var result = await apiClient.CreatePublicFaultAsync(model, cancellationToken);
         if (!result.IsSuccess)
@@ -99,7 +100,11 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
             SerialNumber = kit.SerialNumber,
             RequesterName = deliveryContext?.RecipientName ?? string.Empty,
             RequesterPhone = deliveryContext?.RecipientPhone ?? string.Empty,
-            ReturnAddress = FormatAddress(deliveryContext?.AddressLine, deliveryContext?.District, deliveryContext?.City)
+            City = deliveryContext?.City ?? string.Empty,
+            District = deliveryContext?.District ?? string.Empty,
+            ReturnAddress = deliveryContext?.AddressLine ?? string.Empty,
+            Latitude = deliveryContext?.Latitude,
+            Longitude = deliveryContext?.Longitude
         });
     }
 
@@ -129,9 +134,20 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
     {
         if (RedirectAuthenticated(qrCode) is { } redirect) return redirect;
         var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
-        return kit is null ? NotFound() : View(new PublicDeliveryFormViewModel
+        if (kit is null) return NotFound();
+        var deliveryContext = await apiClient.GetPublicKitDeliveryContextAsync(qrCode, cancellationToken);
+        return View(new PublicDeliveryFormViewModel
         {
-            QrCode = kit.QrCode, KitName = kit.KitName, SerialNumber = kit.SerialNumber
+            QrCode = kit.QrCode,
+            KitName = kit.KitName,
+            SerialNumber = kit.SerialNumber,
+            RecipientName = deliveryContext?.RecipientName ?? string.Empty,
+            RecipientPhone = deliveryContext?.RecipientPhone ?? string.Empty,
+            City = deliveryContext?.City ?? string.Empty,
+            District = deliveryContext?.District ?? string.Empty,
+            AddressLine = deliveryContext?.AddressLine ?? string.Empty,
+            Latitude = deliveryContext?.Latitude,
+            Longitude = deliveryContext?.Longitude
         });
     }
 
@@ -148,11 +164,11 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
         var result = await apiClient.CreatePublicDeliveryAsync(model, cancellationToken);
         if (!result.IsSuccess)
         {
-            ModelState.AddModelError(string.Empty, result.Error ?? "Kit teslim kaydı oluşturulamadı.");
+            ModelState.AddModelError(string.Empty, result.Error ?? "Kit teslim kaydi olusturulamadi.");
             return View(model);
         }
-        ViewData["SuccessTitle"] = "Kit teslim alındı";
-        ViewData["SuccessMessage"] = "Teslim bilginiz kit geçmişine işlendi.";
+        ViewData["SuccessTitle"] = "Kit teslim alindi";
+        ViewData["SuccessMessage"] = "Teslim bilginiz kit gecmisine islendi.";
         return View("Success", new PublicKitActionViewModel(model.QrCode, model.KitName, model.SerialNumber));
     }
 
@@ -162,17 +178,5 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
         return User.IsInRole("CustomerAccountManager") || User.IsInRole("CustomerUser")
             ? RedirectToAction("FindKit", "CustomerPortal", new { identifier = qrCode })
             : RedirectToAction("Lookup", "PhysicalKits", new { identifier = qrCode });
-    }
-
-    private static string FormatAddress(string? addressLine, string? district, string? city)
-    {
-        var parts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(addressLine)) parts.Add(addressLine.Trim());
-        if (!string.IsNullOrWhiteSpace(district) || !string.IsNullOrWhiteSpace(city))
-        {
-            var districtCity = string.Join(" / ", new[] { district, city }.Where(item => !string.IsNullOrWhiteSpace(item)));
-            if (districtCity.Length > 0) parts.Add(districtCity);
-        }
-        return string.Join(", ", parts);
     }
 }

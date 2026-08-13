@@ -10,6 +10,7 @@
     var mapLocations = allKitLocations.Where(item => item.Latitude.HasValue && item.Longitude.HasValue).ToArray();
     var faultyCount = allKitLocations.Count(item => item.LocationCategory == "faulty");
     var returnCount = allKitLocations.Count(item => item.LocationCategory == "returning");
+    var expiredCount = allKitLocations.Count(item => item.LocationCategory == "expired");
     var activeCount = allKitLocations.Count(item => item.LocationCategory == "active");
     var missingLocationCount = allKitLocations.Length - mapLocations.Length;
     var modelOptions = allKitLocations
@@ -90,17 +91,20 @@ else
             {
                 ("faulty", "Arızalı Kitler", faultyCount),
                 ("returning", "İade Sürecindeki Kitler", returnCount),
+                ("expired", "Suresi Dolan Kitler", expiredCount),
                 ("active", "Aktif Kitler", activeCount)
             };
             <div class="kit-map-layout">
                 <div class="kit-map-panel">
-                    <div class="kit-map-filters" role="group" aria-label="Harita filtreleri">
+                    <div class="kit-map-filters row" role="group" aria-label="Harita filtreleri">
                         @foreach (var option in filterOptions)
                         {
-                            <label class="kit-map-filter">
-                                <input type="checkbox" class="kit-map-filter-input" value="@option.Key" checked />
-                                <span><strong>@option.Label</strong><small>@option.Count kit</small></span>
-                            </label>
+                            <div class="col-md-3">
+                                <label class="kit-map-filter">
+                                    <input type="checkbox" class="kit-map-filter-input" value="@option.Key" checked />
+                                    <span><strong>@option.Label</strong><small>@option.Count kit</small></span>
+                                </label>
+                            </div>
                         }
                     </div>
                     <div class="kit-map-filter-tools">
