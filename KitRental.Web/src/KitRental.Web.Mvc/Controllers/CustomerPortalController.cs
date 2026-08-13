@@ -148,20 +148,17 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
                     ? "pending"
                     : currentReturn.Status switch
                     {
-                        1 => "pending",
+                        1 => "processing",
                         2 => "processing",
                         3 => "returned",
                         _ => "pending"
                     };
-                var stateLabel = currentReturn is null
-                    ? "İade Bekleniyor"
-                    : currentReturn.Status switch
-                    {
-                        1 => "İade Bekleniyor",
-                        2 => "İade Sürecinde",
-                        3 => "İade Edildi",
-                        _ => "İade Bekleniyor"
-                    };
+                var stateLabel = returnState switch
+                {
+                    "processing" => "İade Sürecinde",
+                    "returned" => "İade Edildi",
+                    _ => "İade Bekleniyor"
+                };
                 return new PortalReturnListItemViewModel(
                     item.ProductUnitId,
                     item.AssignmentId,
