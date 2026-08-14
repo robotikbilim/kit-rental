@@ -12,7 +12,8 @@ public sealed record PortalAddressResponse(Guid Id, string Title, string Contact
 public sealed record PortalProductModelResponse(Guid Id, string Name, string Sku, string? Description, string? ImageUrl);
 public sealed record PortalKitResponse(Guid ProductUnitId, Guid AssignmentId, Guid OrderId, string OrderNumber,
     string KitName, string KitSku, string? ImageUrl, string SerialNumber, string QrCode, ProductUnitStatus UnitStatus,
-    RentalAssignmentStatus AssignmentStatus, DateOnly StartDate, DateOnly EndDate, int OpenFaultCount);
+    RentalAssignmentStatus AssignmentStatus, DateOnly StartDate, DateOnly EndDate, int OpenFaultCount,
+    bool HasDeliveryForm);
 public sealed record PortalOrderLineResponse(Guid ProductModelId, string ProductName, string ProductSku, int Quantity);
 public sealed record PortalOrderResponse(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName,
     OrderType Type, RentalOrderStatus Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt,
@@ -26,8 +27,8 @@ public sealed record PortalFaultResponse(Guid Id, string Number, Guid ProductUni
     IReadOnlyCollection<PortalFaultStatusResponse> History, IReadOnlyCollection<PortalShipmentResponse> Shipments,
     string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "",
     FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired);
-public sealed record CustomerPortalResponse(string CustomerName, string CustomerEmail, int ActiveKitCount,
-    int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, int ExpiredRentalKitCount,
+public sealed record CustomerPortalResponse(string CustomerName, string CustomerEmail, int TotalRentedKitCount,
+    int UndeliveredKitCount, int ActiveKitCount, int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, int ExpiredRentalKitCount,
     int ReturnProcessStartedKitCount, int ReturnedKitCount, IReadOnlyCollection<PortalKitResponse> Kits,
     IReadOnlyCollection<PortalOrderResponse> Orders, IReadOnlyCollection<PortalFaultResponse> Faults,
     IReadOnlyCollection<PortalAddressResponse> Addresses, IReadOnlyCollection<PortalProductModelResponse> ProductModels,

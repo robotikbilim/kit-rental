@@ -57,6 +57,14 @@
             </select>
         </label>
         <label>
+            <span>Teslimat formu</span>
+            <select name="deliveryFormMissing">
+                <option value="">Tümü</option>
+                <option value="true" selected="@(Model.DeliveryFormMissing == true)">Doldurulmamış</option>
+                <option value="false" selected="@(Model.DeliveryFormMissing == false)">Doldurulmuş</option>
+            </select>
+        </label>
+        <label>
             <span>Sayfa boyutu</span>
             <select name="pageSize">
                 @foreach (var size in new[] { 10, 25, 50 })
@@ -109,19 +117,19 @@
             @if (Model.TotalPages > 1)
             {
                 <nav class="pagination" aria-label="Kiralanmış kitler sayfaları">
-                    <a class="@(Model.Page == 1 ? "disabled" : null)" aria-disabled="@(Model.Page == 1 ? "true" : null)" aria-label="Önceki sayfa" asp-action="Kits" asp-route-query="@Model.Query" asp-route-status="@Model.Status" asp-route-hasFault="@Model.HasFault" asp-route-pageSize="@Model.PageSize" asp-route-page="@(Model.Page - 1)">‹</a>
+                    <a class="@(Model.Page == 1 ? "disabled" : null)" aria-disabled="@(Model.Page == 1 ? "true" : null)" aria-label="Önceki sayfa" asp-action="Kits" asp-route-query="@Model.Query" asp-route-status="@Model.Status" asp-route-hasFault="@Model.HasFault" asp-route-deliveryFormMissing="@Model.DeliveryFormMissing" asp-route-pageSize="@Model.PageSize" asp-route-page="@(Model.Page - 1)">‹</a>
                     @foreach (var paginationPage in PaginationPages(Model.Page, Model.TotalPages))
                     {
                         if (paginationPage.HasValue)
                         {
-                            <a class="@(paginationPage == Model.Page ? "active" : null)" aria-current="@(paginationPage == Model.Page ? "page" : null)" asp-action="Kits" asp-route-query="@Model.Query" asp-route-status="@Model.Status" asp-route-hasFault="@Model.HasFault" asp-route-pageSize="@Model.PageSize" asp-route-page="@paginationPage">@paginationPage</a>
+                            <a class="@(paginationPage == Model.Page ? "active" : null)" aria-current="@(paginationPage == Model.Page ? "page" : null)" asp-action="Kits" asp-route-query="@Model.Query" asp-route-status="@Model.Status" asp-route-hasFault="@Model.HasFault" asp-route-deliveryFormMissing="@Model.DeliveryFormMissing" asp-route-pageSize="@Model.PageSize" asp-route-page="@paginationPage">@paginationPage</a>
                         }
                         else
                         {
                             <span class="pagination-ellipsis" aria-hidden="true">…</span>
                         }
                     }
-                    <a class="@(Model.Page == Model.TotalPages ? "disabled" : null)" aria-disabled="@(Model.Page == Model.TotalPages ? "true" : null)" aria-label="Sonraki sayfa" asp-action="Kits" asp-route-query="@Model.Query" asp-route-status="@Model.Status" asp-route-hasFault="@Model.HasFault" asp-route-pageSize="@Model.PageSize" asp-route-page="@(Model.Page + 1)">›</a>
+                    <a class="@(Model.Page == Model.TotalPages ? "disabled" : null)" aria-disabled="@(Model.Page == Model.TotalPages ? "true" : null)" aria-label="Sonraki sayfa" asp-action="Kits" asp-route-query="@Model.Query" asp-route-status="@Model.Status" asp-route-hasFault="@Model.HasFault" asp-route-deliveryFormMissing="@Model.DeliveryFormMissing" asp-route-pageSize="@Model.PageSize" asp-route-page="@(Model.Page + 1)">›</a>
                 </nav>
             }
         </footer>

@@ -344,7 +344,7 @@ public sealed record PortalAddressViewModel(Guid Id, string Title, string Contac
 public sealed record PortalProductModelViewModel(Guid Id, string Name, string Sku, string? Description, string? ImageUrl);
 public sealed record PortalKitViewModel(Guid ProductUnitId, Guid AssignmentId, Guid OrderId, string OrderNumber,
     string KitName, string KitSku, string? ImageUrl, string SerialNumber, string QrCode, int UnitStatus, int AssignmentStatus,
-    DateOnly StartDate, DateOnly EndDate, int OpenFaultCount);
+    DateOnly StartDate, DateOnly EndDate, int OpenFaultCount, bool HasDeliveryForm);
 public sealed record PortalKitLookupPageViewModel(string Identifier, bool HasSearched, string? Error);
 public sealed record PortalKitDetailPageViewModel(PortalKitViewModel Kit,
     IReadOnlyCollection<PortalFaultViewModel> Faults);
@@ -356,6 +356,7 @@ public sealed record PortalFaultsPageViewModel(string CustomerName, string Query
     public int LastItem => Math.Min(Page * PageSize, TotalCount);
 }
 public sealed record PortalKitsPageViewModel(string CustomerName, string Query, int? Status, bool? HasFault,
+    bool? DeliveryFormMissing,
     int Page, int PageSize, int TotalCount, int TotalKitCount, IReadOnlyCollection<PortalKitViewModel> Kits)
 {
     public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)PageSize));
@@ -510,8 +511,8 @@ public sealed class PublicDeliveryFormViewModel
     [Display(Name = "Enlem")] public double? Latitude { get; set; }
     [Display(Name = "Boylam")] public double? Longitude { get; set; }
 }
-public sealed record CustomerPortalViewModel(string CustomerName, string CustomerEmail, int ActiveKitCount,
-    int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, int ExpiredRentalKitCount,
+public sealed record CustomerPortalViewModel(string CustomerName, string CustomerEmail, int TotalRentedKitCount,
+    int UndeliveredKitCount, int ActiveKitCount, int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, int ExpiredRentalKitCount,
     int ReturnProcessStartedKitCount, int ReturnedKitCount, IReadOnlyCollection<PortalKitViewModel> Kits,
     IReadOnlyCollection<PortalOrderViewModel> Orders, IReadOnlyCollection<PortalFaultViewModel> Faults,
     IReadOnlyCollection<PortalAddressViewModel> Addresses, IReadOnlyCollection<PortalProductModelViewModel> ProductModels,

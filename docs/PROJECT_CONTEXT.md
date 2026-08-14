@@ -237,6 +237,13 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Fixed repository-wide Turkish text encoding issues in MVC/Core user-facing strings, API descriptions, and related test data by normalizing mojibake back to proper UTF-8 Turkish characters.
 - Verified with `dotnet build KitRental.slnx`.
 
+2026-08-14:
+
+- Customer portal overview summary cards now show: total rented kits, undelivered kits, open faults, completed faults, return-pending kits, return-process kits, and returned kits.
+- Customer portal overview response now includes `TotalRentedKitCount` and `UndeliveredKitCount`; undelivered counts reserved/active rental assignments with no `DeliveryReceipt` location event.
+- Customer portal `Kits` page supports a `deliveryFormMissing` filter, and the `Teslim Alınmamış Kitler` card opens that filtered list.
+- Debug builds set `UseAppHost=false` in `Directory.Build.props` so local web apps run through the signed `dotnet` host instead of unsigned generated apphost executables, avoiding Smart App Control blocks on development DLL loads.
+
 ## Development Checklist
 
 Before changing code:

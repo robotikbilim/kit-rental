@@ -68,7 +68,8 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     }
 
     [HttpGet]
-    public async Task<IActionResult> Kits(string? query, int? status, bool? hasFault, int page = 1,
+    public async Task<IActionResult> Kits(string? query, int? status, bool? hasFault, bool? deliveryFormMissing,
+        int page = 1,
         int pageSize = 10, CancellationToken cancellationToken = default)
     {
         var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
@@ -97,6 +98,8 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             filteredKits = filteredKits.Where(item => item.UnitStatus == normalizedStatus.Value);
         if (hasFault.HasValue)
             filteredKits = filteredKits.Where(item => (item.OpenFaultCount > 0) == hasFault.Value);
+        if (deliveryFormMissing.HasValue)
+            filteredKits = filteredKits.Where(item => item.HasDeliveryForm != deliveryFormMissing.Value);
 
         var filtered = filteredKits.ToArray();
         var totalPages = Math.Max(1, (int)Math.Ceiling(filtered.Length / (double)normalizedPageSize));
@@ -107,6 +110,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             .ToArray();
 
         return View(new PortalKitsPageViewModel(portal.CustomerName, normalizedQuery, normalizedStatus, hasFault,
+            deliveryFormMissing,
             normalizedPage, normalizedPageSize, filtered.Length, allKits.Length, pagedKits));
     }
 

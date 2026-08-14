@@ -28,11 +28,18 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var orderResponses = new List<PortalOrderResponse>();
         var customerFaults = await repository.GetFaultTicketsAsync(customerId, cancellationToken);
         var customerReturns = await repository.GetKitReturnRequestsAsync(customerId, cancellationToken);
-        var latestLocationsByUnit = (await repository.GetKitLocationEventsAsync(cancellationToken))
+        var kitLocationEvents = await repository.GetKitLocationEventsAsync(cancellationToken);
+        var latestLocationsByUnit = kitLocationEvents
             .Where(location => location.CustomerId == customerId)
             .GroupBy(location => location.ProductUnitId)
             .ToDictionary(group => group.Key, group => group.OrderByDescending(location => location.OccurredAt)
                 .ThenByDescending(location => location.Id).First());
+        var deliveryFormAssignmentIds = kitLocationEvents
+            .Where(location => location.CustomerId == customerId &&
+                location.Source == KitLocationEventSource.DeliveryReceipt &&
+                location.AssignmentId.HasValue)
+            .Select(location => location.AssignmentId!.Value)
+            .ToHashSet();
         var today = TurkeyTime.Today();
         var returnProcessStartedAssignmentIds = customerReturns
             .Where(item => item.Status is KitReturnStatus.Requested or KitReturnStatus.InTransit)
@@ -64,7 +71,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                     ticket.ProductUnitId == unit.Id && ticket.Status is not (FaultStatus.Resolved or FaultStatus.Closed));
                 kits.Add(new PortalKitResponse(unit.Id, assignment.Id, order.Id, order.OrderNumber, model.Name, model.Sku,
                     model.ImageUrl, unit.SerialNumber, unit.QrCode, unit.Status, assignment.Status, assignment.Period.StartDate,
-                    assignment.Period.EndDate, openFaults));
+                    assignment.Period.EndDate, openFaults, deliveryFormAssignmentIds.Contains(assignment.Id)));
                 if (assignment.Status == RentalAssignmentStatus.Active &&
                     !returnedAssignmentIds.Contains(assignment.Id))
                 {
@@ -100,7 +107,12 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             item.UnitStatus == ProductUnitStatus.WithCustomer &&
             item.OpenFaultCount == 0 &&
             !returnedAssignmentIds.Contains(item.AssignmentId));
+        var undeliveredKitCount = kits.Count(item =>
+            item.AssignmentStatus is RentalAssignmentStatus.Reserved or RentalAssignmentStatus.Active &&
+            !item.HasDeliveryForm);
         return new CustomerPortalResponse(customer.Name, customer.Email,
+            kits.Count,
+            undeliveredKitCount,
             activeHealthyKitCount,
             orders.Count(item => item.Status == RentalOrderStatus.PendingApproval),
             faults.Count(item => item.Status is not (FaultStatus.Resolved or FaultStatus.Closed)),
