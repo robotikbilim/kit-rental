@@ -171,6 +171,56 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.ToTable("ProductUnits", (string)null);
                 });
 
+            modelBuilder.Entity("KitRental.Core.Domain.Inventory.ProductUnitActivity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("ActorDisplayNameSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AssignmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductUnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignmentId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("ProductUnitId", "OccurredAt");
+
+                    b.ToTable("ProductUnitActivities", (string)null);
+                });
+
             modelBuilder.Entity("KitRental.Core.Domain.Logistics.KitLocationEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -477,6 +527,41 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.HasIndex("ProductUnitId", "Status");
 
                     b.ToTable("RentalAssignments", (string)null);
+                });
+
+            modelBuilder.Entity("KitRental.Core.Domain.Rentals.RentalCohort", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId", "StartDate");
+
+                    b.ToTable("RentalCohorts", (string)null);
                 });
 
             modelBuilder.Entity("KitRental.Core.Domain.Returns.KitReturnRequest", b =>
@@ -1000,6 +1085,25 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.Navigation("History");
                 });
 
+            modelBuilder.Entity("KitRental.Core.Domain.Inventory.ProductUnitActivity", b =>
+                {
+                    b.HasOne("KitRental.Core.Domain.Rentals.RentalAssignment", null)
+                        .WithMany()
+                        .HasForeignKey("AssignmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("KitRental.Core.Domain.Orders.RentalOrder", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("KitRental.Core.Domain.Inventory.ProductUnit", null)
+                        .WithMany()
+                        .HasForeignKey("ProductUnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("KitRental.Core.Domain.Logistics.KitLocationEvent", b =>
                 {
                     b.HasOne("KitRental.Core.Domain.Rentals.RentalAssignment", null)
@@ -1323,6 +1427,99 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ProductUnitId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("KitRental.Core.Domain.Rentals.RentalCohort", b =>
+                {
+                    b.HasOne("KitRental.Core.Domain.Customers.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsMany("KitRental.Core.Domain.Rentals.RentalCohortStudent", "Students", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("AddressLine")
+                                .HasMaxLength(1000)
+                                .HasColumnType("nvarchar(1000)");
+
+                            b1.Property<Guid?>("AssignmentId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("FullName")
+                                .HasMaxLength(160)
+                                .HasColumnType("nvarchar(160)");
+
+                            b1.Property<string>("GuardianPhone")
+                                .HasMaxLength(40)
+                                .HasColumnType("nvarchar(40)");
+
+                            b1.Property<bool>("IsDeleted")
+                                .HasColumnType("bit");
+
+                            b1.Property<double?>("Latitude")
+                                .HasColumnType("float");
+
+                            b1.Property<double?>("Longitude")
+                                .HasColumnType("float");
+
+                            b1.Property<Guid?>("OrderId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<Guid>("ProductModelId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<Guid?>("ProductUnitId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<Guid>("RentalCohortId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("AssignmentId");
+
+                            b1.HasIndex("OrderId");
+
+                            b1.HasIndex("ProductModelId");
+
+                            b1.HasIndex("ProductUnitId");
+
+                            b1.HasIndex("RentalCohortId");
+
+                            b1.HasIndex("Latitude", "Longitude");
+
+                            b1.ToTable("RentalCohortStudents", (string)null);
+
+                            b1.HasOne("KitRental.Core.Domain.Rentals.RentalAssignment", null)
+                                .WithMany()
+                                .HasForeignKey("AssignmentId")
+                                .OnDelete(DeleteBehavior.Restrict);
+
+                            b1.HasOne("KitRental.Core.Domain.Orders.RentalOrder", null)
+                                .WithMany()
+                                .HasForeignKey("OrderId")
+                                .OnDelete(DeleteBehavior.Restrict);
+
+                            b1.HasOne("KitRental.Core.Domain.Inventory.ProductModel", null)
+                                .WithMany()
+                                .HasForeignKey("ProductModelId")
+                                .OnDelete(DeleteBehavior.Restrict)
+                                .IsRequired();
+
+                            b1.HasOne("KitRental.Core.Domain.Inventory.ProductUnit", null)
+                                .WithMany()
+                                .HasForeignKey("ProductUnitId")
+                                .OnDelete(DeleteBehavior.Restrict);
+
+                            b1.WithOwner()
+                                .HasForeignKey("RentalCohortId");
+                        });
+
+                    b.Navigation("Students");
                 });
 
             modelBuilder.Entity("KitRental.Core.Domain.Returns.KitReturnRequest", b =>

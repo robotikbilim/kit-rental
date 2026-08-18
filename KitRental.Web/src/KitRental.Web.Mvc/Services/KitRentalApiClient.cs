@@ -370,6 +370,69 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<CustomerPortalViewModel?> GetCustomerPortalAsync(CancellationToken cancellationToken) =>
         GetAsync<CustomerPortalViewModel>("/core/api/customer-portal", cancellationToken);
 
+    public async Task<IReadOnlyCollection<PortalRentalCohortViewModel>> GetRentalCohortsAsync(
+        CancellationToken cancellationToken) =>
+        await GetAsync<PortalRentalCohortViewModel[]>("/core/api/customer-portal/rental-periods",
+            cancellationToken) ?? [];
+
+    public Task<ApiCommandResult<PortalRentalCohortViewModel>> CreateRentalCohortAsync(
+        RentalCohortInputViewModel model, CancellationToken cancellationToken) =>
+        PostAsync<PortalRentalCohortViewModel>("/core/api/customer-portal/rental-periods",
+            new { model.Name, model.StartDate, model.EndDate }, cancellationToken);
+
+    public async Task<IReadOnlyCollection<PortalRentalCohortViewModel>> GetCustomerRentalCohortsAsync(Guid customerId,
+        CancellationToken cancellationToken) =>
+        await GetAsync<PortalRentalCohortViewModel[]>($"/core/api/customers/{customerId}/rental-periods",
+            cancellationToken) ?? [];
+
+    public Task<ApiCommandResult<PortalRentalCohortViewModel>> UpdateRentalCohortAsync(
+        RentalCohortInputViewModel model, CancellationToken cancellationToken) =>
+        SendAsync<PortalRentalCohortViewModel>(HttpMethod.Put,
+            $"/core/api/customer-portal/rental-periods/{model.Id}",
+            new { model.Name, model.StartDate, model.EndDate }, cancellationToken);
+
+    public Task<ApiCommandResult<object>> DeleteRentalCohortAsync(Guid cohortId,
+        CancellationToken cancellationToken) =>
+        SendAsync<object>(HttpMethod.Delete, $"/core/api/customer-portal/rental-periods/{cohortId}",
+            null, cancellationToken);
+
+    public Task<ApiCommandResult<PortalRentalCohortStudentViewModel>> CreateRentalCohortStudentAsync(
+        RentalCohortStudentInputViewModel model, CancellationToken cancellationToken) =>
+        PostAsync<PortalRentalCohortStudentViewModel>(
+            $"/core/api/customer-portal/rental-periods/{model.CohortId}/students",
+            new { model.FullName, model.GuardianPhone, model.AddressLine, model.ProductModelId },
+            cancellationToken);
+
+    public Task<ApiCommandResult<PortalRentalCohortStudentViewModel>> UpdateRentalCohortStudentAsync(
+        RentalCohortStudentInputViewModel model, CancellationToken cancellationToken) =>
+        SendAsync<PortalRentalCohortStudentViewModel>(HttpMethod.Put,
+            $"/core/api/customer-portal/rental-periods/{model.CohortId}/students/{model.Id}",
+            new { model.FullName, model.GuardianPhone, model.AddressLine, model.ProductModelId },
+            cancellationToken);
+
+    public Task<ApiCommandResult<object>> DeleteRentalCohortStudentAsync(Guid cohortId, Guid studentId,
+        CancellationToken cancellationToken) =>
+        SendAsync<object>(HttpMethod.Delete,
+            $"/core/api/customer-portal/rental-periods/{cohortId}/students/{studentId}", null,
+            cancellationToken);
+
+    public Task<ApiCommandResult<PortalRentalCohortViewModel>> ImportRentalCohortStudentsAsync(Guid cohortId,
+        IReadOnlyCollection<object> rows, CancellationToken cancellationToken) =>
+        PostAsync<PortalRentalCohortViewModel>(
+            $"/core/api/customer-portal/rental-periods/{cohortId}/students/import", new { rows },
+            cancellationToken);
+
+    public Task<ApiCommandResult<PortalKitReturnViewModel>> CreateStudentReturnAsync(Guid cohortId, Guid studentId,
+        CancellationToken cancellationToken) =>
+        PostAsync<PortalKitReturnViewModel>(
+            $"/core/api/customer-portal/rental-periods/{cohortId}/students/{studentId}/return", new { },
+            cancellationToken);
+
+    public Task<ApiCommandResult<OrderViewModel>> CreateRentalCohortOrderAsync(Guid cohortId,
+        CancellationToken cancellationToken) =>
+        PostAsync<OrderViewModel>($"/core/api/customer-portal/rental-periods/{cohortId}/order", new { },
+            cancellationToken);
+
     public Task<ApiCommandResult<FaultViewModel>> CreatePortalFaultAsync(PortalFaultRequestViewModel model,
         CancellationToken cancellationToken) => PostAsync<FaultViewModel>("/core/api/customer-portal/faults",
             new { model.AssignmentId, model.Category, model.Severity, model.Description }, cancellationToken);
@@ -437,11 +500,13 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<ApiCommandResult<OrderKitPreparationViewModel>> CreateOrderKitsAsync(Guid orderId,
         IReadOnlyCollection<PortalRentalLineInputViewModel> lines,
         bool useAvailableKits,
+        Guid? rentalCohortId,
         CancellationToken cancellationToken) =>
         PostAsync<OrderKitPreparationViewModel>($"/core/api/orders/{orderId}/kits", new
         {
             lines = lines.Select(line => new { line.ProductModelId, line.Quantity }).ToArray(),
-            useAvailableKits
+            useAvailableKits,
+            rentalCohortId
         }, cancellationToken);
 
     public Task<ApiCommandResult<FaultViewModel>> ChangeFaultStatusAsync(Guid faultId, int status, string note,

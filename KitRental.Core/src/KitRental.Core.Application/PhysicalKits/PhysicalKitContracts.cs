@@ -31,11 +31,14 @@ public sealed record PhysicalKitDeliveryHistoryResponse(Guid AssignmentId, strin
 public sealed record PhysicalKitReturnHistoryResponse(Guid ReturnId, string ReturnNumber, KitReturnStatus Status,
     string CustomerName, string RequesterName, string RequesterPhone, string ReturnAddress, DateTimeOffset CreatedAt,
     DateTimeOffset? ShippedAt, DateTimeOffset? ReceivedAt, double? Latitude, double? Longitude);
+public sealed record PhysicalKitActivityResponse(string Action, string Description, DateTimeOffset OccurredAt,
+    string ActorDisplayName);
 public sealed record PhysicalKitDetailResponse(PhysicalKitListItemResponse Kit, PhysicalKitLocationResponse? CurrentLocation,
     IReadOnlyCollection<PhysicalKitFaultHistoryResponse> FaultHistory,
     IReadOnlyCollection<PhysicalKitDeliveryHistoryResponse> DeliveryHistory,
     IReadOnlyCollection<PhysicalKitReturnHistoryResponse> ReturnHistory,
-    IReadOnlyCollection<PhysicalKitStatusEventResponse> StatusHistory)
+    IReadOnlyCollection<PhysicalKitStatusEventResponse> StatusHistory,
+    IReadOnlyCollection<PhysicalKitActivityResponse> ActivityHistory)
 {
     public IReadOnlyCollection<PhysicalKitDeliveryHistoryResponse> RentalHistory => DeliveryHistory;
 }

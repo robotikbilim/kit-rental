@@ -6,11 +6,11 @@
         <label for="identifier">Seri numarası veya QR kod</label>
         <div class="lookup-input-row">
             <div class="lookup-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V4a1 1 0 0 1 1-1h3M17 3h3a1 1 0 0 1 1 1v3M21 17v3a1 1 0 0 1-1 1h-3M7 21H4a1 1 0 0 1-1-1v-3M7 12h10" /></svg><input id="identifier" name="identifier" value="@Model.Identifier" autocomplete="off" autocapitalize="characters" spellcheck="false" autofocus placeholder="Kit seri numarası" /></div>
-            <button class="scan-action" type="button" id="scan-qr"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7V5h2M17 5h2v2M19 17v2h-2M7 19H5v-2M8 9h3v3H8zM14 9h2v2h-2zM9 15h2M14 14h2v2h-2z" /></svg>QR okut</button>
-            <button class="primary-action lookup-submit" type="submit">Kitimi bul</button>
+            <button class="scan-action" type="button" id="scan-qr"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7V5h2M17 5h2v2M19 17v2h-2M7 19H5v-2M8 9h3v3H8zM14 9h2v2h-2zM9 15h2M14 14h2v2h-2z" /></svg>QR Okut</button>
+            <button class="primary-action lookup-submit" type="submit">Kitimi Bul</button>
         </div>
     </form>
-    <section class="qr-scanner" id="qr-scanner" hidden aria-live="polite"><div class="scanner-viewport"><video id="scanner-video" playsinline muted></video><div class="scanner-frame"></div></div><div class="scanner-copy"><strong>QR kodu çerçevenin içine getirin</strong><span id="scanner-status">Kamera hazırlanıyor…</span></div><button type="button" class="secondary-action" id="stop-scanner">Kamerayı kapat</button></section>
+    <section class="qr-scanner" id="qr-scanner" hidden aria-live="polite"><div class="scanner-viewport"><video id="scanner-video" playsinline muted></video><div class="scanner-frame"></div></div><div class="scanner-copy"><strong>QR kodu çerçevenin içine getirin</strong><span id="scanner-status">Kamera hazırlanıyor…</span></div><button type="button" class="secondary-action" id="stop-scanner">Kamerayı Kapat</button></section>
     @if (Model.Error is not null) { <div class="lookup-not-found"><strong>Kit bulunamadı</strong><span>@Model.Error</span><small>Yalnızca hesabınıza atanmış aktif kitler sorgulanabilir.</small></div> }
     else { <div class="lookup-prompt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v6h-6v-2" /></svg><strong>Kitinizi taratın</strong><span>Eşleşme bulunduğunda doğrudan kit detay sayfasına yönlendirileceksiniz.</span></div> }
 </div>

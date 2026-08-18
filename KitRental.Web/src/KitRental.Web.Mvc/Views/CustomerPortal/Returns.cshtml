@@ -37,7 +37,7 @@
 </div>
 
 <section class="portal-kit-list-shell">
-    <form class="portal-kit-filters" asp-action="Returns" method="get">
+    <form class="portal-kit-filters" asp-action="Returns" method="get" data-auto-filter="true">
         <label class="portal-kit-search">
             <span>Kit ara</span>
             <input type="search" name="query" value="@Model.Query" placeholder="Kit adı, seri no, SKU veya sipariş no" />
@@ -60,10 +60,6 @@
                 }
             </select>
         </label>
-        <div class="portal-kit-filter-actions">
-            <button class="primary-action" type="submit">Filtrele</button>
-            <a class="secondary-action" asp-action="Returns">Temizle</a>
-        </div>
     </form>
 
     <div class="portal-kit-result-heading" aria-live="polite">
@@ -93,7 +89,7 @@
                                 <a class="row-link" asp-action="Kit" asp-route-id="@item.ProductUnitId">Detay</a>
                                 @if (item.AssignmentStatus == 2)
                                 {
-                                    <a class="row-link fault-link" asp-action="NewFault" asp-route-assignmentId="@item.AssignmentId">Arıza bildir</a>
+                                    <a class="row-link fault-link" asp-action="NewFault" asp-route-assignmentId="@item.AssignmentId">Arıza Bildir</a>
                                 }
                             </div>
                         </td>

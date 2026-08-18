@@ -1,4 +1,8 @@
 (() => {
+    if (window.lucide) {
+        window.lucide.createIcons({ attrs: { 'aria-hidden': 'true' } });
+    }
+
     const popupRegion = document.getElementById('popup-notifications');
     const notificationSources = [
         '.success-banner',
@@ -10,6 +14,107 @@
         '.login-card .error'
     ].join(',');
     const shownNotificationText = new WeakMap();
+    const busySelector = 'button,input[type="submit"],input[type="button"],input[type="reset"],.primary-action,.secondary-action,.table-action,.btn,.row-link,.icon-action,.link-button';
+    let pageBusy = false;
+    let busyFallbackTimer = null;
+
+    const shouldSkipBusyLink = (link) => {
+        if (!link || link.dataset.noBusy === 'true') return true;
+        if (link.target && link.target !== '_self') return true;
+        if (link.hasAttribute('download')) return true;
+        const href = link.getAttribute('href') || '';
+        if (!href || href.startsWith('#')) return true;
+        if (/^(mailto:|tel:|javascript:)/i.test(href)) return true;
+        if (link.hasAttribute('data-dialog-open') || link.hasAttribute('data-dialog-close')) return true;
+
+        const url = new URL(link.href, window.location.href);
+        return url.origin !== window.location.origin;
+    };
+
+    const isBackendMutationFetch = (input, init) => {
+        const request = window.Request && input instanceof Request ? input : null;
+        const method = (init?.method || request?.method || 'GET').toUpperCase();
+        if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return false;
+        const urlValue = request?.url || String(input || '');
+        if (!urlValue) return false;
+        return new URL(urlValue, window.location.href).origin === window.location.origin;
+    };
+
+    const showConfirmDialog = async (message) => {
+        if (!message) return true;
+        if (!window.Swal) {
+            console.warn('SweetAlert2 is required for confirmation dialogs.');
+            return false;
+        }
+
+        const result = await window.Swal.fire({
+            title: 'Emin Misiniz?',
+            text: message,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Evet, Onayla',
+            cancelButtonText: 'Vazgeç',
+            reverseButtons: true,
+            focusCancel: true
+        });
+        return result.isConfirmed;
+    };
+
+    const setPageBusy = (trigger, useFallback = false) => {
+        if (pageBusy) return false;
+        pageBusy = true;
+        document.body.classList.add('is-page-busy');
+        document.body.setAttribute('aria-busy', 'true');
+
+        document.querySelectorAll(busySelector).forEach((control) => {
+            if (control.dataset.busyOriginalDisabled === undefined) {
+                control.dataset.busyOriginalDisabled = String(control.disabled === true);
+            }
+            if (control.tagName === 'A') {
+                control.setAttribute('aria-disabled', 'true');
+            } else {
+                control.disabled = true;
+            }
+        });
+
+        trigger?.classList.add('is-loading');
+
+        if (useFallback) {
+            window.clearTimeout(busyFallbackTimer);
+            busyFallbackTimer = window.setTimeout(clearPageBusy, 15000);
+        }
+        return true;
+    };
+
+    function clearPageBusy() {
+        pageBusy = false;
+        window.clearTimeout(busyFallbackTimer);
+        document.body.classList.remove('is-page-busy');
+        document.body.removeAttribute('aria-busy');
+        document.querySelectorAll(busySelector).forEach((control) => {
+            control.classList.remove('is-loading');
+            if (control.tagName === 'A') {
+                control.removeAttribute('aria-disabled');
+                delete control.dataset.busyOriginalDisabled;
+                return;
+            }
+            control.disabled = control.dataset.busyOriginalDisabled === 'true';
+            delete control.dataset.busyOriginalDisabled;
+        });
+    }
+
+    if (window.fetch) {
+        const nativeFetch = window.fetch.bind(window);
+        window.fetch = async (input, init) => {
+            const shouldLock = isBackendMutationFetch(input, init);
+            const startedBusy = shouldLock ? setPageBusy(null) : false;
+            try {
+                return await nativeFetch(input, init);
+            } finally {
+                if (startedBusy) clearPageBusy();
+            }
+        };
+    }
 
     const showPopup = (message, type) => {
         if (!popupRegion || !message) return;
@@ -64,6 +169,79 @@
     };
 
     collectNotifications();
+    window.addEventListener('pageshow', clearPageBusy);
+
+    document.querySelectorAll('form[data-auto-filter="true"]').forEach((form) => {
+        let filterTimer = null;
+        const submitFilter = (delay = 0) => {
+            window.clearTimeout(filterTimer);
+            filterTimer = window.setTimeout(() => {
+                if (pageBusy || !form.checkValidity()) return;
+                const pageInput = form.querySelector('[name="page"]');
+                if (pageInput) pageInput.value = '1';
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    form.submit();
+                }
+            }, delay);
+        };
+
+        form.querySelectorAll('select,input,textarea').forEach((control) => {
+            const eventName = control.matches('input[type="search"],input[type="text"],textarea') ? 'input' : 'change';
+            control.addEventListener(eventName, () => {
+                submitFilter(eventName === 'input' ? 450 : 0);
+            });
+        });
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!pageBusy) return;
+        const busyTarget = event.target.closest?.(busySelector);
+        if (!busyTarget) return;
+        event.preventDefault();
+        event.stopPropagation();
+    }, true);
+
+    document.addEventListener('submit', (event) => {
+        if (pageBusy) {
+            event.preventDefault();
+            return;
+        }
+
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement) || form.dataset.noBusy === 'true') return;
+        if (event.defaultPrevented || !form.checkValidity()) return;
+
+        const submitter = event.submitter || form.querySelector('[type="submit"],button:not([type])');
+        const confirmMessage = submitter?.dataset.confirm || form.dataset.confirm;
+        if (confirmMessage && form.dataset.confirmed !== 'true') {
+            event.preventDefault();
+            showConfirmDialog(confirmMessage).then((confirmed) => {
+                if (!confirmed) return;
+                form.dataset.confirmed = 'true';
+                if (submitter && typeof form.requestSubmit === 'function') {
+                    form.requestSubmit(submitter);
+                } else {
+                    form.submit();
+                }
+                window.setTimeout(() => delete form.dataset.confirmed, 0);
+            });
+            return;
+        }
+
+        window.setTimeout(() => {
+            if (!event.defaultPrevented) setPageBusy(submitter);
+        }, 0);
+    }, true);
+
+    document.addEventListener('click', (event) => {
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        const link = event.target.closest?.('a[href]');
+        if (!link || shouldSkipBusyLink(link)) return;
+        setPageBusy(link, true);
+    }, true);
+
     new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             const target = mutation.target.nodeType === 1 ? mutation.target : mutation.target.parentElement;
@@ -87,6 +265,110 @@
                 });
             });
         });
+
+    const openDialog = (dialog) => {
+        if (!dialog) return;
+        if (typeof dialog.showModal === 'function') {
+            dialog.showModal();
+        } else {
+            dialog.setAttribute('open', 'open');
+        }
+        window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
+        dialog.querySelector(':where(input,select,textarea)')?.focus();
+    };
+
+    const closeDialog = (dialog) => {
+        if (!dialog) return;
+        if (typeof dialog.close === 'function') {
+            dialog.close();
+        } else {
+            dialog.removeAttribute('open');
+        }
+    };
+
+    document.querySelectorAll('[data-dialog-open]').forEach((trigger) => {
+        trigger.addEventListener('click', () => openDialog(document.getElementById(trigger.dataset.dialogOpen)));
+    });
+
+    document.querySelectorAll('dialog[data-auto-open="true"]:not(#student-edit-dialog)').forEach((dialog) => openDialog(dialog));
+
+    document.querySelectorAll('dialog').forEach((dialog) => {
+        dialog.querySelectorAll('[data-dialog-close]').forEach((trigger) => {
+            trigger.addEventListener('click', () => closeDialog(dialog));
+        });
+        dialog.addEventListener('click', (event) => {
+            if (event.target === dialog) closeDialog(dialog);
+        });
+    });
+
+    const rentalPeriodDialog = document.getElementById('rental-period-dialog');
+    if (rentalPeriodDialog) {
+        const form = rentalPeriodDialog.querySelector('form');
+        const idInput = form?.querySelector('[name="Id"]');
+        const nameInput = form?.querySelector('[name="Name"]');
+        const startInput = form?.querySelector('[name="StartDate"]');
+        const endInput = form?.querySelector('[name="EndDate"]');
+        const eyebrow = rentalPeriodDialog.querySelector('#rental-period-dialog-eyebrow');
+        const title = rentalPeriodDialog.querySelector('#rental-period-dialog-title');
+        const defaultStartDate = startInput?.value || '';
+        const defaultEndDate = endInput?.value || '';
+        const setRentalPeriodMode = (trigger) => {
+            const isEdit = trigger.hasAttribute('data-rental-period-edit');
+            if (idInput) idInput.value = isEdit ? trigger.dataset.rentalPeriodId || '' : '';
+            if (nameInput) nameInput.value = isEdit ? trigger.dataset.rentalPeriodName || '' : '';
+            if (startInput) startInput.value = isEdit ? trigger.dataset.rentalPeriodStart || '' : defaultStartDate;
+            if (endInput) endInput.value = isEdit ? trigger.dataset.rentalPeriodEnd || '' : defaultEndDate;
+            if (eyebrow) eyebrow.textContent = isEdit ? 'SİPARİŞİ DÜZENLE' : 'YENİ SİPARİŞ';
+            if (title) title.textContent = isEdit ? 'Sipariş dönemini düzenle' : 'Sipariş dönemi oluştur';
+        };
+        document.querySelectorAll('[data-rental-period-create],[data-rental-period-edit]').forEach((trigger) => {
+            trigger.addEventListener('click', () => setRentalPeriodMode(trigger));
+        });
+    }
+
+    const studentEditDialog = document.getElementById('student-edit-dialog');
+    if (studentEditDialog) {
+        const editId = studentEditDialog.querySelector('#edit-student-id');
+        const editName = studentEditDialog.querySelector('#edit-student-name');
+        const editPhone = studentEditDialog.querySelector('#edit-student-phone');
+        const editAddress = studentEditDialog.querySelector('#edit-student-address');
+        const editProduct = studentEditDialog.querySelector('#edit-student-product');
+        const openStudentEditor = (trigger) => {
+            editId.value = trigger.dataset.studentId || '';
+            editName.value = trigger.dataset.studentName || '';
+            editPhone.value = trigger.dataset.studentPhone || '';
+            editAddress.value = trigger.dataset.studentAddress || '';
+            editProduct.value = trigger.dataset.studentProduct || '';
+            if (typeof studentEditDialog.showModal === 'function') {
+                studentEditDialog.showModal();
+            } else {
+                studentEditDialog.setAttribute('open', 'open');
+            }
+            window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
+            editName.focus();
+        };
+
+        document.querySelectorAll('[data-student-edit]').forEach((trigger) => {
+            trigger.addEventListener('click', () => openStudentEditor(trigger));
+        });
+
+        studentEditDialog.querySelectorAll('[data-student-edit-close]').forEach((trigger) => {
+            trigger.addEventListener('click', () => studentEditDialog.close());
+        });
+
+        studentEditDialog.addEventListener('click', (event) => {
+            if (event.target === studentEditDialog) studentEditDialog.close();
+        });
+
+        if (studentEditDialog.dataset.autoOpen === 'true') {
+            if (typeof studentEditDialog.showModal === 'function') {
+                studentEditDialog.showModal();
+            } else {
+                studentEditDialog.setAttribute('open', 'open');
+            }
+            editName.focus();
+        }
+    }
 
     const toggle = document.querySelector('.menu-toggle');
     const menu = document.querySelector('.topbar-menu');

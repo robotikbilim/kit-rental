@@ -93,8 +93,8 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
         var second = await PostAsync<ProductUnitResponse>("/api/product-units",
             new { ProductModelId = model.Id }, cancellationToken);
 
-        Assert.StartsWith("KR-", first.SerialNumber, StringComparison.Ordinal);
-        Assert.StartsWith("KR-", second.SerialNumber, StringComparison.Ordinal);
+        Assert.StartsWith("KIT-", first.SerialNumber, StringComparison.Ordinal);
+        Assert.StartsWith("KIT-", second.SerialNumber, StringComparison.Ordinal);
         Assert.NotEqual(first.SerialNumber, second.SerialNumber);
         Assert.Equal($"KITRENTAL:{first.SerialNumber}", first.QrCode);
         Assert.Equal($"KITRENTAL:{second.SerialNumber}", second.QrCode);

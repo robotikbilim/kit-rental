@@ -222,6 +222,11 @@ public sealed class InventoryService(
         var audits = units.Select(unit => new AuditEntry(Guid.NewGuid(), actorId, nameof(ProductUnit), unit.Id,
             "Created", null, unit.Status.ToString(), occurredAt)).ToArray();
         await repository.AddProductUnitsWithStockConsumptionAsync(units, movements, audits, cancellationToken);
+        foreach (var unit in units)
+            await repository.AddProductUnitActivityAsync(ProductUnitActivity.Create(Guid.NewGuid(), unit.Id, null,
+                null, null, actorId, actorId.ToString(), "Kit oluşturuldu", "Kit oluşturuldu.", occurredAt),
+                cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
     }
 
     private static ProductModelResponse MapModel(ProductModel model) =>

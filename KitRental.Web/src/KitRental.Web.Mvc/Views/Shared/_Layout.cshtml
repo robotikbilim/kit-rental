@@ -39,19 +39,19 @@
                 <nav aria-label="Ana menü">
                     @if (isCustomer)
                     {
-                        <a class="nav-direct @(currentController == "CustomerPortal" && currentAction == "Index" ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Index">Genel Bakis</a>
-                        <a class="nav-direct @(currentController == "CustomerPortal" && (currentAction == "Faults" || currentAction == "Fault" || currentAction == "NewFault") ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Faults">Arizalar</a>
-                        <a class="nav-direct @(currentController == "CustomerPortal" && (currentAction == "Kits" || currentAction == "Kit" || currentAction == "FindKit") ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Kits">Kitler</a>
-                        <a class="nav-direct @(currentController == "CustomerPortal" && currentAction == "Returns" ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Returns">Iadeler</a>
-                        <a class="nav-direct @(currentController == "CustomerPortal" && currentAction == "Orders" ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Orders">Siparisler</a>
+                        <a class="nav-direct @(currentController == "CustomerPortal" && currentAction == "Index" ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Index"><i data-lucide="layout-dashboard"></i>Genel Bakis</a>
+                        <a class="nav-direct @(currentController == "CustomerPortal" && (currentAction == "Faults" || currentAction == "Fault" || currentAction == "NewFault") ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Faults"><i data-lucide="triangle-alert"></i>Arizalar</a>
+                        <a class="nav-direct @(currentController == "CustomerPortal" && (currentAction == "Kits" || currentAction == "Kit" || currentAction == "FindKit") ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Kits"><i data-lucide="package"></i>Kitler</a>
+                        <a class="nav-direct @(currentController == "CustomerPortal" && (currentAction == "RentalPeriods" || currentAction == "RentalPeriod") ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="RentalPeriods"><i data-lucide="shopping-bag"></i>Siparişler</a>
+                        <a class="nav-direct @(currentController == "CustomerPortal" && currentAction == "Returns" ? "is-active" : null)" asp-controller="CustomerPortal" asp-action="Returns"><i data-lucide="rotate-ccw"></i>Iadeler</a>
                     }
                     else
                     {
-                        <a class="nav-direct @(currentController == "Operations" && currentAction == "Dashboard" ? "is-active" : null)" asp-controller="Operations" asp-action="Dashboard">Genel Bakış</a>
+                        <a class="nav-direct @(currentController == "Operations" && currentAction == "Dashboard" ? "is-active" : null)" asp-controller="Operations" asp-action="Dashboard"><i data-lucide="layout-dashboard"></i>Genel Bakış</a>
 
                         <div class="nav-group @(currentController == "PhysicalKits" || currentController == "StorageLocations" || (currentController == "Operations" && currentAction == "Inventory") ? "is-active" : null)">
                             <button class="submenu-toggle" type="button" aria-expanded="false">
-                                Envanter <span aria-hidden="true"></span>
+                                <i data-lucide="boxes"></i>Envanter <span aria-hidden="true"></span>
                             </button>
                             <div class="submenu">
                                 <a asp-controller="Operations" asp-action="Inventory">Envanter Listesi</a>
@@ -75,7 +75,7 @@
 
                         <div class="nav-group @(currentController == "SupplyNeeds" || (currentController == "Operations" && (currentAction == "Orders" || currentAction == "Faults" || currentAction == "FaultGuide")) ? "is-active" : null)">
                             <button class="submenu-toggle" type="button" aria-expanded="false">
-                                Operasyon <span aria-hidden="true"></span>
+                                <i data-lucide="workflow"></i>Operasyon <span aria-hidden="true"></span>
                             </button>
                             <div class="submenu">
                                   <a asp-controller="Operations" asp-action="Orders">Siparişler</a>
@@ -125,6 +125,8 @@
     }
     <aside class="popup-notifications" id="popup-notifications" aria-live="polite" aria-label="Bildirimler"></aside>
     <main class="container">@RenderBody()</main>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <script src="~/js/site.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>

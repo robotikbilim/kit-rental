@@ -1,5 +1,6 @@
 using KitRental.Web.Mvc.Models;
 using KitRental.Web.Mvc.Services;
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QRCoder;
@@ -16,10 +17,376 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     }
 
     [HttpGet]
-    public async Task<IActionResult> Orders(CancellationToken cancellationToken)
+    public IActionResult Orders() => RedirectToAction(nameof(RentalPeriods));
+
+    [HttpGet]
+    public async Task<IActionResult> RentalPeriods(string? periodName, string? approvalStatus, int page = 1,
+        CancellationToken cancellationToken = default)
     {
         var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
-        return portal is null ? Forbid() : View(portal);
+        if (portal is null) return Forbid();
+        return View(BuildRentalCohortsPage(portal, new RentalCohortInputViewModel
+        {
+            StartDate = DateOnly.FromDateTime(DateTime.Today),
+            EndDate = DateOnly.FromDateTime(DateTime.Today.AddMonths(1))
+        }, periodName, approvalStatus, page));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveRentalPeriod(RentalCohortInputViewModel model,
+        CancellationToken cancellationToken)
+    {
+        if (model.EndDate <= model.StartDate)
+            ModelState.AddModelError(nameof(model.EndDate), "Bitiş tarihi başlangıç tarihinden sonra olmalıdır.");
+        if (ModelState.IsValid)
+        {
+            var result = model.Id.HasValue
+                ? await apiClient.UpdateRentalCohortAsync(model, cancellationToken)
+                : await apiClient.CreateRentalCohortAsync(model, cancellationToken);
+            if (result.IsSuccess)
+            {
+                TempData["Success"] = "Kiralama dönemi kaydedildi.";
+                return RedirectToAction(nameof(RentalPeriods));
+            }
+            ModelState.AddModelError(string.Empty, result.Error ?? "Kiralama dönemi kaydedilemedi.");
+        }
+        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        return portal is null ? Forbid() : View("RentalPeriods", BuildRentalCohortsPage(portal, model));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteRentalPeriod(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await apiClient.DeleteRentalCohortAsync(id, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "Sipariş silindi."
+            : result.Error ?? "Sipariş silinemedi.";
+        return RedirectToAction(nameof(RentalPeriods));
+    }
+
+    private static RentalCohortsPageViewModel BuildRentalCohortsPage(CustomerPortalViewModel portal,
+        RentalCohortInputViewModel form, string? periodName = null, string? approvalStatus = null, int page = 1)
+    {
+        var periodNameOptions = portal.RentalCohorts
+            .Select(item => item.Name.Trim())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(name => name)
+            .ToArray();
+        var normalizedPeriodName = string.IsNullOrWhiteSpace(periodName) ? null : periodName.Trim();
+        var normalizedApprovalStatus = NormalizeRentalPeriodApprovalStatus(approvalStatus);
+        var filtered = portal.RentalCohorts.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(normalizedPeriodName))
+        {
+            filtered = filtered.Where(item => string.Equals(item.Name.Trim(), normalizedPeriodName,
+                StringComparison.CurrentCultureIgnoreCase));
+        }
+        filtered = normalizedApprovalStatus switch
+        {
+            "not-created" => filtered.Where(item => !item.OrderStatus.HasValue),
+            "unapproved" => filtered.Where(item => item.OrderStatus is 2 or 14 or 15),
+            "approved" => filtered.Where(item => item.OrderStatus.HasValue && item.OrderStatus is not 2 and not 14 and not 15),
+            _ => filtered
+        };
+
+        const int pageSize = 20;
+        var filteredList = filtered
+            .OrderByDescending(item => item.CreatedAt)
+            .ThenBy(item => item.Name)
+            .ToArray();
+        var totalCount = filteredList.Length;
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+        var currentPage = Math.Clamp(page, 1, totalPages);
+        var pageItems = filteredList
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToArray();
+
+        return new RentalCohortsPageViewModel(portal.CustomerName, pageItems, form, periodNameOptions,
+            normalizedPeriodName, normalizedApprovalStatus, currentPage, pageSize, totalCount);
+    }
+
+    private static string? NormalizeRentalPeriodApprovalStatus(string? approvalStatus)
+    {
+        if (string.IsNullOrWhiteSpace(approvalStatus)) return null;
+        return approvalStatus.Trim().ToLowerInvariant() switch
+        {
+            "not-created" => "not-created",
+            "unapproved" => "unapproved",
+            "approved" => "approved",
+            _ => null
+        };
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> RentalPeriod(Guid id, Guid? editStudentId, string? studentQuery,
+        Guid? productModelId, string? assignmentState, int page = 1, CancellationToken cancellationToken = default)
+    {
+        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        if (portal is null) return Forbid();
+        var cohort = portal.RentalCohorts.SingleOrDefault(item => item.Id == id);
+        if (cohort is null) return NotFound();
+        var edit = editStudentId.HasValue
+            ? cohort.Students.SingleOrDefault(item => item.Id == editStudentId.Value)
+            : null;
+        var form = edit is null
+            ? new RentalCohortStudentInputViewModel { CohortId = id }
+            : new RentalCohortStudentInputViewModel
+            {
+                Id = edit.Id,
+                CohortId = id,
+                FullName = edit.FullName,
+                GuardianPhone = edit.GuardianPhone,
+                AddressLine = edit.AddressLine,
+                ProductModelId = edit.ProductModelId
+            };
+        var normalizedQuery = string.IsNullOrWhiteSpace(studentQuery) ? null : studentQuery.Trim();
+        var normalizedAssignmentState = NormalizeStudentAssignmentState(assignmentState);
+        var filtered = cohort.Students.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(normalizedQuery))
+        {
+            filtered = filtered.Where(student =>
+                student.FullName.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ||
+                student.GuardianPhone.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ||
+                student.AddressLine.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ||
+                student.ProductModelName.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ||
+                student.ProductModelSku.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ||
+                (student.SerialNumber?.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ?? false) ||
+                (student.QrCode?.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ?? false));
+        }
+        if (productModelId.HasValue)
+        {
+            filtered = filtered.Where(student => student.ProductModelId == productModelId.Value);
+        }
+        filtered = normalizedAssignmentState switch
+        {
+            "assigned" => filtered.Where(student => student.ProductUnitId.HasValue),
+            "unassigned" => filtered.Where(student => !student.ProductUnitId.HasValue),
+            "returning" => filtered.Where(student => student.HasActiveReturn),
+            "delivered" => filtered.Where(student => student.HasDeliveryForm),
+            _ => filtered
+        };
+
+        const int pageSize = 20;
+        var filteredStudents = filtered
+            .OrderBy(student => student.FullName)
+            .ThenBy(student => student.GuardianPhone)
+            .ToArray();
+        var totalCount = filteredStudents.Length;
+        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+        var currentPage = Math.Clamp(page, 1, totalPages);
+        var pageStudents = filteredStudents
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToArray();
+
+        return View(new RentalCohortDetailPageViewModel(cohort, form, portal.ProductModels, pageStudents,
+            normalizedQuery, productModelId, normalizedAssignmentState, currentPage, pageSize, totalCount));
+    }
+
+    private static string? NormalizeStudentAssignmentState(string? assignmentState)
+    {
+        if (string.IsNullOrWhiteSpace(assignmentState)) return null;
+        return assignmentState.Trim().ToLowerInvariant() switch
+        {
+            "assigned" => "assigned",
+            "unassigned" => "unassigned",
+            "returning" => "returning",
+            "delivered" => "delivered",
+            _ => null
+        };
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveRentalPeriodStudent(RentalCohortStudentInputViewModel model,
+        CancellationToken cancellationToken)
+    {
+        if (ModelState.IsValid)
+        {
+            var result = model.Id.HasValue
+                ? await apiClient.UpdateRentalCohortStudentAsync(model, cancellationToken)
+                : await apiClient.CreateRentalCohortStudentAsync(model, cancellationToken);
+            if (result.IsSuccess)
+            {
+                TempData["Success"] = "Öğrenci kaydedildi.";
+                return RedirectToAction(nameof(RentalPeriod), new { id = model.CohortId });
+            }
+            ModelState.AddModelError(string.Empty, result.Error ?? "Öğrenci kaydedilemedi.");
+        }
+        return await RentalPeriod(model.CohortId, model.Id, null, null, null, cancellationToken: cancellationToken);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteRentalPeriodStudent(Guid cohortId, Guid studentId,
+        CancellationToken cancellationToken)
+    {
+        var result = await apiClient.DeleteRentalCohortStudentAsync(cohortId, studentId, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "Öğrenci listeden kaldırıldı."
+            : result.Error ?? "Öğrenci kaldırılamadı.";
+        return RedirectToAction(nameof(RentalPeriod), new { id = cohortId });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ImportRentalPeriodStudents(Guid cohortId, Guid productModelId, IFormFile? file,
+        CancellationToken cancellationToken)
+    {
+        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        if (portal is null) return Forbid();
+        var cohort = portal.RentalCohorts.SingleOrDefault(item => item.Id == cohortId);
+        if (cohort is null) return NotFound();
+        if (portal.ProductModels.All(item => item.Id != productModelId))
+        {
+            TempData["Error"] = "Yüklenen liste için eğitim kiti seçilmelidir.";
+            return RedirectToAction(nameof(RentalPeriod), new { id = cohortId });
+        }
+        if (file is null || file.Length == 0)
+        {
+            TempData["Error"] = "Excel dosyası seçilmelidir.";
+            return RedirectToAction(nameof(RentalPeriod), new { id = cohortId });
+        }
+        var rows = new List<RentalCohortStudentImportPreviewRowViewModel>();
+        await using var stream = file.OpenReadStream();
+        using var workbook = new XLWorkbook(stream);
+        var worksheet = workbook.Worksheets.First();
+        foreach (var row in worksheet.RowsUsed().Skip(1))
+        {
+            var fullName = row.Cell(1).GetString().Trim();
+            var phone = row.Cell(2).GetString().Trim();
+            var address = row.Cell(3).GetString().Trim();
+            var city = row.Cell(4).GetString().Trim();
+            var district = row.Cell(5).GetString().Trim();
+            if (string.IsNullOrWhiteSpace(fullName) && string.IsNullOrWhiteSpace(phone) &&
+                string.IsNullOrWhiteSpace(address) && string.IsNullOrWhiteSpace(city) &&
+                string.IsNullOrWhiteSpace(district))
+                continue;
+            rows.Add(new RentalCohortStudentImportPreviewRowViewModel
+            {
+                FullName = fullName,
+                GuardianPhone = phone,
+                AddressLine = address,
+                City = city,
+                District = district,
+                ProductModelId = productModelId
+            });
+        }
+        if (rows.Count == 0)
+        {
+            TempData["Error"] = "Excel dosyasında içe aktarılacak öğrenci bulunamadı.";
+            return RedirectToAction(nameof(RentalPeriod), new { id = cohortId });
+        }
+        return View("RentalPeriodImportPreview", new RentalCohortStudentImportPreviewViewModel
+        {
+            CohortId = cohortId,
+            CohortName = cohort.Name,
+            Rows = rows,
+            ProductModels = portal.ProductModels
+        });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ConfirmRentalPeriodStudentImport(
+        RentalCohortStudentImportPreviewViewModel model, CancellationToken cancellationToken)
+    {
+        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        if (portal is null) return Forbid();
+        var cohort = portal.RentalCohorts.SingleOrDefault(item => item.Id == model.CohortId);
+        if (cohort is null) return NotFound();
+        model.ProductModels = portal.ProductModels;
+        model.CohortName = cohort.Name;
+        model.Rows = model.Rows
+            .Where(row => !string.IsNullOrWhiteSpace(row.FullName) ||
+                !string.IsNullOrWhiteSpace(row.GuardianPhone) ||
+                !string.IsNullOrWhiteSpace(row.AddressLine) ||
+                !string.IsNullOrWhiteSpace(row.City) ||
+                !string.IsNullOrWhiteSpace(row.District) ||
+                row.ProductModelId != Guid.Empty)
+            .ToList();
+        var modelIds = portal.ProductModels.Select(item => item.Id).ToHashSet();
+        if (model.Rows.Count == 0)
+            ModelState.AddModelError(string.Empty, "İçe aktarılacak öğrenci satırı bulunamadı.");
+        for (var index = 0; index < model.Rows.Count; index++)
+        {
+            var row = model.Rows[index];
+            if (string.IsNullOrWhiteSpace(row.FullName))
+                ModelState.AddModelError($"Rows[{index}].FullName", "Öğrenci adı soyadı zorunludur.");
+            if (string.IsNullOrWhiteSpace(row.GuardianPhone))
+                ModelState.AddModelError($"Rows[{index}].GuardianPhone", "Veli telefon numarası zorunludur.");
+            if (string.IsNullOrWhiteSpace(row.AddressLine))
+                ModelState.AddModelError($"Rows[{index}].AddressLine", "Adres bilgileri zorunludur.");
+            if (!modelIds.Contains(row.ProductModelId))
+                ModelState.AddModelError($"Rows[{index}].ProductModelId", "Her satır için eğitim kiti seçilmelidir.");
+        }
+        if (!ModelState.IsValid)
+            return View("RentalPeriodImportPreview", model);
+        var rows = model.Rows.Select(row => new
+        {
+            fullName = row.FullName,
+            guardianPhone = row.GuardianPhone,
+            addressLine = BuildStudentImportAddressLine(row.AddressLine, row.City, row.District),
+            productModel = row.ProductModelId.ToString()
+        }).ToArray();
+        var result = await apiClient.ImportRentalCohortStudentsAsync(model.CohortId, rows, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? $"{rows.Length} öğrenci içe aktarıldı."
+            : result.Error ?? "Öğrenci listesi içe aktarılamadı.";
+        return RedirectToAction(nameof(RentalPeriod), new { id = model.CohortId });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> RentalPeriodTemplate(CancellationToken cancellationToken)
+    {
+        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        if (portal is null) return Forbid();
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Öğrenciler");
+        sheet.Cell(1, 1).Value = "Öğrenci Adı Soyadı";
+        sheet.Cell(1, 2).Value = "Veli Telefon Numarası";
+        sheet.Cell(1, 3).Value = "Adres Bilgileri";
+        sheet.Cell(1, 4).Value = "İl";
+        sheet.Cell(1, 5).Value = "İlçe";
+        sheet.Row(1).Style.Font.Bold = true;
+        sheet.Columns(1, 5).AdjustToContents();
+        using var output = new MemoryStream();
+        workbook.SaveAs(output);
+        return File(output.ToArray(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "tacev-ogrenci-listesi-sablonu.xlsx");
+    }
+
+    private static string BuildStudentImportAddressLine(string addressLine, string? city, string? district)
+    {
+        var address = addressLine.Trim();
+        var normalizedCity = city?.Trim();
+        var normalizedDistrict = district?.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedCity) && string.IsNullOrWhiteSpace(normalizedDistrict))
+            return address;
+        if (string.IsNullOrWhiteSpace(normalizedDistrict))
+            return $"{address}, {normalizedCity}";
+        if (string.IsNullOrWhiteSpace(normalizedCity))
+            return $"{address}, {normalizedDistrict}";
+        return $"{address}, {normalizedDistrict} / {normalizedCity}";
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> StartStudentReturn(Guid cohortId, Guid studentId,
+        CancellationToken cancellationToken)
+    {
+        var result = await apiClient.CreateStudentReturnAsync(cohortId, studentId, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "İade süreci başlatıldı."
+            : result.Error ?? "İade süreci başlatılamadı.";
+        return RedirectToAction(nameof(RentalPeriod), new { id = cohortId });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateRentalPeriodOrder(Guid cohortId, CancellationToken cancellationToken)
+    {
+        var result = await apiClient.CreateRentalCohortOrderAsync(cohortId, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? $"Sipariş oluşturuldu: {result.Data!.OrderNumber}. Admin onayından sonra fiziksel kitler hazırlanabilir."
+            : result.Error ?? "Sipariş oluşturulamadı.";
+        return RedirectToAction(nameof(RentalPeriod), new { id = cohortId });
     }
 
     [HttpGet]
@@ -92,7 +459,11 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
                 item.KitName.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
                 item.KitSku.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
                 item.SerialNumber.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
-                item.OrderNumber.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase));
+                item.OrderNumber.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
+                (item.AssignedStudentName?.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ?? false) ||
+                (item.AssignedStudentGuardianPhone?.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ?? false) ||
+                (item.AssignedStudentAddressLine?.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ?? false) ||
+                (item.AssignedStudentPeriodName?.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ?? false));
         }
         if (normalizedStatus.HasValue)
             filteredKits = filteredKits.Where(item => item.UnitStatus == normalizedStatus.Value);

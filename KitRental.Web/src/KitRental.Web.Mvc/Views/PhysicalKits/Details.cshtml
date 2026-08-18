@@ -35,7 +35,36 @@
         <p>Seri: <strong>@Model.Kit.SerialNumber</strong><br />QR: @Model.Kit.QrCode</p>
         <span class="fleet-status status-@Model.Kit.Status">@StatusName(Model.Kit.Status)</span>
     </div>
-    <div>@if (Model.Kit.Status == 1) { <a class="primary-action" asp-action="Rent" asp-route-id="@Model.Kit.Id">Bu kiti kirala</a> }</div>
+    <div>@if (Model.Kit.Status == 1) { <a class="primary-action" asp-action="Rent" asp-route-id="@Model.Kit.Id">Bu Kiti Kirala</a> }</div>
+</section>
+
+<section class="detail-section">
+    <div class="section-heading">
+        <div><span class="eyebrow">İŞLEM GEÇMİŞİ</span><h2>Kronolojik kit logu</h2></div>
+        <b>@Model.ActivityHistory.Count kayıt</b>
+    </div>
+    @if (Model.ActivityHistory.Count == 0)
+    {
+        <div class="empty">Bu kit için henüz işlem geçmişi kaydı yok.</div>
+    }
+    else
+    {
+        <div class="table-scroll">
+            <table class="order-kits-table">
+                <thead><tr><th>İşlem</th><th>Tarih</th><th>İşlemi yapan kullanıcı adı</th></tr></thead>
+                <tbody>
+                @foreach (var activity in Model.ActivityHistory)
+                {
+                    <tr>
+                        <td><strong>@activity.Action</strong><small class="block-muted">@activity.Description</small></td>
+                        <td>@activity.OccurredAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</td>
+                        <td>@activity.ActorDisplayName</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
 </section>
 
 <section class="detail-section">

@@ -1,0 +1,11 @@
+KitRental.Identity\src\KitRental.Identity.Api\Properties\launchSettings.json içindeki başlatma ayarları kullanılıyor...
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: https://localhost:59592
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:59593
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Local
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: D:\robotikbilimGitHub\robotikbilim\kit-rental\KitRental.Identity\src\KitRental.Identity.Api

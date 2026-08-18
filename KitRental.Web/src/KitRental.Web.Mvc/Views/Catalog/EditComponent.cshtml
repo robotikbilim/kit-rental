@@ -12,6 +12,6 @@
             <div class="field"><label asp-for="Form.DefaultStorageLocationId">Raf konumu</label><select asp-for="Form.DefaultStorageLocationId" name="DefaultStorageLocationId"><option value="">Bilinmiyor</option>@foreach (var location in Model.StorageLocations) { <option value="@location.Id">@location.Code — @location.Warehouse / @location.Aisle-@location.Rack-@location.Shelf</option> }</select></div>
             <div class="field wide"><label asp-for="Form.ImageUrl"></label><input asp-for="Form.ImageUrl" name="ImageUrl" /></div>
         </div>
-        <div class="form-actions"><a asp-action="Components" class="secondary-action">Vazgeç</a><button class="primary-action" type="submit">Değişiklikleri kaydet</button></div>
+        <div class="form-actions"><a asp-action="Components" class="secondary-action">Vazgeç</a><button class="primary-action" type="submit">Değişiklikleri Kaydet</button></div>
     </form>
 </div>

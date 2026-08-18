@@ -2,7 +2,7 @@
 @{ ViewData["Title"] = "Fiziksel Kit Stoğu"; }
 <div class="catalog-heading kit-stock-heading">
     <div><span class="eyebrow">EĞİTİM SETİ BAZLI STOK</span><h1>Fiziksel kit stoğu</h1><p>Her eğitim setinden üretilen, kiralanabilir ve arızalı fiziksel kit sayılarını izleyin.</p></div>
-    <div class="recipe-actions"><a class="secondary-action" asp-action="Lookup">⌕ Kit geçmişi sorgula</a><a class="primary-action" asp-action="Create">+ Fiziksel kit oluştur</a></div>
+    <div class="recipe-actions"><a class="secondary-action" asp-action="Lookup">⌕ Kit Geçmişi Sorgula</a><a class="primary-action" asp-action="Create">+ Fiziksel Kit Oluştur</a></div>
 </div>
 @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
 @if (Model.Count == 0)

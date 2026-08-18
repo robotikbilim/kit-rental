@@ -21,9 +21,11 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
 {
     public DbSet<ProductModel> ProductModels => Set<ProductModel>();
     public DbSet<ProductUnit> ProductUnits => Set<ProductUnit>();
+    public DbSet<ProductUnitActivity> ProductUnitActivities => Set<ProductUnitActivity>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<RentalOrder> RentalOrders => Set<RentalOrder>();
     public DbSet<RentalAssignment> RentalAssignments => Set<RentalAssignment>();
+    public DbSet<RentalCohort> RentalCohorts => Set<RentalCohort>();
     public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<KitLocationEvent> KitLocationEvents => Set<KitLocationEvent>();
     public DbSet<FaultTicket> FaultTickets => Set<FaultTicket>();
@@ -43,9 +45,11 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
     {
         ConfigureProductModel(modelBuilder.Entity<ProductModel>());
         ConfigureProductUnit(modelBuilder.Entity<ProductUnit>());
+        ConfigureProductUnitActivity(modelBuilder.Entity<ProductUnitActivity>());
         ConfigureCustomer(modelBuilder.Entity<Customer>());
         ConfigureOrder(modelBuilder.Entity<RentalOrder>());
         ConfigureAssignment(modelBuilder.Entity<RentalAssignment>());
+        ConfigureRentalCohort(modelBuilder.Entity<RentalCohort>());
         ConfigureShipment(modelBuilder.Entity<Shipment>());
         ConfigureKitLocationEvent(modelBuilder.Entity<KitLocationEvent>());
         ConfigureFaultTicket(modelBuilder.Entity<FaultTicket>());
@@ -107,6 +111,22 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         });
         builder.Navigation(unit => unit.History).HasField("_history").UsePropertyAccessMode(PropertyAccessMode.Field);
         AddRowVersion(builder);
+    }
+
+    private static void ConfigureProductUnitActivity(EntityTypeBuilder<ProductUnitActivity> builder)
+    {
+        builder.ToTable("ProductUnitActivities");
+        builder.HasKey(item => item.Id);
+        builder.Property(item => item.ActorDisplayNameSnapshot).HasMaxLength(200).IsRequired();
+        builder.Property(item => item.Action).HasMaxLength(120).IsRequired();
+        builder.Property(item => item.Description).HasMaxLength(1000).IsRequired();
+        builder.HasIndex(item => new { item.ProductUnitId, item.OccurredAt });
+        builder.HasOne<ProductUnit>().WithMany().HasForeignKey(item => item.ProductUnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<RentalAssignment>().WithMany().HasForeignKey(item => item.AssignmentId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<RentalOrder>().WithMany().HasForeignKey(item => item.OrderId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     private static void ConfigureCustomer(EntityTypeBuilder<Customer> builder)
@@ -192,6 +212,39 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(assignment => assignment.Period).HasConversion(RentalPeriodConverter()).HasMaxLength(21);
         builder.HasIndex(assignment => new { assignment.ProductUnitId, assignment.Status });
         builder.HasOne<ProductUnit>().WithMany().HasForeignKey(assignment => assignment.ProductUnitId).OnDelete(DeleteBehavior.Restrict);
+        AddRowVersion(builder);
+    }
+
+    private static void ConfigureRentalCohort(EntityTypeBuilder<RentalCohort> builder)
+    {
+        builder.ToTable("RentalCohorts");
+        builder.HasKey(item => item.Id);
+        builder.Property(item => item.Name).HasMaxLength(200).IsRequired();
+        builder.HasIndex(item => new { item.CustomerId, item.StartDate });
+        builder.HasOne<Customer>().WithMany().HasForeignKey(item => item.CustomerId).OnDelete(DeleteBehavior.Restrict);
+        builder.OwnsMany(item => item.Students, students =>
+        {
+            students.ToTable("RentalCohortStudents");
+            students.WithOwner().HasForeignKey("RentalCohortId");
+            students.HasKey(item => item.Id);
+            students.Property(item => item.Id).ValueGeneratedNever();
+            students.Property(item => item.FullName).HasMaxLength(160).IsRequired(false);
+            students.Property(item => item.GuardianPhone).HasMaxLength(40).IsRequired(false);
+            students.Property(item => item.AddressLine).HasMaxLength(1000).IsRequired(false);
+            students.HasIndex(item => item.ProductModelId);
+            students.HasIndex(item => item.AssignmentId);
+            students.HasIndex(item => item.ProductUnitId);
+            students.HasIndex(item => new { item.Latitude, item.Longitude });
+            students.HasOne<ProductModel>().WithMany().HasForeignKey(item => item.ProductModelId)
+                .OnDelete(DeleteBehavior.Restrict);
+            students.HasOne<RentalAssignment>().WithMany().HasForeignKey(item => item.AssignmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            students.HasOne<ProductUnit>().WithMany().HasForeignKey(item => item.ProductUnitId)
+                .OnDelete(DeleteBehavior.Restrict);
+            students.HasOne<RentalOrder>().WithMany().HasForeignKey(item => item.OrderId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+        builder.Navigation(item => item.Students).HasField("_students").UsePropertyAccessMode(PropertyAccessMode.Field);
         AddRowVersion(builder);
     }
 

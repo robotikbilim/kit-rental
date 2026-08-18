@@ -1,0 +1,41 @@
+KitRental.Core\src\KitRental.Core.Api\Properties\launchSettings.json içindeki başlatma ayarları kullanılıyor...
+info: Microsoft.EntityFrameworkCore.Migrations[20411]
+      Acquiring an exclusive lock for migration application. See https://aka.ms/efcore-docs-migrations-lock for more information if this takes too long.
+info: Microsoft.EntityFrameworkCore.Migrations[20405]
+      No migrations were applied. The database is already up to date.
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: https://localhost:59590
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:59591
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Local
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: D:\robotikbilimGitHub\robotikbilim\kit-rental\KitRental.Core\src\KitRental.Core.Api
+fail: Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware[1]
+      An unhandled exception has occurred while executing the request.
+      KitRental.Core.Application.Common.ResourceNotFoundException: Müşteri hesabı bulunamadı.
+         at KitRental.Core.Application.CustomerPortal.CustomerPortalService.GetOverviewAsync(Guid customerId, CancellationToken cancellationToken) in D:\robotikbilimGitHub\robotikbilim\kit-rental\KitRental.Core\src\KitRental.Core.Application\CustomerPortal\CustomerPortalService.cs:line 21
+         at Program.<>c.<<<Main>$>b__0_13>d.MoveNext() in D:\robotikbilimGitHub\robotikbilim\kit-rental\KitRental.Core\src\KitRental.Core.Api\Program.cs:line 178
+      --- End of stack trace from previous location ---
+         at Microsoft.AspNetCore.Http.RequestDelegateFactory.ExecuteTaskResult[T](Task`1 task, HttpContext httpContext)
+         at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+         at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+         at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+fail: Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware[1]
+      An unhandled exception has occurred while executing the request.
+      KitRental.Core.Application.Common.ResourceNotFoundException: Müşteri hesabı bulunamadı.
+         at KitRental.Core.Application.CustomerPortal.CustomerPortalService.GetOverviewAsync(Guid customerId, CancellationToken cancellationToken) in D:\robotikbilimGitHub\robotikbilim\kit-rental\KitRental.Core\src\KitRental.Core.Application\CustomerPortal\CustomerPortalService.cs:line 21
+         at Program.<>c.<<<Main>$>b__0_13>d.MoveNext() in D:\robotikbilimGitHub\robotikbilim\kit-rental\KitRental.Core\src\KitRental.Core.Api\Program.cs:line 178
+      --- End of stack trace from previous location ---
+         at Microsoft.AspNetCore.Http.RequestDelegateFactory.ExecuteTaskResult[T](Task`1 task, HttpContext httpContext)
+         at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+         at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+         at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+warn: Microsoft.EntityFrameworkCore.Query[20504]
+      Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.
+warn: Microsoft.EntityFrameworkCore.Query[20504]
+      Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.
+warn: Microsoft.EntityFrameworkCore.Query[20504]
+      Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.

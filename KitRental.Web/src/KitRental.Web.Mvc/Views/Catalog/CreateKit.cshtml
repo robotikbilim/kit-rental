@@ -14,7 +14,7 @@
             </div>
         </section>
         <section class="form-section recipe-builder">
-            <div class="section-heading"><div><h2>Üretim reçetesi <small>(isteğe bağlı)</small></h2><p>Bir kit üretmek için gereken komponentleri ekleyin veya bu bölümü boş bırakın.</p></div><button type="button" class="secondary-action" id="add-line">+ Komponent ekle</button></div>
+            <div class="section-heading"><div><h2>Üretim reçetesi <small>(isteğe bağlı)</small></h2><p>Bir kit üretmek için gereken komponentleri ekleyin veya bu bölümü boş bırakın.</p></div><button type="button" class="secondary-action" id="add-line">+ Komponent Ekle</button></div>
             <div class="recipe-lines" id="recipe-lines">
             @for (var index = 0; index < Model.Form.Lines.Count; index++)
             {
@@ -27,7 +27,7 @@
             }
             </div>
         </section>
-        <div class="form-actions"><a asp-action="Kits" class="secondary-action">Vazgeç</a><button type="submit" class="primary-action">Eğitim kitini kaydet</button></div>
+        <div class="form-actions"><a asp-action="Kits" class="secondary-action">Vazgeç</a><button type="submit" class="primary-action">Eğitim Kitini Kaydet</button></div>
     </form>
 </div>
 <template id="recipe-template"><div class="recipe-line"><span class="line-number"></span><div class="field"><label>Komponent</label><select required><option value="">Komponent seçin</option>@foreach (var component in Model.Components) { <option value="@component.Id">@component.Name — @component.Sku (stok: @component.TotalStock.ToString("0.###"))</option> }</select></div><div class="field quantity-field"><label>Adet / miktar</label><input type="number" min="0.001" step="0.001" value="1" required /></div><button type="button" class="remove-line" aria-label="Satırı kaldır">×</button></div></template>

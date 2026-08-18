@@ -60,6 +60,17 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
         return Task.CompletedTask;
     }
 
+    public Task AddProductUnitActivityAsync(ProductUnitActivity activity, CancellationToken cancellationToken) =>
+        dbContext.ProductUnitActivities.AddAsync(activity, cancellationToken).AsTask();
+
+    public async Task<IReadOnlyCollection<ProductUnitActivity>> GetProductUnitActivitiesAsync(Guid productUnitId,
+        CancellationToken cancellationToken) =>
+        await dbContext.ProductUnitActivities.AsNoTracking()
+            .Where(item => item.ProductUnitId == productUnitId)
+            .OrderBy(item => item.OccurredAt)
+            .ThenBy(item => item.Id)
+            .ToArrayAsync(cancellationToken);
+
     public async Task RemoveProductUnitWithStockRestorationAsync(ProductUnit unit,
         IReadOnlyCollection<StockMovement> movements, AuditEntry auditEntry,
         CancellationToken cancellationToken)
@@ -143,6 +154,12 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
         return await query.OrderByDescending(order => order.CreatedAt).ToArrayAsync(cancellationToken);
     }
 
+    public Task RemoveOrderAsync(RentalOrder order, CancellationToken cancellationToken)
+    {
+        dbContext.RentalOrders.Remove(order);
+        return Task.CompletedTask;
+    }
+
     public Task<RentalAssignment?> GetRentalAssignmentAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.RentalAssignments.SingleOrDefaultAsync(assignment => assignment.Id == id, cancellationToken);
 
@@ -160,6 +177,28 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
     public async Task<IReadOnlyCollection<RentalAssignment>> GetAssignmentsForProductUnitAsync(Guid productUnitId, CancellationToken cancellationToken) =>
         await dbContext.RentalAssignments.Where(item => item.ProductUnitId == productUnitId)
             .OrderByDescending(item => item.CreatedAt).ToArrayAsync(cancellationToken);
+
+    public Task AddRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken) =>
+        dbContext.RentalCohorts.AddAsync(cohort, cancellationToken).AsTask();
+
+    public Task<RentalCohort?> GetRentalCohortAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.RentalCohorts.Include(item => item.Students)
+            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyCollection<RentalCohort>> GetRentalCohortsAsync(Guid? customerId,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.RentalCohorts.Include(item => item.Students).AsQueryable();
+        if (customerId.HasValue) query = query.Where(item => item.CustomerId == customerId.Value);
+        return await query.OrderByDescending(item => item.StartDate).ThenBy(item => item.Name)
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public Task RemoveRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken)
+    {
+        dbContext.RentalCohorts.Remove(cohort);
+        return Task.CompletedTask;
+    }
 
     public async Task AddShipmentAsync(Shipment shipment, CancellationToken cancellationToken)
     {

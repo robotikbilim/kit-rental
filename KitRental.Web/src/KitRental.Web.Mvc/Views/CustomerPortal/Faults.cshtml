@@ -38,11 +38,11 @@
         <h1>Ariza Kayitlari</h1>
         <p>@Model.CustomerName hesabina ait ariza kayitlarini arayin, filtreleyin ve servis durumunu takip edin.</p>
     </div>
-    <div class="recipe-actions"><a class="primary-action" asp-action="NewFault">Ariza bildir</a></div>
+    <div class="recipe-actions"><a class="primary-action" asp-action="NewFault">Arıza Bildir</a></div>
 </div>
 
 <section class="portal-kit-list-shell">
-    <form class="portal-kit-filters" asp-action="Faults" method="get">
+    <form class="portal-kit-filters" asp-action="Faults" method="get" data-auto-filter="true">
         <label class="portal-kit-search">
             <span>Ariza ara</span>
             <input type="search" name="query" value="@Model.Query" placeholder="Kayit no, kit, seri no veya aciklama" />
@@ -74,10 +74,6 @@
                 }
             </select>
         </label>
-        <div class="portal-kit-filter-actions">
-            <button class="primary-action" type="submit">Filtrele</button>
-            <a class="secondary-action" asp-action="Faults">Temizle</a>
-        </div>
     </form>
 
     <div class="portal-kit-result-heading" aria-live="polite">

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using KitRental.Core.Application.Abstractions;
 
@@ -41,7 +42,7 @@ public sealed class NominatimAddressGeocoder(HttpClient httpClient, ILogger<Nomi
             var resultDistrict = first.Address?.County ?? first.Address?.CityDistrict ?? first.Address?.Town ?? first.Address?.Suburb;
             return new GeocodedAddress(latitude, longitude, resultDistrict, resultCity);
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException)
         {
             logger.LogWarning(exception, "Address geocoding failed for '{AddressLine}'.", addressLine);
             return null;

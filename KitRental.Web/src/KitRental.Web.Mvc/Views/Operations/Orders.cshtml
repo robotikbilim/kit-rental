@@ -12,7 +12,7 @@
 }
 <div class="page-heading orders-heading">
     <div><span class="eyebrow">SİPARİŞ AKIŞI</span><h1>Siparişler</h1><p class="block-muted">Kiralama ve satın alma siparişlerini hazırlıktan teslimata kadar yönetin.</p></div>
-    <div class="orders-heading-actions"><span class="request-counter">@Model.Count(item => item.Status == 2) yeni talep</span>@if (canManageOrders) { <a class="secondary-action" asp-action="CreatePurchaseOrder">+ Satın alma</a><a class="primary-action" asp-action="CreateOrder">+ Kiralama</a> }</div>
+    <div class="orders-heading-actions"><span class="request-counter">@Model.Count(item => item.Status == 2) yeni talep</span>@if (canManageOrders) { <a class="secondary-action" asp-action="CreatePurchaseOrder">+ Satın Alma</a><a class="primary-action" asp-action="CreateOrder">+ Kiralama</a> }</div>
 </div>
 
 <nav class="stock-filter" aria-label="Sipariş türü filtresi">

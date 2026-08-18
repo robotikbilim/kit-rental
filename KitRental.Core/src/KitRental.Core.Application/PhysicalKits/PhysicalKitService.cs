@@ -172,8 +172,12 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
         returnRequests = returnRequests.OrderByDescending(item => item.CreatedAt).ToList();
         var status = unit.History.OrderByDescending(item => item.OccurredAt)
             .Select(item => new PhysicalKitStatusEventResponse(item.PreviousStatus, item.NewStatus, item.OccurredAt, item.Reason)).ToArray();
+        var activities = (await repository.GetProductUnitActivitiesAsync(id, cancellationToken))
+            .Select(item => new PhysicalKitActivityResponse(item.Action, item.Description, item.OccurredAt,
+                item.ActorDisplayNameSnapshot))
+            .ToArray();
         return new PhysicalKitDetailResponse(await MapListItemAsync(unit, model, cancellationToken),
-            currentLocation, faults, deliveries, returnRequests, status);
+            currentLocation, faults, deliveries, returnRequests, status, activities);
     }
 
     public async Task<PhysicalKitDetailResponse> LookupAsync(string identifier, CancellationToken cancellationToken)

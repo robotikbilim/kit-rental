@@ -1,0 +1,64 @@
+@model RentalCohortStudentImportPreviewViewModel
+@{
+    ViewData["Title"] = "Öğrenci listesi önizleme";
+}
+
+<a class="back-link" asp-action="RentalPeriod" asp-route-id="@Model.CohortId">← Döneme Dön</a>
+
+<section class="portal-section">
+    <div class="section-heading">
+        <div>
+            <span class="eyebrow">@Model.CohortName</span>
+            <h1>Öğrenci listesi önizleme</h1>
+        </div>
+    </div>
+    <form class="catalog-form" asp-action="ConfirmRentalPeriodStudentImport" method="post">
+        <input type="hidden" asp-for="CohortId" />
+        <div asp-validation-summary="All" class="error"></div>
+        <div class="table-scroll">
+            <table class="order-kits-table">
+                <thead>
+                <tr>
+                    <th>Öğrenci</th>
+                    <th>Veli telefonu</th>
+                    <th>Adres</th>
+                    <th>İl</th>
+                    <th>İlçe</th>
+                </tr>
+                </thead>
+                <tbody>
+                @for (var i = 0; i < Model.Rows.Count; i++)
+                {
+                    <tr>
+                        <td>
+                            <strong>@Model.Rows[i].FullName</strong>
+                            <input type="hidden" asp-for="Rows[i].FullName" />
+                        </td>
+                        <td>
+                            @Model.Rows[i].GuardianPhone
+                            <input type="hidden" asp-for="Rows[i].GuardianPhone" />
+                        </td>
+                        <td>
+                            @Model.Rows[i].AddressLine
+                            <input type="hidden" asp-for="Rows[i].AddressLine" />
+                            <input type="hidden" asp-for="Rows[i].ProductModelId" />
+                        </td>
+                        <td>
+                            @Model.Rows[i].City
+                            <input type="hidden" asp-for="Rows[i].City" />
+                        </td>
+                        <td>
+                            @Model.Rows[i].District
+                            <input type="hidden" asp-for="Rows[i].District" />
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <div class="form-actions">
+            <a class="secondary-action" asp-action="RentalPeriod" asp-route-id="@Model.CohortId">Vazgeç</a>
+            <button class="primary-action" type="submit">İçe Aktar</button>
+        </div>
+    </form>
+</section>

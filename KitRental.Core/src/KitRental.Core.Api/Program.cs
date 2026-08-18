@@ -75,6 +75,9 @@ builder.Services.AddScoped<PhysicalKitService>();
 builder.Services.AddScoped<CustomerPortalService>();
 builder.Services.AddScoped<SupplyNeedService>();
 builder.Services.AddScoped<IEmailNotificationService, EmailNotificationService>();
+builder.Services.AddHttpClient<IAddressGeocoder, NominatimAddressGeocoder>(client =>
+    client.DefaultRequestHeaders.UserAgent.ParseAdd(builder.Configuration["Geocoding:UserAgent"]
+        ?? "KitRental/1.0 (admin@robotikbilim.com.tr)"));
 builder.Services.AddHttpClient("identity-notifications", client =>
     client.BaseAddress = new Uri(builder.Configuration["Notifications:IdentityBaseUrl"]
         ?? "https://localhost:59592"));
@@ -195,6 +198,110 @@ api.MapPost("/customer-portal/orders/{orderId:guid}/confirm-delivery", async (Gu
     ClaimsPrincipal user, CustomerPortalService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.ConfirmOrderDeliveryAsync(new ConfirmPortalOrderDeliveryCommand(
         GetRequiredCustomerId(user), orderId, user.GetRequiredUserId()), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapGet("/customer-portal/rental-periods", async (ClaimsPrincipal user, CustomerPortalService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetRentalCohortsAsync(GetRequiredCustomerId(user), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapPost("/customer-portal/rental-periods", async (RentalCohortRequest request, ClaimsPrincipal user,
+    CustomerPortalService service, CancellationToken cancellationToken) =>
+{
+    var result = await service.SaveRentalCohortAsync(new SaveRentalCohortCommand(null,
+        GetRequiredCustomerId(user), request.Name, request.StartDate, request.EndDate,
+        user.GetRequiredUserId(), GetActorDisplayName(user)), cancellationToken);
+    return Results.Created($"/api/customer-portal/rental-periods/{result.Id}", result);
+}).RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapPut("/customer-portal/rental-periods/{periodId:guid}", async (Guid periodId,
+    RentalCohortRequest request, ClaimsPrincipal user, CustomerPortalService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.SaveRentalCohortAsync(new SaveRentalCohortCommand(periodId,
+        GetRequiredCustomerId(user), request.Name, request.StartDate, request.EndDate,
+        user.GetRequiredUserId(), GetActorDisplayName(user)), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapDelete("/customer-portal/rental-periods/{periodId:guid}",
+    async (Guid periodId, ClaimsPrincipal user, CustomerPortalService service,
+        CancellationToken cancellationToken) =>
+    {
+        await service.DeleteRentalCohortAsync(new DeleteRentalCohortCommand(
+            GetRequiredCustomerId(user), periodId, user.GetRequiredUserId()), cancellationToken);
+        return Results.NoContent();
+    }).RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapPost("/customer-portal/rental-periods/{periodId:guid}/students", async (Guid periodId,
+    RentalCohortStudentRequest request, ClaimsPrincipal user, CustomerPortalService service,
+    CancellationToken cancellationToken) =>
+{
+    var result = await service.SaveRentalCohortStudentAsync(new SaveRentalCohortStudentCommand(null,
+        GetRequiredCustomerId(user), periodId, request.FullName, request.GuardianPhone, request.AddressLine,
+        request.ProductModelId, user.GetRequiredUserId(), GetActorDisplayName(user)), cancellationToken);
+    return Results.Created($"/api/customer-portal/rental-periods/{periodId}/students/{result.Id}", result);
+}).RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapPut("/customer-portal/rental-periods/{periodId:guid}/students/{studentId:guid}", async (Guid periodId,
+    Guid studentId, RentalCohortStudentRequest request, ClaimsPrincipal user, CustomerPortalService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.SaveRentalCohortStudentAsync(new SaveRentalCohortStudentCommand(studentId,
+        GetRequiredCustomerId(user), periodId, request.FullName, request.GuardianPhone, request.AddressLine,
+        request.ProductModelId, user.GetRequiredUserId(), GetActorDisplayName(user)), cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapDelete("/customer-portal/rental-periods/{periodId:guid}/students/{studentId:guid}",
+    async (Guid periodId, Guid studentId, ClaimsPrincipal user, CustomerPortalService service,
+        CancellationToken cancellationToken) =>
+    {
+        await service.RemoveRentalCohortStudentAsync(GetRequiredCustomerId(user), periodId, studentId,
+            user.GetRequiredUserId(), GetActorDisplayName(user), cancellationToken);
+        return Results.NoContent();
+    }).RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapPost("/customer-portal/rental-periods/{periodId:guid}/students/import", async (Guid periodId,
+    RentalCohortStudentImportRequest request, ClaimsPrincipal user, CustomerPortalService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.ImportRentalCohortStudentsAsync(GetRequiredCustomerId(user), periodId,
+        request.Rows.Select(row => new ImportRentalCohortStudentCommand(row.FullName, row.GuardianPhone,
+            row.AddressLine, row.ProductModel)).ToArray(), user.GetRequiredUserId(), GetActorDisplayName(user),
+        cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapPost("/customer-portal/rental-periods/{periodId:guid}/students/{studentId:guid}/return",
+    async (Guid periodId, Guid studentId, ClaimsPrincipal user, CustomerPortalService service,
+        CancellationToken cancellationToken) =>
+    {
+        var result = await service.CreatePortalStudentReturnAsync(new CreatePortalStudentReturnCommand(
+            GetRequiredCustomerId(user), periodId, studentId, user.GetRequiredUserId(), GetActorDisplayName(user)),
+            cancellationToken);
+        return Results.Created($"/api/kit-returns/{result.Id}", result);
+    }).RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapPost("/customer-portal/rental-periods/{periodId:guid}/order",
+    async (Guid periodId, ClaimsPrincipal user, CustomerPortalService service,
+        CancellationToken cancellationToken) =>
+    {
+        var result = await service.CreateRentalCohortOrderAsync(new CreatePortalRentalCohortOrderCommand(
+            GetRequiredCustomerId(user), periodId, user.GetRequiredUserId(), GetActorDisplayName(user)),
+            cancellationToken);
+        return Results.Created($"/api/orders/{result.Id}", result);
+    }).RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapPost("/customer-portal/returns", async (PortalReturnRequest request, ClaimsPrincipal user,
+    CustomerPortalService service, CancellationToken cancellationToken) =>
+{
+    var result = await service.CreatePortalReturnAsync(new CreatePortalReturnCommand(
+        GetRequiredCustomerId(user), request.AssignmentIds, user.GetRequiredUserId(), GetActorDisplayName(user)),
+        cancellationToken);
+    return Results.Created($"/api/kit-returns/{result.Id}", result);
+}).RequireAuthorization(policy => policy.RequireRole(customerRoles));
+
+api.MapPost("/customer-portal/returns/{returnId:guid}/ship", async (Guid returnId,
+    PortalReturnShipmentRequest request, ClaimsPrincipal user, CustomerPortalService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.ShipPortalReturnAsync(new ShipPortalReturnCommand(GetRequiredCustomerId(user),
+        returnId, request.Carrier, request.TrackingNumber, user.GetRequiredUserId(), GetActorDisplayName(user)),
+        cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(customerRoles));
 
 
@@ -508,6 +615,11 @@ api.MapGet("/customers/{customerId:guid}", async (Guid customerId, OperationsSer
     await service.GetCustomerAsync(customerId, cancellationToken) is { } customer ? Results.Ok(customer) : Results.NotFound())
     .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
 
+api.MapGet("/customers/{customerId:guid}/rental-periods", async (Guid customerId,
+    CustomerPortalService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetRentalCohortsAsync(customerId, cancellationToken)))
+    .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
+
 api.MapPut("/customers/{customerId:guid}", async (Guid customerId, UpdateCustomerRequest request, ClaimsPrincipal user,
     OperationsService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.UpdateCustomerAsync(new UpdateCustomerCommand(customerId, request.Name, request.Email,
@@ -578,7 +690,8 @@ api.MapPost("/orders/{orderId:guid}/kits", async (Guid orderId, CreateOrderKitsR
     OperationsService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.CreateAndReserveOrderKitsAsync(
         orderId, request.Lines.Select(line => new OrderKitLineCommand(line.ProductModelId, line.Quantity)).ToArray(),
-        request.UseAvailableKits, user.GetRequiredUserId(), cancellationToken)))
+        request.UseAvailableKits, user.GetRequiredUserId(), cancellationToken, request.RentalCohortId,
+        GetActorDisplayName(user))))
     .RequireAuthorization(policy => policy.RequireRole(operationsRoles));
 
 api.MapPost("/rental-assignments", async (CreateRentalAssignmentRequest request, ClaimsPrincipal user, RentalAssignmentService service, CancellationToken cancellationToken) =>
@@ -699,6 +812,9 @@ static void EnsureCustomerScope(ClaimsPrincipal user, Guid requestedCustomerId)
 static Guid GetRequiredCustomerId(ClaimsPrincipal user) => user.GetCustomerId()
     ?? throw new ForbiddenException("Bu işlem için bir müşteri hesabına bağlı olmalısınız.");
 
+static string GetActorDisplayName(ClaimsPrincipal user) =>
+    user.Identity?.Name ?? user.FindFirstValue(ClaimTypes.Email) ?? user.GetRequiredUserId().ToString();
+
 public sealed record CreateProductModelRequest(string Name, string Sku, string? Description = null, string? ImageUrl = null);
 public sealed record UpdateProductModelRequest(string Name, string Sku, string? Description = null, string? ImageUrl = null);
 public sealed record CreateProductUnitRequest(Guid ProductModelId, string? SerialNumber = null, string? QrCode = null);
@@ -731,7 +847,14 @@ public sealed record UpdateCustomerRequest(string Name, string Email, bool IsAct
 public sealed record OrderLineRequest(Guid ProductModelId, int Quantity);
 public sealed record CreateOrderRequest(Guid CustomerId, Guid AddressId, DateOnly StartDate, DateOnly EndDate, IReadOnlyCollection<OrderLineRequest> Lines);
 public sealed record OrderTransitionRequest(RentalOrderStatus Target);
-public sealed record CreateOrderKitsRequest(IReadOnlyCollection<OrderLineRequest> Lines, bool UseAvailableKits = false);
+public sealed record CreateOrderKitsRequest(IReadOnlyCollection<OrderLineRequest> Lines, bool UseAvailableKits = false,
+    Guid? RentalCohortId = null);
+public sealed record RentalCohortRequest(string Name, DateOnly StartDate, DateOnly EndDate);
+public sealed record RentalCohortStudentRequest(string FullName, string GuardianPhone, string AddressLine,
+    Guid ProductModelId);
+public sealed record RentalCohortImportRowRequest(string FullName, string GuardianPhone, string AddressLine,
+    string ProductModel);
+public sealed record RentalCohortStudentImportRequest(IReadOnlyCollection<RentalCohortImportRowRequest> Rows);
 public sealed record CreatePurchaseOrderRequest(Guid CustomerId, Guid AddressId,
     IReadOnlyCollection<OrderLineRequest> Lines);
 public sealed record CreateRentalAssignmentRequest(Guid OrderLineId, Guid CustomerId, Guid ProductUnitId, DateOnly StartDate, DateOnly EndDate);
@@ -750,6 +873,8 @@ public sealed record PublicFaultRequest(Guid? FaultId, string QrCode, string Rep
 public sealed record PublicKitReturnRequest(string QrCode, string RequesterName,
     string RequesterPhone, string District, string City, string ReturnAddress,
     double? Latitude, double? Longitude);
+public sealed record PortalReturnRequest(IReadOnlyCollection<Guid> AssignmentIds);
+public sealed record PortalReturnShipmentRequest(string Carrier, string TrackingNumber);
 public sealed record PublicKitDeliveryRequest(string QrCode, string RecipientName,
     string RecipientPhone, string AddressLine, string District, string City, double? Latitude = null, double? Longitude = null);
 public partial class Program;

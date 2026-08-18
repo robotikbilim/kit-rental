@@ -85,6 +85,20 @@ Rentals:
 
 - Main domain: `RentalAssignment`, `RentalPeriod`.
 - Reservation overlap is handled atomically in repository methods such as `TryCreateReservationAsync` and `TryCreateReservationsAsync`.
+- Customer/TACEV rental planning uses `RentalCohort` with owned `RentalCohortStudent` rows for named date ranges and student kit choices.
+- Customer/TACEV period names are persisted on `RentalCohort.Name`; the customer portal order-period form offers distinct previous period names as selectable suggestions while still allowing a new name to be typed.
+- TACEV can create a rental order from a rental cohort in the customer portal. Active students are linked to the created order through `RentalCohortStudent.OrderId`.
+- In the customer portal, rental cohorts are presented as `Siparişler`: the former customer `Orders` page redirects to `RentalPeriods`, and the list shows each cohort's linked order number plus approved/unapproved state. The detail action opens the cohort's student list.
+- Rental cohort responses include `IsApproved`; once the linked order reaches `Approved` or any later non-cancelled/non-rejected status, customer student add/update/import/delete operations are blocked while fault and student-return actions remain available.
+- When an admin approves an order linked to a TACEV rental cohort, active student addresses are geocoded through `IAddressGeocoder`; successful latitude/longitude values are persisted on `RentalCohortStudents` and reused for student delivery location events.
+- Admin order kit preparation can select a customer's rental cohort. When selected, kit quantities are calculated from unassigned cohort students, and reserved/created kits are linked to the matching students.
+- If an admin opens kit preparation for an order created from a TACEV cohort, the cohort is inferred from student `OrderId` links and selected automatically.
+- Preparing kits for a TACEV cohort creates `DeliveryReceipt` kit-location events from each student's name, guardian phone, and address, so the student delivery forms are prefilled immediately after assignment.
+- TACEV rental period student rows include assigned kit serial/QR plus delivery-form summary fields when the kit has been delivered or auto-filled from the student list.
+- TACEV rental period student updates are handled from an in-page modal opened by compact icon-only row actions; delete, return-request, and fault actions also use compact color-coded Lucide icon buttons.
+- Removing an already assigned student anonymizes the student row and hides it from the active student list, while the kit and rental assignment remain rented/reserved and appear as unassigned cohort kits.
+- When an admin accepts a kit return, any TACEV student link for that assignment is cleared from the student row while the student's personal/list data remains visible.
+- `ProductUnitActivity` stores chronological kit operation logs with action, description, timestamp, actor id, and actor display-name snapshot.
 
 Faults:
 
@@ -95,6 +109,7 @@ Faults:
 Physical kit detail history:
 
 - `PhysicalKitService.GetDetailAsync` now exposes separate histories for delivery/receipt events, fault records, and return-request starts.
+- `PhysicalKitService.GetDetailAsync` also exposes `ActivityHistory` for the chronological kit operation log.
 - `KitRental.Web.Mvc/Views/PhysicalKits/Details.cshtml` renders those histories as separate list-card sections.
 - `KitRental.Web.Mvc/Views/PhysicalKits/Lookup.cshtml` mirrors the same separated history groups for quick lookup.
 
@@ -148,6 +163,7 @@ Migration status:
 
 - `20260812211046_ReplaceKitDeliveryReceiptsWithLocationEvents` creates `KitLocationEvents`.
 - The migration copies existing `KitDeliveryReceipts` rows into `KitLocationEvents` with source `DeliveryReceipt`, then drops `KitDeliveryReceipts`.
+- `20260818123000_AddRentalCohortStudentCoordinates` adds nullable latitude/longitude columns to `RentalCohortStudents`.
 
 ## Public QR Flows
 
@@ -163,6 +179,15 @@ Core API routes:
 - `POST /api/public/faults`
 - `POST /api/public/returns`
 - `POST /api/public/deliveries`
+- `GET/POST/PUT /api/customer-portal/rental-periods`
+- `DELETE /api/customer-portal/rental-periods/{periodId}`
+- `POST/PUT/DELETE /api/customer-portal/rental-periods/{periodId}/students`
+- `POST /api/customer-portal/rental-periods/{periodId}/students/import`
+- `POST /api/customer-portal/rental-periods/{periodId}/students/{studentId}/return`
+- `POST /api/customer-portal/rental-periods/{periodId}/order`
+- `POST /api/customer-portal/returns`
+- `POST /api/customer-portal/returns/{returnId}/ship`
+- `GET /api/customers/{customerId}/rental-periods`
 
 Web API client:
 
@@ -178,6 +203,13 @@ Map UI is rendered in MVC views and powered by:
 - `KitRental.Web/src/KitRental.Web.Mvc/wwwroot/js/public-location.js`
 - `KitRental.Web/src/KitRental.Web.Mvc/Views/Operations/Dashboard.cshtml`
 - `KitRental.Web/src/KitRental.Web.Mvc/Views/CustomerPortal/Index.cshtml`
+
+Global MVC UI behavior:
+
+- `KitRental.Web/src/KitRental.Web.Mvc/wwwroot/js/site.js` sets a page-level busy state for form submits, same-origin navigation links, and same-origin mutating `fetch` calls so backend-bound actions disable other buttons/links and show a small loader until the response navigates, completes, or the page is restored.
+- Same-page, external, telephone/mail, dialog, and explicit download links are excluded from the navigation busy lock; same-page downloads recover through a fallback timeout if no navigation occurs.
+- MVC confirmation prompts use SweetAlert2 through `data-confirm` on forms or submit buttons; avoid inline `onsubmit`/`onclick` browser `confirm(...)` dialogs.
+- User-facing button/action labels should use title case in Turkish, with each word's first letter capitalized.
 
 Map markers depend on latitude/longitude where present. Address text still appears in marker details.
 
@@ -243,6 +275,39 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Customer portal overview response now includes `TotalRentedKitCount` and `UndeliveredKitCount`; undelivered counts reserved/active rental assignments with no `DeliveryReceipt` location event.
 - Customer portal `Kits` page supports a `deliveryFormMissing` filter, and the `Teslim Alınmamış Kitler` card opens that filtered list.
 - Debug builds set `UseAppHost=false` in `Directory.Build.props` so local web apps run through the signed `dotnet` host instead of unsigned generated apphost executables, avoiding Smart App Control blocks on development DLL loads.
+
+2026-08-15:
+
+- Added customer/TACEV rental periods and student lists with Excel template/import support in the MVC customer portal.
+- TACEV student Excel import reads student full name, guardian phone, address, city, and district. The Excel upload popup selects one education kit for the whole uploaded list before opening the preview screen.
+- Added `RentalCohort`, `RentalCohortStudent`, and `ProductUnitActivity` persistence, repository access, and migration `20260815175751_AddRentalCohortsAndProductUnitActivitiesSnapshotFix`.
+- Admin order kit preparation can select a customer's rental period; selected periods drive kit quantities from student kit choices and link created/reused units to students.
+- TACEV rental period detail now has an `Onayla ve sipariş oluştur` action that confirms the student list will be locked, then creates a pending rental order for admins from the student kit totals.
+- Admin kit preparation for TACEV-created orders auto-selects the source period and creates student delivery form location events from the student list.
+- Customer portal no longer has a separate order-list page; the `Siparişler` menu points to rental cohorts and shows linked order approval status in a datatable-style list before opening the student list detail.
+- Customer portal `Siparişler` list has a top `Yeni sipariş oluştur` button that opens a popup rental period form, where the customer can type a new period name or choose a previous period name and enter the valid rental date range; saving returns to the list with the popup closed.
+- Customer portal `Siparişler` rows open the related student-list screen. On that screen, unlocked/unapproved periods expose popup actions for single student creation and Excel bulk upload; the Excel template download link and whole-list education kit dropdown live inside the Excel upload popup, and imported rows continue through the preview screen before saving.
+- Customer portal order-period creation now suggests previously used period names from existing rental cohorts and still accepts a brand-new period name in the same field.
+- Approved customer portal order periods lock student add/update/import/delete actions but still allow fault records and student kit return requests; accepted returns clear the student-kit link.
+- Customer portal student list actions now use Lucide icons and an edit modal instead of navigating to a prefilled edit page.
+- Student removal after assignment anonymizes student details while preserving the rented kit/assignment as an unassigned period kit.
+- Physical kit details now show chronological operation history rows for kit creation, reservation, student assignment/removal, faults, deliveries, returns, and inspections.
+
+2026-08-18:
+
+- Global MVC confirmation handling now renders SweetAlert2 dialogs for `data-confirm` actions, including customer portal order approval; native browser confirm popups are no longer used.
+- Standardized MVC button and action labels to title case across the system.
+- Customer portal student-list detail no longer shows a separate `Siparişi Gör` action after the cohort order is created.
+- Sidebar/topbar navigation items keep icons and labels left-aligned next to each other; only submenu chevrons are pushed to the right.
+- Customer portal `Siparişler` list supports filtering by `Sipariş Dönemi` and `Onay Durumu`, and paginates filtered results with a fixed default of 20 records per page.
+- Filter forms marked with `data-auto-filter="true"` auto-submit when an input/select changes, so filter screens no longer show manual `Temizle` or `Filtrele` buttons.
+- Customer portal `Siparişler` list displays `Oluşturulma Tarihi` and sorts by `CreatedAt` descending by default.
+- Customer portal student-list detail supports auto-filtering by student text search, education kit, and assignment state, and paginates filtered students with 20 records per page.
+- Customer portal `Kitler` list includes the assigned TACEV student name, guardian phone, and period when a kit is linked to a rental cohort student; student address is not shown in that list, though kit search still matches student fields.
+- Customer portal overview map no longer renders status, serial-number, or product-model filters; it always shows all customer kit markers with coordinates, while the admin dashboard map keeps its filters.
+- Customer portal `Siparişler` list now shows `Düzenle` and `Sil` actions for unapproved rental cohorts. Editing can change the period name and rental date range before admin approval; if a pending order exists, its rental period and kit quantity lines are synchronized from the cohort student list. Deleting removes the unapproved cohort and its linked unapproved order, but remains blocked after kit assignment or approval.
+- Admin approval of a rental order linked to TACEV students now geocodes student addresses via Nominatim and stores successful latitude/longitude values on `RentalCohortStudents`; kit preparation copies those coordinates into generated delivery location events.
+- Customer portal TACEV student Excel templates and import preview screens now include `İl` and `İlçe` columns in addition to the address column; import confirmation appends those values to the stored student address text.
 
 ## Development Checklist
 

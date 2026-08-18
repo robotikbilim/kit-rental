@@ -102,6 +102,23 @@ public sealed class RentalOrder
         return line;
     }
 
+    public void UpdateUnapprovedRentalPlan(DateOnly startDate, DateOnly endDate,
+        IReadOnlyCollection<(Guid ProductModelId, int Quantity)> lines)
+    {
+        if (Type != OrderType.Rental ||
+            Status is not (RentalOrderStatus.PendingApproval or RentalOrderStatus.Rejected or RentalOrderStatus.Cancelled) ||
+            lines.Count == 0)
+            throw new DomainException("order.plan_not_editable",
+                "Yalnızca onaylanmamış kiralama siparişinin dönem bilgileri düzenlenebilir.");
+        if (lines.Any(line => line.ProductModelId == Guid.Empty || line.Quantity <= 0))
+            throw new DomainException("order_line.invalid", "Ürün modeli ve pozitif adet zorunludur.");
+
+        Period = new RentalPeriod(startDate, endDate);
+        _lines.Clear();
+        foreach (var line in lines)
+            _lines.Add(new RentalOrderLine(Guid.NewGuid(), line.ProductModelId, line.Quantity));
+    }
+
     public void ReplaceLines(IReadOnlyCollection<(Guid ProductModelId, int Quantity)> lines)
     {
         if (Status != RentalOrderStatus.Approved || lines.Count == 0)

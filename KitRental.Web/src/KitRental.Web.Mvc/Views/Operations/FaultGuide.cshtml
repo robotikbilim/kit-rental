@@ -19,8 +19,8 @@
         <div class="field wide"><label for="Problem">Karsilasilan problem</label><textarea id="Problem" name="Problem" rows="4" placeholder="Kullanicinin gorecegi problem tanimi">@Model.Form.Problem</textarea></div>
         <div class="field wide"><label for="Solution">Cozum onerisi</label><textarea id="Solution" name="Solution" rows="5" placeholder="Adim adim cozum onerisi">@Model.Form.Solution</textarea></div>
         <div class="form-actions">
-            @if (isEdit) { <a class="secondary-action" asp-action="FaultGuide">Vazgec</a> }
-            <button class="primary-action" type="submit">@(isEdit ? "Guncelle" : "Yeni rehber ekle")</button>
+            @if (isEdit) { <a class="secondary-action" asp-action="FaultGuide">Vazgeç</a> }
+            <button class="primary-action" type="submit">@(isEdit ? "Güncelle" : "Yeni Rehber Ekle")</button>
         </div>
     </form>
 </section>
@@ -44,8 +44,8 @@
                     <div><dt>Cozum onerisi</dt><dd>@item.Solution</dd></div>
                 </dl>
                 <footer>
-                    <a class="secondary-action" asp-action="FaultGuide" asp-route-editId="@item.Id">Duzenle</a>
-                    <form asp-action="DeleteFaultGuide" asp-route-id="@item.Id" method="post" onsubmit="return confirm('Bu problem rehberi silinsin mi?');">
+                    <a class="secondary-action" asp-action="FaultGuide" asp-route-editId="@item.Id">Düzenle</a>
+                    <form asp-action="DeleteFaultGuide" asp-route-id="@item.Id" method="post" data-confirm="Bu problem rehberi silinsin mi?">
                         <button class="table-action danger" type="submit">Sil</button>
                     </form>
                 </footer>

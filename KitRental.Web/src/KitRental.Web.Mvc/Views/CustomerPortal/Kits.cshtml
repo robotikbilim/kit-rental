@@ -28,12 +28,12 @@
         <p>@Model.CustomerName hesabına ait kitleri arayın, filtreleyin ve yönetin.</p>
     </div>
     <div class="recipe-actions">
-        <a class="secondary-action" asp-action="FindKit">▣ QR ile kit bul</a>
+        <a class="secondary-action" asp-action="FindKit">▣ QR İle Kit Bul</a>
     </div>
 </div>
 
 <section class="portal-kit-list-shell">
-    <form class="portal-kit-filters" asp-action="Kits" method="get">
+    <form class="portal-kit-filters" asp-action="Kits" method="get" data-auto-filter="true">
         <label class="portal-kit-search">
             <span>Kit ara</span>
             <input type="search" name="query" value="@Model.Query" placeholder="Kit adı, seri no, SKU veya sipariş no" />
@@ -73,10 +73,6 @@
                 }
             </select>
         </label>
-        <div class="portal-kit-filter-actions">
-            <button class="primary-action" type="submit">Filtrele</button>
-            <a class="secondary-action" asp-action="Kits">Temizle</a>
-        </div>
     </form>
 
     <div class="portal-kit-result-heading" aria-live="polite">
@@ -91,12 +87,30 @@
     {
         <div class="table-scroll portal-kit-table-wrap">
             <table class="portal-kit-table">
-                <thead><tr><th>Kit</th><th>Seri numarası</th><th>Kiralama dönemi</th><th>Durum</th><th>Arıza</th><th><span class="visually-hidden">İşlemler</span></th></tr></thead>
+                <thead><tr><th>Kit</th><th>Öğrenci</th><th>Seri numarası</th><th>Kiralama dönemi</th><th>Durum</th><th>Arıza</th><th><span class="visually-hidden">İşlemler</span></th></tr></thead>
                 <tbody>
                 @foreach (var kit in Model.Kits)
                 {
                     <tr>
                         <td data-mobile-label="Kit"><div class="table-kit"><img src="@ImageUrl.Kit(kit.ImageUrl)" alt="" /><div><strong>@kit.KitName</strong><small>@kit.KitSku · @kit.OrderNumber</small></div></div></td>
+                        <td data-mobile-label="Öğrenci">
+                            @if (!string.IsNullOrWhiteSpace(kit.AssignedStudentName))
+                            {
+                                <strong>@kit.AssignedStudentName</strong>
+                                @if (!string.IsNullOrWhiteSpace(kit.AssignedStudentGuardianPhone))
+                                {
+                                    <small class="block-muted">@kit.AssignedStudentGuardianPhone</small>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(kit.AssignedStudentPeriodName))
+                                {
+                                    <small class="block-muted">@kit.AssignedStudentPeriodName</small>
+                                }
+                            }
+                            else
+                            {
+                                <span class="portal-no-fault">Öğrenci atanmamış</span>
+                            }
+                        </td>
                         <td data-mobile-label="Seri numarası"><code class="unit-serial">@kit.SerialNumber</code></td>
                         <td data-mobile-label="Kiralama dönemi"><span class="portal-kit-period">@kit.StartDate.ToString("dd.MM.yyyy")<small>@kit.EndDate.ToString("dd.MM.yyyy") tarihine kadar</small></span></td>
                         <td data-mobile-label="Durum"><span class="fleet-status status-@kit.UnitStatus">@UnitStatus(kit.UnitStatus)</span></td>
@@ -104,7 +118,7 @@
                         <td data-mobile-label="İşlemler">
                             @if (kit.AssignmentStatus == 2)
                             {
-                                <div class="portal-table-actions"><a class="row-link" asp-action="Kit" asp-route-id="@kit.ProductUnitId">Detay</a><a class="row-link fault-link" asp-action="NewFault" asp-route-assignmentId="@kit.AssignmentId">Arıza bildir</a></div>
+                                <div class="portal-table-actions"><a class="row-link" asp-action="Kit" asp-route-id="@kit.ProductUnitId">Detay</a><a class="row-link fault-link" asp-action="NewFault" asp-route-assignmentId="@kit.AssignmentId">Arıza Bildir</a></div>
                             }
                         </td>
                     </tr>

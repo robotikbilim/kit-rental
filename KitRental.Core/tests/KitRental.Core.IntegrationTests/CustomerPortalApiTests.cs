@@ -357,6 +357,100 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Contains(overview!.Returns, x => x.Id == created.Id && x.Status == KitReturnStatus.Received);
     }
 
+    [Fact]
+    public async Task CustomerRentalCohort_LocksApprovedStudentList_AndUnlinksStudentKitAfterReturnReceived()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin-cohort@test.local", "SystemAdmin", null));
+        var model = await PostAsync<ProductModelResponse>(admin, "/api/product-models",
+            new CreateProductModelRequest("TACEV Öğrenci Kiti", $"TCK-{Guid.NewGuid():N}"), cancellationToken);
+        var customer = await PostAsync<CustomerResponse>(admin, "/api/customers",
+            new CreateCustomerRequest("TACEV Cohort", $"cohort-{Guid.NewGuid():N}@example.com",
+                new AddressRequest("Merkez", "TACEV", "02120000000", "Bilim Sokak 1", "Kadıköy", "İstanbul", "34000")),
+            cancellationToken);
+        var portal = CreateClient(new TokenUser(Guid.NewGuid(), "tacev-cohort@test.local",
+            "CustomerAccountManager", customer.Id));
+        var cohort = await PostAsync<PortalRentalCohortResponse>(portal, "/api/customer-portal/rental-periods",
+            new RentalCohortRequest("2026 Güz", new DateOnly(2026, 9, 1), new DateOnly(2026, 12, 31)),
+            cancellationToken);
+        var student = await PostAsync<PortalRentalCohortStudentResponse>(portal,
+            $"/api/customer-portal/rental-periods/{cohort.Id}/students",
+            new RentalCohortStudentRequest("Ayşe Yılmaz", "05320000000", "Test Mahallesi 1", model.Id),
+            cancellationToken);
+        var order = await PostAsync<CreatedOrderResponse>(portal,
+            $"/api/customer-portal/rental-periods/{cohort.Id}/order", new { }, cancellationToken);
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+            new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
+        var orderDetail = await admin.GetFromJsonAsync<OrderDetailResponse>(
+            $"/api/orders/{order.Id}/detail", cancellationToken);
+        Assert.Equal(cohort.Id, orderDetail!.RentalCohortId);
+
+        var prepared = await PostAsync<OrderKitPreparationResponse>(admin, $"/api/orders/{order.Id}/kits",
+            new { lines = Array.Empty<OrderLineRequest>(), useAvailableKits = true },
+            cancellationToken);
+
+        var overview = await portal.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
+        var assigned = overview!.RentalCohorts.Single(x => x.Id == cohort.Id).Students.Single(x => x.Id == student.Id);
+        Assert.Equal(prepared.Kits.Single().ProductUnitId, assigned.ProductUnitId);
+        Assert.Equal(prepared.Kits.Single().AssignmentId, assigned.AssignmentId);
+        Assert.True(assigned.HasDeliveryForm);
+        Assert.Equal("Ayşe Yılmaz", assigned.DeliveredTo);
+        Assert.Equal("05320000000", assigned.DeliveryPhone);
+        Assert.Equal("Test Mahallesi 1", assigned.DeliveryAddress);
+        Assert.True(overview.Kits.Single(x => x.AssignmentId == assigned.AssignmentId).HasDeliveryForm);
+
+        var detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
+            $"/api/physical-kits/{prepared.Kits.Single().ProductUnitId}", cancellationToken);
+        Assert.Contains(detail!.ActivityHistory, item =>
+            item.Description.Contains("Ayşe Yılmaz", StringComparison.OrdinalIgnoreCase) &&
+            item.Action.Contains("atandı", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(detail.DeliveryHistory, item =>
+            item.RecipientName == "Ayşe Yılmaz" &&
+            item.Phone == "05320000000" &&
+            item.AddressLine == "Test Mahallesi 1");
+
+        var blockedAdd = await portal.PostAsJsonAsync(
+            $"/api/customer-portal/rental-periods/{cohort.Id}/students",
+            new RentalCohortStudentRequest("Mehmet Yılmaz", "05320000001", "Test Mahallesi 2", model.Id),
+            cancellationToken);
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, blockedAdd.StatusCode);
+
+        var blockedDelete = await portal.DeleteAsync(
+            $"/api/customer-portal/rental-periods/{cohort.Id}/students/{student.Id}", cancellationToken);
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, blockedDelete.StatusCode);
+
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+            new OrderTransitionRequest(RentalOrderStatus.Preparing), cancellationToken);
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+            new OrderTransitionRequest(RentalOrderStatus.OutboundInTransit), cancellationToken);
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+            new OrderTransitionRequest(RentalOrderStatus.Delivered), cancellationToken);
+
+        var returnRequest = await PostAsync<ReturnResponse>(portal,
+            $"/api/customer-portal/rental-periods/{cohort.Id}/students/{student.Id}/return", new { },
+            cancellationToken);
+        Assert.Equal(KitReturnStatus.Requested, returnRequest.Status);
+        await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{returnRequest.Id}/receive", new { },
+            cancellationToken);
+
+        overview = await portal.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
+        var updatedCohort = overview!.RentalCohorts.Single(x => x.Id == cohort.Id);
+        var returnedStudent = Assert.Single(updatedCohort.Students);
+        Assert.Equal("Ayşe Yılmaz", returnedStudent.FullName);
+        Assert.Equal("05320000000", returnedStudent.GuardianPhone);
+        Assert.Null(returnedStudent.AssignmentId);
+        Assert.Null(returnedStudent.ProductUnitId);
+        Assert.Empty(updatedCohort.UnassignedKits);
+
+        var units = await admin.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
+        Assert.Equal(ProductUnitStatus.Available, units!.Single(x => x.Id == prepared.Kits.Single().ProductUnitId).Status);
+
+        detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
+            $"/api/physical-kits/{prepared.Kits.Single().ProductUnitId}", cancellationToken);
+        Assert.Contains(detail!.ActivityHistory, item =>
+            item.Description.Contains("kit ilişkisi kaldırıldı", StringComparison.OrdinalIgnoreCase));
+    }
+
     private sealed record CreatedFaultResponse(Guid Id);
     private sealed record CreatedOrderResponse(Guid Id, OrderType Type);
     private sealed record OrderResponse(Guid Id, RentalOrderStatus Status);

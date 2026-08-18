@@ -1,0 +1,190 @@
+@model RentalCohortsPageViewModel
+@{
+    ViewData["Title"] = "Siparişler";
+    string ApprovalLabel(PortalRentalCohortViewModel cohort) => cohort.OrderStatus switch
+    {
+        null => "Sipariş oluşturulmadı",
+        2 => "Onaylanmamış",
+        14 => "Onaylanmamış",
+        15 => "Onaylanmamış",
+        _ => "Onaylanmış"
+    };
+    string DetailLabel(PortalRentalCohortViewModel cohort) => cohort.OrderStatus switch
+    {
+        null => "Öğrenci listesi hazırlanıyor",
+        2 => "Admin onayı bekliyor",
+        3 => "Admin tarafından onaylandı",
+        4 => "Kit hazırlığı başladı",
+        6 => "Teslimat yolunda",
+        7 or 8 or 13 => "Teslim sürecinde",
+        _ => "Sipariş işlemde"
+    };
+    string StatusClass(PortalRentalCohortViewModel cohort) => cohort.OrderStatus is null ? "status-1" :
+        cohort.OrderStatus is 2 or 14 or 15 ? "status-2" : "status-3";
+    IEnumerable<int?> PaginationPages(int currentPage, int totalPages)
+    {
+        var pages = new SortedSet<int> { 1, totalPages };
+        for (var pageNumber = currentPage - 2; pageNumber <= currentPage + 2; pageNumber++)
+        {
+            if (pageNumber >= 1 && pageNumber <= totalPages) pages.Add(pageNumber);
+        }
+        int? previous = null;
+        foreach (var pageNumber in pages)
+        {
+            if (previous.HasValue && pageNumber - previous.Value > 1) yield return null;
+            yield return pageNumber;
+            previous = pageNumber;
+        }
+    }
+}
+
+<section class="portal-section">
+    <div class="section-heading">
+        <div><span class="eyebrow">@Model.CustomerName</span><h1>Siparişler</h1></div>
+    </div>
+    @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
+    @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
+</section>
+
+<section class="portal-section">
+    <div class="section-heading">
+        <div><span class="eyebrow">SİPARİŞ LİSTESİ</span><h2>Oluşturulan siparişler</h2></div>
+        <div class="rental-period-heading-actions">
+            <b>@Model.TotalCount kayıt</b>
+            <button class="primary-action" type="button" data-dialog-open="rental-period-dialog" data-rental-period-create>Yeni Sipariş Oluştur</button>
+        </div>
+    </div>
+    <form method="get" class="portal-kit-filters rental-period-filters" data-auto-filter="true">
+        <label class="portal-kit-search">
+            <span>Sipariş Dönemi</span>
+            <select name="periodName">
+                <option value="">Tüm Dönemler</option>
+                @foreach (var periodName in Model.PeriodNameOptions)
+                {
+                    <option value="@periodName" selected="@(string.Equals(Model.PeriodName, periodName, StringComparison.CurrentCultureIgnoreCase))">@periodName</option>
+                }
+            </select>
+        </label>
+        <label>
+            <span>Onay Durumu</span>
+            <select name="approvalStatus">
+                <option value="" selected="@(string.IsNullOrWhiteSpace(Model.ApprovalStatus))">Tümü</option>
+                <option value="not-created" selected="@(Model.ApprovalStatus == "not-created")">Sipariş Oluşturulmadı</option>
+                <option value="unapproved" selected="@(Model.ApprovalStatus == "unapproved")">Onaylanmamış</option>
+                <option value="approved" selected="@(Model.ApprovalStatus == "approved")">Onaylanmış</option>
+            </select>
+        </label>
+    </form>
+    <dialog class="student-edit-dialog" id="rental-period-dialog" aria-labelledby="rental-period-dialog-title" data-auto-open="@((!ViewData.ModelState.IsValid).ToString().ToLowerInvariant())">
+        <form class="student-edit-modal" asp-action="SaveRentalPeriod" method="post">
+            <input type="hidden" asp-for="Form.Id" name="Id" />
+            <div asp-validation-summary="All" class="error"></div>
+            <header>
+                <div>
+                    <span class="eyebrow" id="rental-period-dialog-eyebrow">YENİ SİPARİŞ</span>
+                    <h2 id="rental-period-dialog-title">Sipariş dönemi oluştur</h2>
+                </div>
+                <button class="icon-action icon-action-neutral" type="button" data-dialog-close title="Kapat" aria-label="Pencereyi Kapat">
+                    <i data-lucide="x"></i>
+                </button>
+            </header>
+            @if (Model.PeriodNameOptions.Count > 0)
+            {
+                <datalist id="period-name-options">
+                    @foreach (var periodName in Model.PeriodNameOptions)
+                    {
+                        <option value="@periodName"></option>
+                    }
+                </datalist>
+            }
+            <div class="form-grid">
+                <div class="field rental-period-name-field">
+                    <label asp-for="Form.Name">Sipariş dönemine isim verin veya eski dönemlerden seçin</label>
+                    <input asp-for="Form.Name" name="Name" list="period-name-options" placeholder="Örn. 2026 Güz Robotik Dönemi" />
+                </div>
+                <div class="field"><label asp-for="Form.StartDate"></label><input asp-for="Form.StartDate" name="StartDate" type="date" /></div>
+                <div class="field"><label asp-for="Form.EndDate"></label><input asp-for="Form.EndDate" name="EndDate" type="date" /></div>
+            </div>
+            <footer>
+                <button class="secondary-action" type="button" data-dialog-close>Vazgeç</button>
+                <button class="primary-action" type="submit">Kaydet</button>
+            </footer>
+        </form>
+    </dialog>
+    @if (Model.TotalCount == 0)
+    {
+        <div class="empty">@(Model.PeriodName is null && Model.ApprovalStatus is null ? "Henüz sipariş dönemi oluşturulmadı." : "Filtrelerle eşleşen sipariş dönemi bulunamadı.")</div>
+    }
+    else
+    {
+        <div class="table-scroll portal-kit-table-wrap">
+            <table class="portal-kit-table portal-orders-table">
+                <thead>
+                    <tr>
+                        <th>Sipariş dönemi</th>
+                        <th>Oluşturulma Tarihi</th>
+                        <th>Tarih aralığı</th>
+                        <th>Sipariş no</th>
+                        <th>Öğrenci</th>
+                        <th>Atanmış kit</th>
+                        <th>Onay durumu</th>
+                        <th><span class="visually-hidden">İşlemler</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var cohort in Model.Cohorts)
+                {
+                    <tr>
+                        <td data-mobile-label="Sipariş dönemi"><strong>@cohort.Name</strong></td>
+                        <td data-mobile-label="Oluşturulma Tarihi">@cohort.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</td>
+                        <td data-mobile-label="Tarih aralığı"><span class="portal-kit-period">@cohort.StartDate.ToString("dd.MM.yyyy")<small>@cohort.EndDate.ToString("dd.MM.yyyy") tarihine kadar</small></span></td>
+                        <td data-mobile-label="Sipariş no"><span class="@(cohort.OrderNumber is null ? "block-muted" : null)">@(cohort.OrderNumber ?? "Sipariş numarası oluşmadı")</span></td>
+                        <td data-mobile-label="Öğrenci">@cohort.StudentCount</td>
+                        <td data-mobile-label="Atanmış kit">@cohort.AssignedKitCount</td>
+                        <td data-mobile-label="Onay durumu"><span class="fault-stage @StatusClass(cohort)">@ApprovalLabel(cohort)</span><small class="block-muted">@DetailLabel(cohort)</small></td>
+                        <td data-mobile-label="İşlemler">
+                            <div class="portal-table-actions portal-order-actions">
+                                <a class="table-action" asp-action="RentalPeriod" asp-route-id="@cohort.Id">@(cohort.StudentCount == 0 ? "Öğrenci Listesi Oluştur" : "Öğrenci Listesi")</a>
+                                @if (!cohort.IsApproved)
+                                {
+                                    <button class="table-action" type="button" data-dialog-open="rental-period-dialog"
+                                        data-rental-period-edit
+                                        data-rental-period-id="@cohort.Id"
+                                        data-rental-period-name="@cohort.Name"
+                                        data-rental-period-start="@cohort.StartDate.ToString("yyyy-MM-dd")"
+                                        data-rental-period-end="@cohort.EndDate.ToString("yyyy-MM-dd")">Düzenle</button>
+                                    <form asp-action="DeleteRentalPeriod" asp-route-id="@cohort.Id" method="post" class="inline-form"
+                                        data-confirm="Bu siparişi ve bağlı onaylanmamış sipariş kaydını silmek istediğinize emin misiniz?">
+                                        <button class="table-action danger" type="submit">Sil</button>
+                                    </form>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <footer class="pagination-shell portal-kit-pagination">
+            <span>@Model.FirstItem-@Model.LastItem / @Model.TotalCount kayıt</span>
+            @if (Model.TotalPages > 1)
+            {
+                <nav class="pagination" aria-label="Sipariş dönemi sayfaları">
+                    <a class="@(Model.Page == 1 ? "disabled" : null)" aria-disabled="@(Model.Page == 1 ? "true" : null)" aria-label="Önceki sayfa" asp-action="RentalPeriods" asp-route-periodName="@Model.PeriodName" asp-route-approvalStatus="@Model.ApprovalStatus" asp-route-page="@(Model.Page - 1)">&lsaquo;</a>
+                    @foreach (var paginationPage in PaginationPages(Model.Page, Model.TotalPages))
+                    {
+                        if (paginationPage.HasValue)
+                        {
+                            <a class="@(paginationPage == Model.Page ? "active" : null)" aria-current="@(paginationPage == Model.Page ? "page" : null)" asp-action="RentalPeriods" asp-route-periodName="@Model.PeriodName" asp-route-approvalStatus="@Model.ApprovalStatus" asp-route-page="@paginationPage">@paginationPage</a>
+                        }
+                        else
+                        {
+                            <span class="pagination-ellipsis" aria-hidden="true">...</span>
+                        }
+                    }
+                    <a class="@(Model.Page == Model.TotalPages ? "disabled" : null)" aria-disabled="@(Model.Page == Model.TotalPages ? "true" : null)" aria-label="Sonraki sayfa" asp-action="RentalPeriods" asp-route-periodName="@Model.PeriodName" asp-route-approvalStatus="@Model.ApprovalStatus" asp-route-page="@(Model.Page + 1)">&rsaquo;</a>
+                </nav>
+            }
+        </footer>
+    }
+</section>

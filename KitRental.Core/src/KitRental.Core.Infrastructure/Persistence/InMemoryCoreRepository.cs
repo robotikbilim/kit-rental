@@ -19,9 +19,11 @@ public sealed class InMemoryCoreRepository : ICoreRepository
     private readonly object _gate = new();
     private readonly Dictionary<Guid, ProductModel> _models = [];
     private readonly Dictionary<Guid, ProductUnit> _units = [];
+    private readonly Dictionary<Guid, ProductUnitActivity> _productUnitActivities = [];
     private readonly List<RentalAssignment> _assignments = [];
     private readonly Dictionary<Guid, Customer> _customers = [];
     private readonly Dictionary<Guid, RentalOrder> _orders = [];
+    private readonly Dictionary<Guid, RentalCohort> _rentalCohorts = [];
     private readonly Dictionary<Guid, Shipment> _shipments = [];
     private readonly Dictionary<Guid, KitLocationEvent> _kitLocationEvents = [];
     private readonly Dictionary<Guid, FaultTicket> _faultTickets = [];
@@ -118,6 +120,25 @@ public sealed class InMemoryCoreRepository : ICoreRepository
     {
         lock (_gate) _units.Remove(unit.Id);
         return Task.CompletedTask;
+    }
+
+    public Task AddProductUnitActivityAsync(ProductUnitActivity activity, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) _productUnitActivities.Add(activity.Id, activity);
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyCollection<ProductUnitActivity>> GetProductUnitActivitiesAsync(Guid productUnitId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+            return Task.FromResult<IReadOnlyCollection<ProductUnitActivity>>(_productUnitActivities.Values
+                .Where(item => item.ProductUnitId == productUnitId)
+                .OrderBy(item => item.OccurredAt)
+                .ThenBy(item => item.Id)
+                .ToArray());
     }
 
     public Task RemoveProductUnitWithStockRestorationAsync(ProductUnit unit,
@@ -241,6 +262,13 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         }
     }
 
+    public Task RemoveOrderAsync(RentalOrder order, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) _orders.Remove(order.Id);
+        return Task.CompletedTask;
+    }
+
     public Task<RentalAssignment?> GetRentalAssignmentAsync(Guid id, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -266,6 +294,38 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         lock (_gate) return Task.FromResult<IReadOnlyCollection<RentalAssignment>>(
             _assignments.Where(item => item.ProductUnitId == productUnitId)
                 .OrderByDescending(item => item.CreatedAt).ToArray());
+    }
+
+    public Task AddRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) _rentalCohorts.Add(cohort.Id, cohort);
+        return Task.CompletedTask;
+    }
+
+    public Task<RentalCohort?> GetRentalCohortAsync(Guid id, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult(_rentalCohorts.GetValueOrDefault(id));
+    }
+
+    public Task<IReadOnlyCollection<RentalCohort>> GetRentalCohortsAsync(Guid? customerId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+            return Task.FromResult<IReadOnlyCollection<RentalCohort>>(_rentalCohorts.Values
+                .Where(item => !customerId.HasValue || item.CustomerId == customerId.Value)
+                .OrderByDescending(item => item.StartDate)
+                .ThenBy(item => item.Name)
+                .ToArray());
+    }
+
+    public Task RemoveRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) _rentalCohorts.Remove(cohort.Id);
+        return Task.CompletedTask;
     }
 
     public Task AddShipmentAsync(Shipment shipment, CancellationToken cancellationToken)

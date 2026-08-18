@@ -22,12 +22,12 @@
             <div class="field"><label asp-for="District"></label><select asp-for="District" data-selected="@Model.District"></select><span asp-validation-for="District" class="error"></span></div>
             <div class="field"><label asp-for="ReporterAddress"></label><textarea asp-for="ReporterAddress" rows="3" autocomplete="street-address" placeholder="Kitin bulundugu acik adresi yazin."></textarea><span asp-validation-for="ReporterAddress" class="error"></span></div>
             <div class="public-location-box">
-                <button class="secondary-action" id="use-location" type="button">Konumumu bul</button>
+                <button class="secondary-action" id="use-location" type="button">Konumumu Bul</button>
                 <div id="public-location-map" class="public-location-map"></div>
                 <span id="location-status">Konumumu bul ile pimi yakin noktaya getirin veya haritadan secin. Adres, il ve ilce otomatik doldurulur.</span>
             </div>
             <div class="field"><label asp-for="Description"></label><textarea asp-for="Description" rows="6" placeholder="Sorunun ne zaman ve nasil olustugunu kisaca anlatin."></textarea><span asp-validation-for="Description" class="error"></span></div>
-            <button class="primary-action" type="submit">Ariza kaydini gonder</button>
+            <button class="primary-action" type="submit">Arıza Kaydını Gönder</button>
         </form>
     </section>
 </div>

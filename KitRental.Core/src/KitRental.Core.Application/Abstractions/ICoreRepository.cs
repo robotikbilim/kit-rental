@@ -23,6 +23,9 @@ public interface ICoreRepository
     Task<ProductUnit?> GetProductUnitAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<ProductUnit>> GetProductUnitsAsync(CancellationToken cancellationToken);
     Task RemoveProductUnitAsync(ProductUnit unit, CancellationToken cancellationToken);
+    Task AddProductUnitActivityAsync(ProductUnitActivity activity, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<ProductUnitActivity>> GetProductUnitActivitiesAsync(Guid productUnitId,
+        CancellationToken cancellationToken);
     Task RemoveProductUnitWithStockRestorationAsync(ProductUnit unit,
         IReadOnlyCollection<StockMovement> movements, AuditEntry auditEntry,
         CancellationToken cancellationToken);
@@ -39,9 +42,14 @@ public interface ICoreRepository
     Task<RentalOrder?> GetOrderAsync(Guid id, CancellationToken cancellationToken);
     Task<RentalOrder?> FindOrderByLineIdAsync(Guid lineId, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<RentalOrder>> GetOrdersAsync(Guid? customerId, CancellationToken cancellationToken);
+    Task RemoveOrderAsync(RentalOrder order, CancellationToken cancellationToken);
     Task<RentalAssignment?> GetRentalAssignmentAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<RentalAssignment>> GetAssignmentsForOrderAsync(Guid orderId, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<RentalAssignment>> GetAssignmentsForProductUnitAsync(Guid productUnitId, CancellationToken cancellationToken);
+    Task AddRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken);
+    Task<RentalCohort?> GetRentalCohortAsync(Guid id, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<RentalCohort>> GetRentalCohortsAsync(Guid? customerId, CancellationToken cancellationToken);
+    Task RemoveRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken);
     Task AddShipmentAsync(Shipment shipment, CancellationToken cancellationToken);
     Task<Shipment?> GetShipmentAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<Shipment>> GetShipmentsAsync(Guid orderId, CancellationToken cancellationToken);

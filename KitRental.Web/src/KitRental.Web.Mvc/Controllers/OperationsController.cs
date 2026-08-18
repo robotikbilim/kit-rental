@@ -236,7 +236,11 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
                 ProductModelId = line.ProductModelId,
                 Quantity = line.Quantity
             }).ToList(),
-            ProductModels = await apiClient.GetProductModelsAsync(cancellationToken)
+            ProductModels = await apiClient.GetProductModelsAsync(cancellationToken),
+            RentalCohortId = order.RentalCohortId,
+            RentalCohorts = order.Type == 1
+                ? await apiClient.GetCustomerRentalCohortsAsync(order.CustomerId, cancellationToken)
+                : []
         });
     }
 
@@ -250,7 +254,7 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         if (ModelState.IsValid)
         {
             var result = await apiClient.CreateOrderKitsAsync(
-                model.OrderId, model.Lines, model.UseAvailableKits, cancellationToken);
+                model.OrderId, model.Lines, model.UseAvailableKits, model.RentalCohortId, cancellationToken);
             if (result.IsSuccess)
             {
                 var data = result.Data!;
@@ -265,6 +269,9 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         model.OrderNumber = order?.OrderNumber ?? model.OrderNumber;
         model.CustomerName = order?.CustomerName ?? model.CustomerName;
         model.ProductModels = await apiClient.GetProductModelsAsync(cancellationToken);
+        model.RentalCohorts = order is not null && order.Type == 1
+            ? await apiClient.GetCustomerRentalCohortsAsync(order.CustomerId, cancellationToken)
+            : [];
         return View(model);
     }
 

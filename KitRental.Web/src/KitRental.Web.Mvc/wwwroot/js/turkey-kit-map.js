@@ -93,7 +93,7 @@
         const activeModels = new Set(modelFilterInputs.filter(input => input.checked).map(input => input.value));
         const serialQuery = (serialFilterInput?.value || "").trim().toLocaleLowerCase("tr-TR");
         const visibleMarkers = markers.filter(entry =>
-            activeFilters.has(entry.status) &&
+            (filterInputs.length === 0 || activeFilters.has(entry.status)) &&
             (modelFilterInputs.length === 0 || activeModels.has(entry.productModelId)) &&
             (!serialQuery || String(entry.item.serialNumber || "").toLocaleLowerCase("tr-TR").includes(serialQuery)));
         visibleMarkers.forEach(entry => clusters.addLayer(entry.marker));

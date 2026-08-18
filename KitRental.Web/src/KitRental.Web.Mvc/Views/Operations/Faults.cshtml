@@ -27,14 +27,13 @@
 @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 
-<form method="get" class="fault-filter-form">
+<form method="get" class="fault-filter-form" data-auto-filter="true">
     <div class="field fault-search"><label for="Query">Kayıt, kişi, telefon veya neden</label><input id="Query" name="Query" value="@Model.Filter.Query" placeholder="Hızlı ara..." /></div>
     <div class="field"><label for="Status">Durum</label><select id="Status" name="Status"><option value="">Tüm durumlar</option>@foreach (var status in new[] { 1, 2, 5, 7, 6, 8, 3, 4 }) { <option value="@status" selected="@(Model.Filter.Status == status)">@StatusName(status)</option> }</select></div>
     <div class="field"><label for="Severity">Önem</label><select id="Severity" name="Severity"><option value="">Tüm önem seviyeleri</option>@for (var severity = 1; severity <= 4; severity++) { <option value="@severity" selected="@(Model.Filter.Severity == severity)">@SeverityName(severity)</option> }</select></div>
     <div class="field"><label for="OpenedFrom">Başlangıç</label><input id="OpenedFrom" name="OpenedFrom" type="date" value="@Model.Filter.OpenedFrom?.ToString("yyyy-MM-dd")" /></div>
     <div class="field"><label for="OpenedTo">Bitiş</label><input id="OpenedTo" name="OpenedTo" type="date" value="@Model.Filter.OpenedTo?.ToString("yyyy-MM-dd")" /></div>
     <div class="field"><label for="PageSize">Sayfa boyutu</label><select id="PageSize" name="PageSize">@foreach (var size in new[] { 10, 20, 50, 100 }) { <option value="@size" selected="@(Model.Filter.PageSize == size)">@size</option> }</select></div>
-    <div class="fault-filter-actions"><a class="secondary-action" asp-action="Faults">Temizle</a><button class="primary-action" type="submit">Filtrele</button></div>
 </form>
 <div asp-validation-summary="All" class="error"></div>
 

@@ -5,7 +5,7 @@
     var firstItem = Model.Result.TotalCount == 0 ? 0 : (Model.Result.Page - 1) * Model.Result.PageSize + 1;
     var lastItem = Math.Min(Model.Result.Page * Model.Result.PageSize, Model.Result.TotalCount);
 }
-<div class="page-heading"><div><span class="eyebrow">FİZİKSEL TAKİP</span><h1>Envanter</h1><p class="block-muted">Fiziksel kitleri, kaynak eğitim setlerini ve güncel durumlarını takip edin.</p></div><a class="primary-action" asp-controller="PhysicalKits" asp-action="Create">+ Fiziksel kit oluştur</a></div>
+<div class="page-heading"><div><span class="eyebrow">FİZİKSEL TAKİP</span><h1>Envanter</h1><p class="block-muted">Fiziksel kitleri, kaynak eğitim setlerini ve güncel durumlarını takip edin.</p></div><a class="primary-action" asp-controller="PhysicalKits" asp-action="Create">+ Fiziksel Kit Oluştur</a></div>
 
 <nav class="inventory-quick-filters" aria-label="Hızlı durum filtreleri">
     <a class="@(!Model.Filter.Status.HasValue ? "active" : null)" asp-action="Inventory" asp-route-query="@Model.Filter.Query" asp-route-productModelId="@Model.Filter.ProductModelId" asp-route-createdFrom="@Model.Filter.CreatedFrom" asp-route-createdTo="@Model.Filter.CreatedTo" asp-route-pageSize="@Model.Filter.PageSize">Tümü</a>
@@ -14,14 +14,13 @@
     <a class="@(Model.Filter.Status == 8 ? "active" : null)" asp-action="Inventory" asp-route-status="8" asp-route-query="@Model.Filter.Query" asp-route-productModelId="@Model.Filter.ProductModelId" asp-route-createdFrom="@Model.Filter.CreatedFrom" asp-route-createdTo="@Model.Filter.CreatedTo" asp-route-pageSize="@Model.Filter.PageSize">Bakımda</a>
 </nav>
 
-<form method="get" class="inventory-filter-form">
+<form method="get" class="inventory-filter-form" data-auto-filter="true">
     <div class="field inventory-search"><label for="Query">Seri no, QR veya eğitim kiti</label><input id="Query" name="Query" value="@Model.Filter.Query" placeholder="Hızlı ara..." /></div>
     <div class="field"><label for="ProductModelId">Eğitim kiti</label><select id="ProductModelId" name="ProductModelId"><option value="">Tüm eğitim kitleri</option>@foreach (var kit in Model.ProductModels) { <option value="@kit.Id" selected="@(Model.Filter.ProductModelId == kit.Id)">@kit.Name (@kit.Sku)</option> }</select></div>
     <div class="field"><label for="Status">Durum</label><select id="Status" name="Status"><option value="">Tüm durumlar</option>@for (var status = 1; status <= 11; status++) { <option value="@status" selected="@(Model.Filter.Status == status)">@StatusName(status)</option> }</select></div>
     <div class="field"><label for="CreatedFrom">Oluşturulma başlangıcı</label><input id="CreatedFrom" name="CreatedFrom" type="date" value="@Model.Filter.CreatedFrom?.ToString("yyyy-MM-dd")" /></div>
     <div class="field"><label for="CreatedTo">Oluşturulma bitişi</label><input id="CreatedTo" name="CreatedTo" type="date" value="@Model.Filter.CreatedTo?.ToString("yyyy-MM-dd")" /></div>
     <div class="field inventory-page-size"><label for="PageSize">Sayfa boyutu</label><select id="PageSize" name="PageSize">@foreach (var size in new[] { 10, 20, 50, 100 }) { <option value="@size" selected="@(Model.Filter.PageSize == size)">@size</option> }</select></div>
-    <div class="inventory-filter-actions"><a class="secondary-action" asp-action="Inventory">Temizle</a><button class="primary-action" type="submit">Filtrele</button></div>
 </form>
 <div asp-validation-summary="All" class="error"></div>
 

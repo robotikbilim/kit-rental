@@ -61,7 +61,7 @@
 }
 <div class="page-heading"><div><span class="eyebrow">YÖNETİM &amp; GÜVENLİK</span><h1>İşlem Geçmişi</h1>
 <p class="block-muted">Yönetici ve müşteri hareketlerini kullanıcı, işlem tipi ve tarihe göre inceleyin.</p></div></div>
-<form method="get" class="fault-filter-form audit-filter">
+<form method="get" class="fault-filter-form audit-filter" data-auto-filter="true">
     <div class="field"><label for="Action">İşlem tipi</label><select id="Action" name="Action"><option value="">Tüm işlemler</option>
     @foreach (var action in actions) { <option value="@action" selected="@(Model.Filter.Action == action)">@ActionName(action)</option> }</select></div>
     <div class="field audit-user-filter"><label for="ActorId">Kullanıcı</label><select id="ActorId" name="ActorId"><option value="">Tüm kullanıcılar</option>
@@ -69,7 +69,6 @@
     <div class="field"><label for="OccurredFrom">Başlangıç</label><input id="OccurredFrom" name="OccurredFrom" type="date" value="@Model.Filter.OccurredFrom?.ToString("yyyy-MM-dd")" /></div>
     <div class="field"><label for="OccurredTo">Bitiş</label><input id="OccurredTo" name="OccurredTo" type="date" value="@Model.Filter.OccurredTo?.ToString("yyyy-MM-dd")" /></div>
     <div class="field"><label for="PageSize">Sayfa boyutu</label><select id="PageSize" name="PageSize">@foreach (var size in new[] { 10, 25, 50, 100 }) { <option value="@size" selected="@(Model.Filter.PageSize == size)">@size</option> }</select></div>
-    <div class="fault-filter-actions"><a class="secondary-action" asp-action="Audit">Temizle</a><button class="primary-action" type="submit">Filtrele</button></div>
 </form>
 <div asp-validation-summary="All" class="error"></div>
 @if (Model.Items.Count == 0) { <div class="empty">Filtrelere uygun işlem kaydı bulunamadı.</div> }
