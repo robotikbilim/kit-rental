@@ -79,7 +79,9 @@ public sealed record DashboardKitLocationViewModel(Guid ProductUnitId, Guid Prod
     int Status, double? Latitude = null, double? Longitude = null, string LocationCategory = "active");
 public sealed record ProductUnitViewModel(Guid Id, Guid ProductModelId, string SerialNumber, string QrCode, int Status);
 public sealed record InventoryItemViewModel(Guid Id, Guid ProductModelId, string ProductModelName,
-    string ProductModelSku, string SerialNumber, string QrCode, int Status, DateTimeOffset CreatedAt);
+    string ProductModelSku, string SerialNumber, string QrCode, int Status, DateTimeOffset CreatedAt,
+    string? CustomerName = null, string? OrderNumber = null, DateOnly? RentalEndDate = null,
+    int? DaysRemaining = null);
 public sealed record InventoryPageViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<InventoryItemViewModel> Items);
 public sealed class InventoryFilterViewModel
@@ -89,6 +91,7 @@ public sealed class InventoryFilterViewModel
     public int? Status { get; set; }
     [DataType(DataType.Date)] public DateOnly? CreatedFrom { get; set; }
     [DataType(DataType.Date)] public DateOnly? CreatedTo { get; set; }
+    public string? RentalExpiry { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 20;
 }

@@ -2,6 +2,7 @@ using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Application.Common;
 using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Inventory;
+using KitRental.Core.Domain.Rentals;
 using KitRental.SharedKernel;
 
 namespace KitRental.Core.Application.Inventory;
@@ -136,10 +137,12 @@ public sealed class InventoryService(
         (await repository.GetProductUnitsAsync(cancellationToken)).Select(Map).ToArray();
 
     public async Task<InventoryPageResponse> GetInventoryAsync(string? query, Guid? productModelId,
-        ProductUnitStatus? status, DateOnly? createdFrom, DateOnly? createdTo, int page, int pageSize,
+        ProductUnitStatus? status, DateOnly? createdFrom, DateOnly? createdTo, string? rentalExpiry, int page, int pageSize,
         CancellationToken cancellationToken)
     {
         var models = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(item => item.Id);
+        var rentalInfo = await GetActiveRentalInfoByUnitAsync(cancellationToken);
+        var expiryFilter = rentalExpiry?.Trim().ToLowerInvariant();
         var normalizedQuery = query?.Trim() ?? string.Empty;
         var items = (await repository.GetProductUnitsAsync(cancellationToken))
             .Where(unit => models.ContainsKey(unit.ProductModelId))
@@ -148,11 +151,19 @@ public sealed class InventoryService(
                 var model = models[unit.ProductModelId];
                 var createdAt = unit.History.OrderBy(item => item.OccurredAt).FirstOrDefault()?.OccurredAt
                     ?? DateTimeOffset.MinValue;
+                rentalInfo.TryGetValue(unit.Id, out var rental);
                 return new InventoryItemResponse(unit.Id, unit.ProductModelId, model.Name, model.Sku,
-                    unit.SerialNumber, unit.QrCode, unit.Status, createdAt);
+                    unit.SerialNumber, unit.QrCode, unit.Status, createdAt,
+                    rental?.CustomerName, rental?.OrderNumber, rental?.EndDate, rental?.DaysRemaining);
             })
             .Where(item => !productModelId.HasValue || item.ProductModelId == productModelId.Value)
             .Where(item => !status.HasValue || item.Status == status.Value)
+            .Where(item => expiryFilter switch
+            {
+                "expired" => item.DaysRemaining.HasValue && item.DaysRemaining.Value < 0,
+                "upcoming" => item.DaysRemaining.HasValue && item.DaysRemaining.Value is >= 0 and <= 7,
+                _ => true
+            })
             .Where(item => normalizedQuery.Length == 0 ||
                 item.SerialNumber.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
                 item.QrCode.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
@@ -170,6 +181,33 @@ public sealed class InventoryService(
         return new InventoryPageResponse(validPage, validPageSize, items.Length, totalPages,
             items.Skip((validPage - 1) * validPageSize).Take(validPageSize).ToArray());
     }
+
+    private async Task<IReadOnlyDictionary<Guid, ActiveRentalInfo>> GetActiveRentalInfoByUnitAsync(
+        CancellationToken cancellationToken)
+    {
+        var customers = (await repository.GetCustomersAsync(cancellationToken)).ToDictionary(customer => customer.Id);
+        var orders = await repository.GetOrdersAsync(null, cancellationToken);
+        var today = timeProvider.GetTurkeyToday();
+        var result = new Dictionary<Guid, ActiveRentalInfo>();
+        foreach (var order in orders)
+        {
+            foreach (var assignment in await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken))
+            {
+                if (assignment.Status != RentalAssignmentStatus.Active)
+                    continue;
+                var daysRemaining = assignment.Period.EndDate.DayNumber - today.DayNumber;
+                result[assignment.ProductUnitId] = new ActiveRentalInfo(
+                    customers.TryGetValue(assignment.CustomerId, out var customer) ? customer.Name : "Müşteri",
+                    order.OrderNumber,
+                    assignment.Period.EndDate,
+                    daysRemaining);
+            }
+        }
+
+        return result;
+    }
+
+    private sealed record ActiveRentalInfo(string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
 
     public async Task<ProductUnitResponse> UpdateUnitAsync(UpdateProductUnitCommand command, CancellationToken cancellationToken)
     {

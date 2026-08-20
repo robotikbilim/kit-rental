@@ -20,7 +20,8 @@ public sealed record ProductUnitResponse(
 
 public sealed record InventoryItemResponse(Guid Id, Guid ProductModelId, string ProductModelName,
     string ProductModelSku, string SerialNumber, string QrCode, ProductUnitStatus Status,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt, string? CustomerName = null, string? OrderNumber = null,
+    DateOnly? RentalEndDate = null, int? DaysRemaining = null);
 
 public sealed record InventoryPageResponse(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<InventoryItemResponse> Items);

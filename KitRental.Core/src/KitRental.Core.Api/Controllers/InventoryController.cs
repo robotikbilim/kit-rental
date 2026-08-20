@@ -80,10 +80,10 @@ public sealed class InventoryController : CoreApiControllerBase
 
     [Authorize]
     [HttpGet("inventory")]
-    public async Task<IActionResult> Get_Inventory_33(string? query, Guid? productModelId, ProductUnitStatus? status, DateOnly? createdFrom, DateOnly? createdTo, int? page, int? pageSize, [FromServices] InventoryService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> Get_Inventory_33(string? query, Guid? productModelId, ProductUnitStatus? status, DateOnly? createdFrom, DateOnly? createdTo, string? rentalExpiry, int? page, int? pageSize, [FromServices] InventoryService service, CancellationToken cancellationToken)
     {
         return Ok(await service.GetInventoryAsync(query, productModelId,
-                status, createdFrom, createdTo, page ?? 1, pageSize ?? 20, cancellationToken));
+                status, createdFrom, createdTo, rentalExpiry, page ?? 1, pageSize ?? 20, cancellationToken));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff")]

@@ -11,6 +11,12 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     public async Task<IActionResult> Dashboard(CancellationToken cancellationToken) =>
         View(await apiClient.GetDashboardAsync(cancellationToken));
 
+    public async Task<IActionResult> Returns(CancellationToken cancellationToken)
+    {
+        var dashboard = await apiClient.GetDashboardAsync(cancellationToken);
+        return View(dashboard?.ReturnsInProgress ?? []);
+    }
+
     [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]
     public async Task<IActionResult> EmailHistory(CancellationToken cancellationToken) =>
         View(await apiClient.GetEmailDeliveriesAsync(cancellationToken));
@@ -41,18 +47,22 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> ReceiveReturn(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> ReceiveReturn(Guid id, bool returnToReturns = false,
+        CancellationToken cancellationToken = default)
     {
         var result = await apiClient.ReceiveKitReturnAsync(id, cancellationToken);
         TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
             ? "İade teslim alındı; kitler yeniden kullanılabilir stoka eklendi."
             : result.Error ?? "İade teslim alınamadı.";
-        return RedirectToAction(nameof(Dashboard));
+        return RedirectToAction(returnToReturns ? nameof(Returns) : nameof(Dashboard));
     }
 
     public async Task<IActionResult> Inventory([FromQuery] InventoryFilterViewModel filter,
         CancellationToken cancellationToken)
     {
+        filter.RentalExpiry = filter.RentalExpiry?.Trim().ToLowerInvariant();
+        if (filter.RentalExpiry is not ("expired" or "upcoming"))
+            filter.RentalExpiry = null;
         if (filter.CreatedFrom.HasValue && filter.CreatedTo.HasValue && filter.CreatedFrom > filter.CreatedTo)
         {
             ModelState.AddModelError(nameof(filter.CreatedTo), "Bitiş tarihi başlangıç tarihinden önce olamaz.");

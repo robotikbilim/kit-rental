@@ -178,8 +178,8 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         {
             allowed.ToTable("CustomerAllowedProductModels");
             allowed.WithOwner().HasForeignKey("CustomerId");
-            allowed.Property<Guid>("Id").ValueGeneratedNever();
-            allowed.HasKey("Id");
+            allowed.Property(item => item.Id).ValueGeneratedNever();
+            allowed.HasKey(item => item.Id);
             allowed.Property(item => item.ProductModelId).IsRequired();
             allowed.HasIndex("CustomerId", nameof(CustomerAllowedProductModel.ProductModelId)).IsUnique();
             allowed.HasOne<ProductModel>().WithMany().HasForeignKey(item => item.ProductModelId)

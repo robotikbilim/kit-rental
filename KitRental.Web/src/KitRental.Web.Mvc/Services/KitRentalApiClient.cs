@@ -39,6 +39,8 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             parameters.Add($"createdFrom={filter.CreatedFrom.Value:yyyy-MM-dd}");
         if (filter.CreatedTo.HasValue)
             parameters.Add($"createdTo={filter.CreatedTo.Value:yyyy-MM-dd}");
+        if (!string.IsNullOrWhiteSpace(filter.RentalExpiry))
+            parameters.Add($"rentalExpiry={Uri.EscapeDataString(filter.RentalExpiry.Trim())}");
         return GetAsync<InventoryPageViewModel>($"/core/api/inventory?{string.Join('&', parameters)}", cancellationToken);
     }
 

@@ -82,6 +82,7 @@ Customers and orders:
 
 - Main domain: `Customer`, `Address`, `AddressSnapshot`, `RentalOrder`.
 - Order delivery address is a snapshot. Later customer address edits do not rewrite old orders.
+- Customer allowed product model rows use client-generated `CustomerAllowedProductModel.Id` values so replacing the allowed-kit list in the admin customer edit flow does not create EF owned-entity tracking key collisions.
 - Main service: `OperationsService`.
 
 Rentals:
@@ -168,6 +169,10 @@ Rules:
 - Public QR fault, delivery, and return forms now collect Turkey il/ilce with dropdowns backed by a bundled city-district dataset. Reopening the forms refills the last saved city, district, address, and any stored coordinates from the latest kit location context.
 - Dashboard and portal maps read latest location events, with order delivery address as fallback for old kits with no event.
 - Physical kit detail uses assignment-specific latest location for rental history, and product-unit latest location for current location.
+- Operations dashboard rental expiry cards show only counts; clicking expired or upcoming counts opens the inventory list filtered by `rentalExpiry=expired` or `rentalExpiry=upcoming`.
+- Inventory supports a rental-expiry filter for active customer rentals and shows customer, order number, rental end date, and remaining/overdue days when rental information is present.
+- Operations dashboard no longer renders the return-delivery table inline; the `Gelen Teslimat` attention card opens `Operations/Returns`, which lists active kit return requests and allows receiving them.
+- Operations dashboard renders the kit location map as the final dashboard group after the summary/card sections.
 
 Migration status:
 
@@ -233,11 +238,12 @@ Map location response rows include `ProductModelId`, `KitSku`, `Status`, and `Lo
 - `expired`: an active assignment is past its end date and still has no return request, matching the expired cards.
 - `active`: all other active rental assignment map rows.
 
-Operations dashboard and customer portal map filters are powered by `turkey-kit-map.js`.
-Both screens expose status checkboxes for faulty, return-process, expired, and active kits; a serial-number search; and product-model checkboxes that are selected by default.
+Customer portal map filters are powered by `turkey-kit-map.js`.
+The customer portal map exposes status checkboxes for faulty, return-process, expired, and active kits; a serial-number search; and product-model checkboxes that are selected by default.
+The operations dashboard kit location map intentionally has no visible filters and shows every kit with coordinates.
 Product-model filter labels show the education set/product model name (`KitName`), not the stock code/SKU.
 Filter counts are calculated from all active rental map rows, not just rows with coordinates.
-Rows without latitude/longitude are not rendered as markers and are shown as a small "missing location" count below the filters.
+Rows without latitude/longitude are not rendered as markers and are shown as a small "missing location" count near the map.
 Dashboard and customer portal map side summaries list all cities, ordered by kit count, instead of truncating to a top subset.
 Dashboard and customer portal map canvases use a fixed desktop height, and the side city summary uses the same desktop height as the map canvas while scrolling independently when all cities do not fit.
 Turkey map overview starts closer in its default state and uses tight initial fit-to-markers padding.

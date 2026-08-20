@@ -1,0 +1,83 @@
+@model IReadOnlyCollection<DashboardReturnViewModel>
+@{
+    ViewData["Title"] = "Gelen Teslimat";
+}
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">MÜŞTERİ İADELERİ</span>
+        <h1>Gelen Teslimat</h1>
+        <p class="block-muted">İade talebi oluşturulmuş ve teslim alma süreci tamamlanmamış kitleri takip edin.</p>
+    </div>
+    <a class="secondary-action" asp-action="Dashboard">Genel Bakışa Dön</a>
+</div>
+
+@if (TempData["Success"] is string success) { <div class="alert success">@success</div> }
+@if (TempData["Error"] is string error) { <div class="alert error">@error</div> }
+
+@if (Model.Count == 0)
+{
+    <div class="empty">İade talebi oluşturulmuş aktif kit bulunmuyor.</div>
+}
+else
+{
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Müşteri</th>
+                    <th>Talep Eden</th>
+                    <th>Kit Sayısı</th>
+                    <th>Durum</th>
+                    <th>Konum</th>
+                    <th>Kargo</th>
+                    <th>Başlatılma</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var item in Model)
+            {
+                var requester = item.RequesterName;
+                var mapUrl = item.Latitude.HasValue && item.Longitude.HasValue
+                    ? $"https://www.google.com/maps?q={item.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)},{item.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+                    : null;
+                <tr>
+                    <td>@item.CustomerName</td>
+                    <td>
+                        @(string.IsNullOrWhiteSpace(requester) ? "-" : requester)
+                        @if (!string.IsNullOrWhiteSpace(item.RequesterPhone))
+                        {
+                            <a class="fault-phone" href="tel:@item.RequesterPhone">@item.RequesterPhone</a>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(item.ReturnAddress))
+                        {
+                            <small class="block-muted">@item.ReturnAddress</small>
+                        }
+                    </td>
+                    <td>@item.KitCount</td>
+                    <td>@(item.Status == 1 ? "İade Talebi Alındı" : "İade Yolda")</td>
+                    <td>
+                        @if (mapUrl is null)
+                        {
+                            <span>-</span>
+                        }
+                        else
+                        {
+                            <a class="table-action" href="@mapUrl" target="_blank" rel="noopener">Haritada Aç</a>
+                        }
+                    </td>
+                    <td>@(item.Carrier is null ? "-" : $"{item.Carrier} / {item.TrackingNumber}")</td>
+                    <td>@item.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</td>
+                    <td>
+                        <form asp-action="ReceiveReturn" asp-route-id="@item.Id" method="post" data-confirm="Bu iadeyi teslim alıp kiti yeniden kiralanabilir stoğa almak istiyor musunuz?">
+                            <input type="hidden" name="returnToReturns" value="true" />
+                            <button class="btn btn-primary" type="submit">İadeyi Kabul Et</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

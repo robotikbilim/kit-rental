@@ -20,7 +20,13 @@ public sealed record AddressSnapshot(
     string City,
     string PostalCode);
 
-public sealed record CustomerAllowedProductModel(Guid ProductModelId);
+public sealed record CustomerAllowedProductModel(Guid Id, Guid ProductModelId)
+{
+    public CustomerAllowedProductModel(Guid productModelId)
+        : this(Guid.NewGuid(), productModelId)
+    {
+    }
+}
 
 public sealed class Customer
 {

@@ -33,6 +33,18 @@ public sealed class PersistenceModelTests
     }
 
     [Fact]
+    public void CustomerAllowedProductModels_GetDistinctClientGeneratedIds()
+    {
+        var customer = Customer.Create(Guid.NewGuid(), "Test Customer", "test@example.com");
+
+        customer.SetAllowedProductModels([Guid.NewGuid(), Guid.NewGuid()]);
+
+        var ids = customer.AllowedProductModels.Select(item => item.Id).ToArray();
+        Assert.All(ids, id => Assert.NotEqual(Guid.Empty, id));
+        Assert.Equal(ids.Length, ids.Distinct().Count());
+    }
+
+    [Fact]
     public void NewOrderStatusEvent_OnTrackedOrder_IsMarkedAsAdded()
     {
         var options = new DbContextOptionsBuilder<KitRentalDbContext>()

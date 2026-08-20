@@ -8,23 +8,7 @@
         ? Array.Empty<DashboardKitLocationViewModel>()
         : Model.KitLocations.ToArray();
     var mapLocations = allKitLocations.Where(item => item.Latitude.HasValue && item.Longitude.HasValue).ToArray();
-    var faultyCount = allKitLocations.Count(item => item.LocationCategory == "faulty");
-    var returnCount = allKitLocations.Count(item => item.LocationCategory == "returning");
-    var expiredCount = allKitLocations.Count(item => item.LocationCategory == "expired");
-    var activeCount = allKitLocations.Count(item => item.LocationCategory == "active");
     var missingLocationCount = allKitLocations.Length - mapLocations.Length;
-    var modelOptions = allKitLocations
-        .GroupBy(item => item.ProductModelId)
-        .Select(group => new
-        {
-            ProductModelId = group.Key,
-            KitName = group.First().KitName,
-            KitSku = group.First().KitSku,
-            Count = group.Count()
-        })
-        .OrderBy(item => item.KitSku)
-        .ThenBy(item => item.KitName)
-        .ToArray();
     var mapLocationsJson = JsonSerializer.Serialize(
         mapLocations,
         new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
@@ -58,10 +42,10 @@ else
             <a class="attention-card priority-high" asp-action="Faults">
                 <span class="attention-icon"><partial name="_DashboardIcon" model="@("fault")" /></span><div><small>TEKNİK SERVİS</small><strong>@Model.FaultyKits</strong><p>İlgilenilmesi gereken arıza</p></div><b>Arızalara git →</b>
             </a>
-            <a class="attention-card priority-medium" asp-action="Dashboard" asp-fragment="expired-rentals">
+            <a class="attention-card priority-medium" asp-action="Inventory" asp-route-status="5" asp-route-rentalExpiry="expired">
                 <span class="attention-icon"><partial name="_DashboardIcon" model="@("clock")" /></span><div><small>GECİKEN İADE</small><strong>@Model.ExpiredRentalKits.Count</strong><p>Süresi dolan kiralık kit</p></div><b>Listeyi aç →</b>
             </a>
-            <a class="attention-card priority-medium" asp-action="Dashboard" asp-fragment="returns">
+            <a class="attention-card priority-medium" asp-action="Returns">
                 <span class="attention-icon"><partial name="_DashboardIcon" model="@("return")" /></span><div><small>GELEN TESLİMAT</small><strong>@Model.ReturnsInProgress.Count</strong><p>Devam eden müşteri iadesi</p></div><b>Kontrol et →</b>
             </a>
         </div>
@@ -76,66 +60,6 @@ else
         <a asp-action="Inventory"><partial name="_DashboardIcon" model="@("inventory")" />Envanteri aç</a>
         <a asp-controller="SupplyNeeds" asp-action="Index"><partial name="_DashboardIcon" model="@("list")" />İhtiyaç listeleri</a>
     </nav>
-    <section class="dashboard-group kit-map-section">
-        <header class="dashboard-group-heading">
-            <div><span class="eyebrow">KIT KONUM HARITASI</span><h2>Türkiye genelinde kit dağılımı</h2></div>
-            <p>Kitler teslim formundaki enlem ve boylam bilgisine göre yerleştirilir; haritayı yakınlaştırdıkça kümeler ayrılır.</p>
-        </header>
-        @if (allKitLocations.Length == 0)
-        {
-            <div class="empty">Enlem ve boylam bilgisi kaydedilmiş teslim edilmiş kit bulunmuyor.</div>
-        }
-        else
-        {
-            var filterOptions = new (string Key, string Label, int Count)[]
-            {
-                ("faulty", "Arızalı Kitler", faultyCount),
-                ("returning", "İade Sürecindeki Kitler", returnCount),
-                ("expired", "Suresi Dolan Kitler", expiredCount),
-                ("active", "Aktif Kitler", activeCount)
-            };
-            <div class="kit-map-filters row" role="group" aria-label="Harita filtreleri">
-                @foreach (var option in filterOptions)
-                {
-                    <div class="col-md-3">
-                        <label class="kit-map-filter">
-                            <input type="checkbox" class="kit-map-filter-input" value="@option.Key" checked />
-                            <span><strong>@option.Label</strong><small>@option.Count kit</small></span>
-                        </label>
-                    </div>
-                }
-            </div>
-            <div class="kit-map-filter-tools">
-                <label class="kit-map-search">
-                    <span>Seri numarası</span>
-                    <input type="search" class="kit-map-serial-filter" placeholder="Seri no yazın" autocomplete="off" />
-                </label>
-                <div class="kit-map-model-filters" role="group" aria-label="Ürün modeli filtreleri">
-                    <span>Ürün modeli</span>
-                    @foreach (var option in modelOptions)
-                    {
-                        <label>
-                            <input type="checkbox" class="kit-map-model-filter-input" value="@option.ProductModelId" checked />
-                            <b>@option.KitName</b><small>@option.Count kit</small>
-                        </label>
-                    }
-                </div>
-                <small class="kit-map-missing-location">Konum bilgisi olmayan kit: @missingLocationCount</small>
-            </div>
-            <div class="kit-map-layout">
-                <div class="kit-map-panel">
-                    <div id="turkey-kit-map" class="turkey-kit-map" data-locations='@Html.Raw(mapLocationsJson)' data-detail-url-template='@Url.Action("Details", "PhysicalKits", new { id = "__id__" })'></div>
-                </div>
-                <aside class="kit-map-summary">
-                    <strong>@allKitLocations.Length kit sahada</strong>
-                    @foreach (var city in mapLocations.GroupBy(item => item.City).OrderByDescending(group => group.Count()).ThenBy(group => group.Key))
-                    {
-                        <span><b>@city.Key</b>@city.Count() kit · @city.Select(item => item.District).Distinct().Count() ilçe</span>
-                    }
-                </aside>
-            </div>
-        }
-    </section>
     <section class="dashboard-group dashboard-group-general">
         <header class="dashboard-group-heading">
             <div><span class="eyebrow">GÜNLÜK OPERASYON</span><h2>Genel hızlı erişimler</h2></div>
@@ -155,29 +79,9 @@ else
             <p>Müşterideki aktif kitlerin teslim tarihlerini takip edin. Yaklaşan listesi önümüzdeki 7 günü kapsar.</p>
         </header>
         <div class="metrics dashboard-metrics">
-            <div class="metric-card metric-fault"><span>Süresi dolan kit</span><strong>@Model.ExpiredRentalKits.Count</strong><small>İade süreci başlatılmalı</small></div>
-            <div class="metric-card metric-repaired"><span>Süresi yaklaşan kit</span><strong>@Model.ExpiringRentalKits.Count</strong><small>7 gün içinde bitecek</small></div>
+            <a class="metric-card metric-fault" asp-action="Inventory" asp-route-status="5" asp-route-rentalExpiry="expired"><span>Süresi dolan kit</span><strong>@Model.ExpiredRentalKits.Count</strong></a>
+            <a class="metric-card metric-repaired" asp-action="Inventory" asp-route-status="5" asp-route-rentalExpiry="upcoming"><span>Süresi yaklaşan kit</span><strong>@Model.ExpiringRentalKits.Count</strong></a>
         </div>
-
-        <h3>Süresi dolan kiralık kitler</h3>
-        @if (Model.ExpiredRentalKits.Count == 0) { <div class="empty">Süresi dolmuş kiralık kit bulunmuyor.</div> }
-        else { <div class="table-wrap"><table><thead><tr><th>Kit</th><th>Seri no</th><th>Müşteri</th><th>Sipariş</th><th>Bitiş tarihi</th><th>Gecikme</th></tr></thead><tbody>
-        @foreach (var item in Model.ExpiredRentalKits) { <tr><td>@item.KitName</td><td>@item.SerialNumber</td><td>@item.CustomerName</td><td>@item.OrderNumber</td><td>@item.EndDate.ToString("dd.MM.yyyy")</td><td><span class="status-badge danger">@(-item.DaysRemaining) gün geçti</span></td></tr> }
-        </tbody></table></div> }
-
-        <h3>Süresi yaklaşan kiralık kitler</h3>
-        @if (Model.ExpiringRentalKits.Count == 0) { <div class="empty">Önümüzdeki 7 gün içinde süresi dolacak kit bulunmuyor.</div> }
-        else { <div class="table-wrap"><table><thead><tr><th>Kit</th><th>Seri no</th><th>Müşteri</th><th>Sipariş</th><th>Bitiş tarihi</th><th>Kalan</th></tr></thead><tbody>
-        @foreach (var item in Model.ExpiringRentalKits) { <tr><td>@item.KitName</td><td>@item.SerialNumber</td><td>@item.CustomerName</td><td>@item.OrderNumber</td><td>@item.EndDate.ToString("dd.MM.yyyy")</td><td><span class="status-badge warning">@(item.DaysRemaining == 0 ? "Bugün" : $"{item.DaysRemaining} gün")</span></td></tr> }
-        </tbody></table></div> }
-    </section>
-
-    <section class="dashboard-group" id="returns">
-        <header class="dashboard-group-heading"><div><span class="eyebrow">MUSTERI IADELERI</span><h2>Teslimat surecindeki kitler</h2></div><p>Musterinin baslattigi iadeleri, talep eden kisiyi ve konumu izleyin.</p></header>
-        @if (Model.ReturnsInProgress.Count == 0) { <div class="empty">Devam eden kit iadesi bulunmuyor.</div> }
-        else { <div class="table-wrap"><table><thead><tr><th>Musteri</th><th>Talep eden</th><th>Kit sayisi</th><th>Durum</th><th>Konum</th><th>Kargo</th><th>Baslatilma</th><th></th></tr></thead><tbody>
-        @foreach (var item in Model.ReturnsInProgress) { var requester = item.RequesterName; var mapUrl = item.Latitude.HasValue && item.Longitude.HasValue ? $"https://www.google.com/maps?q={item.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)},{item.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}" : null; <tr><td>@item.CustomerName</td><td>@(string.IsNullOrWhiteSpace(requester) ? "-" : requester)@if (!string.IsNullOrWhiteSpace(item.RequesterPhone)) { <a class="fault-phone" href="tel:@item.RequesterPhone">@item.RequesterPhone</a> }@if (!string.IsNullOrWhiteSpace(item.ReturnAddress)) { <small class="block-muted">@item.ReturnAddress</small> }</td><td>@item.KitCount</td><td>@(item.Status == 1 ? "İade Talebi Alındı" : "İade Yolda")</td><td>@if (mapUrl is null) { <span>-</span> } else { <a class="table-action" href="@mapUrl" target="_blank" rel="noopener">Haritada Aç</a> }</td><td>@(item.Carrier is null ? "-" : $"{item.Carrier} / {item.TrackingNumber}")</td><td>@item.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</td><td><form asp-action="ReceiveReturn" asp-route-id="@item.Id" method="post" data-confirm="Bu iadeyi teslim alıp kiti yeniden kiralanabilir stoğa almak istiyor musunuz?"><button class="btn btn-primary" type="submit">İadeyi Kabul Et</button></form></td></tr> }
-        </tbody></table></div> }
     </section>
 
     <section class="dashboard-group dashboard-group-faults">
@@ -205,6 +109,35 @@ else
             <a class="metric-card" asp-action="Orders" asp-route-type="2"><span>Tamamlanan satış</span><strong>@Model.CompletedPurchaseOrders</strong><small>Satış siparişlerine git →</small></a>
             <a class="metric-card" asp-controller="Customers" asp-action="Index"><span>Müşteri</span><strong>@Model.Customers</strong><small>Müşterilere git →</small></a>
         </div>
+    </section>
+
+    <section class="dashboard-group kit-map-section">
+        <header class="dashboard-group-heading">
+            <div><span class="eyebrow">KIT KONUM HARITASI</span><h2>Türkiye genelinde kit dağılımı</h2></div>
+            <p>Kitler teslim formundaki enlem ve boylam bilgisine göre yerleştirilir; haritayı yakınlaştırdıkça kümeler ayrılır.</p>
+        </header>
+        @if (allKitLocations.Length == 0)
+        {
+            <div class="empty">Enlem ve boylam bilgisi kaydedilmiş teslim edilmiş kit bulunmuyor.</div>
+        }
+        else
+        {
+            <div class="kit-map-filter-tools">
+                <small class="kit-map-missing-location">Konum bilgisi olmayan kit: @missingLocationCount</small>
+            </div>
+            <div class="kit-map-layout">
+                <div class="kit-map-panel">
+                    <div id="turkey-kit-map" class="turkey-kit-map" data-locations='@Html.Raw(mapLocationsJson)' data-detail-url-template='@Url.Action("Details", "PhysicalKits", new { id = "__id__" })'></div>
+                </div>
+                <aside class="kit-map-summary">
+                    <strong>@allKitLocations.Length kit sahada</strong>
+                    @foreach (var city in mapLocations.GroupBy(item => item.City).OrderByDescending(group => group.Count()).ThenBy(group => group.Key))
+                    {
+                        <span><b>@city.Key</b>@city.Count() kit · @city.Select(item => item.District).Distinct().Count() ilçe</span>
+                    }
+                </aside>
+            </div>
+        }
     </section>
 }
 @section Scripts {
