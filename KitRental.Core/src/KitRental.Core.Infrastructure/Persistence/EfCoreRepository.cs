@@ -12,12 +12,18 @@ using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Warehouse;
 using KitRental.Core.Domain.Procurement;
 using KitRental.Core.Domain.Notifications;
+using KitRental.Core.Domain.Locations;
 using Microsoft.EntityFrameworkCore;
 
 namespace KitRental.Core.Infrastructure.Persistence;
 
 public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreRepository
 {
+    public Task<LocationCity?> GetLocationCityAsync(int id, CancellationToken cancellationToken) =>
+        dbContext.LocationCities.AsNoTracking().SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+    public Task<LocationDistrict?> GetLocationDistrictAsync(int id, CancellationToken cancellationToken) =>
+        dbContext.LocationDistricts.AsNoTracking().SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
     public async Task AddProductModelAsync(ProductModel model, CancellationToken cancellationToken)
     {
         if (await dbContext.ProductModels.AnyAsync(existing => existing.Sku == model.Sku, cancellationToken))

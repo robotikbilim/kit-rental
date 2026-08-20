@@ -71,6 +71,8 @@
             <div class="form-grid">
                 <div class="field"><label asp-for="StudentForm.FullName"></label><input asp-for="StudentForm.FullName" name="FullName" /></div>
                 <div class="field"><label asp-for="StudentForm.GuardianPhone"></label><input asp-for="StudentForm.GuardianPhone" name="GuardianPhone" /></div>
+                <div class="field"><label asp-for="StudentForm.CityId"></label><select asp-for="StudentForm.CityId" name="CityId" data-location-city><option value="">İl seçin</option></select><input type="hidden" name="City" data-location-city-name /></div>
+                <div class="field"><label asp-for="StudentForm.DistrictId"></label><select asp-for="StudentForm.DistrictId" name="DistrictId" data-location-district><option value="">İlçe seçin</option></select><input type="hidden" name="District" data-location-district-name /></div>
                 <div class="field"><label asp-for="StudentForm.ProductModelId"></label><select asp-for="StudentForm.ProductModelId" name="ProductModelId"><option value="">Kit seçin</option>@foreach (var kit in Model.ProductModels) { <option value="@kit.Id">@kit.Name (@kit.Sku)</option> }</select></div>
             </div>
             <div class="field"><label asp-for="StudentForm.AddressLine"></label><textarea asp-for="StudentForm.AddressLine" name="AddressLine" rows="3"></textarea></div>
@@ -162,6 +164,7 @@
                         <td>
                             <strong>@student.FullName</strong>
                             <small class="block-muted">@student.AddressLine</small>
+                            <small class="block-muted">@student.District / @student.City</small>
                             @if (student.ProductUnitId.HasValue)
                             {
                                 <small class="block-muted">Kit: @student.SerialNumber (@student.QrCode)</small>
@@ -189,6 +192,10 @@
                                     data-student-name="@student.FullName"
                                     data-student-phone="@student.GuardianPhone"
                                     data-student-address="@student.AddressLine"
+                                    data-student-city-id="@student.CityId"
+                                    data-student-district-id="@student.DistrictId"
+                                    data-student-city="@student.City"
+                                    data-student-district="@student.District"
                                     data-student-product="@student.ProductModelId">
                                     <i data-lucide="pencil"></i><span class="visually-hidden">Güncelle</span>
                                 </button>
@@ -284,6 +291,8 @@
             <div class="form-grid">
                 <div class="field"><label for="edit-student-name">Öğrenci adı soyadı</label><input id="edit-student-name" name="FullName" value="@Model.StudentForm.FullName" maxlength="160" required /></div>
                 <div class="field"><label for="edit-student-phone">Veli telefon numarası</label><input id="edit-student-phone" name="GuardianPhone" value="@Model.StudentForm.GuardianPhone" maxlength="40" required /></div>
+                <div class="field"><label for="edit-student-city">İl</label><select id="edit-student-city" name="CityId" data-location-city required><option value="">İl seçin</option></select><input type="hidden" name="City" data-location-city-name /></div>
+                <div class="field"><label for="edit-student-district">İlçe</label><select id="edit-student-district" name="DistrictId" data-location-district required><option value="">İlçe seçin</option></select><input type="hidden" name="District" data-location-district-name /></div>
                 <div class="field">
                     <label for="edit-student-product">Eğitim kiti</label>
                     <select id="edit-student-product" name="ProductModelId" required>
@@ -300,7 +309,6 @@
                             }
                         }
                     </select>
-                </div>
             </div>
             <div class="field"><label for="edit-student-address">Adres bilgileri</label><textarea id="edit-student-address" name="AddressLine" rows="3" maxlength="1000" required>@Model.StudentForm.AddressLine</textarea></div>
             <footer>
@@ -309,4 +317,8 @@
             </footer>
         </form>
     </dialog>
+}
+@section Scripts {
+    <script src="~/js/tr-city-districts.js"></script>
+    <script src="~/js/student-city-district.js"></script>
 }

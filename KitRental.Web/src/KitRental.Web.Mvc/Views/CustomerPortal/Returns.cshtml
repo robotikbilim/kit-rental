@@ -87,7 +87,7 @@
                         <td data-mobile-label="İşlemler">
                             <div class="portal-table-actions">
                                 <a class="row-link" asp-action="Kit" asp-route-id="@item.ProductUnitId">Detay</a>
-                                @if (item.AssignmentStatus == 2)
+                                @if (item.AssignmentStatus == 2 && item.ReturnStatus != 3)
                                 {
                                     <a class="row-link fault-link" asp-action="NewFault" asp-route-assignmentId="@item.AssignmentId">Arıza Bildir</a>
                                 }

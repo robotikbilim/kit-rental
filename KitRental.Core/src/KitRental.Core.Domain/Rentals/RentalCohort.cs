@@ -53,19 +53,19 @@ public sealed class RentalCohort
     }
 
     public RentalCohortStudent AddStudent(string fullName, string guardianPhone, string addressLine,
-        Guid productModelId)
+        int cityId, int districtId, string city, string district, Guid productModelId)
     {
         var student = RentalCohortStudent.Create(Guid.NewGuid(), Id, fullName, guardianPhone, addressLine,
-            productModelId);
+            cityId, districtId, city, district, productModelId);
         _students.Add(student);
         return student;
     }
 
     public RentalCohortStudent UpdateStudent(Guid studentId, string fullName, string guardianPhone,
-        string addressLine, Guid productModelId)
+        string addressLine, int cityId, int districtId, string city, string district, Guid productModelId)
     {
         var student = GetStudent(studentId);
-        student.Update(fullName, guardianPhone, addressLine, productModelId);
+        student.Update(fullName, guardianPhone, addressLine, cityId, districtId, city, district, productModelId);
         return student;
     }
 
@@ -112,13 +112,17 @@ public sealed class RentalCohortStudent
     }
 
     private RentalCohortStudent(Guid id, Guid rentalCohortId, string fullName, string guardianPhone,
-        string addressLine, Guid productModelId)
+        string addressLine, int cityId, int districtId, string city, string district, Guid productModelId)
     {
         Id = id;
         RentalCohortId = rentalCohortId;
         FullName = fullName.Trim();
         GuardianPhone = guardianPhone.Trim();
         AddressLine = addressLine.Trim();
+        CityId = cityId;
+        DistrictId = districtId;
+        City = city.Trim();
+        District = district.Trim();
         ProductModelId = productModelId;
     }
 
@@ -127,6 +131,10 @@ public sealed class RentalCohortStudent
     public string FullName { get; private set; } = string.Empty;
     public string GuardianPhone { get; private set; } = string.Empty;
     public string AddressLine { get; private set; } = string.Empty;
+    public int? CityId { get; private set; }
+    public int? DistrictId { get; private set; }
+    public string City { get; private set; } = string.Empty;
+    public string District { get; private set; } = string.Empty;
     public Guid ProductModelId { get; private set; }
     public Guid? OrderId { get; private set; }
     public Guid? AssignmentId { get; private set; }
@@ -138,18 +146,21 @@ public sealed class RentalCohortStudent
     public bool HasCoordinates => Latitude.HasValue && Longitude.HasValue;
 
     public static RentalCohortStudent Create(Guid id, Guid rentalCohortId, string fullName,
-        string guardianPhone, string addressLine, Guid productModelId)
+        string guardianPhone, string addressLine, int cityId, int districtId, string city, string district, Guid productModelId)
     {
-        if (id == Guid.Empty || rentalCohortId == Guid.Empty || productModelId == Guid.Empty ||
+        if (id == Guid.Empty || rentalCohortId == Guid.Empty || productModelId == Guid.Empty || cityId <= 0 || districtId <= 0 ||
             string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(guardianPhone) ||
-            string.IsNullOrWhiteSpace(addressLine))
+            string.IsNullOrWhiteSpace(addressLine) || string.IsNullOrWhiteSpace(city) ||
+            string.IsNullOrWhiteSpace(district))
             throw new DomainException("rental_cohort_student.required_fields",
-                "Öğrenci adı, veli telefonu, adres ve eğitim kiti zorunludur.");
+                "Öğrenci adı, veli telefonu, adres, il, ilçe ve eğitim kiti zorunludur.");
 
-        return new RentalCohortStudent(id, rentalCohortId, fullName, guardianPhone, addressLine, productModelId);
+        return new RentalCohortStudent(id, rentalCohortId, fullName, guardianPhone, addressLine, cityId, districtId, city,
+            district, productModelId);
     }
 
-    public void Update(string fullName, string guardianPhone, string addressLine, Guid productModelId)
+    public void Update(string fullName, string guardianPhone, string addressLine, int cityId, int districtId, string city, string district,
+        Guid productModelId)
     {
         if (IsDeleted)
             throw new DomainException("rental_cohort_student.deleted", "Silinmiş öğrenci güncellenemez.");
@@ -157,10 +168,15 @@ public sealed class RentalCohortStudent
             throw new DomainException("rental_cohort_student.kit_locked",
                 "Kit ataması yapıldıktan sonra eğitim kiti değiştirilemez.");
 
-        var updated = Create(Id, RentalCohortId, fullName, guardianPhone, addressLine, productModelId);
+        var updated = Create(Id, RentalCohortId, fullName, guardianPhone, addressLine, cityId, districtId, city, district,
+            productModelId);
         FullName = updated.FullName;
         GuardianPhone = updated.GuardianPhone;
         AddressLine = updated.AddressLine;
+        CityId = updated.CityId;
+        DistrictId = updated.DistrictId;
+        City = updated.City;
+        District = updated.District;
         ProductModelId = updated.ProductModelId;
     }
 

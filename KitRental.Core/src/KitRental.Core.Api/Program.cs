@@ -237,6 +237,7 @@ api.MapPost("/customer-portal/rental-periods/{periodId:guid}/students", async (G
 {
     var result = await service.SaveRentalCohortStudentAsync(new SaveRentalCohortStudentCommand(null,
         GetRequiredCustomerId(user), periodId, request.FullName, request.GuardianPhone, request.AddressLine,
+        request.CityId, request.DistrictId, request.City, request.District,
         request.ProductModelId, user.GetRequiredUserId(), GetActorDisplayName(user)), cancellationToken);
     return Results.Created($"/api/customer-portal/rental-periods/{periodId}/students/{result.Id}", result);
 }).RequireAuthorization(policy => policy.RequireRole(customerRoles));
@@ -246,6 +247,7 @@ api.MapPut("/customer-portal/rental-periods/{periodId:guid}/students/{studentId:
     CancellationToken cancellationToken) =>
     Results.Ok(await service.SaveRentalCohortStudentAsync(new SaveRentalCohortStudentCommand(studentId,
         GetRequiredCustomerId(user), periodId, request.FullName, request.GuardianPhone, request.AddressLine,
+        request.CityId, request.DistrictId, request.City, request.District,
         request.ProductModelId, user.GetRequiredUserId(), GetActorDisplayName(user)), cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(customerRoles));
 
@@ -263,7 +265,7 @@ api.MapPost("/customer-portal/rental-periods/{periodId:guid}/students/import", a
     CancellationToken cancellationToken) =>
     Results.Ok(await service.ImportRentalCohortStudentsAsync(GetRequiredCustomerId(user), periodId,
         request.Rows.Select(row => new ImportRentalCohortStudentCommand(row.FullName, row.GuardianPhone,
-            row.AddressLine, row.ProductModel)).ToArray(), user.GetRequiredUserId(), GetActorDisplayName(user),
+            row.AddressLine, row.CityId, row.DistrictId, row.City, row.District, row.ProductModel)).ToArray(), user.GetRequiredUserId(), GetActorDisplayName(user),
         cancellationToken)))
     .RequireAuthorization(policy => policy.RequireRole(customerRoles));
 
@@ -851,9 +853,9 @@ public sealed record CreateOrderKitsRequest(IReadOnlyCollection<OrderLineRequest
     Guid? RentalCohortId = null);
 public sealed record RentalCohortRequest(string Name, DateOnly StartDate, DateOnly EndDate);
 public sealed record RentalCohortStudentRequest(string FullName, string GuardianPhone, string AddressLine,
-    Guid ProductModelId);
+    int CityId, int DistrictId, string City, string District, Guid ProductModelId);
 public sealed record RentalCohortImportRowRequest(string FullName, string GuardianPhone, string AddressLine,
-    string ProductModel);
+    int CityId, int DistrictId, string City, string District, string ProductModel);
 public sealed record RentalCohortStudentImportRequest(IReadOnlyCollection<RentalCohortImportRowRequest> Rows);
 public sealed record CreatePurchaseOrderRequest(Guid CustomerId, Guid AddressId,
     IReadOnlyCollection<OrderLineRequest> Lines);

@@ -332,12 +332,16 @@
         const editName = studentEditDialog.querySelector('#edit-student-name');
         const editPhone = studentEditDialog.querySelector('#edit-student-phone');
         const editAddress = studentEditDialog.querySelector('#edit-student-address');
+        const editCity = studentEditDialog.querySelector('#edit-student-city');
+        const editDistrict = studentEditDialog.querySelector('#edit-student-district');
         const editProduct = studentEditDialog.querySelector('#edit-student-product');
         const openStudentEditor = (trigger) => {
             editId.value = trigger.dataset.studentId || '';
             editName.value = trigger.dataset.studentName || '';
             editPhone.value = trigger.dataset.studentPhone || '';
             editAddress.value = trigger.dataset.studentAddress || '';
+            editCity.value = trigger.dataset.studentCityId || '';
+            editDistrict.value = trigger.dataset.studentDistrictId || '';
             editProduct.value = trigger.dataset.studentProduct || '';
             if (typeof studentEditDialog.showModal === 'function') {
                 studentEditDialog.showModal();

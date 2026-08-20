@@ -11,11 +11,10 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace KitRental.Core.Infrastructure.Persistence.Migrations
 {
-    [DbContext(typeof(KitRentalDbContext))]
-        partial class KitRentalDbContextModelSnapshot : ModelSnapshot
+    partial class NormalizeRentalCohortStudentLocations
     {
         /// <inheritdoc />
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1767,4 +1766,5 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
         }
     }
 }
+
 

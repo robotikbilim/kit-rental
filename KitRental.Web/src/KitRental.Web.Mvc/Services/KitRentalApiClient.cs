@@ -400,14 +400,14 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         RentalCohortStudentInputViewModel model, CancellationToken cancellationToken) =>
         PostAsync<PortalRentalCohortStudentViewModel>(
             $"/core/api/customer-portal/rental-periods/{model.CohortId}/students",
-            new { model.FullName, model.GuardianPhone, model.AddressLine, model.ProductModelId },
+            new { model.FullName, model.GuardianPhone, model.AddressLine, model.CityId, model.DistrictId, model.City, model.District, model.ProductModelId },
             cancellationToken);
 
     public Task<ApiCommandResult<PortalRentalCohortStudentViewModel>> UpdateRentalCohortStudentAsync(
         RentalCohortStudentInputViewModel model, CancellationToken cancellationToken) =>
         SendAsync<PortalRentalCohortStudentViewModel>(HttpMethod.Put,
             $"/core/api/customer-portal/rental-periods/{model.CohortId}/students/{model.Id}",
-            new { model.FullName, model.GuardianPhone, model.AddressLine, model.ProductModelId },
+            new { model.FullName, model.GuardianPhone, model.AddressLine, model.CityId, model.DistrictId, model.City, model.District, model.ProductModelId },
             cancellationToken);
 
     public Task<ApiCommandResult<object>> DeleteRentalCohortStudentAsync(Guid cohortId, Guid studentId,

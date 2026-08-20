@@ -94,36 +94,36 @@ else
                 ("expired", "Suresi Dolan Kitler", expiredCount),
                 ("active", "Aktif Kitler", activeCount)
             };
+            <div class="kit-map-filters row" role="group" aria-label="Harita filtreleri">
+                @foreach (var option in filterOptions)
+                {
+                    <div class="col-md-3">
+                        <label class="kit-map-filter">
+                            <input type="checkbox" class="kit-map-filter-input" value="@option.Key" checked />
+                            <span><strong>@option.Label</strong><small>@option.Count kit</small></span>
+                        </label>
+                    </div>
+                }
+            </div>
+            <div class="kit-map-filter-tools">
+                <label class="kit-map-search">
+                    <span>Seri numarası</span>
+                    <input type="search" class="kit-map-serial-filter" placeholder="Seri no yazın" autocomplete="off" />
+                </label>
+                <div class="kit-map-model-filters" role="group" aria-label="Ürün modeli filtreleri">
+                    <span>Ürün modeli</span>
+                    @foreach (var option in modelOptions)
+                    {
+                        <label>
+                            <input type="checkbox" class="kit-map-model-filter-input" value="@option.ProductModelId" checked />
+                            <b>@option.KitName</b><small>@option.Count kit</small>
+                        </label>
+                    }
+                </div>
+                <small class="kit-map-missing-location">Konum bilgisi olmayan kit: @missingLocationCount</small>
+            </div>
             <div class="kit-map-layout">
                 <div class="kit-map-panel">
-                    <div class="kit-map-filters row" role="group" aria-label="Harita filtreleri">
-                        @foreach (var option in filterOptions)
-                        {
-                            <div class="col-md-3">
-                                <label class="kit-map-filter">
-                                    <input type="checkbox" class="kit-map-filter-input" value="@option.Key" checked />
-                                    <span><strong>@option.Label</strong><small>@option.Count kit</small></span>
-                                </label>
-                            </div>
-                        }
-                    </div>
-                    <div class="kit-map-filter-tools">
-                        <label class="kit-map-search">
-                            <span>Seri numarası</span>
-                            <input type="search" class="kit-map-serial-filter" placeholder="Seri no yazın" autocomplete="off" />
-                        </label>
-                        <div class="kit-map-model-filters" role="group" aria-label="Ürün modeli filtreleri">
-                            <span>Ürün modeli</span>
-                            @foreach (var option in modelOptions)
-                            {
-                                <label>
-                                    <input type="checkbox" class="kit-map-model-filter-input" value="@option.ProductModelId" checked />
-                                    <b>@option.KitName</b><small>@option.Count kit</small>
-                                </label>
-                            }
-                        </div>
-                        <small class="kit-map-missing-location">Konum bilgisi olmayan kit: @missingLocationCount</small>
-                    </div>
                     <div id="turkey-kit-map" class="turkey-kit-map" data-locations='@Html.Raw(mapLocationsJson)' data-detail-url-template='@Url.Action("Details", "PhysicalKits", new { id = "__id__" })'></div>
                 </div>
                 <aside class="kit-map-summary">

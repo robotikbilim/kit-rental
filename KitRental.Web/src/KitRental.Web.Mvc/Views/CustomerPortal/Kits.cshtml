@@ -116,7 +116,11 @@
                         <td data-mobile-label="Durum"><span class="fleet-status status-@kit.UnitStatus">@UnitStatus(kit.UnitStatus)</span></td>
                         <td data-mobile-label="Arıza">@if (kit.OpenFaultCount > 0) { <span class="portal-alert">@kit.OpenFaultCount açık arıza</span> } else { <span class="portal-no-fault">Arıza yok</span> }</td>
                         <td data-mobile-label="İşlemler">
-                            @if (kit.AssignmentStatus == 2)
+                            @if (kit.IsReturned)
+                            {
+                                <span class="portal-no-fault">İade edildi · Salt okunur</span>
+                            }
+                            else if (kit.AssignmentStatus == 2)
                             {
                                 <div class="portal-table-actions"><a class="row-link" asp-action="Kit" asp-route-id="@kit.ProductUnitId">Detay</a><a class="row-link fault-link" asp-action="NewFault" asp-route-assignmentId="@kit.AssignmentId">Arıza Bildir</a></div>
                             }

@@ -240,7 +240,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
-    public async Task CustomerPortal_ActiveKitCount_ExcludesFaultyAndReturnedKits()
+    public async Task CustomerPortal_UnassignedKitCount_ExcludesReturnedKits()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -265,7 +265,8 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         var customer = CreateClient(new TokenUser(Guid.NewGuid(), email, "CustomerAccountManager", faultyRental.CustomerId));
         var initialOverview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
-        Assert.Equal(2, initialOverview!.ActiveKitCount);
+        Assert.Equal(0, initialOverview!.ActiveKitCount);
+        Assert.Equal(2, initialOverview.UnassignedKitCount);
 
         var faultResponse = await customer.PostAsJsonAsync("/api/customer-portal/faults", new PortalFaultRequest(
             faultyRental.AssignmentId, "Sensor", FaultSeverity.High, "Kit calisirken sensor verisi gelmiyor."), cancellationToken);
@@ -278,6 +279,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         var updatedOverview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
         Assert.Equal(0, updatedOverview!.ActiveKitCount);
+        Assert.Equal(1, updatedOverview.UnassignedKitCount);
         var faultyLocation = Assert.Single(updatedOverview.KitLocations);
         Assert.Equal(faultyUnit.Id, faultyLocation.ProductUnitId);
         Assert.Equal("faulty", faultyLocation.LocationCategory);
@@ -375,7 +377,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             cancellationToken);
         var student = await PostAsync<PortalRentalCohortStudentResponse>(portal,
             $"/api/customer-portal/rental-periods/{cohort.Id}/students",
-            new RentalCohortStudentRequest("Ayşe Yılmaz", "05320000000", "Test Mahallesi 1", model.Id),
+            new RentalCohortStudentRequest("Ayşe Yılmaz", "05320000000", "Test Mahallesi 1", 34, 34023, "İstanbul", "Kadıköy", model.Id),
             cancellationToken);
         var order = await PostAsync<CreatedOrderResponse>(portal,
             $"/api/customer-portal/rental-periods/{cohort.Id}/order", new { }, cancellationToken);
@@ -397,6 +399,8 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal("Ayşe Yılmaz", assigned.DeliveredTo);
         Assert.Equal("05320000000", assigned.DeliveryPhone);
         Assert.Equal("Test Mahallesi 1", assigned.DeliveryAddress);
+        Assert.Equal("İstanbul", assigned.City);
+        Assert.Equal("Kadıköy", assigned.District);
         Assert.True(overview.Kits.Single(x => x.AssignmentId == assigned.AssignmentId).HasDeliveryForm);
 
         var detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
@@ -407,11 +411,13 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Contains(detail.DeliveryHistory, item =>
             item.RecipientName == "Ayşe Yılmaz" &&
             item.Phone == "05320000000" &&
-            item.AddressLine == "Test Mahallesi 1");
+            item.AddressLine == "Test Mahallesi 1" &&
+            item.City == "İstanbul" &&
+            item.District == "Kadıköy");
 
         var blockedAdd = await portal.PostAsJsonAsync(
             $"/api/customer-portal/rental-periods/{cohort.Id}/students",
-            new RentalCohortStudentRequest("Mehmet Yılmaz", "05320000001", "Test Mahallesi 2", model.Id),
+            new RentalCohortStudentRequest("Mehmet Yılmaz", "05320000001", "Test Mahallesi 2", 34, 34023, "İstanbul", "Kadıköy", model.Id),
             cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, blockedAdd.StatusCode);
 
@@ -438,6 +444,8 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var returnedStudent = Assert.Single(updatedCohort.Students);
         Assert.Equal("Ayşe Yılmaz", returnedStudent.FullName);
         Assert.Equal("05320000000", returnedStudent.GuardianPhone);
+        Assert.Equal("İstanbul", returnedStudent.City);
+        Assert.Equal("Kadıköy", returnedStudent.District);
         Assert.Null(returnedStudent.AssignmentId);
         Assert.Null(returnedStudent.ProductUnitId);
         Assert.Empty(updatedCohort.UnassignedKits);

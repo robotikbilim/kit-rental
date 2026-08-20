@@ -421,6 +421,7 @@ public sealed class OperationsService(
                     !queue.TryDequeue(out var match))
                     throw new ConflictException("rental_cohort.assignment_failed",
                         "Öğrenci kit ataması tamamlanamadı.");
+                await EnsureStudentCoordinatesAsync(student, cancellationToken);
                 cohort.LinkStudentToKit(student.Id, order.Id, match.Assignment.Id, match.Unit.Id);
                 await AddActivityAsync(match.Unit.Id, match.Assignment.Id, order.Id, student.Id, actorId,
                     actorDisplayName ?? actorId.ToString(), "Öğrenciye atandı",
@@ -428,7 +429,7 @@ public sealed class OperationsService(
                 await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), match.Unit.Id,
                     match.Assignment.Id, order.Id, order.CustomerId, KitLocationEventSource.DeliveryReceipt,
                     null, student.FullName, student.GuardianPhone, student.AddressLine,
-                    string.Empty, string.Empty, student.Latitude, student.Longitude, now, actorId), cancellationToken);
+                    student.District, student.City, student.Latitude, student.Longitude, now, actorId), cancellationToken);
                 await AddActivityAsync(match.Unit.Id, match.Assignment.Id, order.Id, student.Id, actorId,
                     actorDisplayName ?? actorId.ToString(), "Teslim formu oluşturuldu",
                     $"{student.FullName} öğrencisi için teslim formu öğrenci adresiyle oluşturuldu.",
@@ -1116,12 +1117,22 @@ public sealed class OperationsService(
         for (var index = 0; index < students.Length; index++)
         {
             var student = students[index];
-            var geocoded = await addressGeocoder.GeocodeAsync(student.AddressLine, null, null, cancellationToken);
-            if (geocoded is not null)
-                student.UpdateCoordinates(geocoded.Latitude, geocoded.Longitude);
+            await EnsureStudentCoordinatesAsync(student, cancellationToken);
             if (index < students.Length - 1)
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
         }
+    }
+
+    private async Task EnsureStudentCoordinatesAsync(RentalCohortStudent student,
+        CancellationToken cancellationToken)
+    {
+        if (student.HasCoordinates || string.IsNullOrWhiteSpace(student.AddressLine))
+            return;
+
+        var geocoded = await addressGeocoder.GeocodeAsync(student.AddressLine, student.District, student.City,
+            cancellationToken);
+        if (geocoded is not null)
+            student.UpdateCoordinates(geocoded.Latitude, geocoded.Longitude);
     }
 
     private async Task AuditAsync(

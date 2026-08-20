@@ -101,7 +101,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                     model.ImageUrl, unit.SerialNumber, unit.QrCode, unit.Status, assignment.Status, assignment.Period.StartDate,
                     assignment.Period.EndDate, openFaults, deliveryFormAssignmentIds.Contains(assignment.Id),
                     linkedStudent?.FullName, linkedStudent?.GuardianPhone, linkedStudent?.AddressLine,
-                    linkedStudent?.CohortName));
+                    linkedStudent?.CohortName, returnedAssignmentIds.Contains(assignment.Id)));
                 if (assignment.Status == RentalAssignmentStatus.Active &&
                     !returnedAssignmentIds.Contains(assignment.Id))
                 {
@@ -132,18 +132,22 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             item.AssignmentStatus == RentalAssignmentStatus.Active &&
             item.EndDate < today &&
             !returnProcessStartedAssignmentIds.Contains(item.AssignmentId));
-        var activeHealthyKitCount = kits.Count(item =>
-            item.AssignmentStatus == RentalAssignmentStatus.Active &&
-            item.UnitStatus == ProductUnitStatus.WithCustomer &&
-            item.OpenFaultCount == 0 &&
-            !returnedAssignmentIds.Contains(item.AssignmentId));
+        var currentlyRentedKits = kits
+            .Where(item => item.AssignmentStatus is RentalAssignmentStatus.Reserved or RentalAssignmentStatus.Active &&
+                !returnedAssignmentIds.Contains(item.AssignmentId))
+            .ToArray();
+        var assignedStudentKitCount = currentlyRentedKits.Count(item =>
+            !string.IsNullOrWhiteSpace(item.AssignedStudentName));
+        var unassignedKitCount = currentlyRentedKits.Count(item =>
+            string.IsNullOrWhiteSpace(item.AssignedStudentName));
         var undeliveredKitCount = kits.Count(item =>
             item.AssignmentStatus is RentalAssignmentStatus.Reserved or RentalAssignmentStatus.Active &&
             !item.HasDeliveryForm);
         return new CustomerPortalResponse(customer.Name, customer.Email,
             kits.Count,
             undeliveredKitCount,
-            activeHealthyKitCount,
+            assignedStudentKitCount,
+            unassignedKitCount,
             orders.Count(item => item.Status == RentalOrderStatus.PendingApproval),
             faults.Count(item => item.Status is not (FaultStatus.Resolved or FaultStatus.Closed)),
             faults.Count(item => item.Status is FaultStatus.Resolved or FaultStatus.Closed),
@@ -258,8 +262,9 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             ?? throw new ResourceNotFoundException("Eğitim kiti bulunamadı.");
         var student = command.Id.HasValue
             ? cohort.UpdateStudent(command.Id.Value, command.FullName, command.GuardianPhone, command.AddressLine,
-                command.ProductModelId)
-            : cohort.AddStudent(command.FullName, command.GuardianPhone, command.AddressLine, command.ProductModelId);
+                command.CityId, command.DistrictId, command.City, command.District, command.ProductModelId)
+            : cohort.AddStudent(command.FullName, command.GuardianPhone, command.AddressLine, command.CityId,
+                command.DistrictId, command.City, command.District, command.ProductModelId);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(RentalCohort),
             cohort.Id, command.Id.HasValue ? "StudentUpdated" : "StudentAdded", null, student.FullName,
             TurkeyTime.Now()), cancellationToken);
@@ -280,7 +285,8 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         {
             var model = FindModel(models, row.ProductModel)
                 ?? throw new ResourceNotFoundException($"{row.ProductModel} eğitim kiti bulunamadı.");
-            cohort.AddStudent(row.FullName, row.GuardianPhone, row.AddressLine, model.Id);
+            cohort.AddStudent(row.FullName, row.GuardianPhone, row.AddressLine, row.CityId, row.DistrictId,
+                row.City, row.District, model.Id);
         }
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId, nameof(RentalCohort),
             cohort.Id, "StudentsImported", null, $"{rows.Count} öğrenci", TurkeyTime.Now()), cancellationToken);
@@ -318,6 +324,10 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         if (!student.AssignmentId.HasValue || !student.ProductUnitId.HasValue || !student.OrderId.HasValue)
             throw new ConflictException("kit_return.student_not_assigned", "Bu öğrenciye atanmış bir kit yok.");
         var activeReturns = await repository.GetKitReturnRequestsAsync(command.CustomerId, cancellationToken);
+        if (activeReturns.Where(item => item.Status == KitReturnStatus.Received)
+            .SelectMany(item => item.Items)
+            .Any(item => item.AssignmentId == student.AssignmentId.Value))
+            throw new ConflictException("kit_return.already_received", "İade edilmiş kit üzerinde işlem yapılamaz.");
         if (activeReturns.Where(item => item.Status != KitReturnStatus.Received)
             .SelectMany(item => item.Items)
             .Any(item => item.AssignmentId == student.AssignmentId.Value))
@@ -348,6 +358,10 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             throw new ConflictException("kit_return.duplicate_assignment", "Aynı kit bir iadeye birden fazla eklenemez.");
 
         var activeReturns = await repository.GetKitReturnRequestsAsync(command.CustomerId, cancellationToken);
+        var returnedAssignmentIds = activeReturns.Where(item => item.Status == KitReturnStatus.Received)
+            .SelectMany(item => item.Items)
+            .Select(item => item.AssignmentId)
+            .ToHashSet();
         var activeReturnAssignmentIds = activeReturns.Where(item => item.Status != KitReturnStatus.Received)
             .SelectMany(item => item.Items)
             .Select(item => item.AssignmentId)
@@ -359,6 +373,8 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 ?? throw new ResourceNotFoundException("Kiralama ataması bulunamadı.");
             if (assignment.CustomerId != command.CustomerId)
                 throw new ForbiddenException("Başka bir müşterinin kitini iade edemezsiniz.");
+            if (returnedAssignmentIds.Contains(assignment.Id))
+                throw new ConflictException("kit_return.already_received", "İade edilmiş kit üzerinde işlem yapılamaz.");
             if (assignment.Status != RentalAssignmentStatus.Active)
                 throw new ConflictException("kit_return.assignment_not_active", "Yalnızca aktif kiralamadaki kitler iade edilebilir.");
             if (activeReturnAssignmentIds.Contains(assignment.Id))
@@ -564,6 +580,11 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             ?? throw new ResourceNotFoundException("Kiralama kaydı bulunamadı.");
         if (assignment.CustomerId != command.CustomerId || assignment.Status != RentalAssignmentStatus.Active)
             throw new ForbiddenException("Yalnızca hesabınıza ait aktif kiralamalar için arıza kaydı açabilirsiniz.");
+        var customerReturns = await repository.GetKitReturnRequestsAsync(command.CustomerId, cancellationToken);
+        if (customerReturns.Where(item => item.Status == KitReturnStatus.Received)
+            .SelectMany(item => item.Items)
+            .Any(item => item.AssignmentId == assignment.Id))
+            throw new ConflictException("fault.returned_kit_readonly", "İade edilmiş kit üzerinde arıza kaydı açılamaz.");
         var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
         var student = (await repository.GetRentalCohortsAsync(command.CustomerId, cancellationToken))
@@ -675,7 +696,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                     ? foundDelivery
                     : null;
             students.Add(new PortalRentalCohortStudentResponse(student.Id, student.FullName, student.GuardianPhone,
-                student.AddressLine, student.ProductModelId, model?.Name ?? "Eğitim kiti", model?.Sku ?? "-",
+                student.AddressLine, student.CityId, student.DistrictId, student.City, student.District, student.ProductModelId, model?.Name ?? "Eğitim kiti", model?.Sku ?? "-",
                 student.OrderId, student.AssignmentId, student.ProductUnitId, unit?.SerialNumber, unit?.QrCode,
                 student.IsDeleted, student.AssignmentId.HasValue &&
                     activeReturnAssignmentIds.Contains(student.AssignmentId.Value),

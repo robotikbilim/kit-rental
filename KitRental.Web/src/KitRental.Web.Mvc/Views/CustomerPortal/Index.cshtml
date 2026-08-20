@@ -4,17 +4,6 @@
     ViewData["Title"] = "Genel Bakış";
     var allKitLocations = Model.KitLocations.ToArray();
     var mapLocations = allKitLocations.Where(item => item.Latitude.HasValue && item.Longitude.HasValue).ToArray();
-    var activeKits = Model.Kits.Where(item => item.AssignmentStatus == 2).ToArray();
-    var turkeyNow = KitRental.SharedKernel.TurkeyTime.Now();
-    var today = DateOnly.FromDateTime(turkeyNow.DateTime);
-    var returnAssignmentLookup = Model.Returns
-        .SelectMany(request => request.Items.Select(item => new { item.AssignmentId, request.Status, request.CreatedAt }))
-        .GroupBy(item => item.AssignmentId)
-        .ToDictionary(group => group.Key, group => group.OrderByDescending(item => item.CreatedAt).First());
-    var returnedCount = returnAssignmentLookup.Values.Count(item => item.Status == 3);
-    var expiredWithoutReturn = activeKits.Count(item =>
-        item.EndDate < today && !returnAssignmentLookup.ContainsKey(item.AssignmentId));
-    var returnInProgressCount = returnAssignmentLookup.Values.Count(item => item.Status is 1 or 2);
     var missingLocationCount = allKitLocations.Length - mapLocations.Length;
     var mapLocationsJson = JsonSerializer.Serialize(mapLocations,
         new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
@@ -35,13 +24,14 @@
 @if (TempData["Success"] is string message) { <div class="success-banner">@message</div> }
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 <section class="metrics portal-metrics">
-    <a class="metric-card portal-metric-active" asp-action="Kits" title="@Model.TotalRentedKitCount toplam kiralanmış kit."><span>Tüm Kitler</span><strong>@Model.TotalRentedKitCount</strong></a>
-    <a class="metric-card portal-metric-expired" asp-action="Kits" asp-route-deliveryFormMissing="true" title="@Model.UndeliveredKitCount kit için teslimat formu doldurulmamış."><span>Teslim Alınmamış Kitler</span><strong>@Model.UndeliveredKitCount</strong></a>
-    <a class="metric-card portal-metric-faults" asp-action="Faults" asp-route-state="open" title="@Model.OpenFaultCount açık arıza kaydı."><span>Açık Arıza Kayıtları</span><strong>@Model.OpenFaultCount</strong></a>
-    <a class="metric-card portal-metric-closed" asp-action="Faults" asp-route-state="completed" title="@Model.CompletedFaultCount tamamlanmış arıza kaydı."><span>Tamamlanmış Arıza Kayıtları</span><strong>@Model.CompletedFaultCount</strong></a>
-    <a class="metric-card portal-metric-expired" asp-action="Returns" asp-route-state="pending" title="@expiredWithoutReturn kitin kiralama süresi dolmuş ve henüz iade formu doldurulmamış."><span>İade Beklenen Kitler</span><strong>@Model.ExpiredRentalKitCount</strong></a>
-    <a class="metric-card portal-metric-processing" asp-action="Returns" asp-route-state="processing" title="@returnInProgressCount kit için iade formu doldurulmuş durumda; süreye bakılmaksızın burada sayılır."><span>İade Sürecindeki Kitler</span><strong>@Model.ReturnProcessStartedKitCount</strong></a>
-    <a class="metric-card portal-metric-returned" asp-action="Returns" asp-route-state="returned" title="@returnedCount kit admin tarafından teslim alınıp yeniden kiralanabilir stoğa döndü."><span>İade Edilen Kitler</span><strong>@Model.ReturnedKitCount</strong></a>
+    <a class="metric-card portal-metric-active" asp-action="Kits" title="@Model.TotalRentedKitCount geçmiş ve mevcut tüm kiralanmış kit."><span>Tüm Kitler</span><strong>@Model.TotalRentedKitCount</strong></a>
+    <a class="metric-card portal-metric-active" asp-action="Kits" title="@Model.ActiveKitCount öğrenciye atanmış kit."><span>Kullanımdaki Kitler</span><strong>@Model.ActiveKitCount</strong></a>
+    <a class="metric-card portal-metric-expired" asp-action="Kits" title="@Model.UnassignedKitCount kiralanmış ama öğrenciye atanmamış kit."><span>Atanmayan Kitler</span><strong>@Model.UnassignedKitCount</strong></a>
+    <a class="metric-card portal-metric-faults" asp-action="Faults" asp-route-state="open" title="@Model.OpenFaultCount servis işlemi bekleyen aktif arıza kaydı."><span>Açık Arıza Kayıtları</span><strong>@Model.OpenFaultCount</strong></a>
+    <a class="metric-card portal-metric-closed" asp-action="Faults" asp-route-state="completed" title="@Model.CompletedFaultCount arıza süreci tamamlanmış kayıt."><span>Kapanmış Arıza Kayıtları</span><strong>@Model.CompletedFaultCount</strong></a>
+    <a class="metric-card portal-metric-expired" asp-action="Returns" asp-route-state="pending" title="@Model.ExpiredRentalKitCount kiralama dönemi geçmiş, iade süreci başlatılmamış kit."><span>İade Beklenen Kitler</span><strong>@Model.ExpiredRentalKitCount</strong></a>
+    <a class="metric-card portal-metric-processing" asp-action="Returns" asp-route-state="processing" title="@Model.ReturnProcessStartedKitCount iade süreci başlatılmış kit."><span>İade Sürecindeki Kitler</span><strong>@Model.ReturnProcessStartedKitCount</strong></a>
+    <a class="metric-card portal-metric-returned" asp-action="Returns" asp-route-state="returned" title="@Model.ReturnedKitCount geçmişte kiralanmış ve iade edilmiş kit."><span>İade Edilen Kitler</span><strong>@Model.ReturnedKitCount</strong></a>
 </section>
 <section class="dashboard-group kit-map-section">
     <header class="dashboard-group-heading">
@@ -54,9 +44,9 @@
     }
     else
     {
+        <small class="kit-map-missing-location">Konum bilgisi olmayan kit: @missingLocationCount</small>
         <div class="kit-map-layout">
             <div class="kit-map-panel">
-                <small class="kit-map-missing-location">Konum bilgisi olmayan kit: @missingLocationCount</small>
                 <div id="turkey-kit-map" class="turkey-kit-map" data-locations='@Html.Raw(mapLocationsJson)' data-detail-url-template='@Url.Action("Kit", "CustomerPortal", new { id = "__id__" })'></div>
             </div>
             <aside class="kit-map-summary">

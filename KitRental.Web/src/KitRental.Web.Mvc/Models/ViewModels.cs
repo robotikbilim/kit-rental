@@ -346,7 +346,7 @@ public sealed record PortalAddressViewModel(Guid Id, string Title, string Contac
     string District, string City, string PostalCode);
 public sealed record PortalProductModelViewModel(Guid Id, string Name, string Sku, string? Description, string? ImageUrl);
 public sealed record PortalRentalCohortStudentViewModel(Guid Id, string FullName, string GuardianPhone,
-    string AddressLine, Guid ProductModelId, string ProductModelName, string ProductModelSku, Guid? OrderId,
+    string AddressLine, int? CityId, int? DistrictId, string City, string District, Guid ProductModelId, string ProductModelName, string ProductModelSku, Guid? OrderId,
     Guid? AssignmentId, Guid? ProductUnitId, string? SerialNumber, string? QrCode, bool IsDeleted,
     bool HasActiveReturn, bool HasDeliveryForm = false, string? DeliveredTo = null,
     string? DeliveryPhone = null, string? DeliveryAddress = null, string? DeliveryDistrict = null,
@@ -362,7 +362,7 @@ public sealed record PortalKitViewModel(Guid ProductUnitId, Guid AssignmentId, G
     string KitName, string KitSku, string? ImageUrl, string SerialNumber, string QrCode, int UnitStatus, int AssignmentStatus,
     DateOnly StartDate, DateOnly EndDate, int OpenFaultCount, bool HasDeliveryForm,
     string? AssignedStudentName = null, string? AssignedStudentGuardianPhone = null,
-    string? AssignedStudentAddressLine = null, string? AssignedStudentPeriodName = null);
+    string? AssignedStudentAddressLine = null, string? AssignedStudentPeriodName = null, bool IsReturned = false);
 public sealed record PortalKitLookupPageViewModel(string Identifier, bool HasSearched, string? Error);
 public sealed record PortalKitDetailPageViewModel(PortalKitViewModel Kit,
     IReadOnlyCollection<PortalFaultViewModel> Faults);
@@ -532,8 +532,9 @@ public sealed class PublicDeliveryFormViewModel
     [Display(Name = "Boylam")] public double? Longitude { get; set; }
 }
 public sealed record CustomerPortalViewModel(string CustomerName, string CustomerEmail, int TotalRentedKitCount,
-    int UndeliveredKitCount, int ActiveKitCount, int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, int ExpiredRentalKitCount,
-    int ReturnProcessStartedKitCount, int ReturnedKitCount, IReadOnlyCollection<PortalKitViewModel> Kits,
+    int UndeliveredKitCount, int ActiveKitCount, int UnassignedKitCount, int PendingRequestCount, int OpenFaultCount,
+    int CompletedFaultCount, int ExpiredRentalKitCount, int ReturnProcessStartedKitCount, int ReturnedKitCount,
+    IReadOnlyCollection<PortalKitViewModel> Kits,
     IReadOnlyCollection<PortalOrderViewModel> Orders, IReadOnlyCollection<PortalFaultViewModel> Faults,
     IReadOnlyCollection<PortalAddressViewModel> Addresses, IReadOnlyCollection<PortalProductModelViewModel> ProductModels,
     IReadOnlyCollection<PortalKitReturnViewModel> Returns,
@@ -583,6 +584,10 @@ public sealed class RentalCohortStudentInputViewModel
     [Required, StringLength(160), Display(Name = "Öğrenci adı soyadı")] public string FullName { get; set; } = string.Empty;
     [Required, Phone, StringLength(40), Display(Name = "Veli telefon numarası")] public string GuardianPhone { get; set; } = string.Empty;
     [Required, StringLength(1000), Display(Name = "Adres bilgileri")] public string AddressLine { get; set; } = string.Empty;
+    [Required, Display(Name = "İl")] public int CityId { get; set; }
+    [Required, Display(Name = "İlçe")] public int DistrictId { get; set; }
+    public string City { get; set; } = string.Empty;
+    public string District { get; set; } = string.Empty;
     [Required, Display(Name = "Eğitim kiti")] public Guid ProductModelId { get; set; }
 }
 
@@ -610,6 +615,8 @@ public sealed class RentalCohortStudentImportPreviewRowViewModel
     public string FullName { get; set; } = string.Empty;
     public string GuardianPhone { get; set; } = string.Empty;
     public string AddressLine { get; set; } = string.Empty;
+    public int CityId { get; set; }
+    public int DistrictId { get; set; }
     public string City { get; set; } = string.Empty;
     public string District { get; set; } = string.Empty;
     public Guid ProductModelId { get; set; }

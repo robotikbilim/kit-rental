@@ -90,11 +90,13 @@ Rentals:
 - TACEV can create a rental order from a rental cohort in the customer portal. Active students are linked to the created order through `RentalCohortStudent.OrderId`.
 - In the customer portal, rental cohorts are presented as `Siparişler`: the former customer `Orders` page redirects to `RentalPeriods`, and the list shows each cohort's linked order number plus approved/unapproved state. The detail action opens the cohort's student list.
 - Rental cohort responses include `IsApproved`; once the linked order reaches `Approved` or any later non-cancelled/non-rejected status, customer student add/update/import/delete operations are blocked while fault and student-return actions remain available.
-- When an admin approves an order linked to a TACEV rental cohort, active student addresses are geocoded through `IAddressGeocoder`; successful latitude/longitude values are persisted on `RentalCohortStudents` and reused for student delivery location events.
+- When an admin approves an order linked to a TACEV rental cohort, active student addresses are geocoded through `IAddressGeocoder`; successful latitude/longitude values are persisted on `RentalCohortStudents` and reused for student delivery location events. If approval-time geocoding does not return coordinates, kit assignment retries geocoding immediately before creating the delivery location event.
 - Admin order kit preparation can select a customer's rental cohort. When selected, kit quantities are calculated from unassigned cohort students, and reserved/created kits are linked to the matching students.
+- When admin kit preparation assigns a rental cohort student to a kit, the generated `KitLocationEvent` now copies the student's `District`, `City`, `Latitude`, and `Longitude` values.
 - If an admin opens kit preparation for an order created from a TACEV cohort, the cohort is inferred from student `OrderId` links and selected automatically.
 - Preparing kits for a TACEV cohort creates `DeliveryReceipt` kit-location events from each student's name, guardian phone, and address, so the student delivery forms are prefilled immediately after assignment.
 - TACEV rental period student rows include assigned kit serial/QR plus delivery-form summary fields when the kit has been delivered or auto-filled from the student list.
+- TACEV rental period student create/edit forms and Excel import preserve student `City` and `District` as separate fields; the fields are also passed to approved-order geocoding.
 - TACEV rental period student updates are handled from an in-page modal opened by compact icon-only row actions; delete, return-request, and fault actions also use compact color-coded Lucide icon buttons.
 - Removing an already assigned student anonymizes the student row and hides it from the active student list, while the kit and rental assignment remain rented/reserved and appear as unassigned cohort kits.
 - When an admin accepts a kit return, any TACEV student link for that assignment is cleared from the student row while the student's personal/list data remains visible.
@@ -227,7 +229,7 @@ Product-model filter labels show the education set/product model name (`KitName`
 Filter counts are calculated from all active rental map rows, not just rows with coordinates.
 Rows without latitude/longitude are not rendered as markers and are shown as a small "missing location" count below the filters.
 Dashboard and customer portal map side summaries list all cities, ordered by kit count, instead of truncating to a top subset.
-Dashboard and customer portal map canvases use a fixed desktop height, while the side city summary uses a 717px desktop height to align with the full left map panel and scrolls independently when all cities do not fit.
+Dashboard and customer portal map canvases use a fixed desktop height, and the side city summary uses the same desktop height as the map canvas while scrolling independently when all cities do not fit.
 Turkey map overview starts closer in its default state and uses tight initial fit-to-markers padding.
 
 There are existing web UI changes in the working tree unrelated to the kit-location backend work; do not revert them unless explicitly requested.
@@ -308,6 +310,17 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Customer portal `Siparişler` list now shows `Düzenle` and `Sil` actions for unapproved rental cohorts. Editing can change the period name and rental date range before admin approval; if a pending order exists, its rental period and kit quantity lines are synchronized from the cohort student list. Deleting removes the unapproved cohort and its linked unapproved order, but remains blocked after kit assignment or approval.
 - Admin approval of a rental order linked to TACEV students now geocodes student addresses via Nominatim and stores successful latitude/longitude values on `RentalCohortStudents`; kit preparation copies those coordinates into generated delivery location events.
 - Customer portal TACEV student Excel templates and import preview screens now include `İl` and `İlçe` columns in addition to the address column; import confirmation appends those values to the stored student address text.
+
+2026-08-20:
+
+- Customer portal overview summary cards now show the requested eight-card set: all rented kits, student-assigned kits, unassigned rented kits, open faults, closed faults, return-pending kits, return-process kits, and returned kits. The old `Teslim Alınmamış Kitler` overview card was removed.
+- Customer portal `ActiveKitCount` now means rented kits currently assigned to a student. `UnassignedKitCount` counts currently rented kits without a student assignment, excluding returned assignments.
+- Customer portal overview metric cards use a compact 8-column desktop layout at 992px and wider so all cards fit on one row at normal desktop zoom.
+- Map side city/district summaries now match the map canvas height on desktop instead of extending taller than the map.
+- Map filter and missing-location controls now render above the map/summary grid, so the map top edge and city/district summary top edge start on the same line in both customer and operations views.
+- Rental cohort student records now persist separate `City` and `District` fields for single-entry and Excel-imported students; migration `20260820140000_AddRentalCohortStudentLocationFields` adds the columns.
+- Rental cohort student entry and Excel import now use city/district dropdown-derived IDs. `RentalCohortStudents.CityId` and `DistrictId` reference the seeded `LocationCities` and `LocationDistricts` tables; the existing `City` and `District` strings remain synchronized for geocoding and historical display. Migration `20260820150000_NormalizeRentalCohortStudentLocations` seeds the Turkey catalog and backfills matching legacy names.
+- Customer portal kits that have a received return are exposed as historical read-only records. Their detail page remains viewable, but QR/fault-report and return actions are hidden in MVC and rejected by the customer-portal application service/API.
 
 ## Development Checklist
 

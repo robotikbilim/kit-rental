@@ -11,7 +11,7 @@ public sealed record PortalAddressResponse(Guid Id, string Title, string Contact
     string District, string City, string PostalCode);
 public sealed record PortalProductModelResponse(Guid Id, string Name, string Sku, string? Description, string? ImageUrl);
 public sealed record PortalRentalCohortStudentResponse(Guid Id, string FullName, string GuardianPhone,
-    string AddressLine, Guid ProductModelId, string ProductModelName, string ProductModelSku, Guid? OrderId,
+    string AddressLine, int? CityId, int? DistrictId, string City, string District, Guid ProductModelId, string ProductModelName, string ProductModelSku, Guid? OrderId,
     Guid? AssignmentId, Guid? ProductUnitId, string? SerialNumber, string? QrCode, bool IsDeleted,
     bool HasActiveReturn, bool HasDeliveryForm = false, string? DeliveredTo = null,
     string? DeliveryPhone = null, string? DeliveryAddress = null, string? DeliveryDistrict = null,
@@ -27,7 +27,7 @@ public sealed record PortalKitResponse(Guid ProductUnitId, Guid AssignmentId, Gu
     string KitName, string KitSku, string? ImageUrl, string SerialNumber, string QrCode, ProductUnitStatus UnitStatus,
     RentalAssignmentStatus AssignmentStatus, DateOnly StartDate, DateOnly EndDate, int OpenFaultCount,
     bool HasDeliveryForm, string? AssignedStudentName = null, string? AssignedStudentGuardianPhone = null,
-    string? AssignedStudentAddressLine = null, string? AssignedStudentPeriodName = null);
+    string? AssignedStudentAddressLine = null, string? AssignedStudentPeriodName = null, bool IsReturned = false);
 public sealed record PortalOrderLineResponse(Guid ProductModelId, string ProductName, string ProductSku, int Quantity);
 public sealed record PortalOrderResponse(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName,
     OrderType Type, RentalOrderStatus Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt,
@@ -42,8 +42,9 @@ public sealed record PortalFaultResponse(Guid Id, string Number, Guid ProductUni
     string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "",
     FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired);
 public sealed record CustomerPortalResponse(string CustomerName, string CustomerEmail, int TotalRentedKitCount,
-    int UndeliveredKitCount, int ActiveKitCount, int PendingRequestCount, int OpenFaultCount, int CompletedFaultCount, int ExpiredRentalKitCount,
-    int ReturnProcessStartedKitCount, int ReturnedKitCount, IReadOnlyCollection<PortalKitResponse> Kits,
+    int UndeliveredKitCount, int ActiveKitCount, int UnassignedKitCount, int PendingRequestCount, int OpenFaultCount,
+    int CompletedFaultCount, int ExpiredRentalKitCount, int ReturnProcessStartedKitCount, int ReturnedKitCount,
+    IReadOnlyCollection<PortalKitResponse> Kits,
     IReadOnlyCollection<PortalOrderResponse> Orders, IReadOnlyCollection<PortalFaultResponse> Faults,
     IReadOnlyCollection<PortalAddressResponse> Addresses, IReadOnlyCollection<PortalProductModelResponse> ProductModels,
     IReadOnlyCollection<PortalKitReturnResponse> Returns,
@@ -76,9 +77,9 @@ public sealed record SaveRentalCohortCommand(Guid? Id, Guid CustomerId, string N
     DateOnly EndDate, Guid ActorId, string ActorDisplayName);
 public sealed record DeleteRentalCohortCommand(Guid CustomerId, Guid CohortId, Guid ActorId);
 public sealed record SaveRentalCohortStudentCommand(Guid? Id, Guid CustomerId, Guid CohortId, string FullName,
-    string GuardianPhone, string AddressLine, Guid ProductModelId, Guid ActorId, string ActorDisplayName);
+    string GuardianPhone, string AddressLine, int CityId, int DistrictId, string City, string District, Guid ProductModelId, Guid ActorId, string ActorDisplayName);
 public sealed record ImportRentalCohortStudentCommand(string FullName, string GuardianPhone, string AddressLine,
-    string ProductModel);
+    int CityId, int DistrictId, string City, string District, string ProductModel);
 public sealed record CreatePortalStudentReturnCommand(Guid CustomerId, Guid CohortId, Guid StudentId, Guid ActorId,
     string ActorDisplayName);
 

@@ -46,10 +46,12 @@
                         <td>
                             @Model.Rows[i].City
                             <input type="hidden" asp-for="Rows[i].City" />
+                            <input type="hidden" asp-for="Rows[i].CityId" />
                         </td>
                         <td>
                             @Model.Rows[i].District
                             <input type="hidden" asp-for="Rows[i].District" />
+                            <input type="hidden" asp-for="Rows[i].DistrictId" />
                         </td>
                     </tr>
                 }
