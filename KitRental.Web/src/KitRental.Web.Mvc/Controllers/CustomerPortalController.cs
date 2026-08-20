@@ -1,4 +1,5 @@
 using ClosedXML.Excel;
+using KitRental.SharedKernel;
 using KitRental.Web.Mvc.Models;
 using KitRental.Web.Mvc.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -241,6 +242,11 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
         if (portal is null) return Forbid();
         var cohort = portal.RentalCohorts.SingleOrDefault(item => item.Id == cohortId);
         if (cohort is null) return NotFound();
+        if (cohort.IsApproved)
+        {
+            TempData["Error"] = "Onaylanmış siparişlerde öğrenci listesi kilitlidir; yeni öğrenci yüklenemez.";
+            return RedirectToAction(nameof(RentalPeriod), new { id = cohortId });
+        }
         if (portal.ProductModels.All(item => item.Id != productModelId))
         {
             TempData["Error"] = "Yüklenen liste için eğitim kiti seçilmelidir.";
@@ -301,6 +307,11 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
         if (portal is null) return Forbid();
         var cohort = portal.RentalCohorts.SingleOrDefault(item => item.Id == model.CohortId);
         if (cohort is null) return NotFound();
+        if (cohort.IsApproved)
+        {
+            TempData["Error"] = "Onaylanmış siparişlerde öğrenci listesi kilitlidir; içe aktarma onaylanamaz.";
+            return RedirectToAction(nameof(RentalPeriod), new { id = model.CohortId });
+        }
         model.ProductModels = portal.ProductModels;
         model.CohortName = cohort.Name;
         model.Rows = model.Rows
@@ -321,6 +332,8 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
                 ModelState.AddModelError($"Rows[{index}].FullName", "Öğrenci adı soyadı zorunludur.");
             if (string.IsNullOrWhiteSpace(row.GuardianPhone))
                 ModelState.AddModelError($"Rows[{index}].GuardianPhone", "Veli telefon numarası zorunludur.");
+            else if (!TurkishPhoneNumber.IsValid(row.GuardianPhone))
+                ModelState.AddModelError($"Rows[{index}].GuardianPhone", "Veli telefon numarası 0xxx xxx xx xx formatında olmalıdır.");
             if (string.IsNullOrWhiteSpace(row.AddressLine))
                 ModelState.AddModelError($"Rows[{index}].AddressLine", "Adres bilgileri zorunludur.");
             if (string.IsNullOrWhiteSpace(row.City))
@@ -339,7 +352,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
         var rows = model.Rows.Select(row => new
         {
             fullName = row.FullName,
-            guardianPhone = row.GuardianPhone,
+            guardianPhone = TurkishPhoneNumber.Normalize(row.GuardianPhone, "Veli telefon numarası"),
             addressLine = row.AddressLine,
             cityId = row.CityId,
             districtId = row.DistrictId,
@@ -579,7 +592,8 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
                     currentReturn is null ? 0 : currentReturn.Status,
                     faultLookup.TryGetValue(item.ProductUnitId, out var openFaultCount) ? openFaultCount : 0,
                     returnState,
-                    stateLabel);
+                    stateLabel,
+                    item.StudentOrderLocked);
             })
             .Where(item => normalizedState == "all" || item.ReturnStateKey == normalizedState)
             .Where(item => normalizedQuery.Length == 0 ||
@@ -655,12 +669,13 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
     {
         var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
         if (portal is null) return Forbid();
-        var activeKits = portal.Kits.Where(item => item.AssignmentStatus == 2 && !item.IsReturned).ToArray();
-        return View(new PortalFaultRequestPageViewModel(new PortalFaultRequestViewModel
-        {
-            AssignmentId = assignmentId.HasValue && activeKits.Any(item => item.AssignmentId == assignmentId)
-                ? assignmentId.Value : activeKits.FirstOrDefault()?.AssignmentId ?? Guid.Empty
-        }, activeKits));
+        var activeKits = portal.Kits
+            .Where(item => item.AssignmentStatus == 2 && !item.IsReturned)
+            .ToArray();
+        var selectedAssignmentId = assignmentId.HasValue && activeKits.Any(item => item.AssignmentId == assignmentId)
+            ? assignmentId.Value
+            : activeKits.FirstOrDefault()?.AssignmentId ?? Guid.Empty;
+        return View(new PortalFaultRequestPageViewModel(BuildPortalFaultForm(portal, selectedAssignmentId), activeKits));
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -677,8 +692,50 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
             ModelState.AddModelError(string.Empty, result.Error ?? "Arıza kaydı oluşturulamadı.");
         }
         var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
-        return portal is null ? Forbid() : View(new PortalFaultRequestPageViewModel(model,
-            portal.Kits.Where(item => item.AssignmentStatus == 2).ToArray()));
+        if (portal is null) return Forbid();
+        var activeKits = portal.Kits
+            .Where(item => item.AssignmentStatus == 2 && !item.IsReturned)
+            .ToArray();
+        var selectedKit = activeKits.FirstOrDefault(item => item.AssignmentId == model.AssignmentId);
+        model.KitName = selectedKit?.KitName ?? model.KitName;
+        model.SerialNumber = selectedKit?.SerialNumber ?? model.SerialNumber;
+        return View(new PortalFaultRequestPageViewModel(model, activeKits));
+    }
+
+    private static PortalFaultRequestViewModel BuildPortalFaultForm(CustomerPortalViewModel portal, Guid assignmentId)
+    {
+        var kit = portal.Kits.FirstOrDefault(item => item.AssignmentId == assignmentId);
+        var student = portal.RentalCohorts
+            .SelectMany(cohort => cohort.Students)
+            .FirstOrDefault(item => item.AssignmentId == assignmentId);
+        var address = portal.Addresses.FirstOrDefault();
+        return new PortalFaultRequestViewModel
+        {
+            AssignmentId = assignmentId,
+            KitName = kit?.KitName ?? string.Empty,
+            SerialNumber = kit?.SerialNumber ?? string.Empty,
+            ReporterName = student?.FullName
+                ?? kit?.AssignedStudentName
+                ?? address?.ContactName
+                ?? string.Empty,
+            ReporterPhone = student?.GuardianPhone
+                ?? kit?.AssignedStudentGuardianPhone
+                ?? address?.Phone
+                ?? string.Empty,
+            City = student?.DeliveryCity
+                ?? student?.City
+                ?? address?.City
+                ?? string.Empty,
+            District = student?.DeliveryDistrict
+                ?? student?.District
+                ?? address?.District
+                ?? string.Empty,
+            ReporterAddress = student?.DeliveryAddress
+                ?? student?.AddressLine
+                ?? kit?.AssignedStudentAddressLine
+                ?? address?.Line1
+                ?? string.Empty
+        };
     }
 
     public async Task<IActionResult> Fault(Guid id, CancellationToken cancellationToken)

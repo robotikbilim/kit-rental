@@ -23,7 +23,11 @@ public sealed class CustomersController(KitRentalApiClient apiClient) : Controll
     }
 
     [HttpGet]
-    public IActionResult Create() => View("CustomerForm", new CreateCustomerViewModel());
+    public async Task<IActionResult> Create(CancellationToken cancellationToken) =>
+        View("CustomerForm", new CreateCustomerViewModel
+        {
+            ProductModels = await apiClient.GetProductModelsAsync(cancellationToken)
+        });
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(CreateCustomerViewModel model, CancellationToken cancellationToken)
@@ -38,6 +42,7 @@ public sealed class CustomersController(KitRentalApiClient apiClient) : Controll
             }
             ModelState.AddModelError(string.Empty, result.Error ?? "Müşteri oluşturulamadı.");
         }
+        model.ProductModels = await apiClient.GetProductModelsAsync(cancellationToken);
         return View("CustomerForm", model);
     }
 
@@ -46,7 +51,16 @@ public sealed class CustomersController(KitRentalApiClient apiClient) : Controll
     {
         var customer = await apiClient.GetCustomerAsync(id, cancellationToken);
         return customer is null ? NotFound() : View("EditCustomer", new CustomerInputViewModel
-        { Id = customer.Id, Name = customer.Name, Email = customer.Email, IsActive = customer.IsActive });
+        {
+            Id = customer.Id,
+            Name = customer.Name,
+            Email = customer.Email,
+            IsActive = customer.IsActive,
+            AllowedProductModelSelection = customer.AllowedProductModelIds is { Count: > 0 }
+                ? customer.AllowedProductModelIds.Select(id => id.ToString()).ToList()
+                : ["all"],
+            ProductModels = await apiClient.GetProductModelsAsync(cancellationToken)
+        });
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -62,6 +76,7 @@ public sealed class CustomersController(KitRentalApiClient apiClient) : Controll
             }
             ModelState.AddModelError(string.Empty, result.Error ?? "Müşteri güncellenemedi.");
         }
+        model.ProductModels = await apiClient.GetProductModelsAsync(cancellationToken);
         return View("EditCustomer", model);
     }
 

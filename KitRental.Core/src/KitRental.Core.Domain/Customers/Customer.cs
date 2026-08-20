@@ -20,9 +20,12 @@ public sealed record AddressSnapshot(
     string City,
     string PostalCode);
 
+public sealed record CustomerAllowedProductModel(Guid ProductModelId);
+
 public sealed class Customer
 {
     private readonly List<Address> _addresses = [];
+    private readonly List<CustomerAllowedProductModel> _allowedProductModels = [];
 
     private Customer()
     {
@@ -41,6 +44,8 @@ public sealed class Customer
     public string Email { get; private set; } = string.Empty;
     public bool IsActive { get; private set; }
     public IReadOnlyCollection<Address> Addresses => _addresses.AsReadOnly();
+    public IReadOnlyCollection<CustomerAllowedProductModel> AllowedProductModels => _allowedProductModels.AsReadOnly();
+    public IReadOnlyCollection<Guid> AllowedProductModelIds => _allowedProductModels.Select(item => item.ProductModelId).ToArray();
 
     public static Customer Create(Guid id, string name, string email)
     {
@@ -69,6 +74,16 @@ public sealed class Customer
 
     public void SetActive(bool isActive) => IsActive = isActive;
 
+    public void SetAllowedProductModels(IReadOnlyCollection<Guid> productModelIds)
+    {
+        var distinctIds = productModelIds.Where(id => id != Guid.Empty).Distinct().ToArray();
+        _allowedProductModels.Clear();
+        _allowedProductModels.AddRange(distinctIds.Select(id => new CustomerAllowedProductModel(id)));
+    }
+
+    public bool CanUseProductModel(Guid productModelId) =>
+        _allowedProductModels.Count == 0 || _allowedProductModels.Any(item => item.ProductModelId == productModelId);
+
     public Address AddAddress(
         string title,
         string contactName,
@@ -84,7 +99,7 @@ public sealed class Customer
         }
 
         var address = new Address(
-            Guid.NewGuid(), title.Trim(), contactName.Trim(), phone.Trim(), line1.Trim(), district.Trim(), city.Trim(), postalCode.Trim());
+            Guid.NewGuid(), title.Trim(), contactName.Trim(), TurkishPhoneNumber.Normalize(phone), line1.Trim(), district.Trim(), city.Trim(), postalCode.Trim());
         _addresses.Add(address);
         return address;
     }
@@ -96,7 +111,7 @@ public sealed class Customer
             throw new DomainException("address.required_fields", "Adres başlığı, iletişim ve konum alanları zorunludur.");
         var index = _addresses.FindIndex(item => item.Id == addressId);
         if (index < 0) throw new DomainException("address.not_found", "Müşteri adresi bulunamadı.");
-        var address = new Address(addressId, title.Trim(), contactName.Trim(), phone.Trim(), line1.Trim(),
+        var address = new Address(addressId, title.Trim(), contactName.Trim(), TurkishPhoneNumber.Normalize(phone), line1.Trim(),
             district.Trim(), city.Trim(), postalCode.Trim());
         _addresses[index] = address;
         return address;

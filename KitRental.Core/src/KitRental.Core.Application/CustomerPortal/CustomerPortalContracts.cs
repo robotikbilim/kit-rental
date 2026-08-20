@@ -27,7 +27,8 @@ public sealed record PortalKitResponse(Guid ProductUnitId, Guid AssignmentId, Gu
     string KitName, string KitSku, string? ImageUrl, string SerialNumber, string QrCode, ProductUnitStatus UnitStatus,
     RentalAssignmentStatus AssignmentStatus, DateOnly StartDate, DateOnly EndDate, int OpenFaultCount,
     bool HasDeliveryForm, string? AssignedStudentName = null, string? AssignedStudentGuardianPhone = null,
-    string? AssignedStudentAddressLine = null, string? AssignedStudentPeriodName = null, bool IsReturned = false);
+    string? AssignedStudentAddressLine = null, string? AssignedStudentPeriodName = null, bool IsReturned = false,
+    bool StudentOrderLocked = false);
 public sealed record PortalOrderLineResponse(Guid ProductModelId, string ProductName, string ProductSku, int Quantity);
 public sealed record PortalOrderResponse(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName,
     OrderType Type, RentalOrderStatus Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt,
@@ -40,7 +41,7 @@ public sealed record PortalFaultResponse(Guid Id, string Number, Guid ProductUni
     string Category, FaultSeverity Severity, string Description, FaultStatus Status, DateTimeOffset OpenedAt,
     IReadOnlyCollection<PortalFaultStatusResponse> History, IReadOnlyCollection<PortalShipmentResponse> Shipments,
     string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "",
-    FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired);
+    FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired, FaultOrigin Origin = FaultOrigin.Internal);
 public sealed record CustomerPortalResponse(string CustomerName, string CustomerEmail, int TotalRentedKitCount,
     int UndeliveredKitCount, int ActiveKitCount, int UnassignedKitCount, int PendingRequestCount, int OpenFaultCount,
     int CompletedFaultCount, int ExpiredRentalKitCount, int ReturnProcessStartedKitCount, int ReturnedKitCount,
@@ -61,8 +62,8 @@ public sealed record PortalKitReturnResponse(Guid Id, Guid CustomerId, string Cu
     double? Latitude, double? Longitude,
     IReadOnlyCollection<PortalKitReturnItemResponse> Items);
 
-public sealed record OpenPortalFaultCommand(Guid CustomerId, Guid AssignmentId, string Category,
-    FaultSeverity Severity, string Description, Guid ActorId);
+public sealed record OpenPortalFaultCommand(Guid CustomerId, Guid AssignmentId, string ReporterName,
+    string ReporterPhone, string ReporterAddress, string District, string City, string Description, Guid ActorId);
 public sealed record ConfirmPortalOrderDeliveryCommand(Guid CustomerId, Guid OrderId, Guid ActorId);
 public sealed record CreatePortalRentalCohortOrderCommand(Guid CustomerId, Guid CohortId, Guid ActorId,
     string ActorDisplayName);

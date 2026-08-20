@@ -48,7 +48,7 @@
     }
     @if (studentsLocked)
     {
-        <div class="info-banner">Bu sipariş admin tarafından onaylandığı için öğrenci listesi kilitlendi. Listedeki öğrenciler için arıza kaydı veya iade süreci başlatabilirsiniz.</div>
+        <div class="info-banner">Bu sipariş admin tarafından onaylandığı için öğrenci listesi kilitlendi. Bu listede yeni öğrenci ekleme, düzenleme veya silme yapılamaz; arıza ve iade akışları kullanılmaya devam eder.</div>
     }
 </section>
 
@@ -70,7 +70,7 @@
             </header>
             <div class="form-grid">
                 <div class="field"><label asp-for="StudentForm.FullName"></label><input asp-for="StudentForm.FullName" name="FullName" /></div>
-                <div class="field"><label asp-for="StudentForm.GuardianPhone"></label><input asp-for="StudentForm.GuardianPhone" name="GuardianPhone" /></div>
+                <div class="field"><label asp-for="StudentForm.GuardianPhone"></label><input asp-for="StudentForm.GuardianPhone" name="GuardianPhone" type="tel" data-phone-mask="tr" /></div>
                 <div class="field"><label asp-for="StudentForm.CityId"></label><select asp-for="StudentForm.CityId" name="CityId" data-location-city><option value="">İl seçin</option></select><input type="hidden" name="City" data-location-city-name /></div>
                 <div class="field"><label asp-for="StudentForm.DistrictId"></label><select asp-for="StudentForm.DistrictId" name="DistrictId" data-location-district><option value="">İlçe seçin</option></select><input type="hidden" name="District" data-location-district-name /></div>
                 <div class="field"><label asp-for="StudentForm.ProductModelId"></label><select asp-for="StudentForm.ProductModelId" name="ProductModelId"><option value="">Kit seçin</option>@foreach (var kit in Model.ProductModels) { <option value="@kit.Id">@kit.Name (@kit.Sku)</option> }</select></div>
@@ -186,7 +186,7 @@
                             <div class="student-row-actions" aria-label="Öğrenci işlemleri">
                             @if (!studentsLocked)
                             {
-                <button class="icon-action icon-action-edit" type="button" title="Öğrenciyi Güncelle" aria-label="@($"{student.FullName} öğrencisini güncelle")"
+                                <button class="icon-action icon-action-edit" type="button" title="Öğrenciyi Güncelle" aria-label="@($"{student.FullName} öğrencisini güncelle")"
                                     data-student-edit
                                     data-student-id="@student.Id"
                                     data-student-name="@student.FullName"
@@ -199,9 +199,16 @@
                                     data-student-product="@student.ProductModelId">
                                     <i data-lucide="pencil"></i><span class="visually-hidden">Güncelle</span>
                                 </button>
+                                <form asp-action="DeleteRentalPeriodStudent" method="post" class="inline-form">
+                                    <input type="hidden" name="cohortId" value="@Model.Cohort.Id" />
+                                    <input type="hidden" name="studentId" value="@student.Id" />
+                                    <button class="icon-action icon-action-delete" type="submit" title="Öğrenciyi Sil" aria-label="@($"{student.FullName} öğrencisini sil")">
+                                        <i data-lucide="trash-2"></i><span class="visually-hidden">Sil</span>
+                                    </button>
+                                </form>
                             }
-                            @if (student.AssignmentId.HasValue)
-                            {
+                                @if (student.AssignmentId.HasValue)
+                                {
                                 <a class="icon-action icon-action-fault" asp-action="NewFault" asp-route-assignmentId="@student.AssignmentId" title="Arıza Kaydı Oluştur" aria-label="@($"{student.FullName} için arıza kaydı oluştur")">
                                     <i data-lucide="wrench"></i><span class="visually-hidden">Arıza Kaydı Oluştur</span>
                                 </a>
@@ -212,17 +219,7 @@
                                         <i data-lucide="rotate-ccw"></i><span class="visually-hidden">İade Talebi Oluştur</span>
                                     </button>
                                 </form>
-                            }
-                            @if (!studentsLocked)
-                            {
-                                <form asp-action="DeleteRentalPeriodStudent" method="post" class="inline-form">
-                                    <input type="hidden" name="cohortId" value="@Model.Cohort.Id" />
-                                    <input type="hidden" name="studentId" value="@student.Id" />
-                                    <button class="icon-action icon-action-delete" type="submit" title="Öğrenciyi Sil" aria-label="@($"{student.FullName} öğrencisini sil")">
-                                        <i data-lucide="trash-2"></i><span class="visually-hidden">Sil</span>
-                                    </button>
-                                </form>
-                            }
+                                }
                             </div>
                         </td>
                     </tr>
@@ -290,7 +287,7 @@
             </header>
             <div class="form-grid">
                 <div class="field"><label for="edit-student-name">Öğrenci adı soyadı</label><input id="edit-student-name" name="FullName" value="@Model.StudentForm.FullName" maxlength="160" required /></div>
-                <div class="field"><label for="edit-student-phone">Veli telefon numarası</label><input id="edit-student-phone" name="GuardianPhone" value="@Model.StudentForm.GuardianPhone" maxlength="40" required /></div>
+                <div class="field"><label for="edit-student-phone">Veli telefon numarası</label><input id="edit-student-phone" name="GuardianPhone" value="@Model.StudentForm.GuardianPhone" type="tel" data-phone-mask="tr" maxlength="40" required /></div>
                 <div class="field"><label for="edit-student-city">İl</label><select id="edit-student-city" name="CityId" data-location-city required><option value="">İl seçin</option></select><input type="hidden" name="City" data-location-city-name /></div>
                 <div class="field"><label for="edit-student-district">İlçe</label><select id="edit-student-district" name="DistrictId" data-location-district required><option value="">İlçe seçin</option></select><input type="hidden" name="District" data-location-district-name /></div>
                 <div class="field">

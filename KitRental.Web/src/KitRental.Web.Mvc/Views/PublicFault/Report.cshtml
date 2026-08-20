@@ -17,7 +17,7 @@
             <input asp-for="Longitude" type="hidden" />
             <div asp-validation-summary="ModelOnly" class="error"></div>
             <div class="field"><label asp-for="ReporterName"></label><input asp-for="ReporterName" autocomplete="name" placeholder="Adiniz ve soyadiniz" /><span asp-validation-for="ReporterName" class="error"></span></div>
-            <div class="field"><label asp-for="ReporterPhone"></label><input asp-for="ReporterPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="05xx xxx xx xx" /><span asp-validation-for="ReporterPhone" class="error"></span></div>
+            <div class="field"><label asp-for="ReporterPhone"></label><input asp-for="ReporterPhone" type="tel" autocomplete="tel" inputmode="tel" data-phone-mask="tr" placeholder="0xxx xxx xx xx" /><span asp-validation-for="ReporterPhone" class="error"></span></div>
             <div class="field"><label asp-for="City"></label><select asp-for="City" data-selected="@Model.City"></select><span asp-validation-for="City" class="error"></span></div>
             <div class="field"><label asp-for="District"></label><select asp-for="District" data-selected="@Model.District"></select><span asp-validation-for="District" class="error"></span></div>
             <div class="field"><label asp-for="ReporterAddress"></label><textarea asp-for="ReporterAddress" rows="3" autocomplete="street-address" placeholder="Kitin bulundugu acik adresi yazin."></textarea><span asp-validation-for="ReporterAddress" class="error"></span></div>

@@ -174,6 +174,18 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             addresses.Property(address => address.PostalCode).HasMaxLength(20);
         });
         builder.Navigation(customer => customer.Addresses).HasField("_addresses").UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.OwnsMany(customer => customer.AllowedProductModels, allowed =>
+        {
+            allowed.ToTable("CustomerAllowedProductModels");
+            allowed.WithOwner().HasForeignKey("CustomerId");
+            allowed.Property<Guid>("Id").ValueGeneratedOnAdd();
+            allowed.HasKey("Id");
+            allowed.Property(item => item.ProductModelId).IsRequired();
+            allowed.HasIndex("CustomerId", nameof(CustomerAllowedProductModel.ProductModelId)).IsUnique();
+            allowed.HasOne<ProductModel>().WithMany().HasForeignKey(item => item.ProductModelId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        builder.Navigation(customer => customer.AllowedProductModels).HasField("_allowedProductModels").UsePropertyAccessMode(PropertyAccessMode.Field);
         AddRowVersion(builder);
     }
 
@@ -333,6 +345,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(ticket => ticket.ReporterName).HasMaxLength(160).IsRequired();
         builder.Property(ticket => ticket.ReporterPhone).HasMaxLength(40).IsRequired();
         builder.Property(ticket => ticket.ReporterAddress).HasMaxLength(1000).IsRequired();
+        builder.Property(ticket => ticket.Origin).HasDefaultValue(FaultOrigin.Internal);
         builder.HasIndex(ticket => ticket.Number).IsUnique();
         builder.HasIndex(ticket => new { ticket.CustomerId, ticket.Status });
         builder.OwnsMany(ticket => ticket.History, history =>

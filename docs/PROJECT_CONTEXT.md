@@ -92,7 +92,7 @@ Rentals:
 - Customer/TACEV period names are persisted on `RentalCohort.Name`; the customer portal order-period form offers distinct previous period names as selectable suggestions while still allowing a new name to be typed.
 - TACEV can create a rental order from a rental cohort in the customer portal. Active students are linked to the created order through `RentalCohortStudent.OrderId`.
 - In the customer portal, rental cohorts are presented as `Siparişler`: the former customer `Orders` page redirects to `RentalPeriods`, and the list shows each cohort's linked order number plus approved/unapproved state. The detail action opens the cohort's student list.
-- Rental cohort responses include `IsApproved`; once the linked order reaches `Approved` or any later non-cancelled/non-rejected status, customer student add/update/import/delete operations are blocked while fault and student-return actions remain available.
+- Rental cohort responses include `IsApproved`; once the linked order reaches `Approved` or any later non-cancelled/non-rejected status, the customer portal treats the student list/order as locked only for student-list mutations. Student add/update/import/delete and order-period plan edits are hidden in MVC and rejected by the application service/API, while linked-kit fault reporting and return request flows remain available.
 - When an admin approves an order linked to a TACEV rental cohort, active student addresses are geocoded through `IAddressGeocoder`; successful latitude/longitude values are persisted on `RentalCohortStudents` and reused for student delivery location events. If approval-time geocoding does not return coordinates, kit assignment retries geocoding immediately before creating the delivery location event.
 - Admin order kit preparation can select a customer's rental cohort. When selected, kit quantities are calculated from unassigned cohort students, and reserved/created kits are linked to the matching students.
 - When admin kit preparation assigns a rental cohort student to a kit, the generated `KitLocationEvent` now copies the student's `District`, `City`, `Latitude`, and `Longitude` values.
@@ -110,6 +110,8 @@ Faults:
 - Main domain: `FaultTicket`, `FaultStatusEvent`.
 - Public QR fault flow can create a new fault or update an existing open fault.
 - Fault updates preserve history and now also insert a new kit location event.
+- `FaultTicket.Origin` distinguishes internal, public QR form, and customer-portal fault records. Customer-portal fault creation uses the same reporter name/phone/city/district/address/description fields as the public form, without showing map/location input, and operations fault lists show the source column.
+- Customer-portal fault forms prefill reporter/location fields from the linked student's delivery form when present, then fall back to the student list address and finally the customer address. The city/district selects use the public QR city-district dataset.
 
 Physical kit detail history:
 
@@ -169,6 +171,7 @@ Migration status:
 - `20260812211046_ReplaceKitDeliveryReceiptsWithLocationEvents` creates `KitLocationEvents`.
 - The migration copies existing `KitDeliveryReceipts` rows into `KitLocationEvents` with source `DeliveryReceipt`, then drops `KitDeliveryReceipts`.
 - `20260818123000_AddRentalCohortStudentCoordinates` adds nullable latitude/longitude columns to `RentalCohortStudents`.
+- `20260820162000_AddFaultTicketOrigin` adds `FaultTickets.Origin` with default `Internal`.
 
 ## Public QR Flows
 
@@ -214,6 +217,7 @@ Global MVC UI behavior:
 - `KitRental.Web/src/KitRental.Web.Mvc/wwwroot/js/site.js` sets a page-level busy state for form submits, same-origin navigation links, and same-origin mutating `fetch` calls so backend-bound actions disable other buttons/links and show a small loader until the response navigates, completes, or the page is restored.
 - Same-page, external, telephone/mail, dialog, and explicit download links are excluded from the navigation busy lock; same-page downloads recover through a fallback timeout if no navigation occurs.
 - MVC confirmation prompts use SweetAlert2 through `data-confirm` on forms or submit buttons; avoid inline `onsubmit`/`onclick` browser `confirm(...)` dialogs.
+- Phone number inputs use a global Turkey mask in `site.js` and the MVC `[TurkishPhone]` validation attribute. Backend domain methods normalize accepted numbers with `KitRental.SharedKernel.TurkishPhoneNumber` using `libphonenumber-csharp`, storing Turkey national format.
 - User-facing button/action labels should use title case in Turkish, with each word's first letter capitalized.
 
 Map markers depend on latitude/longitude where present. Address text still appears in marker details.
@@ -293,7 +297,7 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Customer portal `Siparişler` list has a top `Yeni sipariş oluştur` button that opens a popup rental period form, where the customer can type a new period name or choose a previous period name and enter the valid rental date range; saving returns to the list with the popup closed.
 - Customer portal `Siparişler` rows open the related student-list screen. On that screen, unlocked/unapproved periods expose popup actions for single student creation and Excel bulk upload; the Excel template download link and whole-list education kit dropdown live inside the Excel upload popup, and imported rows continue through the preview screen before saving.
 - Customer portal order-period creation now suggests previously used period names from existing rental cohorts and still accepts a brand-new period name in the same field.
-- Approved customer portal order periods lock student add/update/import/delete actions but still allow fault records and student kit return requests; accepted returns clear the student-kit link.
+- Approved customer portal order periods lock only student-list mutations. MVC hides create/import/edit/delete actions on the student-list screen and the customer-portal API rejects matching mutation attempts, but fault reporting and return request actions stay available for linked active kits.
 - Customer portal student list actions now use Lucide icons and an edit modal instead of navigating to a prefilled edit page.
 - Student removal after assignment anonymizes student details while preserving the rented kit/assignment as an unassigned period kit.
 - Physical kit details now show chronological operation history rows for kit creation, reservation, student assignment/removal, faults, deliveries, returns, and inspections.
@@ -331,6 +335,8 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Fault guide entries can target a specific kit model through `FaultGuideEntries.ProductModelId`; new admin entries require a kit selection, while legacy entries without a model remain general fallback guides. Public QR fault troubleshooting loads only active guides for the scanned kit model plus general fallback entries. Migration `AddFaultGuideProductModel` adds the nullable foreign key.
 - Public QR troubleshooting now presents a more explicit `Çözülmedi, Servise Gönder` action, with the `Geri Dön` action placed at the bottom of the page.
 - Public QR kit-return forms require a return reason: `Eğitim Tamamlandı` or `Kayıt Silindi`. The selected `KitReturnReason` is persisted on `KitReturnRequests`.
+- MVC list-row actions now share a compact action style: text row links/buttons render as small chips, destructive actions use the red variant, and customer portal order rows use icon-only actions with accessible labels/tooltips.
+- Customers can now be limited to specific education kits through `CustomerAllowedProductModels`; an empty allowed-kit list means all product models are available. Admin customer creation and editing expose a `Kullanıma açılan kitler` multi-select with `Tüm Eğitim Kitleri`, and customer portal student create/import kit dropdowns plus backend save/import validation use only the customer's allowed product models. Migration `20260820124317_AddCustomerAllowedProductModels` adds the allowed-kit table.
 
 ## Development Checklist
 

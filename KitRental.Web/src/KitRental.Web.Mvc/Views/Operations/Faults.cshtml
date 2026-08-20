@@ -17,6 +17,12 @@
     {
         1 => "Düşük", 2 => "Orta", 3 => "Yüksek", 4 => "Kritik", _ => "-"
     };
+    string OriginName(int value) => value switch
+    {
+        2 => "Public Form",
+        3 => "Müşteri Paneli",
+        _ => "Operasyon"
+    };
     var firstItem = Model.Result.TotalCount == 0 ? 0 : (Model.Result.Page - 1) * Model.Result.PageSize + 1;
     var lastItem = Math.Min(Model.Result.Page * Model.Result.PageSize, Model.Result.TotalCount);
     var canUpdateFaults = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager") || User.IsInRole("ServiceTechnician");
@@ -43,11 +49,12 @@
 }
 else
 {
-    <div class="table-scroll"><table class="fault-table"><thead><tr><th>Kayıt</th><th>Bildiren kişi</th><th>Arıza nedeni</th><th>Önem</th><th>Durum</th><th>Süreç güncelle</th></tr></thead><tbody>
+    <div class="table-scroll"><table class="fault-table"><thead><tr><th>Kayıt</th><th>Kaynak</th><th>Bildiren kişi</th><th>Arıza nedeni</th><th>Önem</th><th>Durum</th><th>Süreç güncelle</th></tr></thead><tbody>
     @foreach (var item in Model.Result.Items)
     {
         <tr>
             <td><strong>@item.Number</strong><small class="block-muted">@item.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small></td>
+            <td><span class="fault-stage status-@item.Origin">@OriginName(item.Origin)</span></td>
             <td><strong>@item.ReporterName</strong><a class="fault-phone" href="tel:@item.ReporterPhone">@item.ReporterPhone</a><small class="block-muted">@item.ReporterAddress</small><small class="block-muted">@item.CustomerName</small></td>
             <td><span class="fault-category">@item.Category</span><p>@item.Description</p></td>
             <td><span class="fault-severity severity-@item.Severity">@SeverityName(item.Severity)</span></td>

@@ -38,15 +38,17 @@
     }
 }
 
-<section class="portal-section">
-    <div class="section-heading">
-        <div><span class="eyebrow">@Model.CustomerName</span><h1>Siparişler</h1></div>
+<div class="portal-heading portal-kits-heading">
+    <div>
+        <span class="eyebrow">@Model.CustomerName</span>
+        <h1>Siparişler</h1>
+        <p>Sipariş dönemlerinizi oluşturun, filtreleyin ve öğrenci listelerini yönetin.</p>
     </div>
-    @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
-    @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
-</section>
+</div>
+@if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
+@if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 
-<section class="portal-section">
+<section class="portal-kit-list-shell">
     <div class="section-heading">
         <div><span class="eyebrow">SİPARİŞ LİSTESİ</span><h2>Oluşturulan siparişler</h2></div>
         <div class="rental-period-heading-actions">
@@ -144,18 +146,28 @@
                         <td data-mobile-label="Onay durumu"><span class="fault-stage @StatusClass(cohort)">@ApprovalLabel(cohort)</span><small class="block-muted">@DetailLabel(cohort)</small></td>
                         <td data-mobile-label="İşlemler">
                             <div class="portal-table-actions portal-order-actions">
-                                <a class="table-action" asp-action="RentalPeriod" asp-route-id="@cohort.Id">@(cohort.StudentCount == 0 ? "Öğrenci Listesi Oluştur" : "Öğrenci Listesi")</a>
+                                <a class="icon-action icon-action-list" asp-action="RentalPeriod" asp-route-id="@cohort.Id"
+                                   title="@(cohort.StudentCount == 0 ? "Öğrenci Listesi Oluştur" : "Öğrenci Listesi")"
+                                   aria-label="@(cohort.StudentCount == 0 ? $"{cohort.Name} için öğrenci listesi oluştur" : $"{cohort.Name} öğrenci listesini aç")">
+                                    <i data-lucide="list-plus"></i><span class="visually-hidden">@(cohort.StudentCount == 0 ? "Öğrenci Listesi Oluştur" : "Öğrenci Listesi")</span>
+                                </a>
                                 @if (!cohort.IsApproved)
                                 {
-                                    <button class="table-action" type="button" data-dialog-open="rental-period-dialog"
+                                    <button class="icon-action icon-action-edit" type="button" data-dialog-open="rental-period-dialog"
                                         data-rental-period-edit
                                         data-rental-period-id="@cohort.Id"
                                         data-rental-period-name="@cohort.Name"
                                         data-rental-period-start="@cohort.StartDate.ToString("yyyy-MM-dd")"
-                                        data-rental-period-end="@cohort.EndDate.ToString("yyyy-MM-dd")">Düzenle</button>
+                                        data-rental-period-end="@cohort.EndDate.ToString("yyyy-MM-dd")"
+                                        title="Siparişi Düzenle"
+                                        aria-label="@($"{cohort.Name} siparişini düzenle")">
+                                        <i data-lucide="pencil"></i><span class="visually-hidden">Düzenle</span>
+                                    </button>
                                     <form asp-action="DeleteRentalPeriod" asp-route-id="@cohort.Id" method="post" class="inline-form"
                                         data-confirm="Bu siparişi ve bağlı onaylanmamış sipariş kaydını silmek istediğinize emin misiniz?">
-                                        <button class="table-action danger" type="submit">Sil</button>
+                                        <button class="icon-action icon-action-delete" type="submit" title="Siparişi Sil" aria-label="@($"{cohort.Name} siparişini sil")">
+                                            <i data-lucide="trash-2"></i><span class="visually-hidden">Sil</span>
+                                        </button>
                                     </form>
                                 }
                             </div>

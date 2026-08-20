@@ -5,6 +5,7 @@ namespace KitRental.Core.Domain.Support;
 public enum FaultSeverity { Low = 1, Medium = 2, High = 3, Critical = 4 }
 public enum FaultStatus { Open = 1, Investigating = 2, WaitingForCustomer = 3, AwaitingReturn = 4, InService = 5, ReplacementInTransit = 6, Resolved = 7, Closed = 8 }
 public enum FaultApprovalStatus { NotRequired = 0, PendingCustomerApproval = 1, Approved = 2, Rejected = 3 }
+public enum FaultOrigin { Internal = 1, PublicForm = 2, CustomerPortal = 3 }
 public sealed record FaultStatusEvent(Guid Id, FaultStatus Previous, FaultStatus Current, DateTimeOffset OccurredAt, Guid ActorId, string Note);
 
 public sealed class FaultTicket
@@ -13,13 +14,14 @@ public sealed class FaultTicket
     private FaultTicket() { }
     private FaultTicket(Guid id, string number, Guid customerId, Guid orderId, Guid assignmentId, Guid productUnitId,
         string category, FaultSeverity severity, string description, DateTimeOffset openedAt, string reporterName,
-        string reporterPhone, string reporterAddress, double? latitude, double? longitude)
+        string reporterPhone, string reporterAddress, double? latitude, double? longitude, FaultOrigin origin)
     {
         Id = id; Number = number; CustomerId = customerId; OrderId = orderId; AssignmentId = assignmentId; ProductUnitId = productUnitId;
         Category = category; Severity = severity; Description = description; OpenedAt = openedAt; Status = FaultStatus.Open;
         ReporterName = reporterName; ReporterPhone = reporterPhone; ReporterAddress = reporterAddress;
         Latitude = latitude; Longitude = longitude;
         ApprovalStatus = FaultApprovalStatus.NotRequired;
+        Origin = origin;
     }
 
     public Guid Id { get; private set; }
@@ -37,6 +39,7 @@ public sealed class FaultTicket
     public double? Latitude { get; private set; }
     public double? Longitude { get; private set; }
     public FaultApprovalStatus ApprovalStatus { get; private set; }
+    public FaultOrigin Origin { get; private set; } = FaultOrigin.Internal;
     public DateTimeOffset? ApprovedAt { get; private set; }
     public FaultStatus Status { get; private set; }
     public DateTimeOffset OpenedAt { get; private set; }
@@ -45,14 +48,14 @@ public sealed class FaultTicket
     public static FaultTicket Open(Guid id, string number, Guid customerId, Guid orderId, Guid assignmentId,
         Guid productUnitId, string category, FaultSeverity severity, string description, DateTimeOffset openedAt,
         string? reporterName = null, string? reporterPhone = null, string? reporterAddress = null,
-        double? latitude = null, double? longitude = null)
+        double? latitude = null, double? longitude = null, FaultOrigin origin = FaultOrigin.Internal)
     {
         if (new[] { id, customerId, orderId, assignmentId, productUnitId }.Any(value => value == Guid.Empty) || string.IsNullOrWhiteSpace(description))
             throw new DomainException("fault.required_fields", "Arıza için müşteri, sipariş, atama, ürün ve açıklama zorunludur.");
         return new FaultTicket(id, number, customerId, orderId, assignmentId, productUnitId, category.Trim(),
             severity, description.Trim(), openedAt, reporterName?.Trim() ?? string.Empty,
-            reporterPhone?.Trim() ?? string.Empty, reporterAddress?.Trim() ?? string.Empty,
-            latitude, longitude);
+            TurkishPhoneNumber.NormalizeOptional(reporterPhone, "Bildiren telefon numarası"), reporterAddress?.Trim() ?? string.Empty,
+            latitude, longitude, origin);
     }
 
     public void ChangeStatus(FaultStatus next, Guid actorId, DateTimeOffset now, string note)
@@ -74,7 +77,7 @@ public sealed class FaultTicket
         Category = category.Trim();
         Description = description.Trim();
         ReporterName = reporterName.Trim();
-        ReporterPhone = reporterPhone.Trim();
+        ReporterPhone = TurkishPhoneNumber.Normalize(reporterPhone, "Bildiren telefon numarası");
         ReporterAddress = reporterAddress.Trim();
         Latitude = latitude;
         Longitude = longitude;

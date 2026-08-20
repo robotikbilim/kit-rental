@@ -33,8 +33,10 @@ public sealed record CreateBillOfMaterialsRequest(int Version, IReadOnlyCollecti
 public sealed record CreateKitRequest(string Name, string Sku, string? Description, string? ImageUrl, int BomVersion,
     IReadOnlyCollection<BillOfMaterialsLineRequest> Lines);
 public sealed record AddressRequest(string Title, string ContactName, string Phone, string Line1, string District, string City, string PostalCode);
-public sealed record CreateCustomerRequest(string Name, string Email, AddressRequest Address);
-public sealed record UpdateCustomerRequest(string Name, string Email, bool IsActive);
+public sealed record CreateCustomerRequest(string Name, string Email, AddressRequest Address,
+    IReadOnlyCollection<Guid>? AllowedProductModelIds = null);
+public sealed record UpdateCustomerRequest(string Name, string Email, bool IsActive,
+    IReadOnlyCollection<Guid>? AllowedProductModelIds = null);
 public sealed record OrderLineRequest(Guid ProductModelId, int Quantity);
 public sealed record CreateOrderRequest(Guid CustomerId, Guid AddressId, DateOnly StartDate, DateOnly EndDate, IReadOnlyCollection<OrderLineRequest> Lines);
 public sealed record OrderTransitionRequest(RentalOrderStatus Target);
@@ -57,7 +59,8 @@ public sealed record FaultGuideEntryRequest(string Title, string Problem, string
     bool IsActive = true, Guid? ProductModelId = null);
 public sealed record InspectionItemRequest(string Name, bool IsPresent, bool IsDamaged, string Note);
 public sealed record CompleteInspectionRequest(Guid OrderId, Guid ProductUnitId, IReadOnlyCollection<InspectionItemRequest> Items, decimal DamageCharge, ProductUnitStatus Outcome);
-public sealed record PortalFaultRequest(Guid AssignmentId, string Category, FaultSeverity Severity, string Description);
+public sealed record PortalFaultRequest(Guid AssignmentId, string ReporterName, string ReporterPhone,
+    string ReporterAddress, string District, string City, string Description);
 public sealed record PublicFaultRequest(Guid? FaultId, string QrCode, string ReporterName, string ReporterPhone,
     string ReporterAddress, string District, string City, string Description,
     double? Latitude = null, double? Longitude = null);

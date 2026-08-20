@@ -100,7 +100,7 @@ public sealed record PeriodViewModel(DateOnly StartDate, DateOnly EndDate);
 public sealed record OrderLineViewModel(Guid Id, Guid ProductModelId, int Quantity);
 public sealed record FaultViewModel(Guid Id, string Number, Guid CustomerId, string CustomerName,
     string ReporterName, string ReporterPhone, string ReporterAddress, string Category, int Severity, string Description, int Status,
-    DateTimeOffset OpenedAt, int ApprovalStatus = 0);
+    DateTimeOffset OpenedAt, int ApprovalStatus = 0, int Origin = 1);
 public sealed record FaultPageViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultViewModel> Items);
 public sealed record FaultGuideEntryViewModel(Guid Id, string Title, string Problem, string Solution,
@@ -308,7 +308,7 @@ public sealed class RentPhysicalKitViewModel
     public string? ImageUrl { get; set; }
     [Required, Display(Name = "Kiralayan kişi / kurum")] public string CustomerName { get; set; } = string.Empty;
     [Required, EmailAddress, Display(Name = "E-posta")] public string Email { get; set; } = string.Empty;
-    [Required, Phone, Display(Name = "Telefon")] public string Phone { get; set; } = string.Empty;
+    [Required, TurkishPhone, Display(Name = "Telefon")] public string Phone { get; set; } = string.Empty;
     [Required, Display(Name = "Açık adres")] public string AddressLine { get; set; } = string.Empty;
     [Required, Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
     [Required, Display(Name = "Şehir")] public string City { get; set; } = string.Empty;
@@ -332,7 +332,7 @@ public sealed class BulkRentPhysicalKitsViewModel
     public List<string> SerialNumbers { get; set; } = [];
     [Required, Display(Name = "Kiralayan kişi / kurum")] public string CustomerName { get; set; } = string.Empty;
     [Required, EmailAddress, Display(Name = "E-posta")] public string Email { get; set; } = string.Empty;
-    [Required, Phone, Display(Name = "Telefon")] public string Phone { get; set; } = string.Empty;
+    [Required, TurkishPhone, Display(Name = "Telefon")] public string Phone { get; set; } = string.Empty;
     [Required, Display(Name = "Açık adres")] public string AddressLine { get; set; } = string.Empty;
     [Required, Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
     [Required, Display(Name = "Şehir")] public string City { get; set; } = string.Empty;
@@ -365,7 +365,8 @@ public sealed record PortalKitViewModel(Guid ProductUnitId, Guid AssignmentId, G
     string KitName, string KitSku, string? ImageUrl, string SerialNumber, string QrCode, int UnitStatus, int AssignmentStatus,
     DateOnly StartDate, DateOnly EndDate, int OpenFaultCount, bool HasDeliveryForm,
     string? AssignedStudentName = null, string? AssignedStudentGuardianPhone = null,
-    string? AssignedStudentAddressLine = null, string? AssignedStudentPeriodName = null, bool IsReturned = false);
+    string? AssignedStudentAddressLine = null, string? AssignedStudentPeriodName = null, bool IsReturned = false,
+    bool StudentOrderLocked = false);
 public sealed record PortalKitLookupPageViewModel(string Identifier, bool HasSearched, string? Error);
 public sealed record PortalKitDetailPageViewModel(PortalKitViewModel Kit,
     IReadOnlyCollection<PortalFaultViewModel> Faults);
@@ -389,7 +390,8 @@ public sealed record PortalOrderViewModel(Guid Id, string OrderNumber, Guid Cust
     int Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt, IReadOnlyCollection<PortalOrderLineViewModel> Lines,
     int AssignedKitCount = 0);
 public sealed record OrderCustomerViewModel(Guid Id, string Name, string Email, bool IsActive,
-    IReadOnlyCollection<PortalAddressViewModel> Addresses);
+    IReadOnlyCollection<PortalAddressViewModel> Addresses,
+    IReadOnlyCollection<Guid>? AllowedProductModelIds = null);
 public sealed record CustomersPageViewModel(IReadOnlyCollection<OrderCustomerViewModel> Customers,
     IReadOnlyCollection<UserApiResponse> Accounts, string Query)
 {
@@ -411,6 +413,17 @@ public sealed class CustomerInputViewModel
     [Required, StringLength(250), Display(Name = "Müşteri / kurum adı")] public string Name { get; set; } = string.Empty;
     [Required, EmailAddress, StringLength(320), Display(Name = "E-posta adresi")] public string Email { get; set; } = string.Empty;
     [Display(Name = "Aktif müşteri")] public bool IsActive { get; set; } = true;
+    [Display(Name = "Kullanıma açılan kitler")] public List<string> AllowedProductModelSelection { get; set; } = ["all"];
+    public IReadOnlyCollection<ProductModelCatalogViewModel> ProductModels { get; set; } = [];
+    public bool AllowsAllProductModels => AllowedProductModelSelection.Count == 0 ||
+        AllowedProductModelSelection.Any(item => string.Equals(item, "all", StringComparison.OrdinalIgnoreCase));
+    public IReadOnlyCollection<Guid> SelectedAllowedProductModelIds => AllowsAllProductModels
+        ? []
+        : AllowedProductModelSelection
+            .Select(item => Guid.TryParse(item, out var id) ? id : Guid.Empty)
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToArray();
 }
 public sealed class CustomerAddressInputViewModel
 {
@@ -419,7 +432,7 @@ public sealed class CustomerAddressInputViewModel
     public string CustomerName { get; set; } = string.Empty;
     [Required, StringLength(100), Display(Name = "Adres başlığı")] public string Title { get; set; } = string.Empty;
     [Required, StringLength(160), Display(Name = "İletişim kişisi")] public string ContactName { get; set; } = string.Empty;
-    [Required, Phone, StringLength(40), Display(Name = "Telefon")] public string Phone { get; set; } = string.Empty;
+    [Required, TurkishPhone, StringLength(40), Display(Name = "Telefon")] public string Phone { get; set; } = string.Empty;
     [Required, StringLength(500), Display(Name = "Açık adres")] public string Line1 { get; set; } = string.Empty;
     [Required, StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
     [Required, StringLength(120), Display(Name = "Şehir")] public string City { get; set; } = string.Empty;
@@ -429,6 +442,17 @@ public sealed class CreateCustomerViewModel
 {
     public CustomerInputViewModel Customer { get; set; } = new();
     public CustomerAddressInputViewModel Address { get; set; } = new() { Title = "Merkez" };
+    [Display(Name = "Kullanıma açılan kitler")] public List<string> AllowedProductModelSelection { get; set; } = ["all"];
+    public IReadOnlyCollection<ProductModelCatalogViewModel> ProductModels { get; set; } = [];
+    public bool AllowsAllProductModels => AllowedProductModelSelection.Count == 0 ||
+        AllowedProductModelSelection.Any(item => string.Equals(item, "all", StringComparison.OrdinalIgnoreCase));
+    public IReadOnlyCollection<Guid> SelectedAllowedProductModelIds => AllowsAllProductModels
+        ? []
+        : AllowedProductModelSelection
+            .Select(item => Guid.TryParse(item, out var id) ? id : Guid.Empty)
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToArray();
 }
 public sealed class AdminOrderInputViewModel
 {
@@ -479,7 +503,8 @@ public sealed record PortalShipmentViewModel(int Type, string Carrier, string Tr
 public sealed record PortalFaultViewModel(Guid Id, string Number, Guid ProductUnitId, string KitName, string SerialNumber,
     string Category, int Severity, string Description, int Status, DateTimeOffset OpenedAt,
     IReadOnlyCollection<PortalFaultStatusViewModel> History, IReadOnlyCollection<PortalShipmentViewModel> Shipments,
-    string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "", int ApprovalStatus = 0);
+    string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "", int ApprovalStatus = 0,
+    int Origin = 1);
 public sealed record PublicFaultKitViewModel(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
 public sealed record PublicKitActionViewModel(string QrCode, string KitName, string SerialNumber);
 public sealed record PublicFaultTroubleshootingViewModel(string QrCode, string KitName, string SerialNumber,
@@ -494,7 +519,7 @@ public sealed class PublicFaultFormViewModel
     public string KitName { get; set; } = string.Empty;
     public string SerialNumber { get; set; } = string.Empty;
     [Required, StringLength(160), Display(Name = "Ad soyad")] public string ReporterName { get; set; } = string.Empty;
-    [Required, Phone, StringLength(40), Display(Name = "Telefon numarası")] public string ReporterPhone { get; set; } = string.Empty;
+    [Required, TurkishPhone, StringLength(40), Display(Name = "Telefon numarası")] public string ReporterPhone { get; set; } = string.Empty;
     [Required, StringLength(120), Display(Name = "İl")] public string City { get; set; } = string.Empty;
     [Required, StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
     [Required, StringLength(1000), Display(Name = "Adres")] public string ReporterAddress { get; set; } = string.Empty;
@@ -513,7 +538,7 @@ public sealed class PublicReturnFormViewModel
     public string SerialNumber { get; set; } = string.Empty;
     [Required, Display(Name = "İade nedeni")] public int? ReturnReason { get; set; }
     [Required, StringLength(160), Display(Name = "Ad soyad")] public string RequesterName { get; set; } = string.Empty;
-    [Required, Phone, StringLength(40), Display(Name = "Telefon numarası")] public string RequesterPhone { get; set; } = string.Empty;
+    [Required, TurkishPhone, StringLength(40), Display(Name = "Telefon numarası")] public string RequesterPhone { get; set; } = string.Empty;
     [Required, StringLength(120), Display(Name = "İl")] public string City { get; set; } = string.Empty;
     [Required, StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
     [Required, StringLength(1000), Display(Name = "Adres")] public string ReturnAddress { get; set; } = string.Empty;
@@ -528,7 +553,7 @@ public sealed class PublicDeliveryFormViewModel
     public string KitName { get; set; } = string.Empty;
     public string SerialNumber { get; set; } = string.Empty;
     [Required, StringLength(160), Display(Name = "Ad soyad")] public string RecipientName { get; set; } = string.Empty;
-    [Required, Phone, StringLength(40), Display(Name = "Telefon numarası")] public string RecipientPhone { get; set; } = string.Empty;
+    [Required, TurkishPhone, StringLength(40), Display(Name = "Telefon numarası")] public string RecipientPhone { get; set; } = string.Empty;
     [Required, StringLength(120), Display(Name = "İl")] public string City { get; set; } = string.Empty;
     [Required, StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
     [Required, StringLength(1000), Display(Name = "Adres")] public string AddressLine { get; set; } = string.Empty;
@@ -547,7 +572,7 @@ public sealed record CustomerPortalViewModel(string CustomerName, string Custome
 public sealed record PortalReturnListItemViewModel(Guid ProductUnitId, Guid AssignmentId, Guid? ReturnId,
     string KitName, string KitSku, string SerialNumber, string OrderNumber, DateOnly StartDate, DateOnly EndDate,
     int UnitStatus, int AssignmentStatus, int ReturnStatus, int OpenFaultCount, string ReturnStateKey,
-    string ReturnState);
+    string ReturnState, bool StudentOrderLocked = false);
 public sealed record PortalReturnsPageViewModel(string CustomerName, string Query, string State, int Page,
     int PageSize, int TotalCount, int TotalKitCount, int TotalPages, int FirstItem, int LastItem,
     IReadOnlyCollection<PortalReturnListItemViewModel> Returns);
@@ -566,9 +591,14 @@ public sealed class PortalRentalLineInputViewModel
 public sealed class PortalFaultRequestViewModel
 {
     [Required] public Guid AssignmentId { get; set; }
-    [Required, StringLength(160), Display(Name = "Arıza kategorisi")] public string Category { get; set; } = string.Empty;
-    [Range(1, 4), Display(Name = "Önem derecesi")] public int Severity { get; set; } = 2;
-    [Required, StringLength(4000), Display(Name = "Arıza açıklaması")] public string Description { get; set; } = string.Empty;
+    public string KitName { get; set; } = string.Empty;
+    public string SerialNumber { get; set; } = string.Empty;
+    [Required, StringLength(160), Display(Name = "Ad soyad")] public string ReporterName { get; set; } = string.Empty;
+    [Required, TurkishPhone, StringLength(40), Display(Name = "Telefon numarası")] public string ReporterPhone { get; set; } = string.Empty;
+    [Required, StringLength(120), Display(Name = "İl")] public string City { get; set; } = string.Empty;
+    [Required, StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
+    [Required, StringLength(1000), Display(Name = "Adres")] public string ReporterAddress { get; set; } = string.Empty;
+    [Required, StringLength(4000, MinimumLength = 10), Display(Name = "Arıza nedeni")] public string Description { get; set; } = string.Empty;
 }
 public sealed record PortalFaultRequestPageViewModel(PortalFaultRequestViewModel Form,
     IReadOnlyCollection<PortalKitViewModel> ActiveKits);
@@ -586,7 +616,7 @@ public sealed class RentalCohortStudentInputViewModel
     public Guid? Id { get; set; }
     public Guid CohortId { get; set; }
     [Required, StringLength(160), Display(Name = "Öğrenci adı soyadı")] public string FullName { get; set; } = string.Empty;
-    [Required, Phone, StringLength(40), Display(Name = "Veli telefon numarası")] public string GuardianPhone { get; set; } = string.Empty;
+    [Required, TurkishPhone, StringLength(40), Display(Name = "Veli telefon numarası")] public string GuardianPhone { get; set; } = string.Empty;
     [Required, StringLength(1000), Display(Name = "Adres bilgileri")] public string AddressLine { get; set; } = string.Empty;
     [Required, Display(Name = "İl")] public int CityId { get; set; }
     [Required, Display(Name = "İlçe")] public int DistrictId { get; set; }

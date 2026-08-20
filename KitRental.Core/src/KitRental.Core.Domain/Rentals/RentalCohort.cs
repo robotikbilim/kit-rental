@@ -117,7 +117,7 @@ public sealed class RentalCohortStudent
         Id = id;
         RentalCohortId = rentalCohortId;
         FullName = fullName.Trim();
-        GuardianPhone = guardianPhone.Trim();
+        GuardianPhone = TurkishPhoneNumber.Normalize(guardianPhone, "Veli telefon numarası");
         AddressLine = addressLine.Trim();
         CityId = cityId;
         DistrictId = districtId;

@@ -35,7 +35,8 @@ public sealed class OperationsController : CoreApiControllerBase
         var result = await service.CreateCustomerAsync(
                 new CreateCustomerCommand(request.Name, request.Email,
                     new AddressCommand(request.Address.Title, request.Address.ContactName, request.Address.Phone, request.Address.Line1,
-                        request.Address.District, request.Address.City, request.Address.PostalCode), User.GetRequiredUserId()),
+                        request.Address.District, request.Address.City, request.Address.PostalCode), User.GetRequiredUserId(),
+                    request.AllowedProductModelIds),
                 cancellationToken);
         return Created($"/api/customers/{result.Id}", result);
     }
@@ -66,7 +67,7 @@ public sealed class OperationsController : CoreApiControllerBase
     public async Task<IActionResult> Put_CustomersCustomerIdGuid_79(Guid customerId, UpdateCustomerRequest request, [FromServices] OperationsService service, CancellationToken cancellationToken)
     {
         return Ok(await service.UpdateCustomerAsync(new UpdateCustomerCommand(customerId, request.Name, request.Email,
-                request.IsActive, User.GetRequiredUserId()), cancellationToken));
+                request.IsActive, User.GetRequiredUserId(), request.AllowedProductModelIds), cancellationToken));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager")]

@@ -14,8 +14,10 @@ using KitRental.SharedKernel;
 namespace KitRental.Core.Application.Operations;
 
 public sealed record AddressCommand(string Title, string ContactName, string Phone, string Line1, string District, string City, string PostalCode);
-public sealed record CreateCustomerCommand(string Name, string Email, AddressCommand Address, Guid ActorId);
-public sealed record UpdateCustomerCommand(Guid CustomerId, string Name, string Email, bool IsActive, Guid ActorId);
+public sealed record CreateCustomerCommand(string Name, string Email, AddressCommand Address, Guid ActorId,
+    IReadOnlyCollection<Guid>? AllowedProductModelIds = null);
+public sealed record UpdateCustomerCommand(Guid CustomerId, string Name, string Email, bool IsActive, Guid ActorId,
+    IReadOnlyCollection<Guid>? AllowedProductModelIds = null);
 public sealed record CustomerAddressCommand(Guid CustomerId, Guid? AddressId, AddressCommand Address, Guid ActorId);
 public sealed record OrderLineCommand(Guid ProductModelId, int Quantity);
 public sealed record CreateOrderCommand(Guid CustomerId, Guid AddressId, DateOnly StartDate, DateOnly EndDate, IReadOnlyCollection<OrderLineCommand> Lines, Guid ActorId);
@@ -25,7 +27,8 @@ public sealed record CreateShipmentCommand(Guid OrderId, Guid? FaultTicketId, Sh
 public sealed record AddShipmentEventCommand(Guid ShipmentId, ShipmentStatus Status, DateTimeOffset OccurredAt, string Location, string Description, Guid ActorId);
 public sealed record OpenFaultCommand(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId,
     string Category, FaultSeverity Severity, string Description, Guid ActorId, string? ReporterName = null,
-    string? ReporterPhone = null, string? ReporterAddress = null, double? Latitude = null, double? Longitude = null);
+    string? ReporterPhone = null, string? ReporterAddress = null, double? Latitude = null, double? Longitude = null,
+    FaultOrigin Origin = FaultOrigin.Internal);
 public sealed record PublicFaultKitResponse(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
 public sealed record PublicKitDeliveryContextResponse(string? RecipientName, string? RecipientPhone,
     string? AddressLine, string? District, string? City, double? Latitude, double? Longitude);
@@ -49,7 +52,7 @@ public sealed record FaultPageQuery(string? Query, FaultStatus? Status, FaultSev
     DateOnly? OpenedFrom, DateOnly? OpenedTo, int Page = 1, int PageSize = 20);
 public sealed record FaultListItemResponse(Guid Id, string Number, Guid CustomerId, string CustomerName,
     string ReporterName, string ReporterPhone, string ReporterAddress, string Category, FaultSeverity Severity, string Description,
-    FaultStatus Status, DateTimeOffset OpenedAt, FaultApprovalStatus ApprovalStatus);
+    FaultStatus Status, DateTimeOffset OpenedAt, FaultApprovalStatus ApprovalStatus, FaultOrigin Origin);
 public sealed record FaultPageResponse(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultListItemResponse> Items);
 public sealed record OrderKitResponse(Guid ProductUnitId, Guid AssignmentId, Guid ProductModelId,
@@ -105,6 +108,8 @@ public sealed class OperationsService(
     public async Task<Customer> CreateCustomerAsync(CreateCustomerCommand command, CancellationToken cancellationToken)
     {
         var customer = Customer.Create(Guid.NewGuid(), command.Name, command.Email);
+        var allowedProductModelIds = await ValidateAllowedProductModelsAsync(command.AllowedProductModelIds, cancellationToken);
+        customer.SetAllowedProductModels(allowedProductModelIds);
         customer.AddAddress(
             command.Address.Title, command.Address.ContactName, command.Address.Phone, command.Address.Line1,
             command.Address.District, command.Address.City, command.Address.PostalCode);
@@ -133,13 +138,34 @@ public sealed class OperationsService(
         var duplicate = await repository.FindCustomerByEmailAsync(command.Email, cancellationToken);
         if (duplicate is not null && duplicate.Id != customer.Id)
             throw new ConflictException("customer.email_not_unique", "Müşteri e-posta adresi benzersiz olmalıdır.");
-        var previous = $"{customer.Name}|{customer.Email}|{customer.IsActive}";
+        var previousAllowedProductModelIds = string.Join(',', customer.AllowedProductModelIds.Order());
+        var previous = $"{customer.Name}|{customer.Email}|{customer.IsActive}|{previousAllowedProductModelIds}";
         customer.Update(command.Name, command.Email);
         customer.SetActive(command.IsActive);
+        if (command.AllowedProductModelIds is not null)
+        {
+            var allowedProductModelIds = await ValidateAllowedProductModelsAsync(command.AllowedProductModelIds, cancellationToken);
+            customer.SetAllowedProductModels(allowedProductModelIds);
+        }
         await repository.SaveChangesAsync(cancellationToken);
+        var currentAllowedProductModelIds = string.Join(',', customer.AllowedProductModelIds.Order());
         await AuditAsync(command.ActorId, nameof(Customer), customer.Id, "Updated", previous,
-            $"{customer.Name}|{customer.Email}|{customer.IsActive}", cancellationToken);
+            $"{customer.Name}|{customer.Email}|{customer.IsActive}|{currentAllowedProductModelIds}", cancellationToken);
         return customer;
+    }
+
+    private async Task<IReadOnlyCollection<Guid>> ValidateAllowedProductModelsAsync(
+        IReadOnlyCollection<Guid>? productModelIds,
+        CancellationToken cancellationToken)
+    {
+        var distinctIds = productModelIds?.Where(id => id != Guid.Empty).Distinct().ToArray() ?? [];
+        foreach (var productModelId in distinctIds)
+        {
+            if (await repository.GetProductModelAsync(productModelId, cancellationToken) is null)
+                throw new ResourceNotFoundException($"{productModelId} eğitim kiti bulunamadı.");
+        }
+
+        return distinctIds;
     }
 
     public async Task<Customer> SetCustomerActiveAsync(Guid customerId, bool isActive, Guid actorId,
@@ -629,7 +655,8 @@ public sealed class OperationsService(
         var ticket = FaultTicket.Open(
             Guid.NewGuid(), $"FLT-{now:yyyyMMdd}-{Guid.NewGuid():N}"[..21], command.CustomerId, command.OrderId,
             command.AssignmentId, command.ProductUnitId, command.Category, command.Severity, command.Description, now,
-            command.ReporterName, command.ReporterPhone, command.ReporterAddress, command.Latitude, command.Longitude);
+            command.ReporterName, command.ReporterPhone, command.ReporterAddress, command.Latitude, command.Longitude,
+            command.Origin);
         await repository.AddFaultTicketAsync(ticket, cancellationToken);
         await AddActivityAsync(command.ProductUnitId, command.AssignmentId, command.OrderId, null, command.ActorId,
             command.ReporterName ?? command.ActorId.ToString(), "Arıza kaydı oluşturuldu",
@@ -753,7 +780,7 @@ public sealed class OperationsService(
         var ticket = await OpenFaultAsync(new OpenFaultCommand(assignment.CustomerId, order.Id, assignment.Id, unit.Id,
             "Son kullanici bildirimi", FaultSeverity.Medium, command.Description,
             PublicActorId, command.ReporterName, command.ReporterPhone,
-            command.ReporterAddress, newFaultLocation.Latitude, newFaultLocation.Longitude),
+            command.ReporterAddress, newFaultLocation.Latitude, newFaultLocation.Longitude, FaultOrigin.PublicForm),
             cancellationToken);
         await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id, assignment.Id,
             order.Id, assignment.CustomerId, KitLocationEventSource.FaultReport, ticket.Id, command.ReporterName,
@@ -894,7 +921,7 @@ public sealed class OperationsService(
                 ?? "-";
             return new FaultListItemResponse(ticket.Id, ticket.Number, ticket.CustomerId,
                 customer?.Name ?? "Müşteri", reporterName, reporterPhone, reporterAddress, ticket.Category, ticket.Severity,
-                ticket.Description, ticket.Status, ticket.OpenedAt, ticket.ApprovalStatus);
+                ticket.Description, ticket.Status, ticket.OpenedAt, ticket.ApprovalStatus, ticket.Origin);
         });
 
         items = items.Where(item => item.ApprovalStatus is FaultApprovalStatus.NotRequired or FaultApprovalStatus.Approved);

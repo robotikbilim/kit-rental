@@ -4,6 +4,7 @@ using KitRental.Core.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace KitRental.Core.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(KitRentalDbContext))]
-    partial class KitRentalDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260820124317_AddCustomerAllowedProductModels")]
+    partial class AddCustomerAllowedProductModels
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -814,11 +817,6 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Origin")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(1);
 
                     b.Property<Guid>("ProductUnitId")
                         .HasColumnType("uniqueidentifier");

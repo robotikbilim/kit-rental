@@ -18,6 +18,110 @@
     let pageBusy = false;
     let busyFallbackTimer = null;
 
+    const phoneInvalidMessage = 'Telefon numarası 0xxx xxx xx xx formatında olmalıdır.';
+    const phoneInputSelector = [
+        'input[data-phone-mask="tr"]',
+        'input[data-val-turkishphone]',
+        'input[type="tel"][name$="Phone"]',
+        'input[type="tel"][id$="Phone"]',
+        'input[name$=".Phone"]',
+        'input[name$="Phone"]',
+        'input[id$="Phone"]'
+    ].join(',');
+
+    const normalizeTurkishPhoneDigits = (value) => {
+        let digits = String(value || '').replace(/\D/g, '');
+        if (digits.startsWith('0090')) digits = digits.slice(4);
+        if (digits.startsWith('90')) digits = digits.slice(2);
+        if (digits.length === 10) digits = `0${digits}`;
+        return digits.slice(0, 11);
+    };
+
+    const formatTurkishPhone = (value) => {
+        const digits = normalizeTurkishPhoneDigits(value);
+        return [
+            digits.slice(0, 4),
+            digits.slice(4, 7),
+            digits.slice(7, 9),
+            digits.slice(9, 11)
+        ].filter(Boolean).join(' ');
+    };
+
+    const validateTurkishPhoneInput = (input) => {
+        if (!input.value.trim()) {
+            input.setCustomValidity('');
+            return true;
+        }
+        const isValid = /^0\d{10}$/.test(normalizeTurkishPhoneDigits(input.value));
+        input.setCustomValidity(isValid ? '' : phoneInvalidMessage);
+        return isValid;
+    };
+
+    const setupTurkishPhoneInputs = (root = document) => {
+        root.querySelectorAll?.(phoneInputSelector).forEach((input) => {
+            if (input.dataset.phoneMaskReady === 'true' || input.type === 'hidden') return;
+            input.dataset.phoneMaskReady = 'true';
+            input.type = 'tel';
+            input.inputMode = 'tel';
+            input.autocomplete = input.autocomplete || 'tel';
+            input.placeholder = input.placeholder || '0xxx xxx xx xx';
+            input.maxLength = 14;
+            if (input.value) input.value = formatTurkishPhone(input.value);
+
+            input.addEventListener('input', () => {
+                input.value = formatTurkishPhone(input.value);
+                validateTurkishPhoneInput(input);
+            });
+            input.addEventListener('blur', () => {
+                input.value = formatTurkishPhone(input.value);
+                validateTurkishPhoneInput(input);
+            });
+            input.addEventListener('invalid', () => validateTurkishPhoneInput(input));
+        });
+    };
+
+    setupTurkishPhoneInputs();
+
+    document.addEventListener('submit', (event) => {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        const invalidPhone = Array.from(form.querySelectorAll(phoneInputSelector))
+            .filter((input) => input.type !== 'hidden')
+            .find((input) => !validateTurkishPhoneInput(input));
+        if (!invalidPhone) return;
+        event.preventDefault();
+        invalidPhone.reportValidity();
+    }, true);
+
+    document.querySelectorAll('select[data-all-option]').forEach((select) => {
+        const rememberSelection = () => {
+            select.dataset.previousSelection = Array.from(select.selectedOptions)
+                .map((option) => option.value)
+                .join('|');
+        };
+        rememberSelection();
+        select.addEventListener('focus', rememberSelection);
+        select.addEventListener('mousedown', rememberSelection);
+        select.addEventListener('change', () => {
+            const allOption = Array.from(select.options).find((option) => option.value === 'all');
+            if (!allOption) return;
+            const previousValues = (select.dataset.previousSelection || '').split('|').filter(Boolean);
+            const selectedSpecificOptions = Array.from(select.selectedOptions)
+                .filter((option) => option.value !== 'all');
+            if (allOption.selected && !previousValues.includes('all')) {
+                selectedSpecificOptions.forEach((option) => {
+                    option.selected = false;
+                });
+            } else if (allOption.selected && selectedSpecificOptions.length > 0) {
+                allOption.selected = false;
+            }
+            if (select.selectedOptions.length === 0) {
+                allOption.selected = true;
+            }
+            rememberSelection();
+        });
+    });
+
     const shouldSkipBusyLink = (link) => {
         if (!link || link.dataset.noBusy === 'true') return true;
         if (link.target && link.target !== '_self') return true;
@@ -338,7 +442,8 @@
         const openStudentEditor = (trigger) => {
             editId.value = trigger.dataset.studentId || '';
             editName.value = trigger.dataset.studentName || '';
-            editPhone.value = trigger.dataset.studentPhone || '';
+            editPhone.value = formatTurkishPhone(trigger.dataset.studentPhone || '');
+            validateTurkishPhoneInput(editPhone);
             editAddress.value = trigger.dataset.studentAddress || '';
             editCity.value = trigger.dataset.studentCityId || '';
             editDistrict.value = trigger.dataset.studentDistrictId || '';

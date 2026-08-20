@@ -15,6 +15,12 @@
         8 => "Tamamlandi",
         _ => "Islemde"
     };
+    string OriginName(int value) => value switch
+    {
+        2 => "Public Form",
+        3 => "Müşteri Paneli",
+        _ => "Operasyon"
+    };
 
     IEnumerable<int?> PaginationPages(int currentPage, int totalPages)
     {
@@ -88,12 +94,13 @@
     {
         <div class="table-scroll portal-kit-table-wrap">
             <table class="portal-kit-table">
-                <thead><tr><th>Kayit</th><th>Kit</th><th>Bildirim</th><th>Durum</th><th><span class="visually-hidden">Islemler</span></th></tr></thead>
+                <thead><tr><th>Kayit</th><th>Kaynak</th><th>Kit</th><th>Bildirim</th><th>Durum</th><th><span class="visually-hidden">Islemler</span></th></tr></thead>
                 <tbody>
                 @foreach (var fault in Model.Faults)
                 {
                     <tr>
                         <td data-mobile-label="Kayit"><strong>@fault.Number</strong><small class="block-muted">@fault.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small></td>
+                        <td data-mobile-label="Kaynak"><span class="fault-stage status-@fault.Origin">@OriginName(fault.Origin)</span></td>
                         <td data-mobile-label="Kit"><strong>@fault.KitName</strong><small class="block-muted">@fault.SerialNumber</small></td>
                         <td data-mobile-label="Bildirim"><span class="fault-category">@fault.Category</span><p>@fault.Description</p></td>
                         <td data-mobile-label="Durum"><span class="fault-stage status-@fault.Status">@StatusName(fault.Status)</span></td>

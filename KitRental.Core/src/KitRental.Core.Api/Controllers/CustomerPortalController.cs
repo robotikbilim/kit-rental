@@ -23,7 +23,8 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     public async Task<IActionResult> Post_CustomerPortalFaults_9(PortalFaultRequest request, [FromServices] CustomerPortalService service, [FromServices] IEmailNotificationService notifications, CancellationToken cancellationToken)
     {
         var result = await service.OpenFaultAsync(new OpenPortalFaultCommand(GetRequiredCustomerId(),
-                request.AssignmentId, request.Category, request.Severity, request.Description, User.GetRequiredUserId()),
+                request.AssignmentId, request.ReporterName, request.ReporterPhone, request.ReporterAddress,
+                request.District, request.City, request.Description, User.GetRequiredUserId()),
                 cancellationToken);
         await notifications.NotifyAdminsOfFaultAsync(result, "Müşteri yeni bir arıza kaydı oluşturdu",
             cancellationToken);

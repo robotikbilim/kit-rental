@@ -19,7 +19,9 @@ public sealed class KitReturnRequest
     {
         Id = id; CustomerId = customerId; CreatedAt = createdAt; CreatedBy = createdBy;
         RequesterName = requesterName?.Trim();
-        RequesterPhone = requesterPhone?.Trim();
+        RequesterPhone = string.IsNullOrWhiteSpace(requesterPhone)
+            ? null
+            : TurkishPhoneNumber.Normalize(requesterPhone, "İade talep eden telefon numarası");
         ReturnAddress = returnAddress?.Trim();
         Latitude = latitude;
         Longitude = longitude;

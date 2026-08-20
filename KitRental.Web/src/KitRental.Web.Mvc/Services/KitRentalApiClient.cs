@@ -109,12 +109,15 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
                 model.Address.District,
                 model.Address.City,
                 model.Address.PostalCode
-            }
+            },
+            allowedProductModelIds = model.SelectedAllowedProductModelIds
         }, cancellationToken);
 
     public Task<ApiCommandResult<OrderCustomerViewModel>> UpdateCustomerAsync(CustomerInputViewModel model,
         CancellationToken cancellationToken) => SendAsync<OrderCustomerViewModel>(HttpMethod.Put,
-            $"/core/api/customers/{model.Id}", new { model.Name, model.Email, model.IsActive }, cancellationToken);
+            $"/core/api/customers/{model.Id}",
+            new { model.Name, model.Email, model.IsActive, allowedProductModelIds = model.SelectedAllowedProductModelIds },
+            cancellationToken);
 
     public Task<ApiCommandResult<OrderCustomerViewModel>> DeleteCustomerAsync(Guid id,
         CancellationToken cancellationToken) => SendAsync<OrderCustomerViewModel>(HttpMethod.Delete,
@@ -451,7 +454,16 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
 
     public Task<ApiCommandResult<FaultViewModel>> CreatePortalFaultAsync(PortalFaultRequestViewModel model,
         CancellationToken cancellationToken) => PostAsync<FaultViewModel>("/core/api/customer-portal/faults",
-            new { model.AssignmentId, model.Category, model.Severity, model.Description }, cancellationToken);
+            new
+            {
+                model.AssignmentId,
+                model.ReporterName,
+                model.ReporterPhone,
+                model.ReporterAddress,
+                model.District,
+                model.City,
+                model.Description
+            }, cancellationToken);
 
     public Task<PublicFaultKitViewModel?> GetPublicFaultKitAsync(string qrCode, CancellationToken cancellationToken) =>
         GetAsync<PublicFaultKitViewModel>($"/core/api/public/faults/kit/{Uri.EscapeDataString(qrCode)}", cancellationToken);

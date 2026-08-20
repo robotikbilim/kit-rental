@@ -69,7 +69,7 @@ public sealed class KitLocationEvent
             throw new DomainException("kit_location_event.invalid_coordinates", "Coordinates are invalid.");
 
         return new KitLocationEvent(id, productUnitId, assignmentId, orderId, customerId, source, sourceId,
-            contactName.Trim(), contactPhone.Trim(), addressLine.Trim(),
+            contactName.Trim(), TurkishPhoneNumber.NormalizeOptional(contactPhone, "İletişim telefon numarası"), addressLine.Trim(),
             string.IsNullOrWhiteSpace(district) ? "Bilinmiyor" : district.Trim(),
             string.IsNullOrWhiteSpace(city) ? "Bilinmiyor" : city.Trim(),
             latitude, longitude, occurredAt, actorId);

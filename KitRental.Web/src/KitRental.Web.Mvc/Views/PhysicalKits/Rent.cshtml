@@ -8,7 +8,7 @@
         <section class="form-section"><h2>Kiracı bilgileri</h2><div class="form-grid">
             <div class="field"><label asp-for="CustomerName"></label><input asp-for="CustomerName" /><span asp-validation-for="CustomerName"></span></div>
             <div class="field"><label asp-for="Email"></label><input asp-for="Email" /><span asp-validation-for="Email"></span></div>
-            <div class="field"><label asp-for="Phone"></label><input asp-for="Phone" /><span asp-validation-for="Phone"></span></div>
+            <div class="field"><label asp-for="Phone"></label><input asp-for="Phone" type="tel" data-phone-mask="tr" /><span asp-validation-for="Phone"></span></div>
             <div class="field"><label asp-for="City"></label><input asp-for="City" /><span asp-validation-for="City"></span></div>
             <div class="field"><label asp-for="District"></label><input asp-for="District" /><span asp-validation-for="District"></span></div>
             <div class="field"><label asp-for="PostalCode"></label><input asp-for="PostalCode" /></div>

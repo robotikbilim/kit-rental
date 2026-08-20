@@ -1,35 +1,54 @@
 @model PortalFaultRequestPageViewModel
 @{ ViewData["Title"] = "Arıza Bildir"; }
-<div class="form-shell">
-    <div class="form-heading"><a asp-action="Faults">← Arıza kayıtlarıma dön</a><span class="eyebrow">TEKNİK DESTEK</span><h1>Arıza bildir</h1><p>Kit üzerindeki sorunu ayrıntılı açıklayın. Servis ekibinin tüm güncellemelerini portalda görebilirsiniz.</p></div>
-    @if (Model.ActiveKits.Count == 0) { <div class="empty">Arıza kaydı oluşturabileceğiniz aktif bir kit bulunmuyor.</div> }
-    else {
-    <form class="catalog-form" asp-action="NewFault" method="post">
-        <div asp-validation-summary="All" class="error"></div><div class="form-grid">
-            <div class="field wide fault-kit-picker">
-                <label id="fault-kit-label" for="AssignmentId">Arızalı kit</label>
-                <div class="fault-kit-search-row">
-                    <div class="fault-kit-combobox" id="fault-kit-combobox" hidden>
-                        <div class="fault-kit-combobox-input">
-                            <input id="fault-kit-search" type="text" role="combobox" autocomplete="off" spellcheck="false" placeholder="Seri numarası veya kit adıyla ara" aria-labelledby="fault-kit-label" aria-autocomplete="list" aria-controls="fault-kit-options" aria-expanded="false" />
-                            <button type="button" id="fault-kit-toggle" tabindex="-1" aria-label="Kit seçeneklerini aç" aria-controls="fault-kit-options">⌄</button>
+<div class="public-fault-shell">
+    <section class="public-fault-card">
+        <a class="back-link" asp-action="Faults">← Arıza Kayıtlarıma Dön</a>
+        <span class="eyebrow">ARIZA KAYDI</span>
+        <h1>Kitte bir sorun mu var?</h1>
+        <p class="block-muted">Formu doldurun; kaydınız doğrudan teknik ekibin ekranına açık arıza olarak düşer.</p>
+        @if (Model.ActiveKits.Count == 0)
+        {
+            <div class="empty">Arıza kaydı oluşturabileceğiniz aktif bir kit bulunmuyor.</div>
+        }
+        else
+        {
+            <div class="public-kit-summary"><span>Seçilen ürün</span><strong>@Model.Form.KitName</strong><code>@Model.Form.SerialNumber</code></div>
+            <form class="public-fault-form" asp-action="NewFault" method="post">
+                <div asp-validation-summary="All" class="error"></div>
+                <div class="field wide fault-kit-picker">
+                    <label id="fault-kit-label" for="AssignmentId">Arızalı kit</label>
+                    <div class="fault-kit-search-row">
+                        <div class="fault-kit-combobox" id="fault-kit-combobox" hidden>
+                            <div class="fault-kit-combobox-input">
+                                <input id="fault-kit-search" type="text" role="combobox" autocomplete="off" spellcheck="false" placeholder="Seri numarası veya kit adıyla ara" aria-labelledby="fault-kit-label" aria-autocomplete="list" aria-controls="fault-kit-options" aria-expanded="false" />
+                                <button type="button" id="fault-kit-toggle" tabindex="-1" aria-label="Kit seçeneklerini aç" aria-controls="fault-kit-options">⌄</button>
+                            </div>
+                            <div class="fault-kit-options" id="fault-kit-options" role="listbox" aria-labelledby="fault-kit-label" hidden></div>
                         </div>
-                        <div class="fault-kit-options" id="fault-kit-options" role="listbox" aria-labelledby="fault-kit-label" hidden></div>
+                        <button class="scan-action" type="button" id="fault-scan-qr"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7V5h2M17 5h2v2M19 17v2h-2M7 19H5v-2M8 9h3v3H8zM14 9h2v2h-2zM9 15h2M14 14h2v2h-2z" /></svg>QR Okut</button>
                     </div>
-                    <button class="scan-action" type="button" id="fault-scan-qr"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7V5h2M17 5h2v2M19 17v2h-2M7 19H5v-2M8 9h3v3H8zM14 9h2v2h-2zM9 15h2M14 14h2v2h-2z" /></svg>QR Okut</button>
+                    <select id="AssignmentId" asp-for="Form.AssignmentId" name="AssignmentId" aria-labelledby="fault-kit-label">
+                        @foreach (var kit in Model.ActiveKits)
+                        {
+                            <option value="@kit.AssignmentId" data-name="@kit.KitName" data-serial="@kit.SerialNumber" data-qr="@kit.QrCode" selected="@(kit.AssignmentId == Model.Form.AssignmentId ? "selected" : null)">@kit.KitName — @kit.SerialNumber</option>
+                        }
+                    </select>
+                    <small id="fault-kit-search-status" aria-live="polite">Kutuyu açıp seri numarası veya kit adıyla arayabilir ya da QR kodu okutabilirsiniz.</small>
                 </div>
-                <select id="AssignmentId" name="AssignmentId" aria-labelledby="fault-kit-label">
-                    @foreach (var kit in Model.ActiveKits) {
-                        <option value="@kit.AssignmentId" data-name="@kit.KitName" data-serial="@kit.SerialNumber" data-qr="@kit.QrCode" selected="@(kit.AssignmentId == Model.Form.AssignmentId ? "selected" : null)">@kit.KitName — @kit.SerialNumber</option>
-                    }
-                </select>
-                <small id="fault-kit-search-status" aria-live="polite">Kutuyu açıp seri numarası veya kit adıyla arayabilir ya da QR kodu okutabilirsiniz.</small>
-            </div>
-            <section class="qr-scanner fault-qr-scanner" id="fault-qr-scanner" hidden aria-live="polite"><div class="scanner-viewport"><video id="fault-scanner-video" playsinline muted></video><div class="scanner-frame"></div></div><div class="scanner-copy"><strong>QR kodu çerçevenin içine getirin</strong><span id="fault-scanner-status">Kamera hazırlanıyor…</span></div><button type="button" class="secondary-action" id="fault-stop-scanner">Kamerayı Kapat</button></section>
-            <div class="field"><label asp-for="Form.Category"></label><input name="Category" value="@Model.Form.Category" placeholder="Örn. Sensör, motor, güç, mekanik" /></div>
-            <div class="field"><label asp-for="Form.Severity"></label><select name="Severity"><option value="1">Düşük — kullanıma engel değil</option><option value="2" selected="@(Model.Form.Severity == 2 ? "selected" : null)">Orta — kısmi kullanım</option><option value="3" selected="@(Model.Form.Severity == 3 ? "selected" : null)">Yüksek — kullanılamıyor</option><option value="4" selected="@(Model.Form.Severity == 4 ? "selected" : null)">Kritik — güvenlik riski</option></select></div>
-            <div class="field wide"><label asp-for="Form.Description"></label><textarea name="Description" rows="7" placeholder="Sorunun ne zaman başladığını, hangi koşullarda tekrarlandığını ve varsa denediğiniz adımları yazın.">@Model.Form.Description</textarea><small>Detaylı açıklama servis sürecini hızlandırır.</small></div>
-        </div><div class="form-actions"><a class="secondary-action" asp-action="Index">Vazgeç</a><button class="primary-action" type="submit">Arıza Kaydı Oluştur</button></div>
-    </form> }
+                <section class="qr-scanner fault-qr-scanner" id="fault-qr-scanner" hidden aria-live="polite"><div class="scanner-viewport"><video id="fault-scanner-video" playsinline muted></video><div class="scanner-frame"></div></div><div class="scanner-copy"><strong>QR kodu çerçevenin içine getirin</strong><span id="fault-scanner-status">Kamera hazırlanıyor...</span></div><button type="button" class="secondary-action" id="fault-stop-scanner">Kamerayı Kapat</button></section>
+                <input asp-for="Form.KitName" name="KitName" type="hidden" />
+                <input asp-for="Form.SerialNumber" name="SerialNumber" type="hidden" />
+                <div class="field"><label asp-for="Form.ReporterName"></label><input asp-for="Form.ReporterName" name="ReporterName" autocomplete="name" placeholder="Adınız ve soyadınız" /><span asp-validation-for="Form.ReporterName" class="error"></span></div>
+                <div class="field"><label asp-for="Form.ReporterPhone"></label><input asp-for="Form.ReporterPhone" name="ReporterPhone" type="tel" autocomplete="tel" inputmode="tel" data-phone-mask="tr" placeholder="0xxx xxx xx xx" /><span asp-validation-for="Form.ReporterPhone" class="error"></span></div>
+                <div class="field"><label asp-for="Form.City"></label><select id="City" asp-for="Form.City" name="City" data-selected="@Model.Form.City"></select><span asp-validation-for="Form.City" class="error"></span></div>
+                <div class="field"><label asp-for="Form.District"></label><select id="District" asp-for="Form.District" name="District" data-selected="@Model.Form.District"></select><span asp-validation-for="Form.District" class="error"></span></div>
+                <div class="field"><label asp-for="Form.ReporterAddress"></label><textarea asp-for="Form.ReporterAddress" name="ReporterAddress" rows="3" autocomplete="street-address" placeholder="Kitin bulunduğu açık adresi yazın."></textarea><span asp-validation-for="Form.ReporterAddress" class="error"></span></div>
+                <div class="field"><label asp-for="Form.Description"></label><textarea asp-for="Form.Description" name="Description" rows="6" placeholder="Sorunun ne zaman ve nasıl oluştuğunu kısaca anlatın."></textarea><span asp-validation-for="Form.Description" class="error"></span></div>
+                <div class="form-actions public-fault-actions"><a class="secondary-action" asp-action="Faults">Vazgeç</a><button class="primary-action" type="submit">Arıza Kaydını Gönder</button></div>
+            </form>
+        }
+    </section>
 </div>
-<script src="~/js/fault-kit-selector.js"></script>
+<script src="~/js/tr-city-districts.js" asp-append-version="true"></script>
+<script src="~/js/public-city-district.js" asp-append-version="true"></script>
+<script src="~/js/fault-kit-selector.js" asp-append-version="true"></script>
