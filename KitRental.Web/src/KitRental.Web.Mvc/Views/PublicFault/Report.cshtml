@@ -13,6 +13,7 @@
         <form method="post" class="public-fault-form">
             <input asp-for="FaultId" type="hidden" />
             <input asp-for="QrCode" type="hidden" />
+            <input asp-for="AccessToken" type="hidden" />
             <input asp-for="Latitude" type="hidden" />
             <input asp-for="Longitude" type="hidden" />
             <div asp-validation-summary="ModelOnly" class="error"></div>

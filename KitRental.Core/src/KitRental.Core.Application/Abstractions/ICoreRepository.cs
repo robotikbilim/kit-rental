@@ -59,6 +59,8 @@ public interface ICoreRepository
     Task AddKitLocationEventAsync(KitLocationEvent locationEvent, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KitLocationEvent>> GetKitLocationEventsAsync(CancellationToken cancellationToken);
     Task AddFaultTicketAsync(FaultTicket ticket, CancellationToken cancellationToken);
+    Task AddPublicFormAccessTokenAsync(PublicFormAccessToken token, CancellationToken cancellationToken);
+    Task<PublicFormAccessToken?> GetPublicFormAccessTokenByHashAsync(string tokenHash, CancellationToken cancellationToken);
     Task<FaultTicket?> GetFaultTicketAsync(Guid id, CancellationToken cancellationToken);
     Task<FaultTicket?> GetOpenFaultTicketAsync(Guid productUnitId, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<FaultTicket>> GetFaultTicketsAsync(Guid? customerId, CancellationToken cancellationToken);

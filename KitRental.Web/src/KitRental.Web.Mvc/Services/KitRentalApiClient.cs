@@ -479,6 +479,11 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<PublicFaultKitViewModel?> GetPublicFaultKitAsync(string qrCode, CancellationToken cancellationToken) =>
         GetAsync<PublicFaultKitViewModel>($"/core/api/public/faults/kit/{Uri.EscapeDataString(qrCode)}", cancellationToken);
 
+    public Task<PublicFormAccessTokenViewModel?> CreatePublicFormAccessTokenAsync(string qrCode,
+        CancellationToken cancellationToken) =>
+        PostRawAsync<PublicFormAccessTokenViewModel>(
+            $"/core/api/public/form-access/{Uri.EscapeDataString(qrCode)}", new { }, cancellationToken);
+
     public Task<PublicFaultContextViewModel?> GetPublicFaultContextAsync(string qrCode, CancellationToken cancellationToken) =>
         GetAsync<PublicFaultContextViewModel>($"/core/api/public/faults/context/{Uri.EscapeDataString(qrCode)}", cancellationToken);
 
@@ -496,7 +501,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => PostAsync<object>("/core/api/public/faults", new
         {
             model.FaultId,
-            model.QrCode,
+            token = model.AccessToken,
             model.ReporterName,
             model.ReporterPhone,
             model.ReporterAddress,
@@ -510,7 +515,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<ApiCommandResult<PortalKitReturnViewModel>> CreatePublicReturnAsync(PublicReturnFormViewModel model,
         CancellationToken cancellationToken) => PostAsync<PortalKitReturnViewModel>("/core/api/public/returns", new
         {
-            model.QrCode,
+            token = model.AccessToken,
             model.RequesterName,
             model.RequesterPhone,
             model.District,
@@ -525,7 +530,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<ApiCommandResult<object>> CreatePublicDeliveryAsync(PublicDeliveryFormViewModel model,
         CancellationToken cancellationToken) => PostAsync<object>("/core/api/public/deliveries", new
         {
-            model.QrCode,
+            token = model.AccessToken,
             model.RecipientName,
             model.RecipientPhone,
             model.AddressLine,
@@ -590,6 +595,12 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
 
     private Task<ApiCommandResult<T>> PostAsync<T>(string path, object body, CancellationToken cancellationToken) =>
         SendAsync<T>(HttpMethod.Post, path, body, cancellationToken);
+
+    private async Task<T?> PostRawAsync<T>(string path, object body, CancellationToken cancellationToken)
+    {
+        var result = await SendAsync<T>(HttpMethod.Post, path, body, cancellationToken);
+        return result.IsSuccess ? result.Data : default;
+    }
 
     private async Task<ApiCommandResult<T>> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {

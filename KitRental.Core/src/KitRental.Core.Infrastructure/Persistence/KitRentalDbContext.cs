@@ -30,6 +30,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
     public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<KitLocationEvent> KitLocationEvents => Set<KitLocationEvent>();
     public DbSet<FaultTicket> FaultTickets => Set<FaultTicket>();
+    public DbSet<PublicFormAccessToken> PublicFormAccessTokens => Set<PublicFormAccessToken>();
     public DbSet<FaultGuideEntry> FaultGuideEntries => Set<FaultGuideEntry>();
     public DbSet<ReturnInspection> ReturnInspections => Set<ReturnInspection>();
     public DbSet<KitReturnRequest> KitReturnRequests => Set<KitReturnRequest>();
@@ -56,6 +57,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         ConfigureShipment(modelBuilder.Entity<Shipment>());
         ConfigureKitLocationEvent(modelBuilder.Entity<KitLocationEvent>());
         ConfigureFaultTicket(modelBuilder.Entity<FaultTicket>());
+        ConfigurePublicFormAccessToken(modelBuilder.Entity<PublicFormAccessToken>());
         ConfigureFaultGuideEntry(modelBuilder.Entity<FaultGuideEntry>());
         ConfigureInspection(modelBuilder.Entity<ReturnInspection>());
         ConfigureKitReturnRequest(modelBuilder.Entity<KitReturnRequest>());
@@ -358,6 +360,17 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         });
         builder.Navigation(ticket => ticket.History).HasField("_history").UsePropertyAccessMode(PropertyAccessMode.Field);
         AddRowVersion(builder);
+    }
+
+    private static void ConfigurePublicFormAccessToken(EntityTypeBuilder<PublicFormAccessToken> builder)
+    {
+        builder.ToTable("PublicFormAccessTokens");
+        builder.HasKey(item => item.Id);
+        builder.Property(item => item.TokenHash).HasMaxLength(128).IsRequired();
+        builder.HasIndex(item => item.TokenHash).IsUnique();
+        builder.HasIndex(item => new { item.ProductUnitId, item.ExpiresAt });
+        builder.HasOne<ProductUnit>().WithMany().HasForeignKey(item => item.ProductUnitId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     private static void ConfigureFaultGuideEntry(EntityTypeBuilder<FaultGuideEntry> builder)

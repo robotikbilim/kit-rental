@@ -511,8 +511,10 @@ public sealed record PortalFaultViewModel(Guid Id, string Number, Guid ProductUn
     string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "", int ApprovalStatus = 0,
     int Origin = 1);
 public sealed record PublicFaultKitViewModel(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
-public sealed record PublicKitActionViewModel(string QrCode, string KitName, string SerialNumber);
+public sealed record PublicFormAccessTokenViewModel(string Token, DateTimeOffset ExpiresAt);
+public sealed record PublicKitActionViewModel(string QrCode, string KitName, string SerialNumber, string AccessToken = "");
 public sealed record PublicFaultTroubleshootingViewModel(string QrCode, string KitName, string SerialNumber,
+    string AccessToken,
     IReadOnlyCollection<FaultGuideEntryViewModel> Entries);
 
 public sealed record EmailDeliveryViewModel(Guid Id, string Recipient, string RecipientName, string Subject,
@@ -521,6 +523,7 @@ public sealed class PublicFaultFormViewModel
 {
     public Guid? FaultId { get; set; }
     [Required] public string QrCode { get; set; } = string.Empty;
+    [Required] public string AccessToken { get; set; } = string.Empty;
     public string KitName { get; set; } = string.Empty;
     public string SerialNumber { get; set; } = string.Empty;
     [Required, StringLength(160), Display(Name = "Ad soyad")] public string ReporterName { get; set; } = string.Empty;
@@ -539,6 +542,7 @@ public sealed record PublicFaultContextViewModel(Guid? FaultId, string? Reporter
 public sealed class PublicReturnFormViewModel : IValidatableObject
 {
     [Required] public string QrCode { get; set; } = string.Empty;
+    [Required] public string AccessToken { get; set; } = string.Empty;
     public string KitName { get; set; } = string.Empty;
     public string SerialNumber { get; set; } = string.Empty;
     [Required, Display(Name = "İade nedeni")] public int? ReturnReason { get; set; }
@@ -570,6 +574,7 @@ public sealed record PublicKitDeliveryContextViewModel(string? RecipientName, st
 public sealed class PublicDeliveryFormViewModel
 {
     [Required] public string QrCode { get; set; } = string.Empty;
+    [Required] public string AccessToken { get; set; } = string.Empty;
     public string KitName { get; set; } = string.Empty;
     public string SerialNumber { get; set; } = string.Empty;
     [Required, StringLength(160), Display(Name = "Ad soyad")] public string RecipientName { get; set; } = string.Empty;

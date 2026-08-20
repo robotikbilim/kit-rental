@@ -167,10 +167,12 @@ Rules:
 - Public fault update inserts source `FaultUpdate`.
 - Existing open public fault edits also insert source `FaultUpdate`.
 - Public return request inserts source `ReturnRequest`.
+- Public QR form access now uses 24-hour random access tokens. The printed QR still opens `/ariza/{qrCode}`, but MVC immediately requests `POST /api/public/form-access/{qrCode}` and redirects to `/ariza/form/{token}`. Public fault, return, delivery context, fault-guide, and submit endpoints resolve the token server-side before using the kit QR code. Tokens are stored only as SHA-256 hashes in `PublicFormAccessTokens` with `ExpiresAt`; successful submissions do not invalidate tokens before expiry.
 - Public return requests store `DeliveryMethod` (`Adresimden Alınsın` or `Kendim Bırakacağım`). Drop-off returns do not show the fixed Aras Kargo return code until the form is saved; after save, the public success page shows a pop-up with code `1234567890`. Drop-off returns do not require pickup address/map fields and store the Aras drop-off instruction as the return address.
-- Reopening the public QR return form before admin return receipt loads the active return request through `/api/public/returns/context/{qrCode}` and allows updating the return reason, requester details, pickup/drop-off delivery method, and pickup location fields instead of creating a duplicate return.
+- Reopening the public QR return form before admin return receipt loads the active return request through `/api/public/returns/context/{token}` and allows updating the return reason, requester details, pickup/drop-off delivery method, and pickup location fields instead of creating a duplicate return.
 - Public QR forms treat latitude/longitude as optional and untrusted. Invalid or missing coordinates must not block saving; backend stores null coordinates when no valid map selection is provided.
-- Public QR fault, delivery, and return forms now collect Turkey il/ilce with dropdowns backed by a bundled city-district dataset. Reopening the forms refills the last saved city, district, address, and any stored coordinates from the latest kit location context.
+- Public QR fault, delivery, and return forms now collect Turkey il/ilce with dropdowns backed by a bundled city-district dataset. Reopening the forms with a valid token refills the last saved city, district, address, and any stored coordinates from the latest kit location context.
+- The public QR landing screen offers only fault reporting and kit return; the user-facing `Kit Teslim Al` option is hidden because admins mark customer delivery automatically. The public delivery endpoint and MVC action still exist for internal compatibility.
 - Dashboard and portal maps read latest location events, with order delivery address as fallback for old kits with no event.
 - Physical kit detail uses assignment-specific latest location for rental history, and product-unit latest location for current location.
 - Operations dashboard rental expiry cards show only counts; clicking expired or upcoming counts opens the inventory list filtered by `rentalExpiry=expired` or `rentalExpiry=upcoming`.
@@ -184,6 +186,7 @@ Migration status:
 - The migration copies existing `KitDeliveryReceipts` rows into `KitLocationEvents` with source `DeliveryReceipt`, then drops `KitDeliveryReceipts`.
 - `20260818123000_AddRentalCohortStudentCoordinates` adds nullable latitude/longitude columns to `RentalCohortStudents`.
 - `20260820162000_AddFaultTicketOrigin` adds `FaultTickets.Origin` with default `Internal`.
+- `20260820222749_AddPublicFormAccessTokens` adds `PublicFormAccessTokens` for 24-hour hashed public form access tokens.
 
 ## Public QR Flows
 
@@ -193,13 +196,15 @@ MVC controller:
 
 Core API routes:
 
-- `GET /api/public/faults/kit/{qrCode}`
-- `GET /api/public/deliveries/context/{qrCode}`
-- `GET /api/public/faults/context/{qrCode}`
-- `POST /api/public/faults`
-- `POST /api/public/returns`
-- `GET /api/public/returns/context/{qrCode}`
-- `POST /api/public/deliveries`
+- `POST /api/public/form-access/{qrCode}` creates a 24-hour public access token from a scanned QR code.
+- `GET /api/public/faults/kit/{token}`
+- `GET /api/public/deliveries/context/{token}`
+- `GET /api/public/faults/context/{token}`
+- `POST /api/public/faults` requires `Token` in the request body.
+- `POST /api/public/returns` requires `Token` in the request body.
+- `GET /api/public/returns/context/{token}`
+- `POST /api/public/deliveries` requires `Token` in the request body.
+- `GET /api/public/fault-guides/{token}` returns active kit-specific guides through a valid token.
 - `GET/POST/PUT /api/customer-portal/rental-periods`
 - `DELETE /api/customer-portal/rental-periods/{periodId}`
 - `POST/PUT/DELETE /api/customer-portal/rental-periods/{periodId}/students`
@@ -351,6 +356,13 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Public QR kit-return forms require a return reason: `Eğitim Tamamlandı` or `Kayıt Silindi`. The selected `KitReturnReason` is persisted on `KitReturnRequests`.
 - MVC list-row actions now share a compact action style: text row links/buttons render as small chips, destructive actions use the red variant, and customer portal order rows use icon-only actions with accessible labels/tooltips.
 - Customers can now be limited to specific education kits through `CustomerAllowedProductModels`; an empty allowed-kit list means all product models are available. Admin customer creation and editing expose a `Kullanıma açılan kitler` multi-select with `Tüm Eğitim Kitleri`, and customer portal student create/import kit dropdowns plus backend save/import validation use only the customer's allowed product models. Migration `20260820124317_AddCustomerAllowedProductModels` adds the allowed-kit table.
+
+2026-08-21:
+
+- Public QR form access now creates a 24-hour random access token from `/ariza/{qrCode}` and redirects users to `/ariza/form/{token}`. Public form links saved from the browser expire after one day and require scanning the QR again for a fresh token.
+- Added `PublicFormAccessToken` persistence with SHA-256 `TokenHash`, `ProductUnitId`, `CreatedAt`, `ExpiresAt`, and `LastUsedAt`; migration `20260820222749_AddPublicFormAccessTokens` creates the table and indexes.
+- Public fault, return, delivery context, fault-guide, and submit endpoints now require a valid token and resolve the kit server-side before invoking existing QR-code-based application logic. Tokens are not invalidated after successful submission.
+- The public QR landing screen no longer shows the `Kit Teslim Al` option. Customer delivery confirmation remains available through the existing admin/customer automatic delivery flows, and the legacy public delivery endpoint/action was left in place for compatibility.
 
 ## Development Checklist
 

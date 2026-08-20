@@ -14,32 +14,42 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
     {
         if (RedirectAuthenticated(qrCode) is { } redirect) return redirect;
 
-        var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
-        return kit is null ? NotFound() : View(new PublicKitActionViewModel(kit.QrCode, kit.KitName, kit.SerialNumber));
+        var access = await apiClient.CreatePublicFormAccessTokenAsync(qrCode, cancellationToken);
+        return access is null
+            ? NotFound()
+            : RedirectToAction(nameof(Form), new { token = access.Token });
     }
 
-    [HttpGet("{qrCode}/ariza")]
-    public async Task<IActionResult> Troubleshooting(string qrCode, CancellationToken cancellationToken)
+    [HttpGet("form/{token}")]
+    public async Task<IActionResult> Form(string token, CancellationToken cancellationToken)
     {
-        if (RedirectAuthenticated(qrCode) is { } redirect) return redirect;
-        var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
-        if (kit is null) return NotFound();
-        return View(new PublicFaultTroubleshootingViewModel(kit.QrCode, kit.KitName, kit.SerialNumber,
-            await apiClient.GetPublicFaultGuideEntriesAsync(qrCode, cancellationToken)));
+        var kit = await apiClient.GetPublicFaultKitAsync(token, cancellationToken);
+        return kit is null
+            ? View("LinkExpired")
+            : View("Index", new PublicKitActionViewModel(kit.QrCode, kit.KitName, kit.SerialNumber, token));
     }
 
-    [HttpGet("{qrCode}/ariza/olustur")]
-    public async Task<IActionResult> Report(string qrCode, CancellationToken cancellationToken)
+    [HttpGet("form/{token}/ariza")]
+    public async Task<IActionResult> Troubleshooting(string token, CancellationToken cancellationToken)
     {
-        if (RedirectAuthenticated(qrCode) is { } redirect) return redirect;
-        var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
-        if (kit is null) return NotFound();
-        var faultContext = await apiClient.GetPublicFaultContextAsync(qrCode, cancellationToken);
-        var deliveryContext = await apiClient.GetPublicKitDeliveryContextAsync(qrCode, cancellationToken);
+        var kit = await apiClient.GetPublicFaultKitAsync(token, cancellationToken);
+        if (kit is null) return View("LinkExpired");
+        return View(new PublicFaultTroubleshootingViewModel(kit.QrCode, kit.KitName, kit.SerialNumber, token,
+            await apiClient.GetPublicFaultGuideEntriesAsync(token, cancellationToken)));
+    }
+
+    [HttpGet("form/{token}/ariza/olustur")]
+    public async Task<IActionResult> Report(string token, CancellationToken cancellationToken)
+    {
+        var kit = await apiClient.GetPublicFaultKitAsync(token, cancellationToken);
+        if (kit is null) return View("LinkExpired");
+        var faultContext = await apiClient.GetPublicFaultContextAsync(token, cancellationToken);
+        var deliveryContext = await apiClient.GetPublicKitDeliveryContextAsync(token, cancellationToken);
         return View(new PublicFaultFormViewModel
         {
             FaultId = faultContext?.FaultId,
             QrCode = kit.QrCode,
+            AccessToken = token,
             KitName = kit.KitName,
             SerialNumber = kit.SerialNumber,
             ReporterName = faultContext?.ReporterName
@@ -63,14 +73,15 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
         });
     }
 
-    [HttpPost("{qrCode}/ariza/olustur"), ValidateAntiForgeryToken]
-    public async Task<IActionResult> Report(string qrCode, PublicFaultFormViewModel model,
+    [HttpPost("form/{token}/ariza/olustur"), ValidateAntiForgeryToken]
+    public async Task<IActionResult> Report(string token, PublicFaultFormViewModel model,
         CancellationToken cancellationToken)
     {
-        model.QrCode = qrCode;
-        var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
-        if (kit is null) return NotFound();
-        var faultContext = await apiClient.GetPublicFaultContextAsync(qrCode, cancellationToken);
+        model.AccessToken = token;
+        var kit = await apiClient.GetPublicFaultKitAsync(token, cancellationToken);
+        if (kit is null) return View("LinkExpired");
+        var faultContext = await apiClient.GetPublicFaultContextAsync(token, cancellationToken);
+        model.QrCode = kit.QrCode;
         model.KitName = kit.KitName;
         model.SerialNumber = kit.SerialNumber;
         model.FaultId = faultContext?.FaultId;
@@ -83,20 +94,20 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
         }
         ViewData["SuccessTitle"] = "Ariza kaydi olusturuldu";
         ViewData["SuccessMessage"] = "Ariza kaydiniz teknik ekibin ekranina acik kayit olarak dustu.";
-        return View("Success", new PublicKitActionViewModel(model.QrCode, model.KitName, model.SerialNumber));
+        return View("Success", new PublicKitActionViewModel(model.QrCode, model.KitName, model.SerialNumber, token));
     }
 
-    [HttpGet("{qrCode}/iade")]
-    public async Task<IActionResult> Return(string qrCode, CancellationToken cancellationToken)
+    [HttpGet("form/{token}/iade")]
+    public async Task<IActionResult> Return(string token, CancellationToken cancellationToken)
     {
-        if (RedirectAuthenticated(qrCode) is { } redirect) return redirect;
-        var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
-        if (kit is null) return NotFound();
-        var returnContext = await apiClient.GetPublicKitReturnContextAsync(qrCode, cancellationToken);
-        var deliveryContext = await apiClient.GetPublicKitDeliveryContextAsync(qrCode, cancellationToken);
+        var kit = await apiClient.GetPublicFaultKitAsync(token, cancellationToken);
+        if (kit is null) return View("LinkExpired");
+        var returnContext = await apiClient.GetPublicKitReturnContextAsync(token, cancellationToken);
+        var deliveryContext = await apiClient.GetPublicKitDeliveryContextAsync(token, cancellationToken);
         return View(new PublicReturnFormViewModel
         {
             QrCode = kit.QrCode,
+            AccessToken = token,
             KitName = kit.KitName,
             SerialNumber = kit.SerialNumber,
             ReturnReason = returnContext?.ReturnReason,
@@ -111,13 +122,14 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
         });
     }
 
-    [HttpPost("{qrCode}/iade"), ValidateAntiForgeryToken]
-    public async Task<IActionResult> Return(string qrCode, PublicReturnFormViewModel model,
+    [HttpPost("form/{token}/iade"), ValidateAntiForgeryToken]
+    public async Task<IActionResult> Return(string token, PublicReturnFormViewModel model,
         CancellationToken cancellationToken)
     {
-        model.QrCode = qrCode;
-        var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
-        if (kit is null) return NotFound();
+        model.AccessToken = token;
+        var kit = await apiClient.GetPublicFaultKitAsync(token, cancellationToken);
+        if (kit is null) return View("LinkExpired");
+        model.QrCode = kit.QrCode;
         model.KitName = kit.KitName;
         model.SerialNumber = kit.SerialNumber;
         if (!ModelState.IsValid) return View(model);
@@ -134,19 +146,19 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
             ViewData["PopupTitle"] = "İade Kodu";
             ViewData["PopupMessage"] = "\"1234567890\" İade Kodu ile herhangi bir Aras Kargo şubesine bırakabilirsiniz.";
         }
-        return View("Success", new PublicKitActionViewModel(model.QrCode, model.KitName, model.SerialNumber));
+        return View("Success", new PublicKitActionViewModel(model.QrCode, model.KitName, model.SerialNumber, token));
     }
 
-    [HttpGet("{qrCode}/teslim-al")]
-    public async Task<IActionResult> Delivery(string qrCode, CancellationToken cancellationToken)
+    [HttpGet("form/{token}/teslim-al")]
+    public async Task<IActionResult> Delivery(string token, CancellationToken cancellationToken)
     {
-        if (RedirectAuthenticated(qrCode) is { } redirect) return redirect;
-        var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
-        if (kit is null) return NotFound();
-        var deliveryContext = await apiClient.GetPublicKitDeliveryContextAsync(qrCode, cancellationToken);
+        var kit = await apiClient.GetPublicFaultKitAsync(token, cancellationToken);
+        if (kit is null) return View("LinkExpired");
+        var deliveryContext = await apiClient.GetPublicKitDeliveryContextAsync(token, cancellationToken);
         return View(new PublicDeliveryFormViewModel
         {
             QrCode = kit.QrCode,
+            AccessToken = token,
             KitName = kit.KitName,
             SerialNumber = kit.SerialNumber,
             RecipientName = deliveryContext?.RecipientName ?? string.Empty,
@@ -159,13 +171,14 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
         });
     }
 
-    [HttpPost("{qrCode}/teslim-al"), ValidateAntiForgeryToken]
-    public async Task<IActionResult> Delivery(string qrCode, PublicDeliveryFormViewModel model,
+    [HttpPost("form/{token}/teslim-al"), ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delivery(string token, PublicDeliveryFormViewModel model,
         CancellationToken cancellationToken)
     {
-        model.QrCode = qrCode;
-        var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
-        if (kit is null) return NotFound();
+        model.AccessToken = token;
+        var kit = await apiClient.GetPublicFaultKitAsync(token, cancellationToken);
+        if (kit is null) return View("LinkExpired");
+        model.QrCode = kit.QrCode;
         model.KitName = kit.KitName;
         model.SerialNumber = kit.SerialNumber;
         if (!ModelState.IsValid) return View(model);
@@ -177,7 +190,7 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
         }
         ViewData["SuccessTitle"] = "Kit teslim alindi";
         ViewData["SuccessMessage"] = "Teslim bilginiz kit gecmisine islendi.";
-        return View("Success", new PublicKitActionViewModel(model.QrCode, model.KitName, model.SerialNumber));
+        return View("Success", new PublicKitActionViewModel(model.QrCode, model.KitName, model.SerialNumber, token));
     }
 
     private IActionResult? RedirectAuthenticated(string qrCode)

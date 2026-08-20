@@ -33,6 +33,7 @@ public sealed class InMemoryCoreRepository : ICoreRepository
     private readonly Dictionary<Guid, Shipment> _shipments = [];
     private readonly Dictionary<Guid, KitLocationEvent> _kitLocationEvents = [];
     private readonly Dictionary<Guid, FaultTicket> _faultTickets = [];
+    private readonly Dictionary<Guid, PublicFormAccessToken> _publicFormAccessTokens = [];
     private readonly Dictionary<Guid, FaultGuideEntry> _faultGuideEntries = [];
     private readonly Dictionary<Guid, ReturnInspection> _inspections = [];
     private readonly Dictionary<Guid, KitReturnRequest> _kitReturns = [];
@@ -380,6 +381,21 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         cancellationToken.ThrowIfCancellationRequested();
         lock (_gate) _faultTickets.Add(ticket.Id, ticket);
         return Task.CompletedTask;
+    }
+
+    public Task AddPublicFormAccessTokenAsync(PublicFormAccessToken token, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) _publicFormAccessTokens.Add(token.Id, token);
+        return Task.CompletedTask;
+    }
+
+    public Task<PublicFormAccessToken?> GetPublicFormAccessTokenByHashAsync(string tokenHash,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+            return Task.FromResult(_publicFormAccessTokens.Values.SingleOrDefault(item => item.TokenHash == tokenHash));
     }
 
     public Task<FaultTicket?> GetFaultTicketAsync(Guid id, CancellationToken cancellationToken)

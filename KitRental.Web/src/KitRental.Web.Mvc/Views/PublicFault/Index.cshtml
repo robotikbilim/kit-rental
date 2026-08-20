@@ -4,20 +4,16 @@
     <section class="public-fault-card">
         <span class="eyebrow">QR KIT ISLEMLERI</span>
         <h1>Ne yapmak istersiniz?</h1>
-        <p class="block-muted">Okuttugunuz kit icin ariza kaydi olusturabilir, iade talebi baslatabilir veya teslim aldiginizi bildirebilirsiniz.</p>
+        <p class="block-muted">Okuttugunuz kit icin ariza kaydi olusturabilir veya iade talebi baslatabilirsiniz.</p>
         <div class="public-kit-summary"><span>Okutulan urun</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
         <div class="public-action-grid">
-            <a class="public-action-card" asp-action="Troubleshooting" asp-route-qrCode="@Model.QrCode">
+            <a class="public-action-card" asp-action="Troubleshooting" asp-route-token="@Model.AccessToken">
                 <strong>Ariza Kaydi Olustur</strong>
                 <span>Teknik ekibin ekranina acik ariza kaydi olarak duser.</span>
             </a>
-            <a class="public-action-card" asp-action="Return" asp-route-qrCode="@Model.QrCode">
+            <a class="public-action-card" asp-action="Return" asp-route-token="@Model.AccessToken">
                 <strong>Kit Iadesi Baslat</strong>
                 <span>Konumunuzu paylasarak operasyon ekibine iade talebi gonderin.</span>
-            </a>
-            <a class="public-action-card" asp-action="Delivery" asp-route-qrCode="@Model.QrCode">
-                <strong>Kit Teslim Al</strong>
-                <span>Ad, telefon ve adres bilginizle teslim kaydini kit gecmisine isleyin.</span>
             </a>
         </div>
     </section>

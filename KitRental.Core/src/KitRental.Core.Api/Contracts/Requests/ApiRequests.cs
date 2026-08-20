@@ -61,10 +61,10 @@ public sealed record InspectionItemRequest(string Name, bool IsPresent, bool IsD
 public sealed record CompleteInspectionRequest(Guid OrderId, Guid ProductUnitId, IReadOnlyCollection<InspectionItemRequest> Items, decimal DamageCharge, ProductUnitStatus Outcome);
 public sealed record PortalFaultRequest(Guid AssignmentId, string ReporterName, string ReporterPhone,
     string ReporterAddress, string District, string City, string Description);
-public sealed record PublicFaultRequest(Guid? FaultId, string QrCode, string ReporterName, string ReporterPhone,
+public sealed record PublicFaultRequest(Guid? FaultId, string Token, string ReporterName, string ReporterPhone,
     string ReporterAddress, string District, string City, string Description,
     double? Latitude = null, double? Longitude = null);
-public sealed record PublicKitReturnRequest(string QrCode, string RequesterName,
+public sealed record PublicKitReturnRequest(string Token, string RequesterName,
     string RequesterPhone, string District, string City, string ReturnAddress,
     double? Latitude, double? Longitude, KitReturnReason? ReturnReason = null,
     KitReturnDeliveryMethod DeliveryMethod = KitReturnDeliveryMethod.PickupFromAddress);
@@ -72,5 +72,5 @@ public sealed record PortalReturnRequest(IReadOnlyCollection<Guid> AssignmentIds
 public sealed record PortalStudentReturnRequest(string RequesterName, string RequesterPhone, string District,
     string City, string ReturnAddress, KitReturnReason? ReturnReason = null);
 public sealed record PortalReturnShipmentRequest(string Carrier, string TrackingNumber);
-public sealed record PublicKitDeliveryRequest(string QrCode, string RecipientName,
+public sealed record PublicKitDeliveryRequest(string Token, string RecipientName,
     string RecipientPhone, string AddressLine, string District, string City, double? Latitude = null, double? Longitude = null);

@@ -12,6 +12,7 @@
         <div class="public-kit-summary"><span>Okutulan urun</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
         <form method="post" class="public-fault-form" id="public-return-form">
             <input asp-for="QrCode" type="hidden" />
+            <input asp-for="AccessToken" type="hidden" />
             <input asp-for="Latitude" type="hidden" />
             <input asp-for="Longitude" type="hidden" />
             <div asp-validation-summary="ModelOnly" class="error"></div>

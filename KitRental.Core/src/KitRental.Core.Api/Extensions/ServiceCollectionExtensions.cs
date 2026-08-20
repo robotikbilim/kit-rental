@@ -33,6 +33,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ProductUnitStockConsumptionPlanner>();
         services.AddScoped<RentalAssignmentService>();
         services.AddScoped<OperationsService>();
+        services.AddScoped<PublicFormAccessService>();
         services.AddScoped<ReportingService>();
         services.AddScoped<WorkshopService>();
         services.AddScoped<PhysicalKitService>();

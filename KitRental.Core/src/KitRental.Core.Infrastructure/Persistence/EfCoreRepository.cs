@@ -235,6 +235,13 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
     public Task AddFaultTicketAsync(FaultTicket ticket, CancellationToken cancellationToken) =>
         dbContext.FaultTickets.AddAsync(ticket, cancellationToken).AsTask();
 
+    public Task AddPublicFormAccessTokenAsync(PublicFormAccessToken token, CancellationToken cancellationToken) =>
+        dbContext.PublicFormAccessTokens.AddAsync(token, cancellationToken).AsTask();
+
+    public Task<PublicFormAccessToken?> GetPublicFormAccessTokenByHashAsync(string tokenHash,
+        CancellationToken cancellationToken) =>
+        dbContext.PublicFormAccessTokens.SingleOrDefaultAsync(item => item.TokenHash == tokenHash, cancellationToken);
+
     public Task<FaultTicket?> GetFaultTicketAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.FaultTickets.Include(ticket => ticket.History).SingleOrDefaultAsync(ticket => ticket.Id == id, cancellationToken);
 
