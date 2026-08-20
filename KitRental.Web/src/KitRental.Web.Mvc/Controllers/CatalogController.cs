@@ -130,8 +130,14 @@ public sealed class CatalogController(KitRentalApiClient apiClient) : Controller
     public async Task<IActionResult> EditKit(Guid id, CancellationToken cancellationToken)
     {
         var kit = await apiClient.GetProductModelAsync(id, cancellationToken);
-        return kit is null ? NotFound() : View(new EditKitViewModel { Id = kit.Id, Name = kit.Name, Sku = kit.Sku,
-            Description = kit.Description, ImageUrl = kit.ImageUrl });
+        return kit is null ? NotFound() : View(new EditKitViewModel
+        {
+            Id = kit.Id,
+            Name = kit.Name,
+            Sku = kit.Sku,
+            Description = kit.Description,
+            ImageUrl = kit.ImageUrl
+        });
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -159,9 +165,16 @@ public sealed class CatalogController(KitRentalApiClient apiClient) : Controller
         var item = (await apiClient.GetComponentsAsync(cancellationToken))
             .SingleOrDefault(component => component.Id == id);
         if (item is null) return NotFound();
-        var form = new EditComponentViewModel { Id = item.Id, Name = item.Name, Sku = item.Sku,
-            UnitOfMeasure = item.UnitOfMeasure, MinimumStock = item.MinimumStock, ImageUrl = item.ImageUrl,
-            DefaultStorageLocationId = item.DefaultStorageLocationId };
+        var form = new EditComponentViewModel
+        {
+            Id = item.Id,
+            Name = item.Name,
+            Sku = item.Sku,
+            UnitOfMeasure = item.UnitOfMeasure,
+            MinimumStock = item.MinimumStock,
+            ImageUrl = item.ImageUrl,
+            DefaultStorageLocationId = item.DefaultStorageLocationId
+        };
         return View(await ComponentFormPageAsync(form, true, cancellationToken));
     }
 

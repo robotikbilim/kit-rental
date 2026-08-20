@@ -1,6 +1,6 @@
-using System.Text;
 using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Domain.Auditing;
+using System.Text;
 
 namespace KitRental.Core.Application.Reporting;
 

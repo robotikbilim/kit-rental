@@ -79,7 +79,7 @@ public sealed class CustomersController(KitRentalApiClient apiClient) : Controll
     {
         var customer = await apiClient.GetCustomerAsync(customerId, cancellationToken);
         return customer is null ? NotFound() : View("AddressForm", new CustomerAddressInputViewModel
-            { CustomerId = customer.Id, CustomerName = customer.Name });
+        { CustomerId = customer.Id, CustomerName = customer.Name });
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -105,9 +105,16 @@ public sealed class CustomersController(KitRentalApiClient apiClient) : Controll
         var address = customer?.Addresses.SingleOrDefault(item => item.Id == id);
         return customer is null || address is null ? NotFound() : View("AddressForm", new CustomerAddressInputViewModel
         {
-            CustomerId = customer.Id, CustomerName = customer.Name, Id = address.Id, Title = address.Title,
-            ContactName = address.ContactName, Phone = address.Phone, Line1 = address.Line1,
-            District = address.District, City = address.City, PostalCode = address.PostalCode
+            CustomerId = customer.Id,
+            CustomerName = customer.Name,
+            Id = address.Id,
+            Title = address.Title,
+            ContactName = address.ContactName,
+            Phone = address.Phone,
+            Line1 = address.Line1,
+            District = address.District,
+            City = address.City,
+            PostalCode = address.PostalCode
         });
     }
 

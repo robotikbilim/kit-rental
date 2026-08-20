@@ -1,9 +1,9 @@
 using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Application.Common;
 using KitRental.Core.Domain.Auditing;
+using KitRental.Core.Domain.Inventory;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Warehouse;
-using KitRental.Core.Domain.Inventory;
 using KitRental.SharedKernel;
 
 namespace KitRental.Core.Application.Workshop;

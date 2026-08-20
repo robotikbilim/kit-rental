@@ -1,6 +1,6 @@
+using KitRental.SharedKernel;
 using KitRental.Web.Mvc.Models;
 using KitRental.Web.Mvc.Services;
-using KitRental.SharedKernel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QRCoder;
@@ -66,8 +66,13 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
     public async Task<IActionResult> Edit(Guid id, CancellationToken cancellationToken)
     {
         var detail = await apiClient.GetPhysicalKitAsync(id, cancellationToken);
-        return detail is null ? NotFound() : View(new EditPhysicalKitViewModel { Id = id,
-            ProductModelId = detail.Kit.ProductModelId, SerialNumber = detail.Kit.SerialNumber, QrCode = detail.Kit.QrCode });
+        return detail is null ? NotFound() : View(new EditPhysicalKitViewModel
+        {
+            Id = id,
+            ProductModelId = detail.Kit.ProductModelId,
+            SerialNumber = detail.Kit.SerialNumber,
+            QrCode = detail.Kit.QrCode
+        });
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -127,9 +132,15 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
         var detail = await apiClient.GetPhysicalKitAsync(id, cancellationToken);
         if (detail is null) return NotFound();
         if (detail.Kit.Status != 1) return RedirectToAction(nameof(Details), new { id });
-        return View(new RentPhysicalKitViewModel { ProductUnitId = id, KitName = detail.Kit.KitName,
-            SerialNumber = detail.Kit.SerialNumber, ImageUrl = detail.Kit.ImageUrl,
-            StartDate = DateOnly.FromDateTime(DateTime.Today), EndDate = DateOnly.FromDateTime(DateTime.Today.AddMonths(1)) });
+        return View(new RentPhysicalKitViewModel
+        {
+            ProductUnitId = id,
+            KitName = detail.Kit.KitName,
+            SerialNumber = detail.Kit.SerialNumber,
+            ImageUrl = detail.Kit.ImageUrl,
+            StartDate = DateOnly.FromDateTime(DateTime.Today),
+            EndDate = DateOnly.FromDateTime(DateTime.Today.AddMonths(1))
+        });
     }
 
     [HttpPost, ValidateAntiForgeryToken]

@@ -1,5 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
-using KitRental.Web.Mvc.Branding;
+﻿using KitRental.Web.Mvc.Branding;
+using System.ComponentModel.DataAnnotations;
 
 namespace KitRental.Web.Mvc.Models;
 

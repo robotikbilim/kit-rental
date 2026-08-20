@@ -1,8 +1,6 @@
-﻿using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.IO;
+﻿using KitRental.Web.Mvc.Models;
 using Microsoft.AspNetCore.Authentication;
-using KitRental.Web.Mvc.Models;
+using System.Net.Http.Headers;
 
 namespace KitRental.Web.Mvc.Services;
 
@@ -100,9 +98,18 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<ApiCommandResult<OrderCustomerViewModel>> CreateCustomerAsync(CreateCustomerViewModel model,
         CancellationToken cancellationToken) => PostAsync<OrderCustomerViewModel>("/core/api/customers", new
         {
-            model.Customer.Name, model.Customer.Email,
-            address = new { model.Address.Title, model.Address.ContactName, model.Address.Phone, model.Address.Line1,
-                model.Address.District, model.Address.City, model.Address.PostalCode }
+            model.Customer.Name,
+            model.Customer.Email,
+            address = new
+            {
+                model.Address.Title,
+                model.Address.ContactName,
+                model.Address.Phone,
+                model.Address.Line1,
+                model.Address.District,
+                model.Address.City,
+                model.Address.PostalCode
+            }
         }, cancellationToken);
 
     public Task<ApiCommandResult<OrderCustomerViewModel>> UpdateCustomerAsync(CustomerInputViewModel model,
@@ -127,7 +134,13 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
 
     private static object AddressBody(CustomerAddressInputViewModel model) => new
     {
-        model.Title, model.ContactName, model.Phone, model.Line1, model.District, model.City, model.PostalCode
+        model.Title,
+        model.ContactName,
+        model.Phone,
+        model.Line1,
+        model.District,
+        model.City,
+        model.PostalCode
     };
 
     public Task<ApiCommandResult<OrderViewModel>> CreateOrderAsync(AdminOrderInputViewModel model,
@@ -452,8 +465,15 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => PostAsync<object>("/core/api/public/faults", new
         {
             model.FaultId,
-            model.QrCode, model.ReporterName, model.ReporterPhone, model.ReporterAddress,
-            model.District, model.City, model.Description, model.Latitude, model.Longitude
+            model.QrCode,
+            model.ReporterName,
+            model.ReporterPhone,
+            model.ReporterAddress,
+            model.District,
+            model.City,
+            model.Description,
+            model.Latitude,
+            model.Longitude
         }, cancellationToken);
 
     public Task<ApiCommandResult<PortalKitReturnViewModel>> CreatePublicReturnAsync(PublicReturnFormViewModel model,

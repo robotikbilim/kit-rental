@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
-using KitRental.Core.Infrastructure.Persistence;
 
 namespace KitRental.Core.Infrastructure.Persistence.Migrations;
 

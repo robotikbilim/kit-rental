@@ -1,16 +1,16 @@
-using KitRental.Core.Domain.Customers;
 using KitRental.Core.Domain.Auditing;
+using KitRental.Core.Domain.Customers;
 using KitRental.Core.Domain.Inventory;
+using KitRental.Core.Domain.Locations;
 using KitRental.Core.Domain.Logistics;
+using KitRental.Core.Domain.Manufacturing;
+using KitRental.Core.Domain.Notifications;
 using KitRental.Core.Domain.Orders;
+using KitRental.Core.Domain.Procurement;
 using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Support;
-using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Warehouse;
-using KitRental.Core.Domain.Procurement;
-using KitRental.Core.Domain.Notifications;
-using KitRental.Core.Domain.Locations;
 
 namespace KitRental.Core.Application.Abstractions;
 

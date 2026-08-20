@@ -1,6 +1,6 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
 using KitRental.Web.Mvc.Branding;
 using KitRental.Web.Mvc.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();

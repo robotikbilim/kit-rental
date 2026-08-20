@@ -1,12 +1,12 @@
-using System.Net;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
 using KitRental.Core.Application.Inventory;
 using KitRental.Core.Application.Rentals;
 using KitRental.Core.Domain.Orders;
 using KitRental.Security;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 
 namespace KitRental.Core.IntegrationTests;
 

@@ -1,11 +1,11 @@
+using ClosedXML.Excel;
 using KitRental.Web.Mvc.Models;
 using KitRental.Web.Mvc.Services;
-using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QRCoder;
-using System.Text.Json;
 using System.Globalization;
+using System.Text.Json;
 
 namespace KitRental.Web.Mvc.Controllers;
 

@@ -38,8 +38,12 @@ public sealed class SupplyNeedsController(KitRentalApiClient apiClient) : Contro
     {
         var list = await apiClient.GetSupplyNeedAsync(id, cancellationToken);
         if (list is null) return NotFound();
-        var form = new SupplyNeedInputViewModel { Id = id, Lines = list.Lines.Select(line =>
-            new SupplyNeedLineInputViewModel { ComponentId = line.ComponentId, Quantity = line.Quantity }).ToList() };
+        var form = new SupplyNeedInputViewModel
+        {
+            Id = id,
+            Lines = list.Lines.Select(line =>
+            new SupplyNeedLineInputViewModel { ComponentId = line.ComponentId, Quantity = line.Quantity }).ToList()
+        };
         return View("Form", await FormPageAsync(form, true, cancellationToken));
     }
 

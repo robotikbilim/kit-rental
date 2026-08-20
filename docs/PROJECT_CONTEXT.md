@@ -21,7 +21,8 @@ Main user surfaces:
 - `KitRental.Core.Domain`: domain entities, value objects, enums, status machines, invariant checks.
 - `KitRental.Core.Application`: use-case services, commands/responses, authorization/customer-scope checks, repository ports.
 - `KitRental.Core.Infrastructure`: EF Core SQL Server persistence, migrations, in-memory test repository.
-- `KitRental.Core.Api`: Minimal API endpoints, DI, auth policies, problem details.
+- `KitRental.Core.Api`: MVC API controllers grouped by public, customer portal, returns, inventory, physical kits, workshop, supply, manufacturing, operations, support, and reporting domains; also owns DI, auth policies, problem details, and health checks.
+- `KitRental.Identity.Api`: MVC API controllers for authentication, users, and internal notification-recipient access.
 - `KitRental.Gateway`: lightweight HttpClient reverse proxy for Identity and Core.
 - `KitRental.Web`: server-rendered ASP.NET Core MVC UI and API client.
 
@@ -34,6 +35,7 @@ Main user surfaces:
 - Keep domain state changes inside domain methods; services orchestrate use cases.
 - Application services should not know HTTP.
 - Controllers/API endpoints should stay thin and delegate to application services.
+- API routes are exposed from controller classes under each API project's `Controllers` folder. `Program.cs` is limited to host configuration, DI, middleware, health checks, and `MapControllers()`.
 - EF Core schema changes require a migration before finishing the task.
 - Update this file after each development task when project behavior, schema, routes, or conventions change.
 - Avoid unrelated refactors and do not revert unrelated working-tree changes.
@@ -321,6 +323,10 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Rental cohort student records now persist separate `City` and `District` fields for single-entry and Excel-imported students; migration `20260820140000_AddRentalCohortStudentLocationFields` adds the columns.
 - Rental cohort student entry and Excel import now use city/district dropdown-derived IDs. `RentalCohortStudents.CityId` and `DistrictId` reference the seeded `LocationCities` and `LocationDistricts` tables; the existing `City` and `District` strings remain synchronized for geocoding and historical display. Migration `20260820150000_NormalizeRentalCohortStudentLocations` seeds the Turkey catalog and backfills matching legacy names.
 - Customer portal kits that have a received return are exposed as historical read-only records. Their detail page remains viewable, but QR/fault-report and return actions are hidden in MVC and rejected by the customer-portal application service/API.
+- Core and Identity business endpoints were migrated from `Program.cs` Minimal API mappings into thin MVC API controllers. Core controllers are grouped by domain under `KitRental.Core.Api/Controllers`; Identity uses separate auth, users, and internal-notifications controllers. Gateway wildcard proxy routes remain infrastructure endpoints.
+- API request DTOs now live under each API project's `Contracts/Requests` folder instead of `Program.cs`.
+- Core and Identity exception translation is handled by dedicated `ApiExceptionMiddleware` classes; `Program.cs` only registers the middleware.
+- Core and Identity persistence and application service registrations are grouped in `Extensions/ServiceCollectionExtensions.cs` and exposed through `AddCoreServices` / `AddIdentityServices`.
 
 ## Development Checklist
 

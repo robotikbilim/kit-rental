@@ -1,5 +1,5 @@
-using System.Security.Claims;
 using KitRental.Security;
+using System.Security.Claims;
 
 namespace KitRental.BuildingBlocks.Tests;
 

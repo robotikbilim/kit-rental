@@ -1,13 +1,12 @@
-using System.Net;
-using System.Net.Mail;
-using System.IO;
-using System.Text;
-using System.Text.Encodings.Web;
 using KitRental.Core.Application.Abstractions;
+using KitRental.Core.Domain.Notifications;
 using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Support;
-using KitRental.Core.Domain.Notifications;
 using KitRental.SharedKernel;
+using System.Net;
+using System.Net.Mail;
+using System.Text;
+using System.Text.Encodings.Web;
 
 namespace KitRental.Core.Api;
 

@@ -1,7 +1,7 @@
+using KitRental.Web.Mvc.Models;
+using KitRental.Web.Mvc.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using KitRental.Web.Mvc.Services;
-using KitRental.Web.Mvc.Models;
 
 namespace KitRental.Web.Mvc.Controllers;
 

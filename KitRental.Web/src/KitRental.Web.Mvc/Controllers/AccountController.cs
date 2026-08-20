@@ -1,10 +1,10 @@
-using System.Security.Claims;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Mvc;
 using KitRental.Web.Mvc.Branding;
 using KitRental.Web.Mvc.Models;
 using KitRental.Web.Mvc.Services;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace KitRental.Web.Mvc.Controllers;
 
@@ -34,8 +34,13 @@ public sealed class AccountController(KitRentalApiClient apiClient, IBrandResolv
 
         var roleName = result.User.Role switch
         {
-            1 => "SystemAdmin", 2 => "OperationsManager", 3 => "WarehouseStaff",
-            4 => "ServiceTechnician", 5 => "CustomerAccountManager", 6 => "CustomerUser", 7 => "Auditor",
+            1 => "SystemAdmin",
+            2 => "OperationsManager",
+            3 => "WarehouseStaff",
+            4 => "ServiceTechnician",
+            5 => "CustomerAccountManager",
+            6 => "CustomerUser",
+            7 => "Auditor",
             _ => result.User.Role.ToString()
         };
         var claims = new List<Claim>

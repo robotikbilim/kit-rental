@@ -2,8 +2,8 @@
 using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Rentals;
-using KitRental.Core.Domain.Support;
 using KitRental.Core.Domain.Returns;
+using KitRental.Core.Domain.Support;
 
 namespace KitRental.Core.Application.CustomerPortal;
 

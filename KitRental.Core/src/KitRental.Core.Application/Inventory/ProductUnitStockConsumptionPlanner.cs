@@ -31,10 +31,10 @@ public sealed class ProductUnitStockConsumptionPlanner(ICoreRepository repositor
         var availableByLocation = stocks.ToDictionary(
             item => (item.ComponentId, item.StorageLocationId), item => item.Quantity);
         var requirements = plans.SelectMany(plan => plan.Bom.Lines.Select(line => new
-            {
-                line.ComponentId,
-                Quantity = line.Quantity * plan.Production.ProductUnitIds.Count
-            }))
+        {
+            line.ComponentId,
+            Quantity = line.Quantity * plan.Production.ProductUnitIds.Count
+        }))
             .GroupBy(item => item.ComponentId)
             .ToDictionary(group => group.Key, group => group.Sum(item => item.Quantity));
 

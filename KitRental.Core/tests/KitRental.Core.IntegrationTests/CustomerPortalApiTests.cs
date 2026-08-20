@@ -1,16 +1,16 @@
-﻿using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using KitRental.Core.Application.CustomerPortal;
+﻿using KitRental.Core.Application.CustomerPortal;
 using KitRental.Core.Application.Inventory;
 using KitRental.Core.Application.Operations;
 using KitRental.Core.Application.PhysicalKits;
-using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Inventory;
+using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Support;
 using KitRental.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 
 namespace KitRental.Core.IntegrationTests;
 

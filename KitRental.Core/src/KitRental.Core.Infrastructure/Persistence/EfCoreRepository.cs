@@ -1,19 +1,19 @@
-using System.Data;
 using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Customers;
 using KitRental.Core.Domain.Inventory;
+using KitRental.Core.Domain.Locations;
 using KitRental.Core.Domain.Logistics;
+using KitRental.Core.Domain.Manufacturing;
+using KitRental.Core.Domain.Notifications;
 using KitRental.Core.Domain.Orders;
+using KitRental.Core.Domain.Procurement;
 using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Support;
-using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Warehouse;
-using KitRental.Core.Domain.Procurement;
-using KitRental.Core.Domain.Notifications;
-using KitRental.Core.Domain.Locations;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 namespace KitRental.Core.Infrastructure.Persistence;
 
@@ -473,36 +473,36 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
         var strategy = dbContext.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
         {
-        await using var transaction = await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        var databaseUnits = await dbContext.ProductUnits
-            .Where(item => unitIds.Contains(item.Id))
-            .Select(item => new { item.Id, item.Status })
-            .ToArrayAsync(cancellationToken);
-        if (databaseUnits.Length + newUnitIds.Count != units.Count ||
-            databaseUnits.Any(item => item.Status != ProductUnitStatus.Available))
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            return false;
-        }
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+            var databaseUnits = await dbContext.ProductUnits
+                .Where(item => unitIds.Contains(item.Id))
+                .Select(item => new { item.Id, item.Status })
+                .ToArrayAsync(cancellationToken);
+            if (databaseUnits.Length + newUnitIds.Count != units.Count ||
+                databaseUnits.Any(item => item.Status != ProductUnitStatus.Available))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
 
-        var candidates = await dbContext.RentalAssignments
-            .Where(existing =>
-                unitIds.Contains(existing.ProductUnitId) &&
-                (existing.Status == RentalAssignmentStatus.Reserved || existing.Status == RentalAssignmentStatus.Active))
-            .ToArrayAsync(cancellationToken);
-        var requestedPeriods = assignments.ToDictionary(item => item.ProductUnitId, item => item.Period);
-        if (candidates.Any(existing => existing.Period.Overlaps(requestedPeriods[existing.ProductUnitId])))
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            return false;
-        }
+            var candidates = await dbContext.RentalAssignments
+                .Where(existing =>
+                    unitIds.Contains(existing.ProductUnitId) &&
+                    (existing.Status == RentalAssignmentStatus.Reserved || existing.Status == RentalAssignmentStatus.Active))
+                .ToArrayAsync(cancellationToken);
+            var requestedPeriods = assignments.ToDictionary(item => item.ProductUnitId, item => item.Period);
+            if (candidates.Any(existing => existing.Period.Overlaps(requestedPeriods[existing.ProductUnitId])))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
 
-        foreach (var unit in units)
-            unit.Reserve(actorId, occurredAt);
-        await dbContext.RentalAssignments.AddRangeAsync(assignments, cancellationToken);
-        await dbContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        return true;
+            foreach (var unit in units)
+                unit.Reserve(actorId, occurredAt);
+            await dbContext.RentalAssignments.AddRangeAsync(assignments, cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return true;
         });
     }
 

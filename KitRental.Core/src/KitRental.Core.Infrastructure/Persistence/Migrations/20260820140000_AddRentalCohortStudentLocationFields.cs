@@ -1,6 +1,5 @@
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using KitRental.Core.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
