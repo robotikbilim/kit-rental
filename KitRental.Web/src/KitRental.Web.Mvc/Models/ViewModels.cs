@@ -104,10 +104,12 @@ public sealed record FaultViewModel(Guid Id, string Number, Guid CustomerId, str
 public sealed record FaultPageViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultViewModel> Items);
 public sealed record FaultGuideEntryViewModel(Guid Id, string Title, string Problem, string Solution,
-    int DisplayOrder, bool IsActive, DateTimeOffset UpdatedAt);
+    int DisplayOrder, bool IsActive, DateTimeOffset UpdatedAt, Guid? ProductModelId = null,
+    string? ProductModelName = null);
 public sealed class FaultGuideEntryInputViewModel
 {
     public Guid? Id { get; set; }
+    [Required, Display(Name = "Kit")] public Guid? ProductModelId { get; set; }
     [Required, StringLength(160), Display(Name = "Baslik")] public string Title { get; set; } = string.Empty;
     [Required, StringLength(2000), Display(Name = "Karsilasilan problem")] public string Problem { get; set; } = string.Empty;
     [Required, StringLength(4000), Display(Name = "Cozum onerisi")] public string Solution { get; set; } = string.Empty;
@@ -115,7 +117,8 @@ public sealed class FaultGuideEntryInputViewModel
     [Display(Name = "Aktif")] public bool IsActive { get; set; } = true;
 }
 public sealed record FaultGuidePageViewModel(IReadOnlyCollection<FaultGuideEntryViewModel> Entries,
-    FaultGuideEntryInputViewModel Form);
+    FaultGuideEntryInputViewModel Form,
+    IReadOnlyCollection<ProductModelCatalogViewModel> ProductModels);
 public sealed class FaultFilterViewModel
 {
     public string? Query { get; set; }
@@ -508,6 +511,7 @@ public sealed class PublicReturnFormViewModel
     [Required] public string QrCode { get; set; } = string.Empty;
     public string KitName { get; set; } = string.Empty;
     public string SerialNumber { get; set; } = string.Empty;
+    [Required, Display(Name = "İade nedeni")] public int? ReturnReason { get; set; }
     [Required, StringLength(160), Display(Name = "Ad soyad")] public string RequesterName { get; set; } = string.Empty;
     [Required, Phone, StringLength(40), Display(Name = "Telefon numarası")] public string RequesterPhone { get; set; } = string.Empty;
     [Required, StringLength(120), Display(Name = "İl")] public string City { get; set; } = string.Empty;

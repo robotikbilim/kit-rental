@@ -4,7 +4,7 @@
     <section class="public-fault-card">
         <span class="eyebrow">SIK KARSILASILAN PROBLEMLER</span>
         <h1>Once hizli cozumleri deneyin</h1>
-        <p class="block-muted">Asagidaki basliklara goz atin. Problem devam ediyorsa ariza kaydini olusturabilirsiniz.</p>
+        <p class="block-muted">Önce bu kite ait önerilen çözümleri deneyin. Sorun devam ederse aşağıdaki yönlendirmeyle kiti servise göndermek üzere arıza kaydı oluşturabilirsiniz.</p>
         <div class="public-kit-summary"><span>Okutulan urun</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
 
         @if (Model.Entries.Count == 0)
@@ -33,8 +33,8 @@
         }
 
         <div class="public-guide-actions">
-            <a class="secondary-action" asp-action="Index" asp-route-qrCode="@Model.QrCode">Geri Dön</a>
-            <a class="primary-action" asp-action="Report" asp-route-qrCode="@Model.QrCode">Sorunum Devam Ediyor</a>
+            <a class="primary-action" asp-action="Report" asp-route-qrCode="@Model.QrCode">Çözülmedi, Servise Gönder</a>
         </div>
+        <div class="public-guide-back"><a class="secondary-action" asp-action="Index" asp-route-qrCode="@Model.QrCode">Geri Dön</a></div>
     </section>
 </div>

@@ -1,6 +1,7 @@
 using KitRental.Core.Domain.Inventory;
 using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Orders;
+using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Support;
 
 namespace KitRental.Core.Api.Contracts.Requests;
@@ -53,7 +54,7 @@ public sealed record ShipmentEventRequest(ShipmentStatus Status, DateTimeOffset 
 public sealed record OpenFaultRequest(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId, string Category, FaultSeverity Severity, string Description);
 public sealed record FaultStatusRequest(FaultStatus Status, string Note);
 public sealed record FaultGuideEntryRequest(string Title, string Problem, string Solution, int DisplayOrder,
-    bool IsActive = true);
+    bool IsActive = true, Guid? ProductModelId = null);
 public sealed record InspectionItemRequest(string Name, bool IsPresent, bool IsDamaged, string Note);
 public sealed record CompleteInspectionRequest(Guid OrderId, Guid ProductUnitId, IReadOnlyCollection<InspectionItemRequest> Items, decimal DamageCharge, ProductUnitStatus Outcome);
 public sealed record PortalFaultRequest(Guid AssignmentId, string Category, FaultSeverity Severity, string Description);
@@ -62,7 +63,7 @@ public sealed record PublicFaultRequest(Guid? FaultId, string QrCode, string Rep
     double? Latitude = null, double? Longitude = null);
 public sealed record PublicKitReturnRequest(string QrCode, string RequesterName,
     string RequesterPhone, string District, string City, string ReturnAddress,
-    double? Latitude, double? Longitude);
+    double? Latitude, double? Longitude, KitReturnReason? ReturnReason = null);
 public sealed record PortalReturnRequest(IReadOnlyCollection<Guid> AssignmentIds);
 public sealed record PortalReturnShipmentRequest(string Carrier, string TrackingNumber);
 public sealed record PublicKitDeliveryRequest(string QrCode, string RecipientName,

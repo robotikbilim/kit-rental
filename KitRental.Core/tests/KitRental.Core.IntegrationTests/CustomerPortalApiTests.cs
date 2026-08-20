@@ -147,12 +147,12 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal(FaultStatus.Open, listedFault.Status);
 
         var createdReturn = await PostAsync<PublicReturnResponse>(publicClient, "/api/public/returns",
-            new PublicKitReturnRequest(unit.QrCode, "Ayse Test", "05321112233", "Kadikoy", "Istanbul", "Test Sokak 10 Kadikoy Istanbul", null, null),
+            new PublicKitReturnRequest(unit.QrCode, "Ayse Test", "05321112233", "Kadikoy", "Istanbul", "Test Sokak 10 Kadikoy Istanbul", null, null, KitReturnReason.EducationCompleted),
             cancellationToken);
         Assert.Equal(KitReturnStatus.Requested, createdReturn.Status);
 
         var duplicateReturn = await publicClient.PostAsJsonAsync("/api/public/returns",
-            new PublicKitReturnRequest(unit.QrCode, "Ayse Test", "05321112233", "Kadikoy", "Istanbul", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345),
+            new PublicKitReturnRequest(unit.QrCode, "Ayse Test", "05321112233", "Kadikoy", "Istanbul", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345, KitReturnReason.EducationCompleted),
             cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, duplicateReturn.StatusCode);
 
@@ -173,7 +173,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             "Aktif kiralamasi olmayan kit."), cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, unavailableFault.StatusCode);
         var unavailableReturn = await publicClient.PostAsJsonAsync("/api/public/returns",
-            new PublicKitReturnRequest(availableUnit.QrCode, "Ayse Test", "05321112233", "Kadikoy", "Istanbul", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345),
+            new PublicKitReturnRequest(availableUnit.QrCode, "Ayse Test", "05321112233", "Kadikoy", "Istanbul", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345, KitReturnReason.EnrollmentCancelled),
             cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, unavailableReturn.StatusCode);
     }
@@ -274,7 +274,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         var publicReturn = await PostAsync<PublicReturnResponse>(publicClient, "/api/public/returns",
             new PublicKitReturnRequest(returnedUnit.QrCode, "Aktif Kit Musterisi", "05320000000", "Kadikoy", "Istanbul",
-                "Test Sokak 2 Kadikoy Istanbul", null, null), cancellationToken);
+                "Test Sokak 2 Kadikoy Istanbul", null, null, KitReturnReason.EnrollmentCancelled), cancellationToken);
         await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{publicReturn.Id}/receive", new { }, cancellationToken);
 
         var updatedOverview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
@@ -297,10 +297,19 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var cancellationToken = TestContext.Current.CancellationToken;
         var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin-guide@test.local", "SystemAdmin", null));
         var publicClient = _factory.CreateClient();
+        var firstModel = await PostAsync<ProductModelResponse>(admin, "/api/product-models",
+            new CreateProductModelRequest("Rehber Kiti A", $"GUIDE-A-{Guid.NewGuid():N}"), cancellationToken);
+        var firstUnit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
+            new CreateProductUnitRequest(firstModel.Id, QrCode: $"GUIDE-QR-A-{Guid.NewGuid():N}"), cancellationToken);
+        var secondModel = await PostAsync<ProductModelResponse>(admin, "/api/product-models",
+            new CreateProductModelRequest("Rehber Kiti B", $"GUIDE-B-{Guid.NewGuid():N}"), cancellationToken);
 
         var created = await PostAsync<FaultGuideEntryResponse>(admin, "/api/fault-guides",
             new FaultGuideEntryRequest("Sensor okumuyor", "Sensor degeri surekli sifir gorunuyor.",
-                "Kablo yonunu ve port secimini kontrol edin.", 10, true), cancellationToken);
+                "Kablo yonunu ve port secimini kontrol edin.", 10, true, firstModel.Id), cancellationToken);
+        var secondGuide = await PostAsync<FaultGuideEntryResponse>(admin, "/api/fault-guides",
+            new FaultGuideEntryRequest("B kitinde motor duruyor", "B kitine özel sorun.",
+                "B kitinin motor bağlantısını kontrol edin.", 15, true, secondModel.Id), cancellationToken);
         var passive = await PostAsync<FaultGuideEntryResponse>(admin, "/api/fault-guides",
             new FaultGuideEntryRequest("Pasif rehber", "Public ekranda gorunmemeli.",
                 "Admin tarafinda sakli kalir.", 20, false), cancellationToken);
@@ -309,6 +318,10 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             "/api/public/fault-guides", cancellationToken);
         Assert.Contains(publicEntries!, item => item.Id == created.Id);
         Assert.DoesNotContain(publicEntries!, item => item.Id == passive.Id);
+        var kitEntries = await publicClient.GetFromJsonAsync<FaultGuideEntryResponse[]>(
+            $"/api/public/fault-guides/{firstUnit.QrCode}", cancellationToken);
+        Assert.Contains(kitEntries!, item => item.Id == created.Id);
+        Assert.DoesNotContain(kitEntries!, item => item.Id == secondGuide.Id);
 
         var delete = await admin.DeleteAsync($"/api/fault-guides/{created.Id}", cancellationToken);
         delete.EnsureSuccessStatusCode();

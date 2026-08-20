@@ -17,6 +17,11 @@
             <div asp-validation-summary="ModelOnly" class="error"></div>
             <div class="field"><label asp-for="RequesterName"></label><input asp-for="RequesterName" autocomplete="name" placeholder="Ad soyad" /><span asp-validation-for="RequesterName" class="error"></span></div>
             <div class="field"><label asp-for="RequesterPhone"></label><input asp-for="RequesterPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="05xx xxx xx xx" /><span asp-validation-for="RequesterPhone" class="error"></span></div>
+            <div class="field"><label asp-for="ReturnReason"></label><select asp-for="ReturnReason">
+                <option value="">İade nedenini seçin</option>
+                <option value="1">Eğitim Tamamlandı</option>
+                <option value="2">Kayıt Silindi</option>
+            </select><span asp-validation-for="ReturnReason" class="error"></span></div>
             <div class="field"><label asp-for="City"></label><select asp-for="City" data-selected="@Model.City"></select><span asp-validation-for="City" class="error"></span></div>
             <div class="field"><label asp-for="District"></label><select asp-for="District" data-selected="@Model.District"></select><span asp-validation-for="District" class="error"></span></div>
             <div class="field"><label asp-for="ReturnAddress"></label><textarea asp-for="ReturnAddress" rows="3" autocomplete="street-address" placeholder="Kargo alinacak acik adresi yazin."></textarea><span asp-validation-for="ReturnAddress" class="error"></span></div>

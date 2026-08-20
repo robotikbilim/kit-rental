@@ -55,7 +55,7 @@ public sealed class PublicController : CoreApiControllerBase
     {
         var result = await service.CreatePublicKitReturnAsync(new CreatePublicKitReturnCommand(
                 request.QrCode, request.RequesterName, request.RequesterPhone, request.District,
-                request.City, request.ReturnAddress, request.Latitude, request.Longitude), cancellationToken);
+                request.City, request.ReturnAddress, request.Latitude, request.Longitude, request.ReturnReason), cancellationToken);
         return Created($"/api/public/returns/{result.Id}", result);
     }
 
@@ -74,6 +74,13 @@ public sealed class PublicController : CoreApiControllerBase
     public async Task<IActionResult> Get_publicFaultGuides_6([FromServices] OperationsService service, CancellationToken cancellationToken)
     {
         return Ok(await service.GetFaultGuideEntriesAsync(true, cancellationToken));
+    }
+
+    [AllowAnonymous]
+    [HttpGet("public/fault-guides/{qrCode}")]
+    public async Task<IActionResult> Get_publicFaultGuidesQrCode_7(string qrCode, [FromServices] OperationsService service, CancellationToken cancellationToken)
+    {
+        return Ok(await service.GetPublicFaultGuideEntriesAsync(qrCode, cancellationToken));
     }
 
 }

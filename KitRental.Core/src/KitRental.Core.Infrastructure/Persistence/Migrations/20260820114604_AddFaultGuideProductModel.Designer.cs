@@ -4,6 +4,7 @@ using KitRental.Core.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace KitRental.Core.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(KitRentalDbContext))]
-    partial class KitRentalDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260820114604_AddFaultGuideProductModel")]
+    partial class AddFaultGuideProductModel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -653,9 +656,6 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.Property<string>("ReturnAddress")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
-
-                    b.Property<int?>("ReturnReason")
-                        .HasColumnType("int");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()

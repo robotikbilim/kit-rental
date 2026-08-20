@@ -39,9 +39,10 @@ public sealed record CreatePublicKitDeliveryCommand(string QrCode, string Recipi
     string RecipientPhone, string AddressLine, string District, string City,
     double? Latitude, double? Longitude);
 public sealed record FaultGuideEntryResponse(Guid Id, string Title, string Problem, string Solution,
-    int DisplayOrder, bool IsActive, DateTimeOffset UpdatedAt);
+    int DisplayOrder, bool IsActive, DateTimeOffset UpdatedAt, Guid? ProductModelId = null,
+    string? ProductModelName = null);
 public sealed record SaveFaultGuideEntryCommand(Guid? Id, string Title, string Problem, string Solution,
-    int DisplayOrder, bool IsActive, Guid ActorId);
+    int DisplayOrder, bool IsActive, Guid ActorId, Guid? ProductModelId = null);
 public sealed record InspectionItemCommand(string Name, bool IsPresent, bool IsDamaged, string Note);
 public sealed record CompleteInspectionCommand(Guid OrderId, Guid ProductUnitId, IReadOnlyCollection<InspectionItemCommand> Items, decimal DamageCharge, ProductUnitStatus Outcome, Guid ActorId);
 public sealed record FaultPageQuery(string? Query, FaultStatus? Status, FaultSeverity? Severity,
@@ -819,8 +820,20 @@ public sealed class OperationsService(
 
     public async Task<IReadOnlyCollection<FaultGuideEntryResponse>> GetFaultGuideEntriesAsync(bool activeOnly,
         CancellationToken cancellationToken) =>
-        (await repository.GetFaultGuideEntriesAsync(activeOnly, cancellationToken))
-            .Select(MapFaultGuideEntry).ToArray();
+        await MapFaultGuideEntriesAsync(
+            await repository.GetFaultGuideEntriesAsync(activeOnly, cancellationToken), cancellationToken);
+
+    public async Task<IReadOnlyCollection<FaultGuideEntryResponse>> GetPublicFaultGuideEntriesAsync(string qrCode,
+        CancellationToken cancellationToken)
+    {
+        var unit = (await repository.GetProductUnitsAsync(cancellationToken))
+            .SingleOrDefault(item => string.Equals(item.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase))
+            ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
+        var entries = (await repository.GetFaultGuideEntriesAsync(true, cancellationToken))
+            .Where(item => item.ProductModelId is null || item.ProductModelId == unit.ProductModelId)
+            .ToArray();
+        return await MapFaultGuideEntriesAsync(entries, cancellationToken);
+    }
 
     public async Task<FaultGuideEntryResponse> SaveFaultGuideEntryAsync(SaveFaultGuideEntryCommand command,
         CancellationToken cancellationToken)
@@ -831,21 +844,23 @@ public sealed class OperationsService(
         {
             entry = await repository.GetFaultGuideEntryAsync(command.Id.Value, cancellationToken)
                 ?? throw new ResourceNotFoundException("Problem rehberi kaydi bulunamadi.");
-            entry.Update(command.Title, command.Problem, command.Solution, command.DisplayOrder, command.IsActive);
+            entry.Update(command.Title, command.Problem, command.Solution, command.DisplayOrder, command.IsActive,
+                command.ProductModelId);
         }
         else
         {
             entry = FaultGuideEntry.Create(Guid.NewGuid(), command.Title, command.Problem, command.Solution,
-                command.DisplayOrder);
+                command.DisplayOrder, command.ProductModelId);
             if (!command.IsActive)
-                entry.Update(command.Title, command.Problem, command.Solution, command.DisplayOrder, false);
+                entry.Update(command.Title, command.Problem, command.Solution, command.DisplayOrder, false,
+                    command.ProductModelId);
             await repository.AddFaultGuideEntryAsync(entry, cancellationToken);
             action = "FaultGuideCreated";
         }
         await repository.SaveChangesAsync(cancellationToken);
         await AuditAsync(command.ActorId, nameof(FaultGuideEntry), entry.Id, action, null, entry.Title,
             cancellationToken);
-        return MapFaultGuideEntry(entry);
+        return (await MapFaultGuideEntriesAsync([entry], cancellationToken)).Single();
     }
 
     public async Task DeleteFaultGuideEntryAsync(Guid id, Guid actorId, CancellationToken cancellationToken)
@@ -1079,9 +1094,16 @@ public sealed class OperationsService(
                 throw new ResourceNotFoundException($"{line.ProductModelId} ürün modeli bulunamadı.");
     }
 
-    private static FaultGuideEntryResponse MapFaultGuideEntry(FaultGuideEntry entry) =>
-        new(entry.Id, entry.Title, entry.Problem, entry.Solution, entry.DisplayOrder, entry.IsActive,
-            entry.UpdatedAt);
+    private async Task<IReadOnlyCollection<FaultGuideEntryResponse>> MapFaultGuideEntriesAsync(
+        IEnumerable<FaultGuideEntry> entries, CancellationToken cancellationToken)
+    {
+        var models = (await repository.GetProductModelsAsync(cancellationToken))
+            .ToDictionary(item => item.Id);
+        return entries.Select(entry => new FaultGuideEntryResponse(entry.Id, entry.Title, entry.Problem,
+            entry.Solution, entry.DisplayOrder, entry.IsActive, entry.UpdatedAt, entry.ProductModelId,
+            entry.ProductModelId is { } modelId && models.TryGetValue(modelId, out var model) ? model.Name : null))
+            .ToArray();
+    }
 
     private static ResolvedLocation ResolveLocation(string? district, string? city,
         double? latitude, double? longitude)

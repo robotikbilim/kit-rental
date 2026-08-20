@@ -68,7 +68,7 @@ public sealed record CreatePortalRentalCohortOrderCommand(Guid CustomerId, Guid 
     string ActorDisplayName);
 public sealed record CreatePublicKitReturnCommand(string QrCode, string RequesterName,
     string RequesterPhone, string District, string City, string ReturnAddress,
-    double? Latitude, double? Longitude);
+    double? Latitude, double? Longitude, KitReturnReason? ReturnReason = null);
 public sealed record CreatePortalReturnCommand(Guid CustomerId, IReadOnlyCollection<Guid> AssignmentIds,
     Guid ActorId, string ActorDisplayName);
 public sealed record ShipPortalReturnCommand(Guid CustomerId, Guid ReturnId, string Carrier,

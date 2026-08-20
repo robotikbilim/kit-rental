@@ -20,11 +20,6 @@ public sealed class BrandingOptions
         new(StringComparer.OrdinalIgnoreCase);
 }
 
-public interface IBrandResolver
-{
-    BrandDefinition Current { get; }
-}
-
 public sealed class HostBrandResolver(
     IHttpContextAccessor httpContextAccessor,
     IOptions<BrandingOptions> options) : IBrandResolver

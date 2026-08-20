@@ -9,12 +9,6 @@ public sealed record TokenOptions(string Issuer, string Audience, string Secret,
 
 public sealed record TokenUser(Guid Id, string Email, string Role, Guid? CustomerId);
 
-public interface ITokenService
-{
-    string Create(TokenUser user, DateTimeOffset now);
-    ClaimsPrincipal? Validate(string token, DateTimeOffset now);
-}
-
 public sealed class TokenService(TokenOptions options) : ITokenService
 {
     public string Create(TokenUser user, DateTimeOffset now)

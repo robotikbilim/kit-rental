@@ -35,6 +35,7 @@ Main user surfaces:
 - Keep domain state changes inside domain methods; services orchestrate use cases.
 - Application services should not know HTTP.
 - Controllers/API endpoints should stay thin and delegate to application services.
+- Application and infrastructure service implementations are kept under project-level `Services` folders (feature subfolders are allowed); interfaces that were previously colocated with implementations are kept under `Interfaces` folders.
 - API routes are exposed from controller classes under each API project's `Controllers` folder. `Program.cs` is limited to host configuration, DI, middleware, health checks, and `MapControllers()`.
 - EF Core schema changes require a migration before finishing the task.
 - Update this file after each development task when project behavior, schema, routes, or conventions change.
@@ -327,6 +328,9 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - API request DTOs now live under each API project's `Contracts/Requests` folder instead of `Program.cs`.
 - Core and Identity exception translation is handled by dedicated `ApiExceptionMiddleware` classes; `Program.cs` only registers the middleware.
 - Core and Identity persistence and application service registrations are grouped in `Extensions/ServiceCollectionExtensions.cs` and exposed through `AddCoreServices` / `AddIdentityServices`.
+- Fault guide entries can target a specific kit model through `FaultGuideEntries.ProductModelId`; new admin entries require a kit selection, while legacy entries without a model remain general fallback guides. Public QR fault troubleshooting loads only active guides for the scanned kit model plus general fallback entries. Migration `AddFaultGuideProductModel` adds the nullable foreign key.
+- Public QR troubleshooting now presents a more explicit `Çözülmedi, Servise Gönder` action, with the `Geri Dön` action placed at the bottom of the page.
+- Public QR kit-return forms require a return reason: `Eğitim Tamamlandı` or `Kayıt Silindi`. The selected `KitReturnReason` is persisted on `KitReturnRequests`.
 
 ## Development Checklist
 

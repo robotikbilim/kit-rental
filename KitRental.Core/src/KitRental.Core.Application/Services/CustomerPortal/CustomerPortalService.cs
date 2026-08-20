@@ -430,6 +430,8 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
     public async Task<KitReturnRequest> CreatePublicKitReturnAsync(CreatePublicKitReturnCommand command,
         CancellationToken cancellationToken)
     {
+        if (!command.ReturnReason.HasValue)
+            throw new DomainException("kit_return.reason_required", "İade nedeni seçilmelidir.");
         var unit = (await repository.GetProductUnitsAsync(cancellationToken))
             .SingleOrDefault(item => string.Equals(item.QrCode, command.QrCode.Trim(), StringComparison.OrdinalIgnoreCase))
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
@@ -453,7 +455,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var request = KitReturnRequest.CreatePublic(Guid.NewGuid(), assignment.CustomerId, now, PublicActorId,
             [new KitReturnItem(Guid.NewGuid(), assignment.Id, assignment.ProductUnitId, order.Id)],
             command.RequesterName, command.RequesterPhone,
-            command.ReturnAddress, resolvedLocation.Latitude, resolvedLocation.Longitude);
+            command.ReturnAddress, resolvedLocation.Latitude, resolvedLocation.Longitude, command.ReturnReason);
         await repository.AddKitReturnRequestAsync(request, cancellationToken);
         await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id, assignment.Id,
             order.Id, assignment.CustomerId, KitLocationEventSource.ReturnRequest, request.Id,

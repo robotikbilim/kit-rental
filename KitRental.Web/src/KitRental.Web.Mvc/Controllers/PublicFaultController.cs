@@ -25,7 +25,7 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
         var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
         if (kit is null) return NotFound();
         return View(new PublicFaultTroubleshootingViewModel(kit.QrCode, kit.KitName, kit.SerialNumber,
-            await apiClient.GetPublicFaultGuideEntriesAsync(cancellationToken)));
+            await apiClient.GetPublicFaultGuideEntriesAsync(qrCode, cancellationToken)));
     }
 
     [HttpGet("{qrCode}/ariza/olustur")]

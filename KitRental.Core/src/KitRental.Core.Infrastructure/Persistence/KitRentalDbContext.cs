@@ -354,6 +354,8 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(entry => entry.Title).HasMaxLength(160).IsRequired();
         builder.Property(entry => entry.Problem).HasMaxLength(2000).IsRequired();
         builder.Property(entry => entry.Solution).HasMaxLength(4000).IsRequired();
+        builder.HasOne<ProductModel>().WithMany().HasForeignKey(entry => entry.ProductModelId)
+            .OnDelete(DeleteBehavior.SetNull);
         builder.HasIndex(entry => new { entry.IsActive, entry.DisplayOrder });
         AddRowVersion(builder);
     }
@@ -471,6 +473,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(x => x.RequesterName).HasMaxLength(160);
         builder.Property(x => x.RequesterPhone).HasMaxLength(40);
         builder.Property(x => x.ReturnAddress).HasMaxLength(1000);
+        builder.Property(x => x.ReturnReason).HasConversion<int>();
         builder.HasIndex(x => new { x.CustomerId, x.Status });
         builder.HasIndex(x => x.TrackingNumber).IsUnique().HasFilter("[TrackingNumber] IS NOT NULL");
         builder.OwnsMany(x => x.Items, items =>

@@ -7,11 +7,6 @@ using MongoDB.Driver;
 
 namespace KitRental.Identity.Infrastructure;
 
-public interface IIdentityStoreInitializer
-{
-    Task InitializeAsync(CancellationToken cancellationToken);
-}
-
 public sealed class MongoUserRepository : IUserRepository, IIdentityStoreInitializer
 {
     private readonly IMongoCollection<UserDocument> _users;

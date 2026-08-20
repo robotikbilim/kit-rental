@@ -57,7 +57,8 @@ public sealed class SupportController : CoreApiControllerBase
     public async Task<IActionResult> Post_FaultGuides_99(FaultGuideEntryRequest request, [FromServices] OperationsService service, CancellationToken cancellationToken)
     {
         var result = await service.SaveFaultGuideEntryAsync(new SaveFaultGuideEntryCommand(null, request.Title,
-                request.Problem, request.Solution, request.DisplayOrder, request.IsActive, User.GetRequiredUserId()),
+                request.Problem, request.Solution, request.DisplayOrder, request.IsActive, User.GetRequiredUserId(),
+                request.ProductModelId),
                 cancellationToken);
         return Created($"/api/fault-guides/{result.Id}", result);
     }
@@ -67,7 +68,8 @@ public sealed class SupportController : CoreApiControllerBase
     public async Task<IActionResult> Put_FaultGuidesIdGuid_100(Guid id, FaultGuideEntryRequest request, [FromServices] OperationsService service, CancellationToken cancellationToken)
     {
         return Ok(await service.SaveFaultGuideEntryAsync(new SaveFaultGuideEntryCommand(id, request.Title,
-                request.Problem, request.Solution, request.DisplayOrder, request.IsActive, User.GetRequiredUserId()),
+                request.Problem, request.Solution, request.DisplayOrder, request.IsActive, User.GetRequiredUserId(),
+                request.ProductModelId),
                 cancellationToken));
     }
 

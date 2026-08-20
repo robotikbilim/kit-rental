@@ -3,6 +3,7 @@
 namespace KitRental.Core.Domain.Returns;
 
 public enum KitReturnStatus { Requested = 1, InTransit = 2, Received = 3 }
+public enum KitReturnReason { EducationCompleted = 1, EnrollmentCancelled = 2 }
 
 public sealed record KitReturnItem(Guid Id, Guid AssignmentId, Guid ProductUnitId, Guid OrderId);
 
@@ -13,7 +14,8 @@ public sealed class KitReturnRequest
 
     private KitReturnRequest(Guid id, Guid customerId, DateTimeOffset createdAt, Guid createdBy,
         IReadOnlyCollection<KitReturnItem> items, string? requesterName = null,
-        string? requesterPhone = null, string? returnAddress = null, double? latitude = null, double? longitude = null)
+        string? requesterPhone = null, string? returnAddress = null, double? latitude = null, double? longitude = null,
+        KitReturnReason? returnReason = null)
     {
         Id = id; CustomerId = customerId; CreatedAt = createdAt; CreatedBy = createdBy;
         RequesterName = requesterName?.Trim();
@@ -21,6 +23,7 @@ public sealed class KitReturnRequest
         ReturnAddress = returnAddress?.Trim();
         Latitude = latitude;
         Longitude = longitude;
+        ReturnReason = returnReason;
         Status = KitReturnStatus.Requested; _items.AddRange(items);
     }
 
@@ -38,6 +41,7 @@ public sealed class KitReturnRequest
     public string? ReturnAddress { get; private set; }
     public double? Latitude { get; private set; }
     public double? Longitude { get; private set; }
+    public KitReturnReason? ReturnReason { get; private set; }
     public IReadOnlyCollection<KitReturnItem> Items => _items.AsReadOnly();
 
     public static KitReturnRequest Create(Guid id, Guid customerId, DateTimeOffset createdAt, Guid createdBy,
@@ -53,7 +57,8 @@ public sealed class KitReturnRequest
 
     public static KitReturnRequest CreatePublic(Guid id, Guid customerId, DateTimeOffset createdAt, Guid createdBy,
         IReadOnlyCollection<KitReturnItem> items, string requesterName,
-        string requesterPhone, string returnAddress, double? latitude, double? longitude)
+        string requesterPhone, string returnAddress, double? latitude, double? longitude,
+        KitReturnReason? returnReason = null)
     {
         if (string.IsNullOrWhiteSpace(requesterName) || string.IsNullOrWhiteSpace(requesterPhone) || string.IsNullOrWhiteSpace(returnAddress))
             throw new DomainException("kit_return.requester_required", "Ad, soyad ve telefon zorunludur.");
@@ -61,7 +66,7 @@ public sealed class KitReturnRequest
             throw new DomainException("kit_return.invalid_location", "Geçerli bir konum seçilmelidir.");
         var request = Create(id, customerId, createdAt, createdBy, items);
         return new KitReturnRequest(request.Id, request.CustomerId, request.CreatedAt, request.CreatedBy, request.Items,
-            requesterName, requesterPhone, returnAddress, latitude, longitude);
+            requesterName, requesterPhone, returnAddress, latitude, longitude, returnReason);
     }
 
     public void MarkShipped(string carrier, string trackingNumber, DateTimeOffset shippedAt)

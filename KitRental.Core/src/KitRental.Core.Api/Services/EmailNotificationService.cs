@@ -10,12 +10,6 @@ using System.Text.Encodings.Web;
 
 namespace KitRental.Core.Api;
 
-public interface IEmailNotificationService
-{
-    Task NotifyAdminsOfFaultAsync(FaultTicket ticket, string eventDescription, CancellationToken cancellationToken);
-    Task NotifyAdminsOfRentalRequestAsync(RentalOrder order, CancellationToken cancellationToken);
-}
-
 public sealed class EmailNotificationService(
     ICoreRepository repository,
     IHttpClientFactory httpClientFactory,

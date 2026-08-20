@@ -187,8 +187,9 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         await GetAsync<FaultGuideEntryViewModel[]>("/core/api/fault-guides", cancellationToken) ?? [];
 
     public async Task<IReadOnlyCollection<FaultGuideEntryViewModel>> GetPublicFaultGuideEntriesAsync(
-        CancellationToken cancellationToken) =>
-        await GetAsync<FaultGuideEntryViewModel[]>("/core/api/public/fault-guides", cancellationToken) ?? [];
+        string qrCode, CancellationToken cancellationToken) =>
+        await GetAsync<FaultGuideEntryViewModel[]>(
+            $"/core/api/public/fault-guides/{Uri.EscapeDataString(qrCode)}", cancellationToken) ?? [];
 
     public Task<ApiCommandResult<FaultGuideEntryViewModel>> CreateFaultGuideEntryAsync(
         FaultGuideEntryInputViewModel model, CancellationToken cancellationToken) =>
@@ -198,7 +199,8 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.Problem,
             model.Solution,
             model.DisplayOrder,
-            model.IsActive
+            model.IsActive,
+            model.ProductModelId
         }, cancellationToken);
 
     public Task<ApiCommandResult<FaultGuideEntryViewModel>> UpdateFaultGuideEntryAsync(
@@ -209,7 +211,8 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.Problem,
             model.Solution,
             model.DisplayOrder,
-            model.IsActive
+            model.IsActive,
+            model.ProductModelId
         }, cancellationToken);
 
     public Task<ApiCommandResult<object>> DeleteFaultGuideEntryAsync(Guid id, CancellationToken cancellationToken) =>
@@ -485,6 +488,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.District,
             model.City,
             model.ReturnAddress,
+            model.ReturnReason,
             model.Latitude,
             model.Longitude
         }, cancellationToken);

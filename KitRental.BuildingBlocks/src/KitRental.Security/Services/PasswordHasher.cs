@@ -2,12 +2,6 @@ using System.Security.Cryptography;
 
 namespace KitRental.Security;
 
-public interface IPasswordHasher
-{
-    string Hash(string password);
-    bool Verify(string password, string encodedHash);
-}
-
 public sealed class PasswordHasher : IPasswordHasher
 {
     private const int Iterations = 120_000;

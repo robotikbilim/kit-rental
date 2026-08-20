@@ -13,6 +13,13 @@
     <form asp-action="SaveFaultGuide" method="post" class="fault-guide-form">
         <input type="hidden" name="Id" value="@Model.Form.Id" />
         <div asp-validation-summary="ModelOnly" class="error"></div>
+        <div class="field wide"><label asp-for="Form.ProductModelId">Kit</label><select asp-for="Form.ProductModelId" name="ProductModelId">
+            <option value="">Kit seçin</option>
+            @foreach (var kit in Model.ProductModels.OrderBy(item => item.Name))
+            {
+                <option value="@kit.Id">@kit.Name (@kit.Sku)</option>
+            }
+        </select><span asp-validation-for="Form.ProductModelId" class="error"></span></div>
         <div class="field"><label for="Title">Baslik</label><input id="Title" name="Title" value="@Model.Form.Title" placeholder="Orn. Motor calismiyor" /></div>
         <div class="field"><label for="DisplayOrder">Siralama</label><input id="DisplayOrder" name="DisplayOrder" value="@Model.Form.DisplayOrder" type="number" min="0" max="999" /></div>
         <label class="toggle-field"><input name="IsActive" type="checkbox" value="true" checked="@Model.Form.IsActive" /><input name="IsActive" type="hidden" value="false" /> Public ekranda yayinla</label>
@@ -36,7 +43,7 @@
         {
             <article class="fault-guide-admin-card @(item.IsActive ? null : "is-passive")">
                 <header>
-                    <div><span class="eyebrow">SIRA @item.DisplayOrder</span><h2>@item.Title</h2></div>
+                    <div><span class="eyebrow">@(item.ProductModelName ?? "Genel") · SIRA @item.DisplayOrder</span><h2>@item.Title</h2></div>
                     <span class="status-badge @(item.IsActive ? "success" : "warning")">@(item.IsActive ? "Aktif" : "Pasif")</span>
                 </header>
                 <dl>

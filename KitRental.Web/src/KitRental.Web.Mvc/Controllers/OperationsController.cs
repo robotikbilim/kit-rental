@@ -169,6 +169,7 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     public async Task<IActionResult> FaultGuide(Guid? editId, CancellationToken cancellationToken)
     {
         var entries = await apiClient.GetFaultGuideEntriesAsync(cancellationToken);
+        var productModels = await apiClient.GetProductModelsAsync(cancellationToken);
         var edit = editId.HasValue ? entries.SingleOrDefault(item => item.Id == editId.Value) : null;
         var form = edit is null
             ? new FaultGuideEntryInputViewModel
@@ -178,13 +179,14 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             : new FaultGuideEntryInputViewModel
             {
                 Id = edit.Id,
+                ProductModelId = edit.ProductModelId,
                 Title = edit.Title,
                 Problem = edit.Problem,
                 Solution = edit.Solution,
                 DisplayOrder = edit.DisplayOrder,
                 IsActive = edit.IsActive
             };
-        return View(new FaultGuidePageViewModel(entries, form));
+        return View(new FaultGuidePageViewModel(entries, form, productModels));
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
@@ -193,7 +195,8 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     {
         if (!ModelState.IsValid)
             return View("FaultGuide", new FaultGuidePageViewModel(
-                await apiClient.GetFaultGuideEntriesAsync(cancellationToken), model));
+                await apiClient.GetFaultGuideEntriesAsync(cancellationToken), model,
+                await apiClient.GetProductModelsAsync(cancellationToken)));
         var result = model.Id.HasValue
             ? await apiClient.UpdateFaultGuideEntryAsync(model, cancellationToken)
             : await apiClient.CreateFaultGuideEntryAsync(model, cancellationToken);
@@ -206,7 +209,8 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         }
         ModelState.AddModelError(string.Empty, result.Error ?? "Problem rehberi kaydedilemedi.");
         return View("FaultGuide", new FaultGuidePageViewModel(
-            await apiClient.GetFaultGuideEntriesAsync(cancellationToken), model));
+            await apiClient.GetFaultGuideEntriesAsync(cancellationToken), model,
+            await apiClient.GetProductModelsAsync(cancellationToken)));
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
