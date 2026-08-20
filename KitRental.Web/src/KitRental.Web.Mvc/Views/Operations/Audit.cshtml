@@ -13,7 +13,7 @@
         "Activated" => "Etkinleştirildi", "Deactivated" => "Devre dışı bırakıldı",
         "PurchaseOrderCreated" => "Satın alma siparişi", "OrderKitsCreated" => "Kitler hazırlandı",
         "ReturnRequested" => "İade talebi oluşturuldu", "ReturnShipped" => "İade kargolandı",
-        "ReturnReceived" => "İade teslim alındı",
+        "ReturnReceived" => "İade teslim alındı", "StudentKitReturnCompleted" => "Öğrenci kiti iade edildi",
         _ => value
     };
     string EntityName(string value) => value switch {
@@ -57,7 +57,7 @@
     var actions = new[] { "Created", "Updated", "Deleted", "Submitted", "Opened", "StatusChanged",
         "AddressAdded", "AddressUpdated", "AddressRemoved", "Reserved", "Completed", "Transferred",
         "Supplied", "Activated", "Deactivated", "PurchaseOrderCreated", "OrderKitsCreated",
-        "ReturnRequested", "ReturnShipped", "ReturnReceived" };
+        "ReturnRequested", "ReturnShipped", "ReturnReceived", "StudentKitReturnCompleted" };
 }
 <div class="page-heading"><div><span class="eyebrow">YÖNETİM &amp; GÜVENLİK</span><h1>İşlem Geçmişi</h1>
 <p class="block-muted">Yönetici ve müşteri hareketlerini kullanıcı, işlem tipi ve tarihe göre inceleyin.</p></div></div>

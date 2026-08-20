@@ -149,7 +149,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             item.AssignmentStatus is RentalAssignmentStatus.Reserved or RentalAssignmentStatus.Active &&
             !item.HasDeliveryForm);
         return new CustomerPortalResponse(customer.Name, customer.Email,
-            kits.Count,
+            currentlyRentedKits.Length,
             undeliveredKitCount,
             assignedStudentKitCount,
             unassignedKitCount,
@@ -329,6 +329,12 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
     public async Task<KitReturnRequest> CreatePortalStudentReturnAsync(CreatePortalStudentReturnCommand command,
         CancellationToken cancellationToken)
     {
+        if (new[] { command.RequesterName, command.RequesterPhone, command.ReturnAddress, command.District, command.City }
+            .Any(string.IsNullOrWhiteSpace))
+            throw new DomainException("kit_return.required_fields",
+                "İade için ad soyad, telefon, il, ilçe ve adres zorunludur.");
+        if (!command.ReturnReason.HasValue)
+            throw new DomainException("kit_return.reason_required", "İade nedeni seçilmelidir.");
         var cohort = await GetOwnedCohortAsync(command.CustomerId, command.CohortId, cancellationToken);
         var student = cohort.Students.SingleOrDefault(item => item.Id == command.StudentId && !item.IsDeleted)
             ?? throw new ResourceNotFoundException("Öğrenci bulunamadı.");
@@ -344,17 +350,22 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             .Any(item => item.AssignmentId == student.AssignmentId.Value))
             throw new ConflictException("kit_return.already_started", "Bu kit için iade süreci zaten devam ediyor.");
         var now = TurkeyTime.Now();
+        var resolvedLocation = ResolveLocation(command.District, command.City, null, null);
         var request = KitReturnRequest.CreatePublic(Guid.NewGuid(), command.CustomerId, now, command.ActorId,
             [new KitReturnItem(Guid.NewGuid(), student.AssignmentId.Value, student.ProductUnitId.Value,
                 student.OrderId.Value)],
-            student.FullName, student.GuardianPhone, student.AddressLine, null, null);
+            command.RequesterName, command.RequesterPhone, command.ReturnAddress, null, null, command.ReturnReason);
         await repository.AddKitReturnRequestAsync(request, cancellationToken);
+        await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), student.ProductUnitId.Value,
+            student.AssignmentId.Value, student.OrderId.Value, command.CustomerId, KitLocationEventSource.ReturnRequest,
+            request.Id, command.RequesterName, command.RequesterPhone, command.ReturnAddress,
+            resolvedLocation.District, resolvedLocation.City, null, null, now, command.ActorId), cancellationToken);
         await AddActivityAsync(student.ProductUnitId.Value, student.AssignmentId, student.OrderId, student.Id,
             command.ActorId, command.ActorDisplayName, "İade talebi oluşturuldu",
-            $"{student.FullName} öğrencisi iade talebi oluşturdu.", cancellationToken, now);
+            $"{command.RequesterName.Trim()} iade talebi oluşturdu.", cancellationToken, now);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId,
             nameof(KitReturnRequest), request.Id, "StudentReturnRequested", null,
-            student.FullName, now), cancellationToken);
+            command.RequesterName.Trim(), now), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return request;
     }
@@ -502,16 +513,17 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             if (assignment?.Status == RentalAssignmentStatus.Active) assignment.Complete();
             var cohort = customerCohorts.FirstOrDefault(candidate =>
                 candidate.Students.Any(student => student.AssignmentId == item.AssignmentId && !student.IsDeleted));
-            var student = cohort?.UnlinkStudentKit(item.AssignmentId);
+            var student = cohort?.Students.SingleOrDefault(candidate =>
+                candidate.AssignmentId == item.AssignmentId && !candidate.IsDeleted);
             if (student is not null && cohort is not null)
             {
                 await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId,
-                    nameof(RentalCohort), cohort.Id, "StudentKitUnlinkedByReturn", student.FullName,
+                    nameof(RentalCohort), cohort.Id, "StudentKitReturnCompleted", student.FullName,
                     unit.SerialNumber, now), cancellationToken);
             }
             var studentDescription = student is null
                 ? "İade teslim alındı; kit yeniden kullanılabilir stoka alındı."
-                : $"İade teslim alındı; {student.FullName} öğrencisinin kit ilişkisi kaldırıldı.";
+                : $"İade teslim alındı; {student.FullName} öğrencisinin kit ilişkisi geçmiş kayıt olarak korundu.";
             await AddActivityAsync(unit.Id, item.AssignmentId, item.OrderId, student?.Id, actorId, actorId.ToString(),
                 "İade teslim alındı", studentDescription,
                 cancellationToken, now);
@@ -698,6 +710,10 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             .SelectMany(item => item.Items)
             .Select(item => item.AssignmentId)
             .ToHashSet();
+        var completedReturnAssignmentIds = returns.Where(item => item.Status == KitReturnStatus.Received)
+            .SelectMany(item => item.Items)
+            .Select(item => item.AssignmentId)
+            .ToHashSet();
         var deliveryEventsByAssignment = (await repository.GetKitLocationEventsAsync(cancellationToken))
             .Where(item => item.CustomerId == cohort.CustomerId &&
                 item.Source == KitLocationEventSource.DeliveryReceipt &&
@@ -721,6 +737,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 student.OrderId, student.AssignmentId, student.ProductUnitId, unit?.SerialNumber, unit?.QrCode,
                 student.IsDeleted, student.AssignmentId.HasValue &&
                     activeReturnAssignmentIds.Contains(student.AssignmentId.Value),
+                student.AssignmentId.HasValue && completedReturnAssignmentIds.Contains(student.AssignmentId.Value),
                 delivery is not null, delivery?.ContactName, delivery?.ContactPhone, delivery?.AddressLine,
                 delivery?.District, delivery?.City, delivery?.OccurredAt));
         }

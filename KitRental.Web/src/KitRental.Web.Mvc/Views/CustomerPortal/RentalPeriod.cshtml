@@ -172,7 +172,6 @@
                             @if (student.HasDeliveryForm)
                             {
                                 <small class="block-muted">Teslim: @student.DeliveredTo - @student.DeliveryPhone</small>
-                                <small class="block-muted">@student.DeliveryAddress @student.DeliveryDistrict / @student.DeliveryCity</small>
                                 @if (student.DeliveredAt.HasValue)
                                 {
                                     <small class="block-muted">@student.DeliveredAt.Value.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>
@@ -209,16 +208,30 @@
                             }
                                 @if (student.AssignmentId.HasValue)
                                 {
-                                <a class="icon-action icon-action-fault" asp-action="NewFault" asp-route-assignmentId="@student.AssignmentId" title="Arıza Kaydı Oluştur" aria-label="@($"{student.FullName} için arıza kaydı oluştur")">
-                                    <i data-lucide="wrench"></i><span class="visually-hidden">Arıza Kaydı Oluştur</span>
-                                </a>
-                                <form asp-action="StartStudentReturn" method="post" class="inline-form">
-                                    <input type="hidden" name="cohortId" value="@Model.Cohort.Id" />
-                                    <input type="hidden" name="studentId" value="@student.Id" />
-                                    <button class="icon-action icon-action-return" type="submit" disabled="@student.HasActiveReturn" title="İade Talebi Oluştur" aria-label="@($"{student.FullName} için iade talebi oluştur")">
-                                        <i data-lucide="rotate-ccw"></i><span class="visually-hidden">İade Talebi Oluştur</span>
-                                    </button>
-                                </form>
+                                    @if (student.HasCompletedReturn)
+                                    {
+                                        <button class="icon-action icon-action-fault" type="button" disabled title="İade tamamlandığı için arıza kaydı oluşturulamaz" aria-label="@($"{student.FullName} için arıza kaydı oluşturulamaz")">
+                                            <i data-lucide="wrench"></i><span class="visually-hidden">Arıza Kaydı Oluşturulamaz</span>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <a class="icon-action icon-action-fault" asp-action="NewFault" asp-route-assignmentId="@student.AssignmentId" title="Arıza Kaydı Oluştur" aria-label="@($"{student.FullName} için arıza kaydı oluştur")">
+                                            <i data-lucide="wrench"></i><span class="visually-hidden">Arıza Kaydı Oluştur</span>
+                                        </a>
+                                    }
+                                    @if (student.HasActiveReturn || student.HasCompletedReturn)
+                                    {
+                                        <button class="icon-action icon-action-return" type="button" disabled title="İade Talebi Oluştur" aria-label="@($"{student.FullName} için iade talebi oluştur")">
+                                            <i data-lucide="rotate-ccw"></i><span class="visually-hidden">İade Talebi Oluştur</span>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <a class="icon-action icon-action-return" asp-action="StartStudentReturn" asp-route-cohortId="@Model.Cohort.Id" asp-route-studentId="@student.Id" title="İade Talebi Oluştur" aria-label="@($"{student.FullName} için iade talebi oluştur")">
+                                            <i data-lucide="rotate-ccw"></i><span class="visually-hidden">İade Talebi Oluştur</span>
+                                        </a>
+                                    }
                                 }
                             </div>
                         </td>

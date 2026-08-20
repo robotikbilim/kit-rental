@@ -62,15 +62,16 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal(OrderType.Rental, deliveryOrder.Type);
 
         var fault = await customer.PostAsJsonAsync("/api/customer-portal/faults", new PortalFaultRequest(
-            rental.AssignmentId, "Motor", FaultSeverity.High, "Sol motor yük altında dönmüyor."), cancellationToken);
+            rental.AssignmentId, "TACEV Test Merkezi", "02165550000", "Test Sokak 1",
+            "Kadikoy", "Istanbul", "Sol motor yük altında dönmüyor."), cancellationToken);
         fault.EnsureSuccessStatusCode();
         var createdFault = (await fault.Content.ReadFromJsonAsync<CreatedFaultResponse>(cancellationToken))!;
 
         var faultPage = await admin.GetFromJsonAsync<FaultPageResponse>(
-            "/api/faults/search?page=1&pageSize=10&status=1&query=02165550000", cancellationToken);
+            "/api/faults/search?page=1&pageSize=10&status=1&query=TACEV%20Test%20Merkezi", cancellationToken);
         var listedFault = Assert.Single(faultPage!.Items, item => item.Id == createdFault.Id);
         Assert.Equal("TACEV Test Merkezi", listedFault.ReporterName);
-        Assert.Equal("02165550000", listedFault.ReporterPhone);
+        Assert.Equal("(0216) 555 00 00", listedFault.ReporterPhone);
 
         overview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
         Assert.Contains(overview!.Orders, item => item.Status == RentalOrderStatus.PendingApproval);
@@ -141,7 +142,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         fault.EnsureSuccessStatusCode();
         var createdFault = (await fault.Content.ReadFromJsonAsync<CreatedFaultResponse>(cancellationToken))!;
         var faultPage = await admin.GetFromJsonAsync<FaultPageResponse>(
-            "/api/faults/search?page=1&pageSize=10&query=05321112233", cancellationToken);
+            "/api/faults/search?page=1&pageSize=10&query=Ayse%20Test", cancellationToken);
         var listedFault = Assert.Single(faultPage!.Items, item => item.Id == createdFault.Id);
         Assert.Equal(FaultApprovalStatus.NotRequired, listedFault.ApprovalStatus);
         Assert.Equal(FaultStatus.Open, listedFault.Status);
@@ -159,7 +160,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var dashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
         var dashboardReturn = Assert.Single(dashboard!.ReturnsInProgress, item => item.Id == createdReturn.Id);
         Assert.Equal("Ayse Test", dashboardReturn.RequesterName);
-        Assert.Equal("05321112233", dashboardReturn.RequesterPhone);
+        Assert.Equal("0532 111 22 33", dashboardReturn.RequesterPhone);
         Assert.Equal("Test Sokak 10 Kadikoy Istanbul", dashboardReturn.ReturnAddress);
         Assert.Null(dashboardReturn.Latitude);
         Assert.Null(dashboardReturn.Longitude);
@@ -269,7 +270,8 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal(2, initialOverview.UnassignedKitCount);
 
         var faultResponse = await customer.PostAsJsonAsync("/api/customer-portal/faults", new PortalFaultRequest(
-            faultyRental.AssignmentId, "Sensor", FaultSeverity.High, "Kit calisirken sensor verisi gelmiyor."), cancellationToken);
+            faultyRental.AssignmentId, "Aktif Kit Musterisi", "05320000000", "Test Sokak 2",
+            "Kadikoy", "Istanbul", "Kit calisirken sensor verisi gelmiyor."), cancellationToken);
         faultResponse.EnsureSuccessStatusCode();
 
         var publicReturn = await PostAsync<PublicReturnResponse>(publicClient, "/api/public/returns",
@@ -410,7 +412,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal(prepared.Kits.Single().AssignmentId, assigned.AssignmentId);
         Assert.True(assigned.HasDeliveryForm);
         Assert.Equal("Ayşe Yılmaz", assigned.DeliveredTo);
-        Assert.Equal("05320000000", assigned.DeliveryPhone);
+        Assert.Equal("0532 000 00 00", assigned.DeliveryPhone);
         Assert.Equal("Test Mahallesi 1", assigned.DeliveryAddress);
         Assert.Equal("İstanbul", assigned.City);
         Assert.Equal("Kadıköy", assigned.District);
@@ -423,7 +425,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             item.Action.Contains("atandı", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(detail.DeliveryHistory, item =>
             item.RecipientName == "Ayşe Yılmaz" &&
-            item.Phone == "05320000000" &&
+            item.Phone == "0532 000 00 00" &&
             item.AddressLine == "Test Mahallesi 1" &&
             item.City == "İstanbul" &&
             item.District == "Kadıköy");
@@ -446,7 +448,9 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             new OrderTransitionRequest(RentalOrderStatus.Delivered), cancellationToken);
 
         var returnRequest = await PostAsync<ReturnResponse>(portal,
-            $"/api/customer-portal/rental-periods/{cohort.Id}/students/{student.Id}/return", new { },
+            $"/api/customer-portal/rental-periods/{cohort.Id}/students/{student.Id}/return",
+            new PortalStudentReturnRequest("Ayşe Yılmaz", "05320000000", "Kadıköy", "İstanbul",
+                "Test Mahallesi 1", KitReturnReason.EducationCompleted),
             cancellationToken);
         Assert.Equal(KitReturnStatus.Requested, returnRequest.Status);
         await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{returnRequest.Id}/receive", new { },
@@ -456,11 +460,12 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var updatedCohort = overview!.RentalCohorts.Single(x => x.Id == cohort.Id);
         var returnedStudent = Assert.Single(updatedCohort.Students);
         Assert.Equal("Ayşe Yılmaz", returnedStudent.FullName);
-        Assert.Equal("05320000000", returnedStudent.GuardianPhone);
+        Assert.Equal("0532 000 00 00", returnedStudent.GuardianPhone);
         Assert.Equal("İstanbul", returnedStudent.City);
         Assert.Equal("Kadıköy", returnedStudent.District);
-        Assert.Null(returnedStudent.AssignmentId);
-        Assert.Null(returnedStudent.ProductUnitId);
+        Assert.Equal(prepared.Kits.Single().AssignmentId, returnedStudent.AssignmentId);
+        Assert.Equal(prepared.Kits.Single().ProductUnitId, returnedStudent.ProductUnitId);
+        Assert.True(returnedStudent.HasCompletedReturn);
         Assert.Empty(updatedCohort.UnassignedKits);
 
         var units = await admin.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
@@ -469,7 +474,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
             $"/api/physical-kits/{prepared.Kits.Single().ProductUnitId}", cancellationToken);
         Assert.Contains(detail!.ActivityHistory, item =>
-            item.Description.Contains("kit ilişkisi kaldırıldı", StringComparison.OrdinalIgnoreCase));
+            item.Description.Contains("kit ilişkisi geçmiş kayıt olarak korundu", StringComparison.OrdinalIgnoreCase));
     }
 
     private sealed record CreatedFaultResponse(Guid Id);

@@ -38,7 +38,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PhysicalKitService>();
         services.AddScoped<CustomerPortalService>();
         services.AddScoped<SupplyNeedService>();
-        services.AddScoped<IEmailNotificationService, EmailNotificationService>();
+        services.AddSingleton<IEmailNotificationQueue, EmailNotificationQueue>();
+        services.AddHostedService<EmailNotificationWorker>();
+        services.AddScoped<EmailNotificationDispatcher>();
+        services.AddScoped<IEmailNotificationService, QueuedEmailNotificationService>();
 
         services.AddHttpClient<IAddressGeocoder, NominatimAddressGeocoder>(client =>
             client.DefaultRequestHeaders.UserAgent.ParseAdd(configuration["Geocoding:UserAgent"]

@@ -441,10 +441,19 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             $"/core/api/customer-portal/rental-periods/{cohortId}/students/import", new { rows },
             cancellationToken);
 
-    public Task<ApiCommandResult<PortalKitReturnViewModel>> CreateStudentReturnAsync(Guid cohortId, Guid studentId,
+    public Task<ApiCommandResult<PortalKitReturnViewModel>> CreateStudentReturnAsync(PortalStudentReturnFormViewModel model,
         CancellationToken cancellationToken) =>
         PostAsync<PortalKitReturnViewModel>(
-            $"/core/api/customer-portal/rental-periods/{cohortId}/students/{studentId}/return", new { },
+            $"/core/api/customer-portal/rental-periods/{model.CohortId}/students/{model.StudentId}/return",
+            new
+            {
+                model.RequesterName,
+                model.RequesterPhone,
+                model.District,
+                model.City,
+                model.ReturnAddress,
+                model.ReturnReason
+            },
             cancellationToken);
 
     public Task<ApiCommandResult<OrderViewModel>> CreateRentalCohortOrderAsync(Guid cohortId,

@@ -1,0 +1,36 @@
+@model PortalStudentReturnFormViewModel
+@{ ViewData["Title"] = "İade Talebi Oluştur"; }
+
+<div class="public-fault-shell">
+    <section class="public-fault-card">
+        <a class="back-link" asp-action="RentalPeriod" asp-route-id="@Model.CohortId">← Öğrenci Listesine Dön</a>
+        <span class="eyebrow">İADE SÜRECİ</span>
+        <h1>İade talebi oluştur</h1>
+        <p class="block-muted">İade nedeni ve kargo alınacak kişi/adres bilgilerini kontrol edip talebi başlatın.</p>
+        <div class="public-kit-summary"><span>Seçilen öğrenci ve kit</span><strong>@Model.StudentName</strong><code>@Model.KitName · @Model.SerialNumber</code></div>
+        <form class="public-fault-form" asp-action="StartStudentReturn" method="post">
+            <input asp-for="CohortId" type="hidden" />
+            <input asp-for="StudentId" type="hidden" />
+            <input asp-for="StudentName" type="hidden" />
+            <input asp-for="KitName" type="hidden" />
+            <input asp-for="SerialNumber" type="hidden" />
+            <div asp-validation-summary="All" class="error"></div>
+            <div class="field"><label asp-for="RequesterName"></label><input asp-for="RequesterName" autocomplete="name" placeholder="Ad soyad" /><span asp-validation-for="RequesterName" class="error"></span></div>
+            <div class="field"><label asp-for="RequesterPhone"></label><input asp-for="RequesterPhone" type="tel" autocomplete="tel" inputmode="tel" data-phone-mask="tr" placeholder="0xxx xxx xx xx" /><span asp-validation-for="RequesterPhone" class="error"></span></div>
+            <div class="field"><label asp-for="ReturnReason"></label><select asp-for="ReturnReason">
+                <option value="">İade Nedenini Seçin</option>
+                <option value="1">Eğitim Tamamlandı</option>
+                <option value="2">Kayıt Silindi</option>
+            </select><span asp-validation-for="ReturnReason" class="error"></span></div>
+            <div class="field"><label asp-for="City"></label><select id="City" asp-for="City" data-selected="@Model.City"></select><span asp-validation-for="City" class="error"></span></div>
+            <div class="field"><label asp-for="District"></label><select id="District" asp-for="District" data-selected="@Model.District"></select><span asp-validation-for="District" class="error"></span></div>
+            <div class="field"><label asp-for="ReturnAddress"></label><textarea asp-for="ReturnAddress" rows="3" autocomplete="street-address" placeholder="Kargo alınacak açık adresi yazın."></textarea><span asp-validation-for="ReturnAddress" class="error"></span></div>
+            <div class="form-actions public-fault-actions">
+                <a class="secondary-action" asp-action="RentalPeriod" asp-route-id="@Model.CohortId">Vazgeç</a>
+                <button class="primary-action" type="submit">İade Talebi Oluştur</button>
+            </div>
+        </form>
+    </section>
+</div>
+<script src="~/js/tr-city-districts.js" asp-append-version="true"></script>
+<script src="~/js/public-city-district.js" asp-append-version="true"></script>

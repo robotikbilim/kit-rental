@@ -7,21 +7,124 @@ using System.Net;
 using System.Net.Mail;
 using System.Text;
 using System.Text.Encodings.Web;
+using System.Threading.Channels;
 
 namespace KitRental.Core.Api;
 
-public sealed class EmailNotificationService(
+public sealed class QueuedEmailNotificationService(
+    IEmailNotificationQueue queue,
+    ILogger<QueuedEmailNotificationService> logger) : IEmailNotificationService
+{
+    public Task NotifyAdminsOfFaultAsync(FaultTicket ticket, string eventDescription,
+        CancellationToken cancellationToken)
+    {
+        if (!queue.TryEnqueue(EmailNotificationWorkItem.Fault(ticket.Id, eventDescription)))
+            logger.LogWarning("Arıza e-posta bildirimi kuyruğa alınamadı. FaultTicketId={FaultTicketId}", ticket.Id);
+        return Task.CompletedTask;
+    }
+
+    public Task NotifyAdminsOfRentalRequestAsync(RentalOrder order, CancellationToken cancellationToken)
+    {
+        if (!queue.TryEnqueue(EmailNotificationWorkItem.RentalRequest(order.Id)))
+            logger.LogWarning("Kiralama talebi e-posta bildirimi kuyruğa alınamadı. OrderId={OrderId}", order.Id);
+        return Task.CompletedTask;
+    }
+}
+
+public interface IEmailNotificationQueue
+{
+    bool TryEnqueue(EmailNotificationWorkItem item);
+    IAsyncEnumerable<EmailNotificationWorkItem> ReadAllAsync(CancellationToken cancellationToken);
+}
+
+public sealed class EmailNotificationQueue : IEmailNotificationQueue
+{
+    private readonly Channel<EmailNotificationWorkItem> _channel = Channel.CreateUnbounded<EmailNotificationWorkItem>(
+        new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
+
+    public bool TryEnqueue(EmailNotificationWorkItem item) => _channel.Writer.TryWrite(item);
+
+    public IAsyncEnumerable<EmailNotificationWorkItem> ReadAllAsync(CancellationToken cancellationToken) =>
+        _channel.Reader.ReadAllAsync(cancellationToken);
+}
+
+public sealed class EmailNotificationWorker(
+    IEmailNotificationQueue queue,
+    IServiceScopeFactory scopeFactory,
+    ILogger<EmailNotificationWorker> logger) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        await foreach (var item in queue.ReadAllAsync(stoppingToken))
+        {
+            try
+            {
+                using var scope = scopeFactory.CreateScope();
+                var dispatcher = scope.ServiceProvider.GetRequiredService<EmailNotificationDispatcher>();
+                await dispatcher.DispatchAsync(item, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(exception, "E-posta bildirimi arka plan kuyruğunda işlenemedi. {@EmailNotificationWorkItem}", item);
+            }
+        }
+    }
+}
+
+public sealed record EmailNotificationWorkItem(
+    EmailNotificationWorkItemKind Kind,
+    Guid EntityId,
+    string? EventDescription = null)
+{
+    public static EmailNotificationWorkItem Fault(Guid faultTicketId, string eventDescription) =>
+        new(EmailNotificationWorkItemKind.Fault, faultTicketId, eventDescription);
+
+    public static EmailNotificationWorkItem RentalRequest(Guid orderId) =>
+        new(EmailNotificationWorkItemKind.RentalRequest, orderId);
+}
+
+public enum EmailNotificationWorkItemKind
+{
+    Fault = 1,
+    RentalRequest = 2
+}
+
+public sealed class EmailNotificationDispatcher(
     ICoreRepository repository,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
-    ILogger<EmailNotificationService> logger) : IEmailNotificationService
+    ILogger<EmailNotificationDispatcher> logger)
 {
     private readonly HtmlEncoder _html = HtmlEncoder.Default;
 
-    public async Task NotifyAdminsOfFaultAsync(FaultTicket ticket, string eventDescription,
+    public async Task DispatchAsync(EmailNotificationWorkItem item, CancellationToken cancellationToken)
+    {
+        switch (item.Kind)
+        {
+            case EmailNotificationWorkItemKind.Fault:
+                await NotifyAdminsOfFaultAsync(item.EntityId, item.EventDescription ?? "Yeni arıza kaydı oluşturuldu",
+                    cancellationToken);
+                break;
+            case EmailNotificationWorkItemKind.RentalRequest:
+                await NotifyAdminsOfRentalRequestAsync(item.EntityId, cancellationToken);
+                break;
+        }
+    }
+
+    private async Task NotifyAdminsOfFaultAsync(Guid faultTicketId, string eventDescription,
         CancellationToken cancellationToken)
     {
         if (!IsEnabled()) return;
+        var ticket = await repository.GetFaultTicketAsync(faultTicketId, cancellationToken);
+        if (ticket is null)
+        {
+            logger.LogWarning("E-posta bildirimi için arıza kaydı bulunamadı. FaultTicketId={FaultTicketId}", faultTicketId);
+            return;
+        }
         var recipients = await GetAdminRecipientsAsync(cancellationToken);
         if (recipients.Count == 0) return;
         var customer = await repository.GetCustomerAsync(ticket.CustomerId, cancellationToken);
@@ -37,9 +140,15 @@ public sealed class EmailNotificationService(
              """, cancellationToken);
     }
 
-    public async Task NotifyAdminsOfRentalRequestAsync(RentalOrder order, CancellationToken cancellationToken)
+    private async Task NotifyAdminsOfRentalRequestAsync(Guid orderId, CancellationToken cancellationToken)
     {
         if (!IsEnabled()) return;
+        var order = await repository.GetOrderAsync(orderId, cancellationToken);
+        if (order is null)
+        {
+            logger.LogWarning("E-posta bildirimi için kiralama talebi bulunamadı. OrderId={OrderId}", orderId);
+            return;
+        }
         var recipients = await GetAdminRecipientsAsync(cancellationToken);
         if (recipients.Count == 0) return;
         var customer = await repository.GetCustomerAsync(order.CustomerId, cancellationToken);

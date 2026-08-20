@@ -351,7 +351,7 @@ public sealed record PortalProductModelViewModel(Guid Id, string Name, string Sk
 public sealed record PortalRentalCohortStudentViewModel(Guid Id, string FullName, string GuardianPhone,
     string AddressLine, int? CityId, int? DistrictId, string City, string District, Guid ProductModelId, string ProductModelName, string ProductModelSku, Guid? OrderId,
     Guid? AssignmentId, Guid? ProductUnitId, string? SerialNumber, string? QrCode, bool IsDeleted,
-    bool HasActiveReturn, bool HasDeliveryForm = false, string? DeliveredTo = null,
+    bool HasActiveReturn, bool HasCompletedReturn = false, bool HasDeliveryForm = false, string? DeliveredTo = null,
     string? DeliveryPhone = null, string? DeliveryAddress = null, string? DeliveryDistrict = null,
     string? DeliveryCity = null, DateTimeOffset? DeliveredAt = null);
 public sealed record PortalUnassignedCohortKitViewModel(Guid ProductUnitId, Guid AssignmentId, Guid OrderId,
@@ -602,6 +602,21 @@ public sealed class PortalFaultRequestViewModel
 }
 public sealed record PortalFaultRequestPageViewModel(PortalFaultRequestViewModel Form,
     IReadOnlyCollection<PortalKitViewModel> ActiveKits);
+
+public sealed class PortalStudentReturnFormViewModel
+{
+    [Required] public Guid CohortId { get; set; }
+    [Required] public Guid StudentId { get; set; }
+    public string StudentName { get; set; } = string.Empty;
+    public string KitName { get; set; } = string.Empty;
+    public string SerialNumber { get; set; } = string.Empty;
+    [Required, Display(Name = "İade nedeni")] public int? ReturnReason { get; set; }
+    [Required, StringLength(160), Display(Name = "Ad soyad")] public string RequesterName { get; set; } = string.Empty;
+    [Required, TurkishPhone, StringLength(40), Display(Name = "Telefon numarası")] public string RequesterPhone { get; set; } = string.Empty;
+    [Required, StringLength(120), Display(Name = "İl")] public string City { get; set; } = string.Empty;
+    [Required, StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
+    [Required, StringLength(1000), Display(Name = "Adres")] public string ReturnAddress { get; set; } = string.Empty;
+}
 
 public sealed class RentalCohortInputViewModel
 {

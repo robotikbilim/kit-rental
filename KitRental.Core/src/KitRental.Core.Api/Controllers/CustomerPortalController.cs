@@ -116,10 +116,12 @@ public sealed class CustomerPortalController : CoreApiControllerBase
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
     [HttpPost("customer-portal/rental-periods/{periodId:guid}/students/{studentId:guid}/return")]
-    public async Task<IActionResult> Post_CustomerPortalRentalPeriodsPeriodIdGuidStudentsStudentIdGuidReturn_19(Guid periodId, Guid studentId, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> Post_CustomerPortalRentalPeriodsPeriodIdGuidStudentsStudentIdGuidReturn_19(Guid periodId, Guid studentId, PortalStudentReturnRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         var result = await service.CreatePortalStudentReturnAsync(new CreatePortalStudentReturnCommand(
-                    GetRequiredCustomerId(), periodId, studentId, User.GetRequiredUserId(), GetActorDisplayName()),
+                    GetRequiredCustomerId(), periodId, studentId, User.GetRequiredUserId(), GetActorDisplayName(),
+                    request.RequesterName, request.RequesterPhone, request.District, request.City,
+                    request.ReturnAddress, request.ReturnReason),
                     cancellationToken);
         return Created($"/api/kit-returns/{result.Id}", result);
     }

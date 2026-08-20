@@ -68,6 +68,8 @@ public sealed record PublicKitReturnRequest(string QrCode, string RequesterName,
     string RequesterPhone, string District, string City, string ReturnAddress,
     double? Latitude, double? Longitude, KitReturnReason? ReturnReason = null);
 public sealed record PortalReturnRequest(IReadOnlyCollection<Guid> AssignmentIds);
+public sealed record PortalStudentReturnRequest(string RequesterName, string RequesterPhone, string District,
+    string City, string ReturnAddress, KitReturnReason? ReturnReason = null);
 public sealed record PortalReturnShipmentRequest(string Carrier, string TrackingNumber);
 public sealed record PublicKitDeliveryRequest(string QrCode, string RecipientName,
     string RecipientPhone, string AddressLine, string District, string City, double? Latitude = null, double? Longitude = null);

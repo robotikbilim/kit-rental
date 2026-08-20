@@ -412,15 +412,60 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
             "tacev-ogrenci-listesi-sablonu.xlsx");
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
+    [HttpGet]
     public async Task<IActionResult> StartStudentReturn(Guid cohortId, Guid studentId,
         CancellationToken cancellationToken)
     {
-        var result = await apiClient.CreateStudentReturnAsync(cohortId, studentId, cancellationToken);
-        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
-            ? "İade süreci başlatıldı."
-            : result.Error ?? "İade süreci başlatılamadı.";
-        return RedirectToAction(nameof(RentalPeriod), new { id = cohortId });
+        var model = await BuildStudentReturnFormAsync(cohortId, studentId, cancellationToken);
+        return model is null ? NotFound() : View("StudentReturn", model);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> StartStudentReturn(PortalStudentReturnFormViewModel model,
+        CancellationToken cancellationToken)
+    {
+        if (ModelState.IsValid)
+        {
+            var result = await apiClient.CreateStudentReturnAsync(model, cancellationToken);
+            if (result.IsSuccess)
+            {
+                TempData["Success"] = "İade süreci başlatıldı.";
+                return RedirectToAction(nameof(RentalPeriod), new { id = model.CohortId });
+            }
+
+            ModelState.AddModelError(string.Empty, result.Error ?? "İade süreci başlatılamadı.");
+        }
+
+        var rebuilt = await BuildStudentReturnFormAsync(model.CohortId, model.StudentId, cancellationToken);
+        if (rebuilt is null) return NotFound();
+        model.StudentName = rebuilt.StudentName;
+        model.KitName = rebuilt.KitName;
+        model.SerialNumber = rebuilt.SerialNumber;
+        return View("StudentReturn", model);
+    }
+
+    private async Task<PortalStudentReturnFormViewModel?> BuildStudentReturnFormAsync(Guid cohortId, Guid studentId,
+        CancellationToken cancellationToken)
+    {
+        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        var cohort = portal?.RentalCohorts.SingleOrDefault(item => item.Id == cohortId);
+        var student = cohort?.Students.SingleOrDefault(item => item.Id == studentId);
+        if (student is null || !student.AssignmentId.HasValue || student.HasActiveReturn || student.HasCompletedReturn)
+            return null;
+
+        return new PortalStudentReturnFormViewModel
+        {
+            CohortId = cohortId,
+            StudentId = studentId,
+            StudentName = student.FullName,
+            KitName = student.ProductModelName,
+            SerialNumber = student.SerialNumber ?? "-",
+            RequesterName = string.IsNullOrWhiteSpace(student.DeliveredTo) ? student.FullName : student.DeliveredTo,
+            RequesterPhone = string.IsNullOrWhiteSpace(student.DeliveryPhone) ? student.GuardianPhone : student.DeliveryPhone,
+            City = string.IsNullOrWhiteSpace(student.DeliveryCity) ? student.City : student.DeliveryCity,
+            District = string.IsNullOrWhiteSpace(student.DeliveryDistrict) ? student.District : student.DeliveryDistrict,
+            ReturnAddress = string.IsNullOrWhiteSpace(student.DeliveryAddress) ? student.AddressLine : student.DeliveryAddress
+        };
     }
 
     [HttpPost, ValidateAntiForgeryToken]

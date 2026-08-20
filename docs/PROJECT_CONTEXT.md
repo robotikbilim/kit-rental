@@ -99,10 +99,12 @@ Rentals:
 - If an admin opens kit preparation for an order created from a TACEV cohort, the cohort is inferred from student `OrderId` links and selected automatically.
 - Preparing kits for a TACEV cohort creates `DeliveryReceipt` kit-location events from each student's name, guardian phone, and address, so the student delivery forms are prefilled immediately after assignment.
 - TACEV rental period student rows include assigned kit serial/QR plus delivery-form summary fields when the kit has been delivered or auto-filled from the student list.
+- TACEV rental period student rows show only the student's defined address; delivery-form summary fields do not repeat the delivery address in the student list.
 - TACEV rental period student create/edit forms and Excel import preserve student `City` and `District` as separate fields; the fields are also passed to approved-order geocoding.
 - TACEV rental period student updates are handled from an in-page modal opened by compact icon-only row actions; delete, return-request, and fault actions also use compact color-coded Lucide icon buttons.
 - Removing an already assigned student anonymizes the student row and hides it from the active student list, while the kit and rental assignment remain rented/reserved and appear as unassigned cohort kits.
-- When an admin accepts a kit return, any TACEV student link for that assignment is cleared from the student row while the student's personal/list data remains visible.
+- Customer-portal student kit returns open a prefilled return form instead of creating the request immediately; the form uses the delivery-form recipient/address when present, otherwise the student record, requires a return reason, and does not ask for map coordinates.
+- When an admin accepts a kit return, the TACEV student row keeps its assigned kit serial/QR as historical context; completed-return rows disable customer fault and return-request actions.
 - `ProductUnitActivity` stores chronological kit operation logs with action, description, timestamp, actor id, and actor display-name snapshot.
 
 Faults:
@@ -112,6 +114,7 @@ Faults:
 - Fault updates preserve history and now also insert a new kit location event.
 - `FaultTicket.Origin` distinguishes internal, public QR form, and customer-portal fault records. Customer-portal fault creation uses the same reporter name/phone/city/district/address/description fields as the public form, without showing map/location input, and operations fault lists show the source column.
 - Customer-portal fault forms prefill reporter/location fields from the linked student's delivery form when present, then fall back to the student list address and finally the customer address. The city/district selects use the public QR city-district dataset.
+- Fault notification emails are queued in-process by Core API through `EmailNotificationQueue` / `EmailNotificationWorker`; public QR and customer-portal fault save flows enqueue the admin email and return without waiting for SMTP delivery.
 
 Physical kit detail history:
 
@@ -320,7 +323,7 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 
 2026-08-20:
 
-- Customer portal overview summary cards now show the requested eight-card set: all rented kits, student-assigned kits, unassigned rented kits, open faults, closed faults, return-pending kits, return-process kits, and returned kits. The old `Teslim Alınmamış Kitler` overview card was removed.
+- Customer portal overview summary cards now show the requested eight-card set: all non-returned rented kits, student-assigned kits, unassigned rented kits, open faults, closed faults, return-pending kits, return-process kits, and returned kits. The old `Teslim Alınmamış Kitler` overview card was removed.
 - Customer portal `ActiveKitCount` now means rented kits currently assigned to a student. `UnassignedKitCount` counts currently rented kits without a student assignment, excluding returned assignments.
 - Customer portal overview metric cards use a compact 8-column desktop layout at 992px and wider so all cards fit on one row at normal desktop zoom.
 - Map side city/district summaries now match the map canvas height on desktop instead of extending taller than the map.

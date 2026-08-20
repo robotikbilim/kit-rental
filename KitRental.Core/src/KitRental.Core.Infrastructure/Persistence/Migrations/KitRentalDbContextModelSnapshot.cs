@@ -1096,9 +1096,8 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                     b.OwnsMany("KitRental.Core.Domain.Customers.CustomerAllowedProductModel", "AllowedProductModels", b1 =>
                         {
-                            b1.Property<Guid>("Id")
-                                .ValueGeneratedOnAdd()
-                                .HasColumnType("uniqueidentifier");
+                        b1.Property<Guid>("Id")
+                            .HasColumnType("uniqueidentifier");
 
                             b1.Property<Guid>("CustomerId")
                                 .HasColumnType("uniqueidentifier");

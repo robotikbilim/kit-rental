@@ -13,7 +13,7 @@ public sealed record PortalProductModelResponse(Guid Id, string Name, string Sku
 public sealed record PortalRentalCohortStudentResponse(Guid Id, string FullName, string GuardianPhone,
     string AddressLine, int? CityId, int? DistrictId, string City, string District, Guid ProductModelId, string ProductModelName, string ProductModelSku, Guid? OrderId,
     Guid? AssignmentId, Guid? ProductUnitId, string? SerialNumber, string? QrCode, bool IsDeleted,
-    bool HasActiveReturn, bool HasDeliveryForm = false, string? DeliveredTo = null,
+    bool HasActiveReturn, bool HasCompletedReturn = false, bool HasDeliveryForm = false, string? DeliveredTo = null,
     string? DeliveryPhone = null, string? DeliveryAddress = null, string? DeliveryDistrict = null,
     string? DeliveryCity = null, DateTimeOffset? DeliveredAt = null);
 public sealed record PortalUnassignedCohortKitResponse(Guid ProductUnitId, Guid AssignmentId, Guid OrderId,
@@ -82,7 +82,8 @@ public sealed record SaveRentalCohortStudentCommand(Guid? Id, Guid CustomerId, G
 public sealed record ImportRentalCohortStudentCommand(string FullName, string GuardianPhone, string AddressLine,
     int CityId, int DistrictId, string City, string District, string ProductModel);
 public sealed record CreatePortalStudentReturnCommand(Guid CustomerId, Guid CohortId, Guid StudentId, Guid ActorId,
-    string ActorDisplayName);
+    string ActorDisplayName, string RequesterName, string RequesterPhone, string District, string City,
+    string ReturnAddress, KitReturnReason? ReturnReason);
 
 
 
