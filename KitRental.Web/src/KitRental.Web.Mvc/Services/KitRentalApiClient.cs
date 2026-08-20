@@ -487,6 +487,11 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         GetAsync<PublicKitDeliveryContextViewModel>(
             $"/core/api/public/deliveries/context/{Uri.EscapeDataString(qrCode)}", cancellationToken);
 
+    public Task<PublicKitReturnContextViewModel?> GetPublicKitReturnContextAsync(string qrCode,
+        CancellationToken cancellationToken) =>
+        GetAsync<PublicKitReturnContextViewModel>(
+            $"/core/api/public/returns/context/{Uri.EscapeDataString(qrCode)}", cancellationToken);
+
     public Task<ApiCommandResult<object>> CreatePublicFaultAsync(PublicFaultFormViewModel model,
         CancellationToken cancellationToken) => PostAsync<object>("/core/api/public/faults", new
         {
@@ -512,6 +517,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.City,
             model.ReturnAddress,
             model.ReturnReason,
+            model.DeliveryMethod,
             model.Latitude,
             model.Longitude
         }, cancellationToken);

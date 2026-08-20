@@ -633,6 +633,9 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("DeliveryMethod")
+                        .HasColumnType("int");
+
                     b.Property<double?>("Latitude")
                         .HasColumnType("float");
 

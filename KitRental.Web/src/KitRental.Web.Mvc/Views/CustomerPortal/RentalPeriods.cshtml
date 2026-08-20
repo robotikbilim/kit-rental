@@ -16,7 +16,7 @@
         3 => "Admin tarafından onaylandı",
         4 => "Kit hazırlığı başladı",
         6 => "Teslimat yolunda",
-        7 or 8 or 13 => "Teslim sürecinde",
+        7 or 8 or 13 => "Tamamlandı",
         _ => "Sipariş işlemde"
     };
     string StatusClass(PortalRentalCohortViewModel cohort) => cohort.OrderStatus is null ? "status-1" :

@@ -33,6 +33,13 @@ public sealed class PublicController : CoreApiControllerBase
     }
 
     [AllowAnonymous]
+    [HttpGet("public/returns/context/{qrCode}")]
+    public async Task<IActionResult> Get_publicReturnsContextQrCode(string qrCode, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    {
+        return Ok(await service.GetPublicKitReturnContextAsync(qrCode, cancellationToken));
+    }
+
+    [AllowAnonymous]
     [HttpPost("public/faults")]
     public async Task<IActionResult> Post_publicFaults_3(PublicFaultRequest request, [FromServices] OperationsService service, [FromServices] IEmailNotificationService notifications, CancellationToken cancellationToken)
     {
@@ -55,7 +62,8 @@ public sealed class PublicController : CoreApiControllerBase
     {
         var result = await service.CreatePublicKitReturnAsync(new CreatePublicKitReturnCommand(
                 request.QrCode, request.RequesterName, request.RequesterPhone, request.District,
-                request.City, request.ReturnAddress, request.Latitude, request.Longitude, request.ReturnReason), cancellationToken);
+                request.City, request.ReturnAddress, request.Latitude, request.Longitude, request.ReturnReason,
+                request.DeliveryMethod), cancellationToken);
         return Created($"/api/public/returns/{result.Id}", result);
     }
 

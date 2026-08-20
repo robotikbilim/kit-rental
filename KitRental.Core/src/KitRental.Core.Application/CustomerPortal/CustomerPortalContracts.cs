@@ -59,8 +59,11 @@ public sealed record PortalKitReturnItemResponse(Guid AssignmentId, Guid Product
 public sealed record PortalKitReturnResponse(Guid Id, Guid CustomerId, string CustomerName, KitReturnStatus Status,
     string? Carrier, string? TrackingNumber, DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt,
     string? RequesterName, string? RequesterPhone, string? ReturnAddress,
-    double? Latitude, double? Longitude,
+    double? Latitude, double? Longitude, KitReturnDeliveryMethod DeliveryMethod,
     IReadOnlyCollection<PortalKitReturnItemResponse> Items);
+public sealed record PublicKitReturnContextResponse(Guid ReturnId, string? RequesterName, string? RequesterPhone,
+    string? ReturnAddress, string? District, string? City, double? Latitude, double? Longitude,
+    KitReturnReason? ReturnReason, KitReturnDeliveryMethod DeliveryMethod);
 
 public sealed record OpenPortalFaultCommand(Guid CustomerId, Guid AssignmentId, string ReporterName,
     string ReporterPhone, string ReporterAddress, string District, string City, string Description, Guid ActorId);
@@ -69,7 +72,8 @@ public sealed record CreatePortalRentalCohortOrderCommand(Guid CustomerId, Guid 
     string ActorDisplayName);
 public sealed record CreatePublicKitReturnCommand(string QrCode, string RequesterName,
     string RequesterPhone, string District, string City, string ReturnAddress,
-    double? Latitude, double? Longitude, KitReturnReason? ReturnReason = null);
+    double? Latitude, double? Longitude, KitReturnReason? ReturnReason = null,
+    KitReturnDeliveryMethod DeliveryMethod = KitReturnDeliveryMethod.PickupFromAddress);
 public sealed record CreatePortalReturnCommand(Guid CustomerId, IReadOnlyCollection<Guid> AssignmentIds,
     Guid ActorId, string ActorDisplayName);
 public sealed record ShipPortalReturnCommand(Guid CustomerId, Guid ReturnId, string Carrier,

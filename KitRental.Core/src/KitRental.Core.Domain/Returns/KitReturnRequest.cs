@@ -4,6 +4,7 @@ namespace KitRental.Core.Domain.Returns;
 
 public enum KitReturnStatus { Requested = 1, InTransit = 2, Received = 3 }
 public enum KitReturnReason { EducationCompleted = 1, EnrollmentCancelled = 2 }
+public enum KitReturnDeliveryMethod { PickupFromAddress = 1, DropOffToCargo = 2 }
 
 public sealed record KitReturnItem(Guid Id, Guid AssignmentId, Guid ProductUnitId, Guid OrderId);
 
@@ -15,7 +16,7 @@ public sealed class KitReturnRequest
     private KitReturnRequest(Guid id, Guid customerId, DateTimeOffset createdAt, Guid createdBy,
         IReadOnlyCollection<KitReturnItem> items, string? requesterName = null,
         string? requesterPhone = null, string? returnAddress = null, double? latitude = null, double? longitude = null,
-        KitReturnReason? returnReason = null)
+        KitReturnReason? returnReason = null, KitReturnDeliveryMethod deliveryMethod = KitReturnDeliveryMethod.PickupFromAddress)
     {
         Id = id; CustomerId = customerId; CreatedAt = createdAt; CreatedBy = createdBy;
         RequesterName = requesterName?.Trim();
@@ -26,6 +27,7 @@ public sealed class KitReturnRequest
         Latitude = latitude;
         Longitude = longitude;
         ReturnReason = returnReason;
+        DeliveryMethod = deliveryMethod;
         Status = KitReturnStatus.Requested; _items.AddRange(items);
     }
 
@@ -44,6 +46,7 @@ public sealed class KitReturnRequest
     public double? Latitude { get; private set; }
     public double? Longitude { get; private set; }
     public KitReturnReason? ReturnReason { get; private set; }
+    public KitReturnDeliveryMethod DeliveryMethod { get; private set; } = KitReturnDeliveryMethod.PickupFromAddress;
     public IReadOnlyCollection<KitReturnItem> Items => _items.AsReadOnly();
 
     public static KitReturnRequest Create(Guid id, Guid customerId, DateTimeOffset createdAt, Guid createdBy,
@@ -60,15 +63,39 @@ public sealed class KitReturnRequest
     public static KitReturnRequest CreatePublic(Guid id, Guid customerId, DateTimeOffset createdAt, Guid createdBy,
         IReadOnlyCollection<KitReturnItem> items, string requesterName,
         string requesterPhone, string returnAddress, double? latitude, double? longitude,
-        KitReturnReason? returnReason = null)
+        KitReturnReason? returnReason = null,
+        KitReturnDeliveryMethod deliveryMethod = KitReturnDeliveryMethod.PickupFromAddress)
     {
-        if (string.IsNullOrWhiteSpace(requesterName) || string.IsNullOrWhiteSpace(requesterPhone) || string.IsNullOrWhiteSpace(returnAddress))
+        if (string.IsNullOrWhiteSpace(requesterName) || string.IsNullOrWhiteSpace(requesterPhone))
             throw new DomainException("kit_return.requester_required", "Ad, soyad ve telefon zorunludur.");
+        if (deliveryMethod == KitReturnDeliveryMethod.PickupFromAddress && string.IsNullOrWhiteSpace(returnAddress))
+            throw new DomainException("kit_return.address_required", "Adresimden alınsın seçeneği için adres zorunludur.");
         if (latitude is < -90 or > 90 || longitude is < -180 or > 180)
             throw new DomainException("kit_return.invalid_location", "Geçerli bir konum seçilmelidir.");
         var request = Create(id, customerId, createdAt, createdBy, items);
         return new KitReturnRequest(request.Id, request.CustomerId, request.CreatedAt, request.CreatedBy, request.Items,
-            requesterName, requesterPhone, returnAddress, latitude, longitude, returnReason);
+            requesterName, requesterPhone, returnAddress, latitude, longitude, returnReason, deliveryMethod);
+    }
+
+    public void UpdatePublicDetails(string requesterName, string requesterPhone, string returnAddress,
+        double? latitude, double? longitude, KitReturnReason? returnReason,
+        KitReturnDeliveryMethod deliveryMethod)
+    {
+        if (Status == KitReturnStatus.Received)
+            throw new DomainException("kit_return.already_received", "Teslim alınmış iade güncellenemez.");
+        if (string.IsNullOrWhiteSpace(requesterName) || string.IsNullOrWhiteSpace(requesterPhone))
+            throw new DomainException("kit_return.requester_required", "Ad, soyad ve telefon zorunludur.");
+        if (deliveryMethod == KitReturnDeliveryMethod.PickupFromAddress && string.IsNullOrWhiteSpace(returnAddress))
+            throw new DomainException("kit_return.address_required", "Adresimden alınsın seçeneği için adres zorunludur.");
+        if (latitude is < -90 or > 90 || longitude is < -180 or > 180)
+            throw new DomainException("kit_return.invalid_location", "Geçerli bir konum seçilmelidir.");
+        RequesterName = requesterName.Trim();
+        RequesterPhone = TurkishPhoneNumber.Normalize(requesterPhone, "İade talep eden telefon numarası");
+        ReturnAddress = returnAddress?.Trim();
+        Latitude = latitude;
+        Longitude = longitude;
+        ReturnReason = returnReason;
+        DeliveryMethod = deliveryMethod;
     }
 
     public void MarkShipped(string carrier, string trackingNumber, DateTimeOffset shippedAt)

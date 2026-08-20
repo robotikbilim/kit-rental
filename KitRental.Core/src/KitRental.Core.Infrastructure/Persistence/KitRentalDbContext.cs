@@ -487,6 +487,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(x => x.RequesterPhone).HasMaxLength(40);
         builder.Property(x => x.ReturnAddress).HasMaxLength(1000);
         builder.Property(x => x.ReturnReason).HasConversion<int>();
+        builder.Property(x => x.DeliveryMethod).HasConversion<int>();
         builder.HasIndex(x => new { x.CustomerId, x.Status });
         builder.HasIndex(x => x.TrackingNumber).IsUnique().HasFilter("[TrackingNumber] IS NOT NULL");
         builder.OwnsMany(x => x.Items, items =>

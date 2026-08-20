@@ -120,10 +120,33 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
         var order = await apiClient.GetOrderDetailAsync(orderId, cancellationToken);
         if (order is null || order.Kits.Count == 0)
             return RedirectToAction("OrderDetails", "Operations", new { id = orderId });
-        var labels = order.Kits.Select(kit => new PhysicalKitLabelViewModel(kit.Id, kit.ProductName,
-            kit.ProductSku, kit.SerialNumber, kit.QrCode)).ToArray();
+        var cohorts = await apiClient.GetCustomerRentalCohortsAsync(order.CustomerId, cancellationToken);
+        var studentsByUnit = cohorts
+            .Where(cohort => cohort.Id == order.RentalCohortId || cohort.Students.Any(student => student.OrderId == order.Id))
+            .SelectMany(cohort => cohort.Students)
+            .Where(student => student.OrderId == order.Id && student.ProductUnitId.HasValue)
+            .GroupBy(student => student.ProductUnitId!.Value)
+            .ToDictionary(group => group.Key, group => group.First());
+        var labels = order.Kits.Select(kit =>
+        {
+            studentsByUnit.TryGetValue(kit.Id, out var student);
+            return new PhysicalKitLabelViewModel(kit.Id, kit.ProductName, kit.ProductSku, kit.SerialNumber,
+                kit.QrCode, student?.FullName, student?.GuardianPhone, FormatStudentAddress(student));
+        }).ToArray();
         var backUrl = Url.Action("OrderDetails", "Operations", new { id = orderId });
-        return View("Labels", new PhysicalKitLabelsPageViewModel(TurkeyTime.Now(), labels, backUrl));
+        return View("Labels", new PhysicalKitLabelsPageViewModel(TurkeyTime.Now(), labels, backUrl,
+            order.CustomerName));
+    }
+
+    private static string? FormatStudentAddress(PortalRentalCohortStudentViewModel? student)
+    {
+        if (student is null) return null;
+        var parts = new[] { student.AddressLine, student.District, student.City }
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .Select(part => part.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return parts.Length == 0 ? null : string.Join(" / ", parts);
     }
 
     [HttpGet]

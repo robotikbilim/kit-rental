@@ -66,7 +66,8 @@ public sealed record PublicFaultRequest(Guid? FaultId, string QrCode, string Rep
     double? Latitude = null, double? Longitude = null);
 public sealed record PublicKitReturnRequest(string QrCode, string RequesterName,
     string RequesterPhone, string District, string City, string ReturnAddress,
-    double? Latitude, double? Longitude, KitReturnReason? ReturnReason = null);
+    double? Latitude, double? Longitude, KitReturnReason? ReturnReason = null,
+    KitReturnDeliveryMethod DeliveryMethod = KitReturnDeliveryMethod.PickupFromAddress);
 public sealed record PortalReturnRequest(IReadOnlyCollection<Guid> AssignmentIds);
 public sealed record PortalStudentReturnRequest(string RequesterName, string RequesterPhone, string District,
     string City, string ReturnAddress, KitReturnReason? ReturnReason = null);

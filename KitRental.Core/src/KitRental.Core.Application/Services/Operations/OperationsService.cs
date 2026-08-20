@@ -90,7 +90,8 @@ public sealed record DashboardResponse(
 public sealed record DashboardReturnResponse(Guid Id, string CustomerName, int Status, string? Carrier,
     string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount, string? RequesterName = null,
     string? RequesterPhone = null, string? ReturnAddress = null,
-    double? Latitude = null, double? Longitude = null);
+    double? Latitude = null, double? Longitude = null,
+    KitReturnDeliveryMethod DeliveryMethod = KitReturnDeliveryMethod.PickupFromAddress);
 public sealed record DashboardRentalExpiryResponse(Guid ProductUnitId, string KitName, string SerialNumber,
     string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
 public sealed record DashboardKitLocationResponse(Guid ProductUnitId, Guid ProductModelId, string KitName,
@@ -1095,7 +1096,8 @@ public sealed class OperationsService(
             returns.Where(x => x.Status != KitReturnStatus.Received).Select(x => new DashboardReturnResponse(
                 x.Id, customerLookup.TryGetValue(x.CustomerId, out var customer) ? customer.Name : "Müşteri",
                 (int)x.Status, x.Carrier, x.TrackingNumber, x.CreatedAt, x.Items.Count,
-                x.RequesterName, x.RequesterPhone, x.ReturnAddress, x.Latitude, x.Longitude)).ToArray(),
+                x.RequesterName, x.RequesterPhone, x.ReturnAddress, x.Latitude, x.Longitude,
+                x.DeliveryMethod)).ToArray(),
             rentalExpiryItems.Where(x => x.DaysRemaining < 0).OrderBy(x => x.DaysRemaining).ToArray(),
             rentalExpiryItems.Where(x => x.DaysRemaining is >= 0 and <= 7).OrderBy(x => x.DaysRemaining).ToArray(),
             kitLocations.OrderBy(item => item.City).ThenBy(item => item.District).ThenBy(item => item.SerialNumber).ToArray());

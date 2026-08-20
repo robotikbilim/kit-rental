@@ -3,6 +3,8 @@
     ViewData["Title"] = "Islem Alindi";
     var title = ViewData["SuccessTitle"] as string ?? "Islem alindi";
     var message = ViewData["SuccessMessage"] as string ?? "Talebiniz operasyon ekibine iletildi.";
+    var popupTitle = ViewData["PopupTitle"] as string;
+    var popupMessage = ViewData["PopupMessage"] as string;
 }
 <div class="public-fault-shell">
     <section class="public-fault-card public-fault-success">
@@ -13,3 +15,17 @@
         <div class="public-kit-summary"><span>Okutulan urun</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
     </section>
 </div>
+@if (!string.IsNullOrWhiteSpace(popupMessage))
+{
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const title = @Json.Serialize(popupTitle ?? "Bilgilendirme");
+            const message = @Json.Serialize(popupMessage);
+            if (window.Swal) {
+                window.Swal.fire({ title, text: message, icon: 'success', confirmButtonText: 'Tamam' });
+                return;
+            }
+            window.alert(`${title}\n\n${message}`);
+        });
+    </script>
+}

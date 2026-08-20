@@ -22,10 +22,14 @@
                 <option value="1">Eğitim Tamamlandı</option>
                 <option value="2">Kayıt Silindi</option>
             </select><span asp-validation-for="ReturnReason" class="error"></span></div>
-            <div class="field"><label asp-for="City"></label><select asp-for="City" data-selected="@Model.City"></select><span asp-validation-for="City" class="error"></span></div>
-            <div class="field"><label asp-for="District"></label><select asp-for="District" data-selected="@Model.District"></select><span asp-validation-for="District" class="error"></span></div>
-            <div class="field"><label asp-for="ReturnAddress"></label><textarea asp-for="ReturnAddress" rows="3" autocomplete="street-address" placeholder="Kargo alinacak acik adresi yazin."></textarea><span asp-validation-for="ReturnAddress" class="error"></span></div>
-            <div class="public-location-box">
+            <div class="field"><label asp-for="DeliveryMethod"></label><select asp-for="DeliveryMethod" id="return-delivery-method">
+                <option value="1">Adresimden Alınsın</option>
+                <option value="2">Kendim Bırakacağım</option>
+            </select><span asp-validation-for="DeliveryMethod" class="error"></span></div>
+            <div class="field" data-return-pickup-field><label asp-for="City"></label><select asp-for="City" data-selected="@Model.City"></select><span asp-validation-for="City" class="error"></span></div>
+            <div class="field" data-return-pickup-field><label asp-for="District"></label><select asp-for="District" data-selected="@Model.District"></select><span asp-validation-for="District" class="error"></span></div>
+            <div class="field" data-return-pickup-field><label asp-for="ReturnAddress"></label><textarea asp-for="ReturnAddress" rows="3" autocomplete="street-address" placeholder="Kargo alinacak acik adresi yazin."></textarea><span asp-validation-for="ReturnAddress" class="error"></span></div>
+            <div class="public-location-box" data-return-pickup-field>
                 <button class="secondary-action" id="use-location" type="button">Konumumu Bul</button>
                 <div id="public-location-map" class="public-location-map"></div>
                 <span id="location-status">Konumumu bul ile pimi yakin noktaya getirin veya haritadan secin. Adres, il ve ilce otomatik doldurulur.</span>
@@ -38,3 +42,15 @@
 <script src="~/js/public-city-district.js" asp-append-version="true"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="~/js/public-location.js" asp-append-version="true"></script>
+<script>
+    (() => {
+        const method = document.getElementById('return-delivery-method');
+        const pickupFields = document.querySelectorAll('[data-return-pickup-field]');
+        const sync = () => {
+            const isDropoff = method?.value === '2';
+            pickupFields.forEach((field) => { field.hidden = isDropoff; });
+        };
+        method?.addEventListener('change', sync);
+        sync();
+    })();
+</script>

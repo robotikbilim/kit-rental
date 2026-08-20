@@ -54,6 +54,11 @@ else
                         {
                             <small class="block-muted">@item.ReturnAddress</small>
                         }
+                        <small class="block-muted">Teslimat Şekli: @(item.DeliveryMethod == 2 ? "Kendim Bırakacağım" : "Adresimden Alınsın")</small>
+                        @if (item.DeliveryMethod == 2)
+                        {
+                            <small class="block-muted">"1234567890" İade Kodu ile herhangi bir Aras Kargo şubesine bırakabilir.</small>
+                        }
                     </td>
                     <td>@item.KitCount</td>
                     <td>@(item.Status == 1 ? "İade Talebi Alındı" : "İade Yolda")</td>

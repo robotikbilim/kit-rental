@@ -71,7 +71,7 @@ public sealed record DashboardViewModel(
 public sealed record DashboardReturnViewModel(Guid Id, string CustomerName, int Status, string? Carrier,
     string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount, string? RequesterName = null,
     string? RequesterPhone = null, string? ReturnAddress = null,
-    double? Latitude = null, double? Longitude = null);
+    double? Latitude = null, double? Longitude = null, int DeliveryMethod = 1);
 public sealed record DashboardRentalExpiryViewModel(Guid ProductUnitId, string KitName, string SerialNumber,
     string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
 public sealed record DashboardKitLocationViewModel(Guid ProductUnitId, Guid ProductModelId, string KitName,
@@ -300,9 +300,11 @@ public sealed class EditPhysicalKitViewModel
     [Required, StringLength(100), Display(Name = "Seri numarası")] public string SerialNumber { get; set; } = string.Empty;
     [Required, StringLength(200), Display(Name = "QR kod")] public string QrCode { get; set; } = string.Empty;
 }
-public sealed record PhysicalKitLabelViewModel(Guid Id, string KitName, string KitSku, string SerialNumber, string QrCode);
+public sealed record PhysicalKitLabelViewModel(Guid Id, string KitName, string KitSku, string SerialNumber, string QrCode,
+    string? RecipientName = null, string? RecipientPhone = null, string? RecipientAddress = null);
 public sealed record PhysicalKitLabelsPageViewModel(DateTimeOffset CreatedAt,
-    IReadOnlyCollection<PhysicalKitLabelViewModel> Labels, string? BackUrl = null);
+    IReadOnlyCollection<PhysicalKitLabelViewModel> Labels, string? BackUrl = null,
+    string LabelHeading = "Robotik Bilim");
 public sealed class RentPhysicalKitViewModel
 {
     public Guid ProductUnitId { get; set; }
@@ -534,20 +536,35 @@ public sealed class PublicFaultFormViewModel
 public sealed record PublicFaultContextViewModel(Guid? FaultId, string? ReporterName, string? ReporterPhone,
     string? ReporterAddress, string? District, string? City, string? Category, string? Description,
     double? Latitude, double? Longitude);
-public sealed class PublicReturnFormViewModel
+public sealed class PublicReturnFormViewModel : IValidatableObject
 {
     [Required] public string QrCode { get; set; } = string.Empty;
     public string KitName { get; set; } = string.Empty;
     public string SerialNumber { get; set; } = string.Empty;
     [Required, Display(Name = "İade nedeni")] public int? ReturnReason { get; set; }
+    [Required, Range(1, 2), Display(Name = "Teslimat şekli")] public int? DeliveryMethod { get; set; } = 1;
     [Required, StringLength(160), Display(Name = "Ad soyad")] public string RequesterName { get; set; } = string.Empty;
     [Required, TurkishPhone, StringLength(40), Display(Name = "Telefon numarası")] public string RequesterPhone { get; set; } = string.Empty;
-    [Required, StringLength(120), Display(Name = "İl")] public string City { get; set; } = string.Empty;
-    [Required, StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
-    [Required, StringLength(1000), Display(Name = "Adres")] public string ReturnAddress { get; set; } = string.Empty;
+    [StringLength(120), Display(Name = "İl")] public string City { get; set; } = string.Empty;
+    [StringLength(120), Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
+    [StringLength(1000), Display(Name = "Adres")] public string ReturnAddress { get; set; } = string.Empty;
     [Display(Name = "Enlem")] public double? Latitude { get; set; }
     [Display(Name = "Boylam")] public double? Longitude { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (DeliveryMethod != 1) yield break;
+        if (string.IsNullOrWhiteSpace(City))
+            yield return new ValidationResult("İl zorunludur.", [nameof(City)]);
+        if (string.IsNullOrWhiteSpace(District))
+            yield return new ValidationResult("İlçe zorunludur.", [nameof(District)]);
+        if (string.IsNullOrWhiteSpace(ReturnAddress))
+            yield return new ValidationResult("Adres zorunludur.", [nameof(ReturnAddress)]);
+    }
 }
+public sealed record PublicKitReturnContextViewModel(Guid ReturnId, string? RequesterName, string? RequesterPhone,
+    string? ReturnAddress, string? District, string? City, double? Latitude, double? Longitude,
+    int? ReturnReason, int DeliveryMethod = 1);
 public sealed record PublicKitDeliveryContextViewModel(string? RecipientName, string? RecipientPhone,
     string? AddressLine, string? District, string? City, double? Latitude, double? Longitude);
 public sealed class PublicDeliveryFormViewModel
@@ -584,7 +601,7 @@ public sealed record PortalKitReturnItemViewModel(Guid AssignmentId, Guid Produc
 public sealed record PortalKitReturnViewModel(Guid Id, Guid CustomerId, string CustomerName, int Status,
     string? Carrier, string? TrackingNumber, DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt,
     string? RequesterName, string? RequesterPhone, string? ReturnAddress,
-    double? Latitude, double? Longitude,
+    double? Latitude, double? Longitude, int DeliveryMethod,
     IReadOnlyCollection<PortalKitReturnItemViewModel> Items);
 public sealed class PortalRentalLineInputViewModel
 {

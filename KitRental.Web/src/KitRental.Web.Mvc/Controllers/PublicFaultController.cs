@@ -92,19 +92,22 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
         if (RedirectAuthenticated(qrCode) is { } redirect) return redirect;
         var kit = await apiClient.GetPublicFaultKitAsync(qrCode, cancellationToken);
         if (kit is null) return NotFound();
+        var returnContext = await apiClient.GetPublicKitReturnContextAsync(qrCode, cancellationToken);
         var deliveryContext = await apiClient.GetPublicKitDeliveryContextAsync(qrCode, cancellationToken);
         return View(new PublicReturnFormViewModel
         {
             QrCode = kit.QrCode,
             KitName = kit.KitName,
             SerialNumber = kit.SerialNumber,
-            RequesterName = deliveryContext?.RecipientName ?? string.Empty,
-            RequesterPhone = deliveryContext?.RecipientPhone ?? string.Empty,
-            City = deliveryContext?.City ?? string.Empty,
-            District = deliveryContext?.District ?? string.Empty,
-            ReturnAddress = deliveryContext?.AddressLine ?? string.Empty,
-            Latitude = deliveryContext?.Latitude,
-            Longitude = deliveryContext?.Longitude
+            ReturnReason = returnContext?.ReturnReason,
+            DeliveryMethod = returnContext?.DeliveryMethod ?? 1,
+            RequesterName = returnContext?.RequesterName ?? deliveryContext?.RecipientName ?? string.Empty,
+            RequesterPhone = returnContext?.RequesterPhone ?? deliveryContext?.RecipientPhone ?? string.Empty,
+            City = returnContext?.City ?? deliveryContext?.City ?? string.Empty,
+            District = returnContext?.District ?? deliveryContext?.District ?? string.Empty,
+            ReturnAddress = returnContext?.ReturnAddress ?? deliveryContext?.AddressLine ?? string.Empty,
+            Latitude = returnContext?.Latitude ?? deliveryContext?.Latitude,
+            Longitude = returnContext?.Longitude ?? deliveryContext?.Longitude
         });
     }
 
@@ -124,8 +127,13 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
             ModelState.AddModelError(string.Empty, result.Error ?? "Iade talebi olusturulamadi.");
             return View(model);
         }
-        ViewData["SuccessTitle"] = "Iade talebi olusturuldu";
+        ViewData["SuccessTitle"] = "Iade talebi kaydedildi";
         ViewData["SuccessMessage"] = "Iade talebiniz operasyon ekibinin ekranina dustu.";
+        if (model.DeliveryMethod == 2)
+        {
+            ViewData["PopupTitle"] = "İade Kodu";
+            ViewData["PopupMessage"] = "\"1234567890\" İade Kodu ile herhangi bir Aras Kargo şubesine bırakabilirsiniz.";
+        }
         return View("Success", new PublicKitActionViewModel(model.QrCode, model.KitName, model.SerialNumber));
     }
 

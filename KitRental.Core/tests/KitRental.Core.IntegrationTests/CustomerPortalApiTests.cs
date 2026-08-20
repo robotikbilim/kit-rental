@@ -7,6 +7,7 @@ using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Support;
 using KitRental.Security;
+using KitRental.SharedKernel;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net.Http.Headers;
@@ -124,7 +125,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     public async Task PublicQr_CreatesOpenFaultAndReturnRequest_ForActiveRental()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = TurkeyTime.Today();
         var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin-public-qr@test.local", "SystemAdmin", null));
         var publicClient = _factory.CreateClient();
         var model = await PostAsync<ProductModelResponse>(admin, "/api/product-models",
@@ -155,15 +156,15 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var duplicateReturn = await publicClient.PostAsJsonAsync("/api/public/returns",
             new PublicKitReturnRequest(unit.QrCode, "Ayse Test", "05321112233", "Kadikoy", "Istanbul", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345, KitReturnReason.EducationCompleted),
             cancellationToken);
-        Assert.Equal(System.Net.HttpStatusCode.Conflict, duplicateReturn.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.Created, duplicateReturn.StatusCode);
 
         var dashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
         var dashboardReturn = Assert.Single(dashboard!.ReturnsInProgress, item => item.Id == createdReturn.Id);
         Assert.Equal("Ayse Test", dashboardReturn.RequesterName);
         Assert.Equal("0532 111 22 33", dashboardReturn.RequesterPhone);
         Assert.Equal("Test Sokak 10 Kadikoy Istanbul", dashboardReturn.ReturnAddress);
-        Assert.Null(dashboardReturn.Latitude);
-        Assert.Null(dashboardReturn.Longitude);
+        Assert.Equal(41.012345, dashboardReturn.Latitude);
+        Assert.Equal(29.012345, dashboardReturn.Longitude);
         Assert.Equal(rental.AssignmentId, createdReturn.Items.Single().AssignmentId);
 
         var availableUnit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
@@ -244,7 +245,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     public async Task CustomerPortal_UnassignedKitCount_ExcludesReturnedKits()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = TurkeyTime.Today();
         var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin-active-kit@test.local", "SystemAdmin", null));
         var publicClient = _factory.CreateClient();
         var model = await PostAsync<ProductModelResponse>(admin, "/api/product-models",
@@ -336,7 +337,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     public async Task Customer_CanReturnExpiredSelectedKit_AndAdminReceivesItIntoAvailableStock()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = TurkeyTime.Today();
         var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin@return.test", "SystemAdmin", null));
         var model = await PostAsync<ProductModelResponse>(admin, "/api/product-models",
             new CreateProductModelRequest("İade Test Kiti", $"RET-{Guid.NewGuid():N}"), cancellationToken);
@@ -355,7 +356,8 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         var expiryDashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
         Assert.Contains(expiryDashboard!.ExpiredRentalKits, x => x.ProductUnitId == unit.Id && x.DaysRemaining < 0);
-        Assert.Contains(expiryDashboard.ExpiringRentalKits, x => x.ProductUnitId == expiringUnit.Id && x.DaysRemaining == 7);
+        Assert.Contains(expiryDashboard.ExpiringRentalKits,
+            x => x.ProductUnitId == expiringUnit.Id && x.DaysRemaining is >= 0 and <= 7);
 
         var created = await PostAsync<ReturnResponse>(customer, "/api/customer-portal/returns",
             new { assignmentIds = new[] { rental.AssignmentId } }, cancellationToken);

@@ -93,12 +93,14 @@ Rentals:
 - Customer/TACEV period names are persisted on `RentalCohort.Name`; the customer portal order-period form offers distinct previous period names as selectable suggestions while still allowing a new name to be typed.
 - TACEV can create a rental order from a rental cohort in the customer portal. Active students are linked to the created order through `RentalCohortStudent.OrderId`.
 - In the customer portal, rental cohorts are presented as `Siparişler`: the former customer `Orders` page redirects to `RentalPeriods`, and the list shows each cohort's linked order number plus approved/unapproved state. The detail action opens the cohort's student list.
+- In the customer portal `Siparişler` list, delivered/active/completed linked orders (`Delivered`, `RentalActive`, `Completed`) display the detail label `Tamamlandı`.
 - Rental cohort responses include `IsApproved`; once the linked order reaches `Approved` or any later non-cancelled/non-rejected status, the customer portal treats the student list/order as locked only for student-list mutations. Student add/update/import/delete and order-period plan edits are hidden in MVC and rejected by the application service/API, while linked-kit fault reporting and return request flows remain available.
 - When an admin approves an order linked to a TACEV rental cohort, active student addresses are geocoded through `IAddressGeocoder`; successful latitude/longitude values are persisted on `RentalCohortStudents` and reused for student delivery location events. If approval-time geocoding does not return coordinates, kit assignment retries geocoding immediately before creating the delivery location event.
 - Admin order kit preparation can select a customer's rental cohort. When selected, kit quantities are calculated from unassigned cohort students, and reserved/created kits are linked to the matching students.
 - When admin kit preparation assigns a rental cohort student to a kit, the generated `KitLocationEvent` now copies the student's `District`, `City`, `Latitude`, and `Longitude` values.
 - If an admin opens kit preparation for an order created from a TACEV cohort, the cohort is inferred from student `OrderId` links and selected automatically.
 - Preparing kits for a TACEV cohort creates `DeliveryReceipt` kit-location events from each student's name, guardian phone, and address, so the student delivery forms are prefilled immediately after assignment.
+- Order-scoped QR label printing keeps the physical kit serial number and QR code unchanged, but includes the currently assigned cohort student's name and guardian phone when a kit is linked to a TACEV order; student address is intentionally not printed on the label. Printed labels use the ordering customer's name as the label heading and the "Arıza bildirimi veya iade için okutun" instruction; non-order label printing falls back to `Robotik Bilim`. Print CSS pins the A4 layout to fixed-width label cards instead of allowing mobile rules to collapse labels to a single column.
 - TACEV rental period student rows include assigned kit serial/QR plus delivery-form summary fields when the kit has been delivered or auto-filled from the student list.
 - TACEV rental period student rows show only the student's defined address; delivery-form summary fields do not repeat the delivery address in the student list.
 - TACEV rental period student create/edit forms and Excel import preserve student `City` and `District` as separate fields; the fields are also passed to approved-order geocoding.
@@ -165,6 +167,8 @@ Rules:
 - Public fault update inserts source `FaultUpdate`.
 - Existing open public fault edits also insert source `FaultUpdate`.
 - Public return request inserts source `ReturnRequest`.
+- Public return requests store `DeliveryMethod` (`Adresimden Alınsın` or `Kendim Bırakacağım`). Drop-off returns do not show the fixed Aras Kargo return code until the form is saved; after save, the public success page shows a pop-up with code `1234567890`. Drop-off returns do not require pickup address/map fields and store the Aras drop-off instruction as the return address.
+- Reopening the public QR return form before admin return receipt loads the active return request through `/api/public/returns/context/{qrCode}` and allows updating the return reason, requester details, pickup/drop-off delivery method, and pickup location fields instead of creating a duplicate return.
 - Public QR forms treat latitude/longitude as optional and untrusted. Invalid or missing coordinates must not block saving; backend stores null coordinates when no valid map selection is provided.
 - Public QR fault, delivery, and return forms now collect Turkey il/ilce with dropdowns backed by a bundled city-district dataset. Reopening the forms refills the last saved city, district, address, and any stored coordinates from the latest kit location context.
 - Dashboard and portal maps read latest location events, with order delivery address as fallback for old kits with no event.
@@ -194,6 +198,7 @@ Core API routes:
 - `GET /api/public/faults/context/{qrCode}`
 - `POST /api/public/faults`
 - `POST /api/public/returns`
+- `GET /api/public/returns/context/{qrCode}`
 - `POST /api/public/deliveries`
 - `GET/POST/PUT /api/customer-portal/rental-periods`
 - `DELETE /api/customer-portal/rental-periods/{periodId}`
