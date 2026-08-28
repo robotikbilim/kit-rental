@@ -26,7 +26,7 @@
 <section class="metrics portal-metrics">
     <a class="metric-card portal-metric-active" asp-action="Kits" title="@Model.TotalRentedKitCount iade edilmemiş kiralanmış kit."><span>Tüm Kitler</span><strong>@Model.TotalRentedKitCount</strong></a>
     <a class="metric-card portal-metric-active" asp-action="Kits" title="@Model.ActiveKitCount öğrenciye atanmış kit."><span>Kullanımdaki Kitler</span><strong>@Model.ActiveKitCount</strong></a>
-    <a class="metric-card portal-metric-expired" asp-action="Kits" title="@Model.UnassignedKitCount kiralanmış ama öğrenciye atanmamış kit."><span>Atanmayan Kitler</span><strong>@Model.UnassignedKitCount</strong></a>
+    <a class="metric-card portal-metric-expired" asp-action="Kits" asp-route-assignmentState="unassigned" title="@Model.UnassignedKitCount kiralanmış ama öğrenciye atanmamış kit."><span>Atanmayan Kitler</span><strong>@Model.UnassignedKitCount</strong></a>
     <a class="metric-card portal-metric-faults" asp-action="Faults" asp-route-state="open" title="@Model.OpenFaultCount servis işlemi bekleyen aktif arıza kaydı."><span>Açık Arıza Kayıtları</span><strong>@Model.OpenFaultCount</strong></a>
     <a class="metric-card portal-metric-closed" asp-action="Faults" asp-route-state="completed" title="@Model.CompletedFaultCount arıza süreci tamamlanmış kayıt."><span>Kapanmış Arıza Kayıtları</span><strong>@Model.CompletedFaultCount</strong></a>
     <a class="metric-card portal-metric-expired" asp-action="Returns" asp-route-state="pending" title="@Model.ExpiredRentalKitCount kiralama dönemi geçmiş, iade süreci başlatılmamış kit."><span>İade Beklenen Kitler</span><strong>@Model.ExpiredRentalKitCount</strong></a>

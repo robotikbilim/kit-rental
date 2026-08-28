@@ -383,7 +383,7 @@ public sealed record PortalFaultsPageViewModel(string CustomerName, string Query
     public int LastItem => Math.Min(Page * PageSize, TotalCount);
 }
 public sealed record PortalKitsPageViewModel(string CustomerName, string Query, int? Status, bool? HasFault,
-    bool? DeliveryFormMissing,
+    bool? DeliveryFormMissing, string AssignmentState,
     int Page, int PageSize, int TotalCount, int TotalKitCount, IReadOnlyCollection<PortalKitViewModel> Kits)
 {
     public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)PageSize));

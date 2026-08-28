@@ -364,6 +364,10 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Public fault, return, delivery context, fault-guide, and submit endpoints now require a valid token and resolve the kit server-side before invoking existing QR-code-based application logic. Tokens are not invalidated after successful submission.
 - The public QR landing screen no longer shows the `Kit Teslim Al` option. Customer delivery confirmation remains available through the existing admin/customer automatic delivery flows, and the legacy public delivery endpoint/action was left in place for compatibility.
 
+2026-08-27:
+
+- Customer portal `Kitler` list supports an `assignmentState` filter (`all`, `assigned`, `unassigned`) based on whether `AssignedStudentName` is present. The overview `Atanmayan Kitler` card opens the list with `assignmentState=unassigned`, so it shows only rented kits that have not been assigned to a student.
+
 ## Development Checklist
 
 Before changing code:

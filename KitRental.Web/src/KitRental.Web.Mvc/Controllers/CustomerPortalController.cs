@@ -525,6 +525,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
 
     [HttpGet]
     public async Task<IActionResult> Kits(string? query, int? status, bool? hasFault, bool? deliveryFormMissing,
+        string? assignmentState = "all",
         int page = 1,
         int pageSize = 10, CancellationToken cancellationToken = default)
     {
@@ -533,6 +534,10 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
 
         var normalizedQuery = query?.Trim() ?? string.Empty;
         var normalizedStatus = status is >= 1 and <= 8 ? status : null;
+        var requestedAssignmentState = assignmentState?.Trim().ToLowerInvariant();
+        var normalizedAssignmentState = requestedAssignmentState is "assigned" or "unassigned"
+            ? requestedAssignmentState
+            : "all";
         var normalizedPageSize = pageSize is 10 or 25 or 50 ? pageSize : 10;
         var allKits = portal.Kits
             .Where(item => item.AssignmentStatus is 1 or 2)
@@ -560,6 +565,12 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
             filteredKits = filteredKits.Where(item => (item.OpenFaultCount > 0) == hasFault.Value);
         if (deliveryFormMissing.HasValue)
             filteredKits = filteredKits.Where(item => item.HasDeliveryForm != deliveryFormMissing.Value);
+        filteredKits = normalizedAssignmentState switch
+        {
+            "assigned" => filteredKits.Where(item => !string.IsNullOrWhiteSpace(item.AssignedStudentName)),
+            "unassigned" => filteredKits.Where(item => string.IsNullOrWhiteSpace(item.AssignedStudentName)),
+            _ => filteredKits
+        };
 
         var filtered = filteredKits.ToArray();
         var totalPages = Math.Max(1, (int)Math.Ceiling(filtered.Length / (double)normalizedPageSize));
@@ -570,7 +581,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
             .ToArray();
 
         return View(new PortalKitsPageViewModel(portal.CustomerName, normalizedQuery, normalizedStatus, hasFault,
-            deliveryFormMissing,
+            deliveryFormMissing, normalizedAssignmentState,
             normalizedPage, normalizedPageSize, filtered.Length, allKits.Length, pagedKits));
     }
 
