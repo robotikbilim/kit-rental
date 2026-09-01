@@ -15,8 +15,8 @@ public sealed class CustomersController(KitRentalApiClient apiClient) : Controll
         if (term.Length > 0)
             customers = customers.Where(item => item.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                 item.Email.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                item.Addresses.Any(address => address.City.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                    address.District.Contains(term, StringComparison.OrdinalIgnoreCase))).ToArray();
+                item.Addresses.Any(address => address.Line1.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    address.ContactName.Contains(term, StringComparison.OrdinalIgnoreCase))).ToArray();
         var accounts = (await apiClient.GetUsersAsync(cancellationToken))
             .Where(item => item.CustomerId.HasValue).ToArray();
         return View(new CustomersPageViewModel(customers, accounts, term));
@@ -127,8 +127,6 @@ public sealed class CustomersController(KitRentalApiClient apiClient) : Controll
             ContactName = address.ContactName,
             Phone = address.Phone,
             Line1 = address.Line1,
-            District = address.District,
-            City = address.City,
             PostalCode = address.PostalCode
         });
     }

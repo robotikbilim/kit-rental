@@ -35,7 +35,7 @@ public sealed class OperationsController : CoreApiControllerBase
         var result = await service.CreateCustomerAsync(
                 new CreateCustomerCommand(request.Name, request.Email,
                     new AddressCommand(request.Address.Title, request.Address.ContactName, request.Address.Phone, request.Address.Line1,
-                        request.Address.District, request.Address.City, request.Address.PostalCode), User.GetRequiredUserId(),
+                        request.Address.PostalCode), User.GetRequiredUserId(),
                     request.AllowedProductModelIds),
                 cancellationToken);
         return Created($"/api/customers/{result.Id}", result);
@@ -83,7 +83,7 @@ public sealed class OperationsController : CoreApiControllerBase
     {
         return Created($"/api/customers/{customerId}/addresses", await service.AddCustomerAddressAsync(
                 new CustomerAddressCommand(customerId, null, new AddressCommand(request.Title, request.ContactName, request.Phone,
-                    request.Line1, request.District, request.City, request.PostalCode), User.GetRequiredUserId()), cancellationToken));
+                    request.Line1, request.PostalCode), User.GetRequiredUserId()), cancellationToken));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager")]
@@ -91,8 +91,8 @@ public sealed class OperationsController : CoreApiControllerBase
     public async Task<IActionResult> Put_CustomersCustomerIdGuidAddressesAddressIdGuid_82(Guid customerId, Guid addressId, AddressRequest request, [FromServices] OperationsService service, CancellationToken cancellationToken)
     {
         return Ok(await service.UpdateCustomerAddressAsync(new CustomerAddressCommand(customerId, addressId,
-                new AddressCommand(request.Title, request.ContactName, request.Phone, request.Line1, request.District,
-                    request.City, request.PostalCode), User.GetRequiredUserId()), cancellationToken));
+                new AddressCommand(request.Title, request.ContactName, request.Phone, request.Line1,
+                    request.PostalCode), User.GetRequiredUserId()), cancellationToken));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager")]

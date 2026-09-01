@@ -4,6 +4,7 @@ using KitRental.Core.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace KitRental.Core.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(KitRentalDbContext))]
-    partial class KitRentalDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260901180730_RemoveRentalCohortStudentLocationFields")]
+    partial class RemoveRentalCohortStudentLocationFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -221,6 +224,56 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.ToTable("ProductUnitActivities", (string)null);
                 });
 
+            modelBuilder.Entity("KitRental.Core.Domain.Locations.LocationCity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("LocationCities", (string)null);
+                });
+
+            modelBuilder.Entity("KitRental.Core.Domain.Locations.LocationDistrict", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CityId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CityId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("LocationDistricts", (string)null);
+                });
+
             modelBuilder.Entity("KitRental.Core.Domain.Logistics.KitLocationEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -238,6 +291,11 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("AssignmentId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
                     b.Property<string>("ContactName")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -250,6 +308,11 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("CustomerId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("District")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
 
                     b.Property<double?>("Latitude")
                         .HasColumnType("float");
@@ -284,6 +347,8 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.HasIndex("CustomerId");
 
                     b.HasIndex("OrderId");
+
+                    b.HasIndex("City", "District");
 
                     b.HasIndex("ProductUnitId", "OccurredAt");
 
@@ -1020,6 +1085,11 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                             b1.Property<Guid>("Id")
                                 .HasColumnType("uniqueidentifier");
 
+                            b1.Property<string>("City")
+                                .IsRequired()
+                                .HasMaxLength(120)
+                                .HasColumnType("nvarchar(120)");
+
                             b1.Property<string>("ContactName")
                                 .IsRequired()
                                 .HasMaxLength(160)
@@ -1027,6 +1097,11 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                             b1.Property<Guid>("CustomerId")
                                 .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("District")
+                                .IsRequired()
+                                .HasMaxLength(120)
+                                .HasColumnType("nvarchar(120)");
 
                             b1.Property<string>("Line1")
                                 .IsRequired()
@@ -1163,6 +1238,15 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("KitRental.Core.Domain.Locations.LocationDistrict", b =>
+                {
+                    b.HasOne("KitRental.Core.Domain.Locations.LocationCity", null)
+                        .WithMany()
+                        .HasForeignKey("CityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("KitRental.Core.Domain.Logistics.KitLocationEvent", b =>
                 {
                     b.HasOne("KitRental.Core.Domain.Rentals.RentalAssignment", null)
@@ -1283,11 +1367,23 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                             b1.Property<Guid>("RentalOrderId")
                                 .HasColumnType("uniqueidentifier");
 
+                            b1.Property<string>("City")
+                                .IsRequired()
+                                .HasMaxLength(120)
+                                .HasColumnType("nvarchar(120)")
+                                .HasColumnName("DeliveryCity");
+
                             b1.Property<string>("ContactName")
                                 .IsRequired()
                                 .HasMaxLength(160)
                                 .HasColumnType("nvarchar(160)")
                                 .HasColumnName("DeliveryContactName");
+
+                            b1.Property<string>("District")
+                                .IsRequired()
+                                .HasMaxLength(120)
+                                .HasColumnType("nvarchar(120)")
+                                .HasColumnName("DeliveryDistrict");
 
                             b1.Property<string>("Line1")
                                 .IsRequired()

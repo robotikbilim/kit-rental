@@ -58,7 +58,7 @@ public sealed class PersistenceModelTests
             "TEST-ORDER-1",
             Guid.NewGuid(),
             new RentalPeriod(DateOnly.FromDateTime(now.Date), DateOnly.FromDateTime(now.Date.AddDays(7))),
-            new AddressSnapshot("Test", "555", "Adres", "İlçe", "Şehir", "34000"),
+            new AddressSnapshot("Test", "555", "Adres", "34000"),
             now);
         order.Submit(actorId, now);
         context.Attach(order);

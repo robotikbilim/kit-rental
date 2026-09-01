@@ -8,7 +8,7 @@
     <section class="public-fault-card">
         <span class="eyebrow">KIT TESLIM</span>
         <h1>Kit teslim formu</h1>
-        <p class="block-muted">Teslim bilgisi kit gecmisine kaydedilir ve Tacev genel bakis haritasinda il/ilce bazinda gorunur.</p>
+        <p class="block-muted">Teslim bilgisi kit geçmişine kaydedilir ve haritada koordinata göre görünür.</p>
         <div class="public-kit-summary"><span>Okutulan urun</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
         <form method="post" class="public-fault-form">
             <input asp-for="QrCode" type="hidden" />
@@ -18,19 +18,15 @@
             <div asp-validation-summary="ModelOnly" class="error"></div>
             <div class="field"><label asp-for="RecipientName"></label><input asp-for="RecipientName" autocomplete="name" placeholder="Ad soyad" /><span asp-validation-for="RecipientName" class="error"></span></div>
             <div class="field"><label asp-for="RecipientPhone"></label><input asp-for="RecipientPhone" type="tel" autocomplete="tel" inputmode="tel" data-phone-mask="tr" placeholder="0xxx xxx xx xx" /><span asp-validation-for="RecipientPhone" class="error"></span></div>
-            <div class="field"><label asp-for="City"></label><select asp-for="City" data-selected="@Model.City"></select><span asp-validation-for="City" class="error"></span></div>
-            <div class="field"><label asp-for="District"></label><select asp-for="District" data-selected="@Model.District"></select><span asp-validation-for="District" class="error"></span></div>
             <div class="field"><label asp-for="AddressLine"></label><textarea asp-for="AddressLine" rows="3" autocomplete="street-address" placeholder="Kitin teslim edildigi acik adres"></textarea><span asp-validation-for="AddressLine" class="error"></span></div>
             <div class="public-location-box">
                 <button class="secondary-action" id="use-location" type="button">Konumumu Bul</button>
                 <div id="public-location-map" class="public-location-map"></div>
-                <span id="location-status">Konumumu bul ile pimi yakin noktaya getirin veya haritadan secin. Adres, il ve ilce otomatik doldurulur.</span>
+                <span id="location-status">Konumumu bul ile pimi yakın noktaya getirin veya haritadan seçin.</span>
             </div>
             <button class="primary-action" type="submit">Kit Teslim Al</button>
         </form>
     </section>
 </div>
-<script src="~/js/tr-city-districts.js" asp-append-version="true"></script>
-<script src="~/js/public-city-district.js" asp-append-version="true"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="~/js/public-location.js" asp-append-version="true"></script>

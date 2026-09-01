@@ -40,8 +40,6 @@
                 <input asp-for="Form.SerialNumber" name="SerialNumber" type="hidden" />
                 <div class="field"><label asp-for="Form.ReporterName"></label><input asp-for="Form.ReporterName" name="ReporterName" autocomplete="name" placeholder="Adınız ve soyadınız" /><span asp-validation-for="Form.ReporterName" class="error"></span></div>
                 <div class="field"><label asp-for="Form.ReporterPhone"></label><input asp-for="Form.ReporterPhone" name="ReporterPhone" type="tel" autocomplete="tel" inputmode="tel" data-phone-mask="tr" placeholder="0xxx xxx xx xx" /><span asp-validation-for="Form.ReporterPhone" class="error"></span></div>
-                <div class="field"><label asp-for="Form.City"></label><select id="City" asp-for="Form.City" name="City" data-selected="@Model.Form.City"></select><span asp-validation-for="Form.City" class="error"></span></div>
-                <div class="field"><label asp-for="Form.District"></label><select id="District" asp-for="Form.District" name="District" data-selected="@Model.Form.District"></select><span asp-validation-for="Form.District" class="error"></span></div>
                 <div class="field"><label asp-for="Form.ReporterAddress"></label><textarea asp-for="Form.ReporterAddress" name="ReporterAddress" rows="3" autocomplete="street-address" placeholder="Kitin bulunduğu açık adresi yazın."></textarea><span asp-validation-for="Form.ReporterAddress" class="error"></span></div>
                 <div class="field"><label asp-for="Form.Description"></label><textarea asp-for="Form.Description" name="Description" rows="6" placeholder="Sorunun ne zaman ve nasıl oluştuğunu kısaca anlatın."></textarea><span asp-validation-for="Form.Description" class="error"></span></div>
                 <div class="form-actions public-fault-actions"><a class="secondary-action" asp-action="Faults">Vazgeç</a><button class="primary-action" type="submit">Arıza Kaydını Gönder</button></div>
@@ -49,6 +47,4 @@
         }
     </section>
 </div>
-<script src="~/js/tr-city-districts.js" asp-append-version="true"></script>
-<script src="~/js/public-city-district.js" asp-append-version="true"></script>
 <script src="~/js/fault-kit-selector.js" asp-append-version="true"></script>

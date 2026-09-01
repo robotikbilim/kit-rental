@@ -1,7 +1,6 @@
 using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Customers;
 using KitRental.Core.Domain.Inventory;
-using KitRental.Core.Domain.Locations;
 using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Notifications;
@@ -42,8 +41,6 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
     public DbSet<BillOfMaterials> BillsOfMaterials => Set<BillOfMaterials>();
     public DbSet<SupplyNeedList> SupplyNeedLists => Set<SupplyNeedList>();
     public DbSet<EmailDelivery> EmailDeliveries => Set<EmailDelivery>();
-    public DbSet<LocationCity> LocationCities => Set<LocationCity>();
-    public DbSet<LocationDistrict> LocationDistricts => Set<LocationDistrict>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -69,26 +66,6 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         ConfigureBillOfMaterials(modelBuilder.Entity<BillOfMaterials>());
         ConfigureSupplyNeedList(modelBuilder.Entity<SupplyNeedList>());
         ConfigureEmailDelivery(modelBuilder.Entity<EmailDelivery>());
-        ConfigureLocationCity(modelBuilder.Entity<LocationCity>());
-        ConfigureLocationDistrict(modelBuilder.Entity<LocationDistrict>());
-    }
-
-    private static void ConfigureLocationCity(EntityTypeBuilder<LocationCity> builder)
-    {
-        builder.ToTable("LocationCities");
-        builder.HasKey(item => item.Id);
-        builder.Property(item => item.Code).HasMaxLength(2).IsRequired();
-        builder.Property(item => item.Name).HasMaxLength(120).IsRequired();
-        builder.HasIndex(item => item.Code).IsUnique();
-    }
-
-    private static void ConfigureLocationDistrict(EntityTypeBuilder<LocationDistrict> builder)
-    {
-        builder.ToTable("LocationDistricts");
-        builder.HasKey(item => item.Id);
-        builder.Property(item => item.Name).HasMaxLength(120).IsRequired();
-        builder.HasOne<LocationCity>().WithMany().HasForeignKey(item => item.CityId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasIndex(item => new { item.CityId, item.Name }).IsUnique();
     }
 
     private static void ConfigureEmailDelivery(EntityTypeBuilder<EmailDelivery> builder)
@@ -171,8 +148,6 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             addresses.Property(address => address.ContactName).HasMaxLength(160).IsRequired();
             addresses.Property(address => address.Phone).HasMaxLength(40).IsRequired();
             addresses.Property(address => address.Line1).HasMaxLength(500).IsRequired();
-            addresses.Property(address => address.District).HasMaxLength(120).IsRequired();
-            addresses.Property(address => address.City).HasMaxLength(120).IsRequired();
             addresses.Property(address => address.PostalCode).HasMaxLength(20);
         });
         builder.Navigation(customer => customer.Addresses).HasField("_addresses").UsePropertyAccessMode(PropertyAccessMode.Field);
@@ -205,8 +180,6 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             address.Property(item => item.ContactName).HasColumnName("DeliveryContactName").HasMaxLength(160);
             address.Property(item => item.Phone).HasColumnName("DeliveryPhone").HasMaxLength(40);
             address.Property(item => item.Line1).HasColumnName("DeliveryLine1").HasMaxLength(500);
-            address.Property(item => item.District).HasColumnName("DeliveryDistrict").HasMaxLength(120);
-            address.Property(item => item.City).HasColumnName("DeliveryCity").HasMaxLength(120);
             address.Property(item => item.PostalCode).HasColumnName("DeliveryPostalCode").HasMaxLength(20);
         });
         builder.OwnsMany(order => order.Lines, lines =>
@@ -268,14 +241,6 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             students.Property(item => item.FullName).HasMaxLength(160).IsRequired(false);
             students.Property(item => item.GuardianPhone).HasMaxLength(40).IsRequired(false);
             students.Property(item => item.AddressLine).HasMaxLength(1000).IsRequired(false);
-            students.Property(item => item.CityId).IsRequired(false);
-            students.Property(item => item.DistrictId).IsRequired(false);
-            students.Property(item => item.City).HasMaxLength(120).IsRequired(false);
-            students.Property(item => item.District).HasMaxLength(120).IsRequired(false);
-            students.HasOne<LocationCity>().WithMany().HasForeignKey(item => item.CityId).OnDelete(DeleteBehavior.Restrict);
-            students.HasOne<LocationDistrict>().WithMany().HasForeignKey(item => item.DistrictId).OnDelete(DeleteBehavior.Restrict);
-            students.HasIndex(item => item.CityId);
-            students.HasIndex(item => item.DistrictId);
             students.HasIndex(item => item.ProductModelId);
             students.HasIndex(item => item.AssignmentId);
             students.HasIndex(item => item.ProductUnitId);
@@ -321,11 +286,8 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(item => item.ContactName).HasMaxLength(160).IsRequired();
         builder.Property(item => item.ContactPhone).HasMaxLength(40).IsRequired();
         builder.Property(item => item.AddressLine).HasMaxLength(1000).IsRequired();
-        builder.Property(item => item.District).HasMaxLength(120).IsRequired();
-        builder.Property(item => item.City).HasMaxLength(120).IsRequired();
         builder.HasIndex(item => new { item.ProductUnitId, item.OccurredAt });
         builder.HasIndex(item => new { item.Source, item.SourceId });
-        builder.HasIndex(item => new { item.City, item.District });
         builder.HasOne<ProductUnit>().WithMany().HasForeignKey(item => item.ProductUnitId)
             .OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<RentalAssignment>().WithMany().HasForeignKey(item => item.AssignmentId)

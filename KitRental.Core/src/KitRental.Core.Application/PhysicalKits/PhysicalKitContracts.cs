@@ -6,7 +6,7 @@ using KitRental.Core.Domain.Support;
 
 namespace KitRental.Core.Application.PhysicalKits;
 
-public sealed record PhysicalKitCurrentRentalResponse(string CustomerName, string City, DateOnly StartDate, DateOnly EndDate);
+public sealed record PhysicalKitCurrentRentalResponse(string CustomerName, DateOnly StartDate, DateOnly EndDate);
 public sealed record PhysicalKitListItemResponse(Guid Id, Guid ProductModelId, string KitName, string KitSku,
     string? ImageUrl, string SerialNumber, string QrCode, ProductUnitStatus Status, PhysicalKitCurrentRentalResponse? CurrentRental);
 public sealed record PhysicalKitDashboardResponse(int Total, int Available, int Rented, int Reserved, int InTransit,
@@ -20,13 +20,13 @@ public sealed record PhysicalKitUnitPageResponse(Guid ProductModelId, string Kit
 public sealed record PhysicalKitStatusEventResponse(ProductUnitStatus? PreviousStatus, ProductUnitStatus NewStatus,
     DateTimeOffset OccurredAt, string Reason);
 public sealed record PhysicalKitLocationResponse(string RecipientName, string Phone, string AddressLine,
-    string District, string City, DateTimeOffset? DeliveredAt, double? Latitude, double? Longitude);
+    DateTimeOffset? DeliveredAt, double? Latitude, double? Longitude);
 public sealed record PhysicalKitFaultHistoryResponse(string Number, string Category, FaultSeverity Severity,
     FaultStatus Status, string Description, DateTimeOffset OpenedAt, IReadOnlyCollection<string> StatusNotes);
 public sealed record PhysicalKitDeliveryHistoryResponse(Guid AssignmentId, string OrderNumber,
     RentalOrderStatus OrderStatus, RentalAssignmentStatus AssignmentStatus, string CustomerName,
     string CustomerEmail, DateOnly StartDate, DateOnly EndDate, DateTimeOffset CreatedAt,
-    string RecipientName, string Phone, string AddressLine, string District, string City,
+    string RecipientName, string Phone, string AddressLine,
     DateTimeOffset? DeliveredAt, double? Latitude, double? Longitude);
 public sealed record PhysicalKitReturnHistoryResponse(Guid ReturnId, string ReturnNumber, KitReturnStatus Status,
     string CustomerName, string RequesterName, string RequesterPhone, string ReturnAddress, DateTimeOffset CreatedAt,
@@ -43,11 +43,11 @@ public sealed record PhysicalKitDetailResponse(PhysicalKitListItemResponse Kit, 
     public IReadOnlyCollection<PhysicalKitDeliveryHistoryResponse> RentalHistory => DeliveryHistory;
 }
 public sealed record RentPhysicalKitCommand(Guid ProductUnitId, string CustomerName, string Email, string Phone,
-    string AddressLine, string District, string City, string PostalCode, DateOnly StartDate, DateOnly EndDate, Guid ActorId);
+    string AddressLine, string PostalCode, DateOnly StartDate, DateOnly EndDate, Guid ActorId);
 public sealed record RentPhysicalKitResponse(Guid ProductUnitId, Guid CustomerId, Guid OrderId, Guid AssignmentId,
     string OrderNumber, string SerialNumber, ProductUnitStatus Status);
 public sealed record BulkRentPhysicalKitsCommand(IReadOnlyCollection<Guid> ProductUnitIds, string CustomerName,
-    string Email, string Phone, string AddressLine, string District, string City, string PostalCode,
+    string Email, string Phone, string AddressLine, string PostalCode,
     DateOnly StartDate, DateOnly EndDate, Guid ActorId);
 public sealed record BulkRentPhysicalKitItemResponse(Guid ProductUnitId, Guid AssignmentId, string SerialNumber,
     ProductUnitStatus Status);

@@ -2,7 +2,6 @@ using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Customers;
 using KitRental.Core.Domain.Inventory;
-using KitRental.Core.Domain.Locations;
 using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Notifications;
@@ -19,11 +18,6 @@ namespace KitRental.Core.Infrastructure.Persistence;
 
 public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreRepository
 {
-    public Task<LocationCity?> GetLocationCityAsync(int id, CancellationToken cancellationToken) =>
-        dbContext.LocationCities.AsNoTracking().SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
-
-    public Task<LocationDistrict?> GetLocationDistrictAsync(int id, CancellationToken cancellationToken) =>
-        dbContext.LocationDistricts.AsNoTracking().SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
     public async Task AddProductModelAsync(ProductModel model, CancellationToken cancellationToken)
     {
         if (await dbContext.ProductModels.AnyAsync(existing => existing.Sku == model.Sku, cancellationToken))
@@ -231,6 +225,9 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
             .OrderByDescending(location => location.OccurredAt)
             .ThenByDescending(location => location.Id)
             .ToArrayAsync(cancellationToken);
+
+    public Task<KitLocationEvent?> GetKitLocationEventAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.KitLocationEvents.SingleOrDefaultAsync(location => location.Id == id, cancellationToken);
 
     public Task AddFaultTicketAsync(FaultTicket ticket, CancellationToken cancellationToken) =>
         dbContext.FaultTickets.AddAsync(ticket, cancellationToken).AsTask();

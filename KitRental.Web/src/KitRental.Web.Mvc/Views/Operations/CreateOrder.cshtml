@@ -6,7 +6,7 @@
         <div asp-validation-summary="All" class="error"></div>
         <div class="form-section"><h2>Müşteri ve teslimat</h2><div class="form-grid">
             <div class="field"><label asp-for="Form.CustomerId"></label><select name="CustomerId" id="admin-order-customer"><option value="">Müşteri seçin</option>@foreach (var customer in Model.Customers) { <option value="@customer.Id" selected="@(customer.Id == Model.Form.CustomerId)">@customer.Name (@customer.Email)</option> }</select></div>
-            <div class="field"><label asp-for="Form.AddressId"></label><select name="AddressId" id="admin-order-address"><option value="">Teslimat adresi seçin</option>@foreach (var customer in Model.Customers) { foreach (var address in customer.Addresses) { <option value="@address.Id" data-customer="@customer.Id" selected="@(address.Id == Model.Form.AddressId)">@address.Title — @address.ContactName, @address.District / @address.City</option> } }</select></div>
+            <div class="field"><label asp-for="Form.AddressId"></label><select name="AddressId" id="admin-order-address"><option value="">Teslimat adresi seçin</option>@foreach (var customer in Model.Customers) { foreach (var address in customer.Addresses) { <option value="@address.Id" data-customer="@customer.Id" selected="@(address.Id == Model.Form.AddressId)">@address.Title — @address.ContactName</option> } }</select></div>
             <div class="field"><label asp-for="Form.StartDate"></label><input type="date" name="StartDate" value="@Model.Form.StartDate.ToString("yyyy-MM-dd")" /></div>
             <div class="field"><label asp-for="Form.EndDate"></label><input type="date" name="EndDate" value="@Model.Form.EndDate.ToString("yyyy-MM-dd")" /></div>
         </div></div>

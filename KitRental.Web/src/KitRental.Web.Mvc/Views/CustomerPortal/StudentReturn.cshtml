@@ -22,8 +22,6 @@
                 <option value="1">Eğitim Tamamlandı</option>
                 <option value="2">Kayıt Silindi</option>
             </select><span asp-validation-for="ReturnReason" class="error"></span></div>
-            <div class="field"><label asp-for="City"></label><select id="City" asp-for="City" data-selected="@Model.City"></select><span asp-validation-for="City" class="error"></span></div>
-            <div class="field"><label asp-for="District"></label><select id="District" asp-for="District" data-selected="@Model.District"></select><span asp-validation-for="District" class="error"></span></div>
             <div class="field"><label asp-for="ReturnAddress"></label><textarea asp-for="ReturnAddress" rows="3" autocomplete="street-address" placeholder="Kargo alınacak açık adresi yazın."></textarea><span asp-validation-for="ReturnAddress" class="error"></span></div>
             <div class="form-actions public-fault-actions">
                 <a class="secondary-action" asp-action="RentalPeriod" asp-route-id="@Model.CohortId">Vazgeç</a>
@@ -32,5 +30,3 @@
         </form>
     </section>
 </div>
-<script src="~/js/tr-city-districts.js" asp-append-version="true"></script>
-<script src="~/js/public-city-district.js" asp-append-version="true"></script>

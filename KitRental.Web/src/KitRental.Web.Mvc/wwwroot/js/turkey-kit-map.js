@@ -81,7 +81,6 @@
             ${escapeHtml(item.serialNumber)}<br>
             ${escapeHtml(item.recipientName)}<br>
             ${escapeHtml(item.addressLine)}<br>
-            ${escapeHtml(item.district)} / ${escapeHtml(item.city)}<br>
             <a href="${escapeHtml(detailUrl)}">Kit gecmisine git</a>
         `);
         return { item, marker, status: categoryKey(item), productModelId: String(item.productModelId || "") };

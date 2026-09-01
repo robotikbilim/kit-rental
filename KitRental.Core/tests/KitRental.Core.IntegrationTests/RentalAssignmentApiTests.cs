@@ -47,7 +47,7 @@ public sealed class RentalAssignmentApiTests : IClassFixture<WebApplicationFacto
             "/api/customers",
             new CreateCustomerRequest(
                 "Test Okulu", $"test-{Guid.NewGuid():N}@example.com",
-                new AddressRequest("Merkez", "Test Kullanıcısı", "5551112233", "Teknoloji Cad. 1", "Çankaya", "Ankara", "06500")),
+                new AddressRequest("Merkez", "Test Kullanıcısı", "5551112233", "Teknoloji Cad. 1", "06500")),
             cancellationToken);
         customerResponse.EnsureSuccessStatusCode();
         var customer = await customerResponse.Content.ReadFromJsonAsync<CustomerApiResponse>(cancellationToken);

@@ -49,13 +49,6 @@
             <div class="kit-map-panel">
                 <div id="turkey-kit-map" class="turkey-kit-map" data-locations='@Html.Raw(mapLocationsJson)' data-detail-url-template='@Url.Action("Kit", "CustomerPortal", new { id = "__id__" })'></div>
             </div>
-            <aside class="kit-map-summary">
-                <strong>@allKitLocations.Length kit sahada</strong>
-                @foreach (var city in mapLocations.GroupBy(item => item.City).OrderByDescending(group => group.Count()).ThenBy(group => group.Key))
-                {
-                    <span><b>@city.Key</b>@city.Count() kit · @city.Select(item => item.District).Distinct().Count() ilçe</span>
-                }
-            </aside>
         </div>
     }
 </section>

@@ -5,13 +5,11 @@ using KitRental.Web.Mvc.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QRCoder;
-using System.Globalization;
-using System.Text.Json;
 
 namespace KitRental.Web.Mvc.Controllers;
 
 [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
-public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebHostEnvironment environment) : Controller
+public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Controller
 {
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
@@ -141,10 +139,6 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
                 FullName = edit.FullName,
                 GuardianPhone = edit.GuardianPhone,
                 AddressLine = edit.AddressLine,
-                CityId = edit.CityId ?? 0,
-                DistrictId = edit.DistrictId ?? 0,
-                City = edit.City,
-                District = edit.District,
                 ProductModelId = edit.ProductModelId
             };
         var normalizedQuery = string.IsNullOrWhiteSpace(studentQuery) ? null : studentQuery.Trim();
@@ -266,22 +260,14 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
             var fullName = row.Cell(1).GetString().Trim();
             var phone = row.Cell(2).GetString().Trim();
             var address = row.Cell(3).GetString().Trim();
-            var city = row.Cell(4).GetString().Trim();
-            var district = row.Cell(5).GetString().Trim();
-            var (cityId, districtId) = ResolveLocationIds(city, district, environment.WebRootPath);
             if (string.IsNullOrWhiteSpace(fullName) && string.IsNullOrWhiteSpace(phone) &&
-                string.IsNullOrWhiteSpace(address) && string.IsNullOrWhiteSpace(city) &&
-                string.IsNullOrWhiteSpace(district))
+                string.IsNullOrWhiteSpace(address))
                 continue;
             rows.Add(new RentalCohortStudentImportPreviewRowViewModel
             {
                 FullName = fullName,
                 GuardianPhone = phone,
                 AddressLine = address,
-                City = city,
-                District = district,
-                CityId = cityId,
-                DistrictId = districtId,
                 ProductModelId = productModelId
             });
         }
@@ -318,8 +304,6 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
             .Where(row => !string.IsNullOrWhiteSpace(row.FullName) ||
                 !string.IsNullOrWhiteSpace(row.GuardianPhone) ||
                 !string.IsNullOrWhiteSpace(row.AddressLine) ||
-                !string.IsNullOrWhiteSpace(row.City) ||
-                !string.IsNullOrWhiteSpace(row.District) ||
                 row.ProductModelId != Guid.Empty)
             .ToList();
         var modelIds = portal.ProductModels.Select(item => item.Id).ToHashSet();
@@ -336,14 +320,6 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
                 ModelState.AddModelError($"Rows[{index}].GuardianPhone", "Veli telefon numarası 0xxx xxx xx xx formatında olmalıdır.");
             if (string.IsNullOrWhiteSpace(row.AddressLine))
                 ModelState.AddModelError($"Rows[{index}].AddressLine", "Adres bilgileri zorunludur.");
-            if (string.IsNullOrWhiteSpace(row.City))
-                ModelState.AddModelError($"Rows[{index}].City", "İl zorunludur.");
-            if (string.IsNullOrWhiteSpace(row.District))
-                ModelState.AddModelError($"Rows[{index}].District", "İlçe zorunludur.");
-            if (row.CityId <= 0)
-                ModelState.AddModelError($"Rows[{index}].CityId", "İl tanınamadı.");
-            if (row.DistrictId <= 0)
-                ModelState.AddModelError($"Rows[{index}].DistrictId", "İlçe tanınamadı.");
             if (!modelIds.Contains(row.ProductModelId))
                 ModelState.AddModelError($"Rows[{index}].ProductModelId", "Her satır için eğitim kiti seçilmelidir.");
         }
@@ -354,10 +330,6 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
             fullName = row.FullName,
             guardianPhone = TurkishPhoneNumber.Normalize(row.GuardianPhone, "Veli telefon numarası"),
             addressLine = row.AddressLine,
-            cityId = row.CityId,
-            districtId = row.DistrictId,
-            city = row.City,
-            district = row.District,
             productModel = row.ProductModelId.ToString()
         }).ToArray();
         var result = await apiClient.ImportRentalCohortStudentsAsync(model.CohortId, rows, cancellationToken);
@@ -365,30 +337,6 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
             ? $"{rows.Length} öğrenci içe aktarıldı."
             : result.Error ?? "Öğrenci listesi içe aktarılamadı.";
         return RedirectToAction(nameof(RentalPeriod), new { id = model.CohortId });
-    }
-
-    private static (int CityId, int DistrictId) ResolveLocationIds(string cityName, string districtName, string webRootPath)
-    {
-        var path = Path.Combine(webRootPath, "js", "tr-city-districts.js");
-        var source = System.IO.File.ReadAllText(path);
-        var start = source.IndexOf('[', StringComparison.Ordinal);
-        var end = source.LastIndexOf(']');
-        if (start < 0 || end <= start) return (0, 0);
-        using var document = JsonDocument.Parse(source[start..(end + 1)]);
-        var comparer = StringComparer.Create(new CultureInfo("tr-TR"), true);
-        foreach (var city in document.RootElement.EnumerateArray())
-        {
-            if (!comparer.Equals(city.GetProperty("name").GetString(), cityName)) continue;
-            var cityId = int.Parse(city.GetProperty("code").GetString()!, CultureInfo.InvariantCulture);
-            var index = 0;
-            foreach (var district in city.GetProperty("districts").EnumerateArray())
-            {
-                index++;
-                if (comparer.Equals(district.GetString(), districtName)) return (cityId, cityId * 1000 + index);
-            }
-            return (cityId, 0);
-        }
-        return (0, 0);
     }
 
     [HttpGet]
@@ -401,10 +349,8 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
         sheet.Cell(1, 1).Value = "Öğrenci Adı Soyadı";
         sheet.Cell(1, 2).Value = "Veli Telefon Numarası";
         sheet.Cell(1, 3).Value = "Adres Bilgileri";
-        sheet.Cell(1, 4).Value = "İl";
-        sheet.Cell(1, 5).Value = "İlçe";
         sheet.Row(1).Style.Font.Bold = true;
-        sheet.Columns(1, 5).AdjustToContents();
+        sheet.Columns(1, 3).AdjustToContents();
         using var output = new MemoryStream();
         workbook.SaveAs(output);
         return File(output.ToArray(),
@@ -462,8 +408,6 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
             SerialNumber = student.SerialNumber ?? "-",
             RequesterName = string.IsNullOrWhiteSpace(student.DeliveredTo) ? student.FullName : student.DeliveredTo,
             RequesterPhone = string.IsNullOrWhiteSpace(student.DeliveryPhone) ? student.GuardianPhone : student.DeliveryPhone,
-            City = string.IsNullOrWhiteSpace(student.DeliveryCity) ? student.City : student.DeliveryCity,
-            District = string.IsNullOrWhiteSpace(student.DeliveryDistrict) ? student.District : student.DeliveryDistrict,
             ReturnAddress = string.IsNullOrWhiteSpace(student.DeliveryAddress) ? student.AddressLine : student.DeliveryAddress
         };
     }
@@ -777,14 +721,6 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient, IWebH
             ReporterPhone = student?.GuardianPhone
                 ?? kit?.AssignedStudentGuardianPhone
                 ?? address?.Phone
-                ?? string.Empty,
-            City = student?.DeliveryCity
-                ?? student?.City
-                ?? address?.City
-                ?? string.Empty,
-            District = student?.DeliveryDistrict
-                ?? student?.District
-                ?? address?.District
                 ?? string.Empty,
             ReporterAddress = student?.DeliveryAddress
                 ?? student?.AddressLine

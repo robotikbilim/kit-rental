@@ -22,8 +22,6 @@
                     <th>Öğrenci</th>
                     <th>Veli telefonu</th>
                     <th>Adres</th>
-                    <th>İl</th>
-                    <th>İlçe</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -42,16 +40,6 @@
                             @Model.Rows[i].AddressLine
                             <input type="hidden" asp-for="Rows[i].AddressLine" />
                             <input type="hidden" asp-for="Rows[i].ProductModelId" />
-                        </td>
-                        <td>
-                            @Model.Rows[i].City
-                            <input type="hidden" asp-for="Rows[i].City" />
-                            <input type="hidden" asp-for="Rows[i].CityId" />
-                        </td>
-                        <td>
-                            @Model.Rows[i].District
-                            <input type="hidden" asp-for="Rows[i].District" />
-                            <input type="hidden" asp-for="Rows[i].DistrictId" />
                         </td>
                     </tr>
                 }

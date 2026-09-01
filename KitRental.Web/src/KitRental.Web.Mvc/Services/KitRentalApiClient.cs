@@ -108,8 +108,6 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
                 model.Address.ContactName,
                 model.Address.Phone,
                 model.Address.Line1,
-                model.Address.District,
-                model.Address.City,
                 model.Address.PostalCode
             },
             allowedProductModelIds = model.SelectedAllowedProductModelIds
@@ -143,8 +141,6 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         model.ContactName,
         model.Phone,
         model.Line1,
-        model.District,
-        model.City,
         model.PostalCode
     };
 
@@ -376,8 +372,6 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.Email,
             model.Phone,
             model.AddressLine,
-            model.District,
-            model.City,
             model.PostalCode,
             model.StartDate,
             model.EndDate
@@ -421,14 +415,14 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         RentalCohortStudentInputViewModel model, CancellationToken cancellationToken) =>
         PostAsync<PortalRentalCohortStudentViewModel>(
             $"/core/api/customer-portal/rental-periods/{model.CohortId}/students",
-            new { model.FullName, model.GuardianPhone, model.AddressLine, model.CityId, model.DistrictId, model.City, model.District, model.ProductModelId },
+            new { model.FullName, model.GuardianPhone, model.AddressLine, model.ProductModelId },
             cancellationToken);
 
     public Task<ApiCommandResult<PortalRentalCohortStudentViewModel>> UpdateRentalCohortStudentAsync(
         RentalCohortStudentInputViewModel model, CancellationToken cancellationToken) =>
         SendAsync<PortalRentalCohortStudentViewModel>(HttpMethod.Put,
             $"/core/api/customer-portal/rental-periods/{model.CohortId}/students/{model.Id}",
-            new { model.FullName, model.GuardianPhone, model.AddressLine, model.CityId, model.DistrictId, model.City, model.District, model.ProductModelId },
+            new { model.FullName, model.GuardianPhone, model.AddressLine, model.ProductModelId },
             cancellationToken);
 
     public Task<ApiCommandResult<object>> DeleteRentalCohortStudentAsync(Guid cohortId, Guid studentId,
@@ -451,8 +445,6 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             {
                 model.RequesterName,
                 model.RequesterPhone,
-                model.District,
-                model.City,
                 model.ReturnAddress,
                 model.ReturnReason
             },
@@ -471,8 +463,6 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
                 model.ReporterName,
                 model.ReporterPhone,
                 model.ReporterAddress,
-                model.District,
-                model.City,
                 model.Description
             }, cancellationToken);
 
@@ -505,8 +495,6 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.ReporterName,
             model.ReporterPhone,
             model.ReporterAddress,
-            model.District,
-            model.City,
             model.Description,
             model.Latitude,
             model.Longitude
@@ -518,8 +506,6 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             token = model.AccessToken,
             model.RequesterName,
             model.RequesterPhone,
-            model.District,
-            model.City,
             model.ReturnAddress,
             model.ReturnReason,
             model.DeliveryMethod,
@@ -534,8 +520,6 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.RecipientName,
             model.RecipientPhone,
             model.AddressLine,
-            model.District,
-            model.City,
             model.Latitude,
             model.Longitude
         }, cancellationToken);

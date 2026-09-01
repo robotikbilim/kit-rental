@@ -83,7 +83,7 @@
                 <div class="address-copy">
                     <strong>@Model.CurrentLocation.RecipientName</strong>
                     <span>@Model.CurrentLocation.Phone</span>
-                    <p>@Model.CurrentLocation.AddressLine<br />@Model.CurrentLocation.District / @Model.CurrentLocation.City</p>
+                    <p>@Model.CurrentLocation.AddressLine</p>
                     @if (Model.CurrentLocation.DeliveredAt.HasValue)
                     {
                         <small>Teslim alındı: @Model.CurrentLocation.DeliveredAt.Value.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>
@@ -116,7 +116,7 @@
                     <div>
                         <small>@delivery.OrderNumber · @delivery.StartDate.ToString("dd.MM.yyyy") - @delivery.EndDate.ToString("dd.MM.yyyy")</small>
                         <h3>@delivery.CustomerName</h3>
-                        <p>@delivery.AddressLine, @delivery.District / @delivery.City</p>
+                        <p>@delivery.AddressLine</p>
                         <small>@delivery.CustomerEmail</small>
                         @if (delivery.DeliveredAt.HasValue)
                         {

@@ -58,12 +58,6 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
             ReporterPhone = faultContext?.ReporterPhone
                 ?? deliveryContext?.RecipientPhone
                 ?? string.Empty,
-            City = faultContext?.City
-                ?? deliveryContext?.City
-                ?? string.Empty,
-            District = faultContext?.District
-                ?? deliveryContext?.District
-                ?? string.Empty,
             ReporterAddress = faultContext?.ReporterAddress
                 ?? deliveryContext?.AddressLine
                 ?? string.Empty,
@@ -114,8 +108,6 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
             DeliveryMethod = returnContext?.DeliveryMethod ?? 1,
             RequesterName = returnContext?.RequesterName ?? deliveryContext?.RecipientName ?? string.Empty,
             RequesterPhone = returnContext?.RequesterPhone ?? deliveryContext?.RecipientPhone ?? string.Empty,
-            City = returnContext?.City ?? deliveryContext?.City ?? string.Empty,
-            District = returnContext?.District ?? deliveryContext?.District ?? string.Empty,
             ReturnAddress = returnContext?.ReturnAddress ?? deliveryContext?.AddressLine ?? string.Empty,
             Latitude = returnContext?.Latitude ?? deliveryContext?.Latitude,
             Longitude = returnContext?.Longitude ?? deliveryContext?.Longitude
@@ -163,8 +155,6 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
             SerialNumber = kit.SerialNumber,
             RecipientName = deliveryContext?.RecipientName ?? string.Empty,
             RecipientPhone = deliveryContext?.RecipientPhone ?? string.Empty,
-            City = deliveryContext?.City ?? string.Empty,
-            District = deliveryContext?.District ?? string.Empty,
             AddressLine = deliveryContext?.AddressLine ?? string.Empty,
             Latitude = deliveryContext?.Latitude,
             Longitude = deliveryContext?.Longitude

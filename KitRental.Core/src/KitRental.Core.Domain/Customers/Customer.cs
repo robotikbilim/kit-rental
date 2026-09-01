@@ -8,16 +8,12 @@ public sealed record Address(
     string ContactName,
     string Phone,
     string Line1,
-    string District,
-    string City,
     string PostalCode);
 
 public sealed record AddressSnapshot(
     string ContactName,
     string Phone,
     string Line1,
-    string District,
-    string City,
     string PostalCode);
 
 public sealed record CustomerAllowedProductModel(Guid Id, Guid ProductModelId)
@@ -95,30 +91,28 @@ public sealed class Customer
         string contactName,
         string phone,
         string line1,
-        string district,
-        string city,
         string postalCode)
     {
-        if (new[] { title, contactName, phone, line1, district, city }.Any(string.IsNullOrWhiteSpace))
+        if (new[] { title, contactName, phone, line1 }.Any(string.IsNullOrWhiteSpace))
         {
-            throw new DomainException("address.required_fields", "Adres başlığı, iletişim ve konum alanları zorunludur.");
+            throw new DomainException("address.required_fields", "Adres başlığı, iletişim ve açık adres zorunludur.");
         }
 
         var address = new Address(
-            Guid.NewGuid(), title.Trim(), contactName.Trim(), TurkishPhoneNumber.Normalize(phone), line1.Trim(), district.Trim(), city.Trim(), postalCode.Trim());
+            Guid.NewGuid(), title.Trim(), contactName.Trim(), TurkishPhoneNumber.Normalize(phone), line1.Trim(), postalCode.Trim());
         _addresses.Add(address);
         return address;
     }
 
     public Address UpdateAddress(Guid addressId, string title, string contactName, string phone,
-        string line1, string district, string city, string postalCode)
+        string line1, string postalCode)
     {
-        if (new[] { title, contactName, phone, line1, district, city }.Any(string.IsNullOrWhiteSpace))
-            throw new DomainException("address.required_fields", "Adres başlığı, iletişim ve konum alanları zorunludur.");
+        if (new[] { title, contactName, phone, line1 }.Any(string.IsNullOrWhiteSpace))
+            throw new DomainException("address.required_fields", "Adres başlığı, iletişim ve açık adres zorunludur.");
         var index = _addresses.FindIndex(item => item.Id == addressId);
         if (index < 0) throw new DomainException("address.not_found", "Müşteri adresi bulunamadı.");
         var address = new Address(addressId, title.Trim(), contactName.Trim(), TurkishPhoneNumber.Normalize(phone), line1.Trim(),
-            district.Trim(), city.Trim(), postalCode.Trim());
+            postalCode.Trim());
         _addresses[index] = address;
         return address;
     }
@@ -138,8 +132,6 @@ public sealed class Customer
             address.ContactName,
             address.Phone,
             address.Line1,
-            address.District,
-            address.City,
             address.PostalCode);
     }
 }

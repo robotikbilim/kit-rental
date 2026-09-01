@@ -8,7 +8,7 @@
     <section class="public-fault-card">
         <span class="eyebrow">KIT IADESI</span>
         <h1>Iade talebi baslat</h1>
-        <p class="block-muted">Iade talebiniz operasyon ekibinin ekranina duser. Il, ilce ve acik adresi girin, sonra haritada kargo alinacak noktayi secin.</p>
+        <p class="block-muted">Iade talebiniz operasyon ekibinin ekranina duser. Acik adresi girin, sonra haritada kargo alinacak noktayi secin.</p>
         <div class="public-kit-summary"><span>Okutulan urun</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
         <form method="post" class="public-fault-form" id="public-return-form">
             <input asp-for="QrCode" type="hidden" />
@@ -27,20 +27,16 @@
                 <option value="1">Adresimden Alınsın</option>
                 <option value="2">Kendim Bırakacağım</option>
             </select><span asp-validation-for="DeliveryMethod" class="error"></span></div>
-            <div class="field" data-return-pickup-field><label asp-for="City"></label><select asp-for="City" data-selected="@Model.City"></select><span asp-validation-for="City" class="error"></span></div>
-            <div class="field" data-return-pickup-field><label asp-for="District"></label><select asp-for="District" data-selected="@Model.District"></select><span asp-validation-for="District" class="error"></span></div>
             <div class="field" data-return-pickup-field><label asp-for="ReturnAddress"></label><textarea asp-for="ReturnAddress" rows="3" autocomplete="street-address" placeholder="Kargo alinacak acik adresi yazin."></textarea><span asp-validation-for="ReturnAddress" class="error"></span></div>
             <div class="public-location-box" data-return-pickup-field>
                 <button class="secondary-action" id="use-location" type="button">Konumumu Bul</button>
                 <div id="public-location-map" class="public-location-map"></div>
-                <span id="location-status">Konumumu bul ile pimi yakin noktaya getirin veya haritadan secin. Adres, il ve ilce otomatik doldurulur.</span>
+                <span id="location-status">Konumumu bul ile pimi yakın noktaya getirin veya haritadan seçin.</span>
             </div>
             <button class="primary-action" type="submit">İade Talebi Oluştur</button>
         </form>
     </section>
 </div>
-<script src="~/js/tr-city-districts.js" asp-append-version="true"></script>
-<script src="~/js/public-city-district.js" asp-append-version="true"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="~/js/public-location.js" asp-append-version="true"></script>
 <script>

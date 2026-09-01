@@ -8,14 +8,13 @@ using KitRental.Core.Domain.Support;
 namespace KitRental.Core.Application.CustomerPortal;
 
 public sealed record PortalAddressResponse(Guid Id, string Title, string ContactName, string Phone, string Line1,
-    string District, string City, string PostalCode);
+    string PostalCode);
 public sealed record PortalProductModelResponse(Guid Id, string Name, string Sku, string? Description, string? ImageUrl);
 public sealed record PortalRentalCohortStudentResponse(Guid Id, string FullName, string GuardianPhone,
-    string AddressLine, int? CityId, int? DistrictId, string City, string District, Guid ProductModelId, string ProductModelName, string ProductModelSku, Guid? OrderId,
+    string AddressLine, Guid ProductModelId, string ProductModelName, string ProductModelSku, Guid? OrderId,
     Guid? AssignmentId, Guid? ProductUnitId, string? SerialNumber, string? QrCode, bool IsDeleted,
     bool HasActiveReturn, bool HasCompletedReturn = false, bool HasDeliveryForm = false, string? DeliveredTo = null,
-    string? DeliveryPhone = null, string? DeliveryAddress = null, string? DeliveryDistrict = null,
-    string? DeliveryCity = null, DateTimeOffset? DeliveredAt = null);
+    string? DeliveryPhone = null, string? DeliveryAddress = null, DateTimeOffset? DeliveredAt = null);
 public sealed record PortalUnassignedCohortKitResponse(Guid ProductUnitId, Guid AssignmentId, Guid OrderId,
     Guid ProductModelId, string ProductModelName, string ProductModelSku, string SerialNumber, string QrCode);
 public sealed record PortalRentalCohortResponse(Guid Id, Guid CustomerId, string Name, DateOnly StartDate,
@@ -52,7 +51,7 @@ public sealed record CustomerPortalResponse(string CustomerName, string Customer
     IReadOnlyCollection<PortalKitLocationResponse> KitLocations,
     IReadOnlyCollection<PortalRentalCohortResponse> RentalCohorts);
 public sealed record PortalKitLocationResponse(Guid ProductUnitId, Guid ProductModelId, string KitName,
-    string KitSku, string SerialNumber, string RecipientName, string AddressLine, string District, string City,
+    string KitSku, string SerialNumber, string RecipientName, string AddressLine,
     int Status, double? Latitude = null, double? Longitude = null, string LocationCategory = "active");
 public sealed record PortalKitReturnItemResponse(Guid AssignmentId, Guid ProductUnitId, Guid OrderId,
     string KitName, string SerialNumber);
@@ -62,16 +61,16 @@ public sealed record PortalKitReturnResponse(Guid Id, Guid CustomerId, string Cu
     double? Latitude, double? Longitude, KitReturnDeliveryMethod DeliveryMethod,
     IReadOnlyCollection<PortalKitReturnItemResponse> Items);
 public sealed record PublicKitReturnContextResponse(Guid ReturnId, string? RequesterName, string? RequesterPhone,
-    string? ReturnAddress, string? District, string? City, double? Latitude, double? Longitude,
+    string? ReturnAddress, double? Latitude, double? Longitude,
     KitReturnReason? ReturnReason, KitReturnDeliveryMethod DeliveryMethod);
 
 public sealed record OpenPortalFaultCommand(Guid CustomerId, Guid AssignmentId, string ReporterName,
-    string ReporterPhone, string ReporterAddress, string District, string City, string Description, Guid ActorId);
+    string ReporterPhone, string ReporterAddress, string Description, Guid ActorId);
 public sealed record ConfirmPortalOrderDeliveryCommand(Guid CustomerId, Guid OrderId, Guid ActorId);
 public sealed record CreatePortalRentalCohortOrderCommand(Guid CustomerId, Guid CohortId, Guid ActorId,
     string ActorDisplayName);
 public sealed record CreatePublicKitReturnCommand(string QrCode, string RequesterName,
-    string RequesterPhone, string District, string City, string ReturnAddress,
+    string RequesterPhone, string ReturnAddress,
     double? Latitude, double? Longitude, KitReturnReason? ReturnReason = null,
     KitReturnDeliveryMethod DeliveryMethod = KitReturnDeliveryMethod.PickupFromAddress);
 public sealed record CreatePortalReturnCommand(Guid CustomerId, IReadOnlyCollection<Guid> AssignmentIds,
@@ -82,11 +81,11 @@ public sealed record SaveRentalCohortCommand(Guid? Id, Guid CustomerId, string N
     DateOnly EndDate, Guid ActorId, string ActorDisplayName);
 public sealed record DeleteRentalCohortCommand(Guid CustomerId, Guid CohortId, Guid ActorId);
 public sealed record SaveRentalCohortStudentCommand(Guid? Id, Guid CustomerId, Guid CohortId, string FullName,
-    string GuardianPhone, string AddressLine, int CityId, int DistrictId, string City, string District, Guid ProductModelId, Guid ActorId, string ActorDisplayName);
+    string GuardianPhone, string AddressLine, Guid ProductModelId, Guid ActorId, string ActorDisplayName);
 public sealed record ImportRentalCohortStudentCommand(string FullName, string GuardianPhone, string AddressLine,
-    int CityId, int DistrictId, string City, string District, string ProductModel);
+    string ProductModel);
 public sealed record CreatePortalStudentReturnCommand(Guid CustomerId, Guid CohortId, Guid StudentId, Guid ActorId,
-    string ActorDisplayName, string RequesterName, string RequesterPhone, string District, string City,
+    string ActorDisplayName, string RequesterName, string RequesterPhone,
     string ReturnAddress, KitReturnReason? ReturnReason);
 
 

@@ -95,15 +95,15 @@ Rentals:
 - In the customer portal, rental cohorts are presented as `Siparişler`: the former customer `Orders` page redirects to `RentalPeriods`, and the list shows each cohort's linked order number plus approved/unapproved state. The detail action opens the cohort's student list.
 - In the customer portal `Siparişler` list, delivered/active/completed linked orders (`Delivered`, `RentalActive`, `Completed`) display the detail label `Tamamlandı`.
 - Rental cohort responses include `IsApproved`; once the linked order reaches `Approved` or any later non-cancelled/non-rejected status, the customer portal treats the student list/order as locked only for student-list mutations. Student add/update/import/delete and order-period plan edits are hidden in MVC and rejected by the application service/API, while linked-kit fault reporting and return request flows remain available.
-- When an admin approves an order linked to a TACEV rental cohort, active student addresses are geocoded through `IAddressGeocoder`; successful latitude/longitude values are persisted on `RentalCohortStudents` and reused for student delivery location events. If approval-time geocoding does not return coordinates, kit assignment retries geocoding immediately before creating the delivery location event.
+- Admin approval and kit preparation for orders linked to TACEV rental cohorts do not geocode student addresses; the student free-text address is used as entered.
 - Admin order kit preparation can select a customer's rental cohort. When selected, kit quantities are calculated from unassigned cohort students, and reserved/created kits are linked to the matching students.
-- When admin kit preparation assigns a rental cohort student to a kit, the generated `KitLocationEvent` now copies the student's `District`, `City`, `Latitude`, and `Longitude` values.
+- When admin kit preparation assigns a rental cohort student to a kit, the generated `KitLocationEvent` uses the student's free-text address and does not copy separate student regional fields or coordinates.
 - If an admin opens kit preparation for an order created from a TACEV cohort, the cohort is inferred from student `OrderId` links and selected automatically.
 - Preparing kits for a TACEV cohort creates `DeliveryReceipt` kit-location events from each student's name, guardian phone, and address, so the student delivery forms are prefilled immediately after assignment.
 - Order-scoped QR label printing keeps the physical kit serial number and QR code unchanged, but includes the currently assigned cohort student's name and guardian phone when a kit is linked to a TACEV order; student address is intentionally not printed on the label. Printed labels use the ordering customer's name as the label heading and the "Arıza bildirimi veya iade için okutun" instruction; non-order label printing falls back to `Robotik Bilim`. Print CSS pins the A4 layout to fixed-width label cards instead of allowing mobile rules to collapse labels to a single column.
 - TACEV rental period student rows include assigned kit serial/QR plus delivery-form summary fields when the kit has been delivered or auto-filled from the student list.
 - TACEV rental period student rows show only the student's defined address; delivery-form summary fields do not repeat the delivery address in the student list.
-- TACEV rental period student create/edit forms and Excel import preserve student `City` and `District` as separate fields; the fields are also passed to approved-order geocoding.
+- TACEV rental period student create/edit forms and Excel import collect only the free-text student address. Separate regional student fields are no longer stored.
 - TACEV rental period student updates are handled from an in-page modal opened by compact icon-only row actions; delete, return-request, and fault actions also use compact color-coded Lucide icon buttons.
 - Removing an already assigned student anonymizes the student row and hides it from the active student list, while the kit and rental assignment remain rented/reserved and appear as unassigned cohort kits.
 - Customer-portal student kit returns open a prefilled return form instead of creating the request immediately; the form uses the delivery-form recipient/address when present, otherwise the student record, requires a return reason, and does not ask for map coordinates.
@@ -115,8 +115,8 @@ Faults:
 - Main domain: `FaultTicket`, `FaultStatusEvent`.
 - Public QR fault flow can create a new fault or update an existing open fault.
 - Fault updates preserve history and now also insert a new kit location event.
-- `FaultTicket.Origin` distinguishes internal, public QR form, and customer-portal fault records. Customer-portal fault creation uses the same reporter name/phone/city/district/address/description fields as the public form, without showing map/location input, and operations fault lists show the source column.
-- Customer-portal fault forms prefill reporter/location fields from the linked student's delivery form when present, then fall back to the student list address and finally the customer address. The city/district selects use the public QR city-district dataset.
+- `FaultTicket.Origin` distinguishes internal, public QR form, and customer-portal fault records. Customer-portal fault creation uses reporter name, phone, free-text address, and description fields, and operations fault lists show the source column.
+- Customer-portal fault forms prefill reporter/address fields from the linked student's delivery form when present, then fall back to the student list address and finally the customer address.
 - Fault notification emails are queued in-process by Core API through `EmailNotificationQueue` / `EmailNotificationWorker`; public QR and customer-portal fault save flows enqueue the admin email and return without waiting for SMTP delivery.
 
 Physical kit detail history:
@@ -162,6 +162,8 @@ Rules:
 - Do not add current-location fields back onto `ProductUnit`.
 - Do not reintroduce `KitDeliveryReceipts` as a live domain/repository table.
 - The latest `KitLocationEvents` row for a `ProductUnitId`, ordered by `OccurredAt` then `Id`, is the current kit address.
+- `KitLocationEvents` rows without coordinates are discovered by `KitLocationGeocodingWorker`, queued in-process with duplicate suppression, and resolved asynchronously through the configured Gemini model. The worker rescans the durable location table periodically, so pending addresses are recovered after an API restart.
+- Gemini geocoding is configured under `Gemini` in Core API configuration. `Gemini:ApiKey` must be supplied through user secrets, environment variables, or deployment secret storage; it is intentionally empty in tracked `appsettings.json` and must never be committed.
 - Delivery form inserts a `KitLocationEvent` with source `DeliveryReceipt`.
 - Public fault creation inserts source `FaultReport`.
 - Public fault update inserts source `FaultUpdate`.
@@ -171,7 +173,7 @@ Rules:
 - Public return requests store `DeliveryMethod` (`Adresimden Alınsın` or `Kendim Bırakacağım`). Drop-off returns do not show the fixed Aras Kargo return code until the form is saved; after save, the public success page shows a pop-up with code `1234567890`. Drop-off returns do not require pickup address/map fields and store the Aras drop-off instruction as the return address.
 - Reopening the public QR return form before admin return receipt loads the active return request through `/api/public/returns/context/{token}` and allows updating the return reason, requester details, pickup/drop-off delivery method, and pickup location fields instead of creating a duplicate return.
 - Public QR forms treat latitude/longitude as optional and untrusted. Invalid or missing coordinates must not block saving; backend stores null coordinates when no valid map selection is provided.
-- Public QR fault, delivery, and return forms now collect Turkey il/ilce with dropdowns backed by a bundled city-district dataset. Reopening the forms with a valid token refills the last saved city, district, address, and any stored coordinates from the latest kit location context.
+- Public QR fault, delivery, and return forms collect free-text address plus optional latitude/longitude only. Reopening the forms with a valid token refills the last saved address and any stored coordinates from the latest kit location context.
 - The public QR landing screen offers only fault reporting and kit return; the user-facing `Kit Teslim Al` option is hidden because admins mark customer delivery automatically. The public delivery endpoint and MVC action still exist for internal compatibility.
 - Dashboard and portal maps read latest location events, with order delivery address as fallback for old kits with no event.
 - Physical kit detail uses assignment-specific latest location for rental history, and product-unit latest location for current location.
@@ -254,8 +256,8 @@ The operations dashboard kit location map intentionally has no visible filters a
 Product-model filter labels show the education set/product model name (`KitName`), not the stock code/SKU.
 Filter counts are calculated from all active rental map rows, not just rows with coordinates.
 Rows without latitude/longitude are not rendered as markers and are shown as a small "missing location" count near the map.
-Dashboard and customer portal map side summaries list all cities, ordered by kit count, instead of truncating to a top subset.
-Dashboard and customer portal map canvases use a fixed desktop height, and the side city summary uses the same desktop height as the map canvas while scrolling independently when all cities do not fit.
+Dashboard and customer portal maps no longer render regional side summaries; the map canvas uses the full map layout width.
+Dashboard and customer portal map canvases use a fixed desktop height.
 Turkey map overview starts closer in its default state and uses tight initial fit-to-markers padding.
 
 There are existing web UI changes in the working tree unrelated to the kit-location backend work; do not revert them unless explicitly requested.
@@ -275,7 +277,7 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Added migration `20260812211046_ReplaceKitDeliveryReceiptsWithLocationEvents`.
 - Migration preserves old delivery receipt data by copying it into `KitLocationEvents` before dropping `KitDeliveryReceipts`.
 - Removed automatic address geocoding from public QR flows.
-- Public fault, delivery, and return forms now include a small Leaflet map with a `Konumumu bul` action. GPS can place a nearby draggable pin, users can move the pin manually, and reverse geocoding fills the free-text address plus il/ilce from the selected point.
+- Public fault, delivery, and return forms now include a small Leaflet map with a `Konumumu bul` action. GPS can place a nearby draggable pin, users can move the pin manually, and reverse geocoding fills only the free-text address from the selected point.
 - Removed MVC range validation from public QR form latitude/longitude fields so invalid hidden coordinates do not block form submission.
 - Added map filters for faulty kits, return-process kits, active kits, serial number, and product model.
 - Added a missing-location label under the map filters; map counts now include coordinate-less active rental rows while markers still require coordinates.
@@ -307,7 +309,7 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 2026-08-15:
 
 - Added customer/TACEV rental periods and student lists with Excel template/import support in the MVC customer portal.
-- TACEV student Excel import reads student full name, guardian phone, address, city, and district. The Excel upload popup selects one education kit for the whole uploaded list before opening the preview screen.
+- TACEV student Excel import reads student full name, guardian phone, and free-text address. The Excel upload popup selects one education kit for the whole uploaded list before opening the preview screen.
 - Added `RentalCohort`, `RentalCohortStudent`, and `ProductUnitActivity` persistence, repository access, and migration `20260815175751_AddRentalCohortsAndProductUnitActivitiesSnapshotFix`.
 - Admin order kit preparation can select a customer's rental period; selected periods drive kit quantities from student kit choices and link created/reused units to students.
 - TACEV rental period detail now has an `Onayla ve sipariş oluştur` action that confirms the student list will be locked, then creates a pending rental order for admins from the student kit totals.
@@ -334,18 +336,16 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Customer portal `Kitler` list includes the assigned TACEV student name, guardian phone, and period when a kit is linked to a rental cohort student; student address is not shown in that list, though kit search still matches student fields.
 - Customer portal overview map no longer renders status, serial-number, or product-model filters; it always shows all customer kit markers with coordinates, while the admin dashboard map keeps its filters.
 - Customer portal `Siparişler` list now shows `Düzenle` and `Sil` actions for unapproved rental cohorts. Editing can change the period name and rental date range before admin approval; if a pending order exists, its rental period and kit quantity lines are synchronized from the cohort student list. Deleting removes the unapproved cohort and its linked unapproved order, but remains blocked after kit assignment or approval.
-- Admin approval of a rental order linked to TACEV students now geocodes student addresses via Nominatim and stores successful latitude/longitude values on `RentalCohortStudents`; kit preparation copies those coordinates into generated delivery location events.
-- Customer portal TACEV student Excel templates and import preview screens now include `İl` and `İlçe` columns in addition to the address column; import confirmation appends those values to the stored student address text.
+- Admin approval of a rental order linked to TACEV students no longer geocodes student addresses or stores separate student location coordinates from that flow.
+- Customer portal TACEV student Excel templates and import preview screens use only student name, guardian phone, and free-text address columns.
 
 2026-08-20:
 
 - Customer portal overview summary cards now show the requested eight-card set: all non-returned rented kits, student-assigned kits, unassigned rented kits, open faults, closed faults, return-pending kits, return-process kits, and returned kits. The old `Teslim Alınmamış Kitler` overview card was removed.
 - Customer portal `ActiveKitCount` now means rented kits currently assigned to a student. `UnassignedKitCount` counts currently rented kits without a student assignment, excluding returned assignments.
 - Customer portal overview metric cards use a compact 8-column desktop layout at 992px and wider so all cards fit on one row at normal desktop zoom.
-- Map side city/district summaries now match the map canvas height on desktop instead of extending taller than the map.
-- Map filter and missing-location controls now render above the map/summary grid, so the map top edge and city/district summary top edge start on the same line in both customer and operations views.
-- Rental cohort student records now persist separate `City` and `District` fields for single-entry and Excel-imported students; migration `20260820140000_AddRentalCohortStudentLocationFields` adds the columns.
-- Rental cohort student entry and Excel import now use city/district dropdown-derived IDs. `RentalCohortStudents.CityId` and `DistrictId` reference the seeded `LocationCities` and `LocationDistricts` tables; the existing `City` and `District` strings remain synchronized for geocoding and historical display. Migration `20260820150000_NormalizeRentalCohortStudentLocations` seeds the Turkey catalog and backfills matching legacy names.
+- Map filter and missing-location controls now render above the map grid.
+- Rental cohort student records briefly persisted separate regional fields through older migrations; these student-specific fields were later removed by `20260901180730_RemoveRentalCohortStudentLocationFields`.
 - Customer portal kits that have a received return are exposed as historical read-only records. Their detail page remains viewable, but QR/fault-report and return actions are hidden in MVC and rejected by the customer-portal application service/API.
 - Core and Identity business endpoints were migrated from `Program.cs` Minimal API mappings into thin MVC API controllers. Core controllers are grouped by domain under `KitRental.Core.Api/Controllers`; Identity uses separate auth, users, and internal-notifications controllers. Gateway wildcard proxy routes remain infrastructure endpoints.
 - API request DTOs now live under each API project's `Contracts/Requests` folder instead of `Program.cs`.
@@ -367,6 +367,13 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 2026-08-27:
 
 - Customer portal `Kitler` list supports an `assignmentState` filter (`all`, `assigned`, `unassigned`) based on whether `AssignedStudentName` is present. The overview `Atanmayan Kitler` card opens the list with `assignmentState=unassigned`, so it shows only rented kits that have not been assigned to a student.
+
+2026-09-01:
+
+- Removed separate regional collection from customer portal TACEV student create/edit and Excel import flows. The Excel template now contains only student full name, guardian phone, and free-text address.
+- Removed student regional fields from customer-portal API contracts, MVC view models, and `RentalCohortStudent`; migration `20260901180730_RemoveRentalCohortStudentLocationFields` drops the old student regional columns from `RentalCohortStudents`.
+- Removed project-wide separate regional storage from customer addresses, order delivery snapshots, kit location events, public/customer portal request contracts, map popups, and QR forms. Migration `20260901185000_RemoveProjectWideCityDistrictFields` drops the remaining regional columns and lookup tables; free-text address and optional latitude/longitude remain.
+- Admin kit preparation no longer geocodes TACEV student addresses or copies student regional fields/coordinates into generated delivery location events; the student free-text address remains the only student address source.
 
 ## Development Checklist
 

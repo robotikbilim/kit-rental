@@ -38,7 +38,7 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
         var customer = await PostAsync<CustomerResponse>(
             "/api/customers",
             new CreateCustomerRequest("Yaşam Döngüsü Okulu", $"lc-{Guid.NewGuid():N}@example.com",
-                new AddressRequest("Okul", "Teslim Alan", "5550001122", "Bilim Sokak 1", "Nilüfer", "Bursa", "16000")),
+                new AddressRequest("Okul", "Teslim Alan", "5550001122", "Bilim Sokak 1", "16000")),
             cancellationToken);
         var start = new DateOnly(2026, 9, 1);
         var end = new DateOnly(2026, 9, 15);
@@ -107,7 +107,7 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
         var customer = await PostAsync<CustomerResponse>(
             "/api/customers",
             new CreateCustomerRequest("Akış Test Okulu", $"flow-{Guid.NewGuid():N}@example.com",
-                new AddressRequest("Okul", "Teslim Alan", "5550007788", "Test Sokak 1", "Çankaya", "Ankara", "06000")),
+                new AddressRequest("Okul", "Teslim Alan", "5550007788", "Test Sokak 1", "06000")),
             cancellationToken);
         var start = new DateOnly(2026, 10, 1);
         var end = new DateOnly(2026, 10, 15);
@@ -172,8 +172,8 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
                 $"SALE-READY-QR-{Guid.NewGuid():N}"), cancellationToken);
         var customer = await PostAsync<CustomerResponse>("/api/customers",
             new CreateCustomerRequest("Satış Müşterisi", $"sale-{Guid.NewGuid():N}@example.com",
-                new AddressRequest("Merkez", "Teslim Alan", "5550007788", "Satış Sokak 1", "Çankaya",
-                    "Ankara", "06000")), cancellationToken);
+                new AddressRequest("Merkez", "Teslim Alan", "5550007788", "Satış Sokak 1", "06000")),
+            cancellationToken);
 
         var order = await PostAsync<OrderResponse>("/api/purchase-orders",
             new CreatePurchaseOrderRequest(customer.Id, customer.Addresses.Single().Id,

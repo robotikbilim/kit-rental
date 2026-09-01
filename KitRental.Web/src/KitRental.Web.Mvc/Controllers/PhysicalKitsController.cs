@@ -141,12 +141,7 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
     private static string? FormatStudentAddress(PortalRentalCohortStudentViewModel? student)
     {
         if (student is null) return null;
-        var parts = new[] { student.AddressLine, student.District, student.City }
-            .Where(part => !string.IsNullOrWhiteSpace(part))
-            .Select(part => part.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        return parts.Length == 0 ? null : string.Join(" / ", parts);
+        return string.IsNullOrWhiteSpace(student.AddressLine) ? null : student.AddressLine.Trim();
     }
 
     [HttpGet]

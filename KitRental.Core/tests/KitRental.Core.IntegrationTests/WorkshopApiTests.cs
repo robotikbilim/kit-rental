@@ -224,8 +224,8 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
 
         var rental = await PostAsync<BulkRentPhysicalKitsResponse>("/api/physical-kits/bulk-rent",
             new BulkRentPhysicalKitsRequest(units.Select(item => item.Id).ToArray(), "TACEV Toplu Test",
-                $"bulk-{Guid.NewGuid():N}@example.com", "02165550000", "Bilim Sokak 1", "Kadıköy",
-                "İstanbul", "34000", new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1)), cancellationToken);
+                $"bulk-{Guid.NewGuid():N}@example.com", "02165550000", "Bilim Sokak 1", "34000",
+                new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1)), cancellationToken);
 
         Assert.Equal(3, rental.KitCount);
         Assert.Equal(3, rental.Kits.Count);

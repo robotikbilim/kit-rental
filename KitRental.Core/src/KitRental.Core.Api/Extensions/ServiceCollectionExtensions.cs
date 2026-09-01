@@ -43,13 +43,15 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<EmailNotificationWorker>();
         services.AddScoped<EmailNotificationDispatcher>();
         services.AddScoped<IEmailNotificationService, QueuedEmailNotificationService>();
+        services.AddSingleton<KitLocationGeocodingQueue>();
+        services.AddHostedService<KitLocationGeocodingWorker>();
 
-        services.AddHttpClient<IAddressGeocoder, NominatimAddressGeocoder>(client =>
-            client.DefaultRequestHeaders.UserAgent.ParseAdd(configuration["Geocoding:UserAgent"]
-                ?? "KitRental/1.0 (admin@robotikbilim.com.tr)"));
         services.AddHttpClient("identity-notifications", client =>
             client.BaseAddress = new Uri(configuration["Notifications:IdentityBaseUrl"]
                 ?? "https://localhost:59592"));
+        services.AddHttpClient("gemini", client =>
+            client.BaseAddress = new Uri(configuration["Gemini:BaseUrl"]
+                ?? "https://generativelanguage.googleapis.com"));
 
         return services;
     }

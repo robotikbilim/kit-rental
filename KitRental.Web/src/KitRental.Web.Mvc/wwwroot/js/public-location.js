@@ -4,8 +4,6 @@
     const status = document.getElementById("location-status");
     const latitude = document.getElementById("Latitude");
     const longitude = document.getElementById("Longitude");
-    const citySelect = document.getElementById("City");
-    const districtSelect = document.getElementById("District");
     const addressInput = document.getElementById("ReporterAddress")
         || document.getElementById("ReturnAddress")
         || document.getElementById("AddressLine");
@@ -56,17 +54,10 @@
             const data = await response.json();
             if (requestId !== activeRequestId) return;
 
-            const address = data.address || {};
-            const city = address.province || address.city || address.town || address.state || "";
-            const district = address.county || address.city_district || address.town || address.suburb || "";
             const displayName = typeof data.display_name === "string" ? data.display_name.trim() : "";
 
             if (displayName) {
                 addressInput.value = displayName;
-            }
-
-            if (city || district) {
-                window.publicCityDistricts?.setLocation(city, district);
             }
 
             setStatus(`Secilen konum kaydedildi: ${formatCoordinate(lat)}, ${formatCoordinate(lon)}`);

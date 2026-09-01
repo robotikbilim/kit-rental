@@ -2,7 +2,6 @@ using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Customers;
 using KitRental.Core.Domain.Inventory;
-using KitRental.Core.Domain.Locations;
 using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Notifications;
@@ -17,11 +16,6 @@ namespace KitRental.Core.Infrastructure.Persistence;
 
 public sealed class InMemoryCoreRepository : ICoreRepository
 {
-    public Task<LocationCity?> GetLocationCityAsync(int id, CancellationToken cancellationToken) =>
-        Task.FromResult<LocationCity?>(null);
-
-    public Task<LocationDistrict?> GetLocationDistrictAsync(int id, CancellationToken cancellationToken) =>
-        Task.FromResult<LocationDistrict?>(null);
     private readonly object _gate = new();
     private readonly Dictionary<Guid, ProductModel> _models = [];
     private readonly Dictionary<Guid, ProductUnit> _units = [];
@@ -374,6 +368,12 @@ public sealed class InMemoryCoreRepository : ICoreRepository
                 .OrderByDescending(item => item.OccurredAt)
                 .ThenByDescending(item => item.Id)
                 .ToArray());
+    }
+
+    public Task<KitLocationEvent?> GetKitLocationEventAsync(Guid id, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult(_kitLocationEvents.GetValueOrDefault(id));
     }
 
     public Task AddFaultTicketAsync(FaultTicket ticket, CancellationToken cancellationToken)

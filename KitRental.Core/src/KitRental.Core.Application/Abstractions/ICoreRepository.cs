@@ -1,7 +1,6 @@
 using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Customers;
 using KitRental.Core.Domain.Inventory;
-using KitRental.Core.Domain.Locations;
 using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Notifications;
@@ -19,8 +18,6 @@ public interface ICoreRepository
     Task AddProductModelAsync(ProductModel model, CancellationToken cancellationToken);
     Task<ProductModel?> GetProductModelAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<ProductModel>> GetProductModelsAsync(CancellationToken cancellationToken);
-    Task<LocationCity?> GetLocationCityAsync(int id, CancellationToken cancellationToken);
-    Task<LocationDistrict?> GetLocationDistrictAsync(int id, CancellationToken cancellationToken);
     Task RemoveProductModelAsync(ProductModel model, CancellationToken cancellationToken);
     Task AddProductUnitAsync(ProductUnit unit, CancellationToken cancellationToken);
     Task<ProductUnit?> GetProductUnitAsync(Guid id, CancellationToken cancellationToken);
@@ -58,6 +55,7 @@ public interface ICoreRepository
     Task<IReadOnlyCollection<Shipment>> GetShipmentsAsync(Guid orderId, CancellationToken cancellationToken);
     Task AddKitLocationEventAsync(KitLocationEvent locationEvent, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KitLocationEvent>> GetKitLocationEventsAsync(CancellationToken cancellationToken);
+    Task<KitLocationEvent?> GetKitLocationEventAsync(Guid id, CancellationToken cancellationToken);
     Task AddFaultTicketAsync(FaultTicket ticket, CancellationToken cancellationToken);
     Task AddPublicFormAccessTokenAsync(PublicFormAccessToken token, CancellationToken cancellationToken);
     Task<PublicFormAccessToken?> GetPublicFormAccessTokenByHashAsync(string tokenHash, CancellationToken cancellationToken);
