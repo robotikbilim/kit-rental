@@ -780,7 +780,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                     activeReturnAssignmentIds.Contains(student.AssignmentId.Value),
                 student.AssignmentId.HasValue && completedReturnAssignmentIds.Contains(student.AssignmentId.Value),
                 delivery is not null, delivery?.ContactName, delivery?.ContactPhone, delivery?.AddressLine,
-                delivery?.OccurredAt));
+                delivery?.OccurredAt, student.PublicAddressToken, student.AddressSubmittedAt));
         }
         var assignedStudentUnitIds = cohort.Students.Where(item => !item.IsDeleted && item.ProductUnitId.HasValue)
             .Select(item => item.ProductUnitId!.Value)

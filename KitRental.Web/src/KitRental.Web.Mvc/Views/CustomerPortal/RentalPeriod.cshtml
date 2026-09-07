@@ -30,6 +30,7 @@
             <h1>@Model.Cohort.Name</h1>
         </div>
         <div class="student-list-heading-actions">
+            <a class="secondary-action" asp-action="ExportRentalPeriodStudents" asp-route-id="@Model.Cohort.Id">Excel Olarak İndir</a>
             @if (!studentsLocked)
             {
                 <button class="primary-action" type="button" data-dialog-open="student-create-dialog">Yeni Öğrenci Ekle</button>
@@ -73,7 +74,7 @@
                 <div class="field"><label asp-for="StudentForm.GuardianPhone"></label><input asp-for="StudentForm.GuardianPhone" name="GuardianPhone" type="tel" data-phone-mask="tr" /></div>
                 <div class="field"><label asp-for="StudentForm.ProductModelId"></label><select asp-for="StudentForm.ProductModelId" name="ProductModelId"><option value="">Kit seçin</option>@foreach (var kit in Model.ProductModels) { <option value="@kit.Id">@kit.Name (@kit.Sku)</option> }</select></div>
             </div>
-            <div class="field"><label asp-for="StudentForm.AddressLine"></label><textarea asp-for="StudentForm.AddressLine" name="AddressLine" rows="3"></textarea></div>
+            <input type="hidden" name="AddressLine" value="" />
             <footer>
                 <button class="secondary-action" type="button" data-dialog-close>Vazgeç</button>
                 <button class="primary-action" type="submit">Kaydet</button>
@@ -112,7 +113,6 @@
         </form>
     </dialog>
 }
-
 <section class="portal-section">
     <div class="section-heading"><div><span class="eyebrow">LİSTE</span><h2>Öğrenciler Ve Atanmış Kitler</h2></div><b>@Model.TotalCount / @Model.Cohort.Students.Count öğrenci</b></div>
     <form method="get" class="portal-kit-filters student-list-filters" data-auto-filter="true">
@@ -141,6 +141,14 @@
                 <option value="returning" selected="@(Model.AssignmentState == "returning")">İade Sürecinde</option>
             </select>
         </label>
+        <label>
+            <span>Adres Durumu</span>
+            <select name="addressState">
+                <option value="" selected="@(string.IsNullOrWhiteSpace(Model.AddressState))">Tümü</option>
+                <option value="completed" selected="@(Model.AddressState == "completed")">Adres Girilmiş</option>
+                <option value="pending" selected="@(Model.AddressState == "pending")">Adres Bekleniyor</option>
+            </select>
+        </label>
     </form>
     @if (Model.Cohort.Students.Count == 0)
     {
@@ -154,14 +162,14 @@
     {
         <div class="table-scroll">
             <table class="order-kits-table">
-                <thead><tr><th>Öğrenci</th><th>Veli telefonu</th><th>Kit</th><th>Atanan fiziksel kit</th><th></th></tr></thead>
+                <thead><tr><th>Öğrenci</th><th>Veli telefonu</th><th>Kit</th><th>Adres Durumu</th><th>Adres</th><th>Adres Linki</th><th>Atanan fiziksel kit</th><th></th></tr></thead>
                 <tbody>
                 @foreach (var student in Model.Students)
                 {
+                    var addressUrl = Url.Action("Index", "PublicStudentAddress", new { token = student.PublicAddressToken }, Context.Request.Scheme) ?? string.Empty;
                     <tr>
                         <td>
                             <strong>@student.FullName</strong>
-                            <small class="block-muted">@student.AddressLine</small>
                             @if (student.ProductUnitId.HasValue)
                             {
                                 <small class="block-muted">Kit: @student.SerialNumber (@student.QrCode)</small>
@@ -177,6 +185,24 @@
                         </td>
                         <td>@student.GuardianPhone</td>
                         <td>@student.ProductModelName <small class="block-muted">@student.ProductModelSku</small></td>
+                        <td>@if (string.IsNullOrWhiteSpace(student.AddressLine)) { <span class="line-pending">Bekleniyor</span> } else { <span class="line-complete">Tamamlandı</span> }</td>
+                        <td>
+                            @if (!string.IsNullOrWhiteSpace(student.AddressLine))
+                            {
+                                <div class="table-actions-compact">
+                                    <button class="row-link" type="button" data-fulltext-modal data-title="@($"{student.FullName} adresi")" data-text="@student.AddressLine">Göster</button>
+                                </div>
+                            }
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrWhiteSpace(addressUrl))
+                            {
+                                <div class="table-actions-compact">
+                                    <button class="row-link copy-address-link" type="button" data-link="@addressUrl">Kopyala</button>
+                                    <button class="row-link" type="button" data-fulltext-modal data-title="@($"{student.FullName} public adres linki")" data-text="@addressUrl">Göster</button>
+                                </div>
+                            }
+                        </td>
                         <td>@if (student.ProductUnitId.HasValue) { <code class="unit-serial">@student.SerialNumber</code><small class="block-muted">@student.QrCode</small> } else { <span>Henüz atanmadı</span> }</td>
                         <td>
                             <div class="student-row-actions" aria-label="Öğrenci işlemleri">
@@ -238,19 +264,19 @@
             @if (Model.TotalPages > 1)
             {
                 <nav class="pagination" aria-label="Öğrenci listesi sayfaları">
-                    <a class="@(Model.Page == 1 ? "disabled" : null)" aria-disabled="@(Model.Page == 1 ? "true" : null)" aria-label="Önceki sayfa" asp-action="RentalPeriod" asp-route-id="@Model.Cohort.Id" asp-route-studentQuery="@Model.StudentQuery" asp-route-productModelId="@Model.ProductModelId" asp-route-assignmentState="@Model.AssignmentState" asp-route-page="@(Model.Page - 1)">&lsaquo;</a>
+                    <a class="@(Model.Page == 1 ? "disabled" : null)" aria-disabled="@(Model.Page == 1 ? "true" : null)" aria-label="Önceki sayfa" asp-action="RentalPeriod" asp-route-id="@Model.Cohort.Id" asp-route-studentQuery="@Model.StudentQuery" asp-route-productModelId="@Model.ProductModelId" asp-route-assignmentState="@Model.AssignmentState" asp-route-addressState="@Model.AddressState" asp-route-page="@(Model.Page - 1)">&lsaquo;</a>
                     @foreach (var paginationPage in PaginationPages(Model.Page, Model.TotalPages))
                     {
                         if (paginationPage.HasValue)
                         {
-                            <a class="@(paginationPage == Model.Page ? "active" : null)" aria-current="@(paginationPage == Model.Page ? "page" : null)" asp-action="RentalPeriod" asp-route-id="@Model.Cohort.Id" asp-route-studentQuery="@Model.StudentQuery" asp-route-productModelId="@Model.ProductModelId" asp-route-assignmentState="@Model.AssignmentState" asp-route-page="@paginationPage">@paginationPage</a>
+                            <a class="@(paginationPage == Model.Page ? "active" : null)" aria-current="@(paginationPage == Model.Page ? "page" : null)" asp-action="RentalPeriod" asp-route-id="@Model.Cohort.Id" asp-route-studentQuery="@Model.StudentQuery" asp-route-productModelId="@Model.ProductModelId" asp-route-assignmentState="@Model.AssignmentState" asp-route-addressState="@Model.AddressState" asp-route-page="@paginationPage">@paginationPage</a>
                         }
                         else
                         {
                             <span class="pagination-ellipsis" aria-hidden="true">...</span>
                         }
                     }
-                    <a class="@(Model.Page == Model.TotalPages ? "disabled" : null)" aria-disabled="@(Model.Page == Model.TotalPages ? "true" : null)" aria-label="Sonraki sayfa" asp-action="RentalPeriod" asp-route-id="@Model.Cohort.Id" asp-route-studentQuery="@Model.StudentQuery" asp-route-productModelId="@Model.ProductModelId" asp-route-assignmentState="@Model.AssignmentState" asp-route-page="@(Model.Page + 1)">&rsaquo;</a>
+                    <a class="@(Model.Page == Model.TotalPages ? "disabled" : null)" aria-disabled="@(Model.Page == Model.TotalPages ? "true" : null)" aria-label="Sonraki sayfa" asp-action="RentalPeriod" asp-route-id="@Model.Cohort.Id" asp-route-studentQuery="@Model.StudentQuery" asp-route-productModelId="@Model.ProductModelId" asp-route-assignmentState="@Model.AssignmentState" asp-route-addressState="@Model.AddressState" asp-route-page="@(Model.Page + 1)">&rsaquo;</a>
                 </nav>
             }
         </footer>
@@ -310,8 +336,9 @@
                             }
                         }
                     </select>
+                </div>
             </div>
-            <div class="field"><label for="edit-student-address">Adres bilgileri</label><textarea id="edit-student-address" name="AddressLine" rows="3" maxlength="1000" required>@Model.StudentForm.AddressLine</textarea></div>
+            <input type="hidden" id="edit-student-address" name="AddressLine" value="@Model.StudentForm.AddressLine" />
             <footer>
                 <button class="secondary-action" type="button" data-student-edit-close>Vazgeç</button>
                 <button class="primary-action" type="submit">Güncelle</button>

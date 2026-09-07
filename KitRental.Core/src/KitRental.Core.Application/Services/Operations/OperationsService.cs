@@ -21,6 +21,9 @@ public sealed record UpdateCustomerCommand(Guid CustomerId, string Name, string 
 public sealed record CustomerAddressCommand(Guid CustomerId, Guid? AddressId, AddressCommand Address, Guid ActorId);
 public sealed record OrderLineCommand(Guid ProductModelId, int Quantity);
 public sealed record CreateOrderCommand(Guid CustomerId, Guid AddressId, DateOnly StartDate, DateOnly EndDate, IReadOnlyCollection<OrderLineCommand> Lines, Guid ActorId);
+public sealed record CreateStudentAddressOrderStudentCommand(string FullName, string GuardianPhone);
+public sealed record CreateStudentAddressOrderCommand(Guid CustomerId, Guid ProductModelId, DateOnly StartDate,
+    DateOnly EndDate, IReadOnlyCollection<CreateStudentAddressOrderStudentCommand> Students, Guid ActorId);
 public sealed record CreatePurchaseOrderCommand(Guid CustomerId, Guid AddressId,
     IReadOnlyCollection<OrderLineCommand> Lines, Guid ActorId);
 public sealed record CreateShipmentCommand(Guid OrderId, Guid? FaultTicketId, ShipmentType Type, string Carrier, string TrackingNumber, Guid ActorId);
@@ -64,9 +67,17 @@ public sealed record OrderDetailLineResponse(Guid Id, Guid ProductModelId, strin
     int Quantity, int CreatedKitCount);
 public sealed record OrderDetailKitResponse(Guid Id, Guid OrderLineId, Guid ProductModelId, string ProductName,
     string ProductSku, string SerialNumber, string QrCode, ProductUnitStatus Status);
+public sealed record OrderDetailStudentResponse(Guid Id, string FullName, string GuardianPhone, string AddressLine,
+    bool HasAddress, string PublicAddressToken, DateTimeOffset? AddressSubmittedAt, Guid ProductModelId = default,
+    string ProductName = "", string ProductSku = "");
 public sealed record OrderDetailResponse(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName, OrderType Type,
     RentalOrderStatus Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt, Guid? RentalCohortId,
-    IReadOnlyCollection<OrderDetailLineResponse> Lines, IReadOnlyCollection<OrderDetailKitResponse> Kits);
+    IReadOnlyCollection<OrderDetailLineResponse> Lines, IReadOnlyCollection<OrderDetailKitResponse> Kits,
+    IReadOnlyCollection<OrderDetailStudentResponse> Students);
+public sealed record PublicStudentAddressContextResponse(string StudentName, string GuardianPhone, string CustomerName,
+    string OrderNumber, string ProductName, string? AddressLine, double? Latitude, double? Longitude);
+public sealed record SavePublicStudentAddressCommand(string Token, string AddressLine, double? Latitude,
+    double? Longitude);
 public sealed record DashboardResponse(
     int Customers,
     int ProductUnits,
@@ -241,6 +252,53 @@ public sealed class OperationsService(
         return order;
     }
 
+    public async Task<RentalOrder> CreateStudentAddressOrderAsync(CreateStudentAddressOrderCommand command,
+        CancellationToken cancellationToken)
+    {
+        var customer = await repository.GetCustomerAsync(command.CustomerId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+        var productModel = await repository.GetProductModelAsync(command.ProductModelId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Eğitim kiti bulunamadı.");
+        if (!customer.CanUseProductModel(productModel.Id))
+            throw new ForbiddenException("Bu eğitim kiti müşterinin kullanımına açık değil.");
+        var address = customer.Addresses.FirstOrDefault()
+            ?? throw new ConflictException("customer.address_required",
+                "Sipariş oluşturmak için müşterinin kayıtlı bir adresi bulunmalıdır.");
+        var students = command.Students
+            .Where(student => !string.IsNullOrWhiteSpace(student.FullName) ||
+                !string.IsNullOrWhiteSpace(student.GuardianPhone))
+            .ToArray();
+        if (students.Length == 0)
+            throw new ConflictException("order.students_required", "Sipariş için en az bir öğrenci girilmelidir.");
+
+        var now = timeProvider.GetTurkeyNow();
+        var order = RentalOrder.Create(
+            Guid.NewGuid(),
+            $"RR-{now:yyyyMMdd}-{Guid.NewGuid():N}"[..20],
+            customer.Id,
+            new RentalPeriod(command.StartDate, command.EndDate),
+            customer.SnapshotAddress(address.Id),
+            now);
+        order.AddLine(productModel.Id, students.Length);
+        order.Submit(command.ActorId, now);
+
+        var cohort = RentalCohort.Create(Guid.NewGuid(), customer.Id, order.OrderNumber, command.StartDate,
+            command.EndDate, now);
+        foreach (var student in students)
+            cohort.AddStudent(student.FullName, student.GuardianPhone, string.Empty, productModel.Id);
+        cohort.LinkActiveStudentsToOrder(order.Id);
+
+        await repository.AddOrderAsync(order, cancellationToken);
+        await repository.AddRentalCohortAsync(cohort, cancellationToken);
+        await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(RentalOrder),
+            order.Id, "SubmittedWithStudentAddressCollection", null, $"{students.Length} öğrenci", now),
+            cancellationToken);
+        await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(RentalCohort),
+            cohort.Id, "CreatedForOrderAddressCollection", null, order.OrderNumber, now), cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+        return order;
+    }
+
     public async Task<RentalOrder> CreatePurchaseOrderAsync(CreatePurchaseOrderCommand command,
         CancellationToken cancellationToken)
     {
@@ -289,11 +347,73 @@ public sealed class OperationsService(
             kits.Add(new OrderDetailKitResponse(unit.Id, assignment.OrderLineId, unit.ProductModelId,
                 model?.Name ?? "Eğitim kiti", model?.Sku ?? "-", unit.SerialNumber, unit.QrCode, unit.Status));
         }
-        var rentalCohortId = (await repository.GetRentalCohortsAsync(order.CustomerId, cancellationToken))
-            .FirstOrDefault(cohort => cohort.Students.Any(student => student.OrderId == order.Id))?.Id;
+        var cohort = (await repository.GetRentalCohortsAsync(order.CustomerId, cancellationToken))
+            .FirstOrDefault(cohort => cohort.Students.Any(student => student.OrderId == order.Id));
+        var students = cohort?.Students
+            .Where(student => !student.IsDeleted && student.OrderId == order.Id)
+            .OrderBy(student => student.FullName)
+            .Select(student =>
+            {
+                models.TryGetValue(student.ProductModelId, out var productModel);
+                return new OrderDetailStudentResponse(student.Id, student.FullName, student.GuardianPhone,
+                    student.AddressLine, student.HasAddress, student.PublicAddressToken, student.AddressSubmittedAt,
+                    student.ProductModelId, productModel?.Name ?? "Eğitim kiti", productModel?.Sku ?? "-");
+            })
+            .ToArray() ?? [];
         return new OrderDetailResponse(order.Id, order.OrderNumber, order.CustomerId, customer?.Name ?? "Müşteri", order.Type,
-            order.Status, order.Period?.StartDate, order.Period?.EndDate, order.CreatedAt, rentalCohortId, lines,
-            kits.OrderBy(item => item.ProductName).ThenBy(item => item.SerialNumber).ToArray());
+            order.Status, order.Period?.StartDate, order.Period?.EndDate, order.CreatedAt, cohort?.Id, lines,
+            kits.OrderBy(item => item.ProductName).ThenBy(item => item.SerialNumber).ToArray(), students);
+    }
+
+    public async Task<PublicStudentAddressContextResponse> GetPublicStudentAddressContextAsync(string token,
+        CancellationToken cancellationToken)
+    {
+        var (cohort, student) = await GetStudentByAddressTokenAsync(token, cancellationToken);
+        var customer = await repository.GetCustomerAsync(cohort.CustomerId, cancellationToken);
+        var order = student.OrderId.HasValue ? await repository.GetOrderAsync(student.OrderId.Value, cancellationToken) : null;
+        var productModel = await repository.GetProductModelAsync(student.ProductModelId, cancellationToken);
+        return new PublicStudentAddressContextResponse(student.FullName, student.GuardianPhone,
+            customer?.Name ?? "Müşteri", order?.OrderNumber ?? cohort.Name,
+            productModel?.Name ?? "Eğitim kiti", student.AddressLine, student.Latitude, student.Longitude);
+    }
+
+    public async Task SavePublicStudentAddressAsync(SavePublicStudentAddressCommand command,
+        CancellationToken cancellationToken)
+    {
+        var (cohort, student) = await GetStudentByAddressTokenAsync(command.Token, cancellationToken);
+        var now = timeProvider.GetTurkeyNow();
+        cohort.UpdateStudentAddressByToken(command.Token, command.AddressLine, command.Latitude, command.Longitude,
+            now);
+        var order = student.OrderId.HasValue
+            ? await repository.GetOrderAsync(student.OrderId.Value, cancellationToken)
+            : null;
+        if (order?.Status == RentalOrderStatus.Completed && student.HasKitAssignment &&
+            student.AssignmentId.HasValue && student.ProductUnitId.HasValue && student.HasAddress)
+        {
+            await AddStudentKitLocationEventAsync(student, student.ProductUnitId.Value, student.AssignmentId.Value,
+                order.Id, cohort.CustomerId, PublicActorId, now, cancellationToken);
+            await AddActivityAsync(student.ProductUnitId.Value, student.AssignmentId.Value, order.Id,
+                student.Id, PublicActorId, "Public Form", "Öğrenci adresi güncellendi",
+                $"{student.FullName} öğrencisinin adresi public formdan kaydedildi.", cancellationToken, now);
+        }
+        await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), PublicActorId, nameof(RentalCohort),
+            cohort.Id, "StudentAddressSubmitted", student.FullName, student.OrderId?.ToString(), now),
+            cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<(RentalCohort Cohort, RentalCohortStudent Student)> GetStudentByAddressTokenAsync(
+        string token, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            throw new ResourceNotFoundException("Adres formu bağlantısı geçersiz.");
+        var normalizedToken = token.Trim();
+        var cohort = await repository.GetRentalCohortByStudentAddressTokenAsync(normalizedToken, cancellationToken)
+            ?? throw new ResourceNotFoundException("Adres formu bağlantısı geçersiz.");
+        var student = cohort.Students.SingleOrDefault(item =>
+            !item.IsDeleted && string.Equals(item.PublicAddressToken, normalizedToken, StringComparison.Ordinal))
+            ?? throw new ResourceNotFoundException("Adres formu bağlantısı geçersiz.");
+        return (cohort, student);
     }
 
     public async Task<OrderKitPreparationResponse> CreateAndReserveOrderKitsAsync(Guid orderId,
@@ -451,14 +571,6 @@ public sealed class OperationsService(
                 await AddActivityAsync(match.Unit.Id, match.Assignment.Id, order.Id, student.Id, actorId,
                     actorDisplayName ?? actorId.ToString(), "Öğrenciye atandı",
                     $"Kit {student.FullName} öğrencisine atandı.", cancellationToken, now);
-                await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), match.Unit.Id,
-                    match.Assignment.Id, order.Id, order.CustomerId, KitLocationEventSource.DeliveryReceipt,
-                    null, student.FullName, student.GuardianPhone, student.AddressLine,
-                    null, null, now, actorId), cancellationToken);
-                await AddActivityAsync(match.Unit.Id, match.Assignment.Id, order.Id, student.Id, actorId,
-                    actorDisplayName ?? actorId.ToString(), "Teslim formu oluşturuldu",
-                    $"{student.FullName} öğrencisi için teslim formu öğrenci adresiyle oluşturuldu.",
-                    cancellationToken, now);
             }
         }
 
@@ -482,7 +594,7 @@ public sealed class OperationsService(
         var allocatedUnitIds = order.Type == OrderType.Rental
             ? assignments.Select(item => item.ProductUnitId).ToArray()
             : order.ProductUnits.Select(item => item.ProductUnitId).ToArray();
-        if (target is RentalOrderStatus.Preparing or RentalOrderStatus.OutboundInTransit or RentalOrderStatus.Delivered)
+        if (target is RentalOrderStatus.Preparing or RentalOrderStatus.OutboundInTransit or RentalOrderStatus.Delivered or RentalOrderStatus.Completed)
         {
             var requestedKitCount = order.Lines.Sum(line => line.Quantity);
             if (allocatedUnitIds.Length != requestedKitCount)
@@ -521,6 +633,8 @@ public sealed class OperationsService(
                 }
                 break;
             case RentalOrderStatus.Delivered:
+                var deliveredOrderStudents = await GetOrderStudentsForCompletionAsync(order, cancellationToken);
+                EnsureOrderStudentsReadyForCompletion(deliveredOrderStudents);
                 order.ConfirmDelivery(actorId, now);
                 foreach (var unitId in allocatedUnitIds)
                 {
@@ -534,7 +648,33 @@ public sealed class OperationsService(
                 if (order.Type == OrderType.Rental)
                     foreach (var assignment in assignments.Where(item => item.Status == RentalAssignmentStatus.Reserved))
                         assignment.Activate();
+                await AddStudentKitLocationEventsForCompletionAsync(order, deliveredOrderStudents, actorId, now,
+                    cancellationToken);
                 order.LockAfterDelivery(actorId, now);
+                break;
+            case RentalOrderStatus.Completed:
+                var orderStudents = await GetOrderStudentsForCompletionAsync(order, cancellationToken);
+                EnsureOrderStudentsReadyForCompletion(orderStudents);
+                foreach (var unitId in allocatedUnitIds)
+                {
+                    var unit = await repository.GetProductUnitAsync(unitId, cancellationToken);
+                    if (unit is null) continue;
+                    if (order.Type == OrderType.Purchase)
+                    {
+                        if (unit.Status is ProductUnitStatus.Reserved or ProductUnitStatus.Preparing or ProductUnitStatus.OutboundInTransit)
+                            unit.CompleteSaleFulfillment(actorId, now);
+                    }
+                    else if (unit.Status is ProductUnitStatus.Reserved or ProductUnitStatus.Preparing or ProductUnitStatus.OutboundInTransit)
+                    {
+                        unit.CompleteRentalFulfillment(actorId, now);
+                    }
+                }
+                if (order.Type == OrderType.Rental)
+                    foreach (var assignment in assignments.Where(item => item.Status == RentalAssignmentStatus.Reserved))
+                        assignment.Activate();
+                await AddStudentKitLocationEventsForCompletionAsync(order, orderStudents, actorId, now,
+                    cancellationToken);
+                order.CompleteFulfillment(actorId, now);
                 break;
             case RentalOrderStatus.AwaitingReturn:
                 if (order.Type != OrderType.Rental)
@@ -1152,6 +1292,51 @@ public sealed class OperationsService(
         repository.AddProductUnitActivityAsync(ProductUnitActivity.Create(Guid.NewGuid(), productUnitId,
             assignmentId, orderId, studentId, actorId, actorDisplayName, action, description,
             occurredAt ?? timeProvider.GetTurkeyNow()), cancellationToken);
+
+    private async Task<RentalCohortStudent[]> GetOrderStudentsForCompletionAsync(RentalOrder order,
+        CancellationToken cancellationToken)
+    {
+        if (order.Type != OrderType.Rental) return [];
+        var cohort = (await repository.GetRentalCohortsAsync(order.CustomerId, cancellationToken))
+            .FirstOrDefault(item => item.Students.Any(student => student.OrderId == order.Id));
+        return cohort?.Students
+            .Where(student => !student.IsDeleted && student.OrderId == order.Id)
+            .ToArray() ?? [];
+    }
+
+    private static void EnsureOrderStudentsReadyForCompletion(IReadOnlyCollection<RentalCohortStudent> students)
+    {
+        if (students.Any(student => !student.HasAddress))
+            throw new ConflictException("order.student_addresses_incomplete",
+                "Siparişi tamamlamak için siparişteki tüm öğrencilerin adres bilgileri girilmiş olmalıdır.");
+        if (students.Any(student => !student.HasKitAssignment ||
+            !student.AssignmentId.HasValue || !student.ProductUnitId.HasValue))
+            throw new ConflictException("order.student_kits_incomplete",
+                "Siparişi tamamlamak için siparişteki tüm öğrencilere fiziksel kit atanmış olmalıdır.");
+    }
+
+    private async Task AddStudentKitLocationEventsForCompletionAsync(RentalOrder order,
+        IReadOnlyCollection<RentalCohortStudent> students, Guid actorId, DateTimeOffset occurredAt,
+        CancellationToken cancellationToken)
+    {
+        foreach (var student in students)
+        {
+            await AddStudentKitLocationEventAsync(student, student.ProductUnitId!.Value,
+                student.AssignmentId!.Value, order.Id, order.CustomerId, actorId, occurredAt,
+                cancellationToken);
+            await AddActivityAsync(student.ProductUnitId.Value, student.AssignmentId.Value, order.Id,
+                student.Id, actorId, actorId.ToString(), "Öğrenci adresi konuma işlendi",
+                $"{student.FullName} öğrencisinin adresi sipariş tamamlanırken kit konumuna işlendi.",
+                cancellationToken, occurredAt);
+        }
+    }
+
+    private Task AddStudentKitLocationEventAsync(RentalCohortStudent student, Guid productUnitId, Guid assignmentId,
+        Guid orderId, Guid customerId, Guid actorId, DateTimeOffset occurredAt, CancellationToken cancellationToken) =>
+        repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), productUnitId, assignmentId,
+            orderId, customerId, KitLocationEventSource.DeliveryReceipt, null, student.FullName,
+            student.GuardianPhone, student.AddressLine, student.Latitude, student.Longitude, occurredAt, actorId),
+            cancellationToken);
 }
 
 

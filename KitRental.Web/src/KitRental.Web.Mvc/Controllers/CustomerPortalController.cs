@@ -121,7 +121,8 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
 
     [HttpGet]
     public async Task<IActionResult> RentalPeriod(Guid id, Guid? editStudentId, string? studentQuery,
-        Guid? productModelId, string? assignmentState, int page = 1, CancellationToken cancellationToken = default)
+        Guid? productModelId, string? assignmentState, string? addressState, int page = 1,
+        CancellationToken cancellationToken = default)
     {
         var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
         if (portal is null) return Forbid();
@@ -143,6 +144,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             };
         var normalizedQuery = string.IsNullOrWhiteSpace(studentQuery) ? null : studentQuery.Trim();
         var normalizedAssignmentState = NormalizeStudentAssignmentState(assignmentState);
+        var normalizedAddressState = NormalizeStudentAddressState(addressState);
         var filtered = cohort.Students.AsEnumerable();
         if (!string.IsNullOrWhiteSpace(normalizedQuery))
         {
@@ -167,6 +169,12 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             "delivered" => filtered.Where(student => student.HasDeliveryForm),
             _ => filtered
         };
+        filtered = normalizedAddressState switch
+        {
+            "completed" => filtered.Where(student => !string.IsNullOrWhiteSpace(student.AddressLine)),
+            "pending" => filtered.Where(student => string.IsNullOrWhiteSpace(student.AddressLine)),
+            _ => filtered
+        };
 
         const int pageSize = 20;
         var filteredStudents = filtered
@@ -182,7 +190,46 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             .ToArray();
 
         return View(new RentalCohortDetailPageViewModel(cohort, form, portal.ProductModels, pageStudents,
-            normalizedQuery, productModelId, normalizedAssignmentState, currentPage, pageSize, totalCount));
+            normalizedQuery, productModelId, normalizedAssignmentState, normalizedAddressState, currentPage, pageSize,
+            totalCount));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportRentalPeriodStudents(Guid id, CancellationToken cancellationToken)
+    {
+        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        if (portal is null) return Forbid();
+        var cohort = portal.RentalCohorts.SingleOrDefault(item => item.Id == id);
+        if (cohort is null) return NotFound();
+
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Öğrenci Adresleri");
+        sheet.Cell(1, 1).Value = "Öğrenci Adı Soyadı";
+        sheet.Cell(1, 2).Value = "Telefon Numarası";
+        sheet.Cell(1, 3).Value = "Eğitim Kiti";
+        sheet.Cell(1, 4).Value = "Adres Durumu";
+        sheet.Cell(1, 5).Value = "Adres";
+        sheet.Cell(1, 6).Value = "Public Link";
+        sheet.Row(1).Style.Font.Bold = true;
+        var rowIndex = 2;
+        foreach (var student in cohort.Students.OrderBy(item => item.FullName))
+        {
+            sheet.Cell(rowIndex, 1).Value = student.FullName;
+            sheet.Cell(rowIndex, 2).Value = student.GuardianPhone;
+            sheet.Cell(rowIndex, 3).Value = student.ProductModelName;
+            sheet.Cell(rowIndex, 4).Value = string.IsNullOrWhiteSpace(student.AddressLine)
+                ? "Bekleniyor"
+                : "Tamamlandı";
+            sheet.Cell(rowIndex, 5).Value = student.AddressLine;
+            sheet.Cell(rowIndex, 6).Value = BuildStudentAddressUrl(student.PublicAddressToken);
+            rowIndex++;
+        }
+        sheet.Columns().AdjustToContents();
+        using var output = new MemoryStream();
+        workbook.SaveAs(output);
+        return File(output.ToArray(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"{SafeFileName(cohort.OrderNumber ?? cohort.Name)}-ogrenci-adresleri.xlsx");
     }
 
     private static string? NormalizeStudentAssignmentState(string? assignmentState)
@@ -196,6 +243,28 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             "delivered" => "delivered",
             _ => null
         };
+    }
+
+    private static string? NormalizeStudentAddressState(string? addressState)
+    {
+        if (string.IsNullOrWhiteSpace(addressState)) return null;
+        return addressState.Trim().ToLowerInvariant() switch
+        {
+            "completed" => "completed",
+            "pending" => "pending",
+            _ => null
+        };
+    }
+
+    private string BuildStudentAddressUrl(string token) =>
+        Url.Action("Index", "PublicStudentAddress", new { token }, Request.Scheme) ?? string.Empty;
+
+    private static string SafeFileName(string value)
+    {
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var cleaned = new string(value.Select(character =>
+            invalidChars.Contains(character) ? '-' : character).ToArray()).Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? "ogrenci-adresleri" : cleaned;
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -214,7 +283,8 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             }
             ModelState.AddModelError(string.Empty, result.Error ?? "Öğrenci kaydedilemedi.");
         }
-        return await RentalPeriod(model.CohortId, model.Id, null, null, null, cancellationToken: cancellationToken);
+        return await RentalPeriod(model.CohortId, model.Id, null, null, null, null,
+            cancellationToken: cancellationToken);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -259,15 +329,13 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         {
             var fullName = row.Cell(1).GetString().Trim();
             var phone = row.Cell(2).GetString().Trim();
-            var address = row.Cell(3).GetString().Trim();
-            if (string.IsNullOrWhiteSpace(fullName) && string.IsNullOrWhiteSpace(phone) &&
-                string.IsNullOrWhiteSpace(address))
+            if (string.IsNullOrWhiteSpace(fullName) && string.IsNullOrWhiteSpace(phone))
                 continue;
             rows.Add(new RentalCohortStudentImportPreviewRowViewModel
             {
                 FullName = fullName,
                 GuardianPhone = phone,
-                AddressLine = address,
+                AddressLine = string.Empty,
                 ProductModelId = productModelId
             });
         }
@@ -303,7 +371,6 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         model.Rows = model.Rows
             .Where(row => !string.IsNullOrWhiteSpace(row.FullName) ||
                 !string.IsNullOrWhiteSpace(row.GuardianPhone) ||
-                !string.IsNullOrWhiteSpace(row.AddressLine) ||
                 row.ProductModelId != Guid.Empty)
             .ToList();
         var modelIds = portal.ProductModels.Select(item => item.Id).ToHashSet();
@@ -318,8 +385,6 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
                 ModelState.AddModelError($"Rows[{index}].GuardianPhone", "Veli telefon numarası zorunludur.");
             else if (!TurkishPhoneNumber.IsValid(row.GuardianPhone))
                 ModelState.AddModelError($"Rows[{index}].GuardianPhone", "Veli telefon numarası 0xxx xxx xx xx formatında olmalıdır.");
-            if (string.IsNullOrWhiteSpace(row.AddressLine))
-                ModelState.AddModelError($"Rows[{index}].AddressLine", "Adres bilgileri zorunludur.");
             if (!modelIds.Contains(row.ProductModelId))
                 ModelState.AddModelError($"Rows[{index}].ProductModelId", "Her satır için eğitim kiti seçilmelidir.");
         }
@@ -329,7 +394,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         {
             fullName = row.FullName,
             guardianPhone = TurkishPhoneNumber.Normalize(row.GuardianPhone, "Veli telefon numarası"),
-            addressLine = row.AddressLine,
+            addressLine = row.AddressLine ?? string.Empty,
             productModel = row.ProductModelId.ToString()
         }).ToArray();
         var result = await apiClient.ImportRentalCohortStudentsAsync(model.CohortId, rows, cancellationToken);
@@ -348,9 +413,8 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         var sheet = workbook.AddWorksheet("Öğrenciler");
         sheet.Cell(1, 1).Value = "Öğrenci Adı Soyadı";
         sheet.Cell(1, 2).Value = "Veli Telefon Numarası";
-        sheet.Cell(1, 3).Value = "Adres Bilgileri";
         sheet.Row(1).Style.Font.Bold = true;
-        sheet.Columns(1, 3).AdjustToContents();
+        sheet.Columns(1, 2).AdjustToContents();
         using var output = new MemoryStream();
         workbook.SaveAs(output);
         return File(output.ToArray(),

@@ -3,8 +3,9 @@
     ViewData["Title"] = $"Sipariş {Model.OrderNumber}";
     var requestedCount = Model.Lines.Sum(line => line.Quantity);
     var allKitsCreated = Model.Kits.Count == requestedCount;
+    var hasIncompleteStudentAddresses = Model.Students.Count > 0 && Model.Students.Any(student => !student.HasAddress);
     var canManage = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager");
-    string OrderStatus(int status) => status switch { 2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Gönderim bekliyor", 5 => "Kargoya hazır", 6 => "Kargoya verildi", 13 => "Teslim edildi", _ => "İşlemde" };
+    string OrderStatus(int status) => status switch { 2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Hazırlanıyor", 5 => "Kargoya hazır", 6 => "Kargoya verildi", 13 => "Tamamlandı", _ => "İşlemde" };
     string KitStatus(int status) => status switch { 2 => "Rezerve", 3 => "Gönderim bekliyor", 4 => "Kargoya verildi", 5 => "Teslim edildi / kirada", 12 => "Satıldı", _ => "Hazırlanıyor" };
     var isPurchase = Model.Type == 2;
 }
@@ -16,7 +17,11 @@
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 
 <section class="detail-section order-request-lines">
-    <div class="section-heading"><div><span class="eyebrow">TALEP LİSTESİ</span><h2>İstenen kitler ve manuel oluşturma</h2><p>@(isPurchase ? "Hazır kitler önce ayrılır; eksik miktar bileşen stoktan üretilir." : "Ürün ve adetleri düzenleyin; siparişin fiziksel kitleri rezerve edilir.")</p></div>@if (canManage && Model.Status == 3 && Model.Kits.Count == 0) { <a class="primary-action" asp-action="PrepareOrderKits" asp-route-id="@Model.Id">Ürünleri Düzenle Ve Kitleri Oluştur →</a> }</div>
+    <div class="section-heading"><div><span class="eyebrow">TALEP LİSTESİ</span><h2>İstenen kitler ve manuel oluşturma</h2><p>@(isPurchase ? "Hazır kitler önce ayrılır; eksik miktar bileşen stoktan üretilir." : "Ürün ve adetleri düzenleyin; siparişin fiziksel kitleri rezerve edilir.")</p></div>@if (canManage && Model.Status == 3 && Model.Kits.Count == 0) { <a class="primary-action" asp-action="PrepareOrderKits" asp-route-id="@Model.Id">Kitleri Oluştur Ve Rezerve Et →</a> }</div>
+    @if (hasIncompleteStudentAddresses)
+    {
+        <div class="success-banner">Adresi eksik öğrenciler için de kit oluşturma ve atama yapılabilir; sipariş tamamlanmadan önce tüm öğrenci adresleri girilmiş olmalıdır.</div>
+    }
     <div class="order-line-cards">
     @foreach (var line in Model.Lines)
     {
@@ -36,21 +41,63 @@
     </div>
 </section>
 
+@if (!isPurchase && Model.Students.Count > 0)
+{
+    <section class="detail-section">
+        <div class="section-heading"><div><span class="eyebrow">ÖĞRENCİ ADRESLERİ</span><h2>Public adres toplama linkleri</h2><p>Her öğrenciye kendi linkini gönderin; adres geldiğinde bu tabloda görünür.</p></div><a class="secondary-action" asp-action="ExportOrderStudents" asp-route-id="@Model.Id">Excel Olarak İndir</a></div>
+        <div class="table-scroll">
+            <table class="order-kits-table">
+                <thead><tr><th>Öğrenci</th><th>Telefon</th><th>Adres Durumu</th><th>Adres</th><th>Public Link</th></tr></thead>
+                <tbody>
+                @foreach (var student in Model.Students)
+                {
+                    var addressUrl = Url.Action("Index", "PublicStudentAddress", new { token = student.PublicAddressToken }, Context.Request.Scheme) ?? string.Empty;
+                    <tr>
+                        <td><strong>@student.FullName</strong></td>
+                        <td>@student.GuardianPhone</td>
+                        <td>@if (student.HasAddress) { <span class="line-complete">✓ Tamamlandı</span> } else { <span class="line-pending">Bekleniyor</span> }</td>
+                        <td>
+                            @if (student.HasAddress)
+                            {
+                                <div class="table-actions-compact">
+                                    <button class="row-link" type="button" data-fulltext-modal data-title="@($"{student.FullName} adresi")" data-text="@student.AddressLine">Göster</button>
+                                </div>
+                            }
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrWhiteSpace(addressUrl))
+                            {
+                                <div class="table-actions-compact">
+                                    <button class="row-link copy-address-link" type="button" data-link="@addressUrl">Kopyala</button>
+                                    <button class="row-link" type="button" data-fulltext-modal data-title="@($"{student.FullName} public adres linki")" data-text="@addressUrl">Göster</button>
+                                </div>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
 @if (canManage && Model.Status == 2)
 {
     <div class="order-detail-next"><p>Siparişi inceledikten sonra fiziksel kit oluşturma adımı açılır.</p><form asp-action="UpdateOrderStatus" asp-route-id="@Model.Id" method="post"><input type="hidden" name="target" value="3" /><input type="hidden" name="returnToDetails" value="true" /><button class="primary-action" type="submit">Siparişi Onayla →</button></form></div>
 }
-else if (canManage && Model.Status == 3 && allKitsCreated)
+else if (canManage && (Model.Status is 3 or 4 or 5 or 6 or 7) && allKitsCreated)
 {
-    <div class="order-detail-next"><p>Tüm fiziksel kitler oluşturuldu ve siparişe rezerve edildi.</p><form asp-action="UpdateOrderStatus" asp-route-id="@Model.Id" method="post"><input type="hidden" name="target" value="4" /><input type="hidden" name="returnToDetails" value="true" /><button class="primary-action" type="submit">@(isPurchase ? "Satışı Hazırlamaya Başla →" : "Kitleri Kiraya Ver / Gönderime Hazırla →")</button></form></div>
-}
-else if (canManage && Model.Status is 4 or 5)
-{
-    <div class="order-detail-next"><p>Siparişe bağlı kitler gönderim bekliyor.</p><form asp-action="UpdateOrderStatus" asp-route-id="@Model.Id" method="post"><input type="hidden" name="target" value="6" /><input type="hidden" name="returnToDetails" value="true" /><button class="primary-action" type="submit">Kargoya Verildi Yap →</button></form></div>
-}
-else if (canManage && Model.Status == 6)
-{
-    <div class="order-detail-next"><p>@(isPurchase ? "Teslimatta kitler satıldı durumuna geçirilerek kiralama filosundan çıkarılır." : "Teslimat doğrulandığında sipariş tamamlanır ve kilitlenir.")</p><form asp-action="UpdateOrderStatus" asp-route-id="@Model.Id" method="post"><input type="hidden" name="target" value="7" /><input type="hidden" name="returnToDetails" value="true" /><button class="primary-action" type="submit">Teslim Et Ve Siparişi Kilitle →</button></form></div>
+    <div class="order-detail-next">
+        <p>@(hasIncompleteStudentAddresses ? "Siparişi tamamlamak için siparişteki tüm öğrencilerin adres bilgileri girilmiş olmalıdır." : isPurchase ? "Tüm fiziksel kitler rezerve edildi; tamamlandığında kitler satıldı durumuna alınır." : "Tüm fiziksel kitler oluşturuldu ve öğrencilere rezerve edildi; tamamlandığında öğrenci adresleri kit konum geçmişine işlenir.")</p>
+        @if (hasIncompleteStudentAddresses)
+        {
+            <button class="primary-action" type="button" disabled>Siparişi Tamamla →</button>
+        }
+        else
+        {
+            <form asp-action="UpdateOrderStatus" asp-route-id="@Model.Id" method="post"><input type="hidden" name="target" value="13" /><input type="hidden" name="returnToDetails" value="true" /><button class="primary-action" type="submit">Siparişi Tamamla →</button></form>
+        }
+    </div>
 }
 
 <section class="detail-section">

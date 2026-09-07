@@ -1,6 +1,5 @@
 using KitRental.Core.Application.Inventory;
 using KitRental.Core.Application.Operations;
-using KitRental.Core.Application.Rentals;
 using KitRental.Core.Application.Workshop;
 using KitRental.Core.Domain.Inventory;
 using KitRental.Core.Domain.Logistics;
@@ -44,12 +43,14 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
         var end = new DateOnly(2026, 9, 15);
         var order = await PostAsync<OrderResponse>(
             "/api/orders",
-            new CreateOrderRequest(customer.Id, customer.Addresses.Single().Id, start, end, [new OrderLineRequest(model.Id, 1)]),
+            new CreateOrderRequest(customer.Id, model.Id, start, end,
+                [new CreateOrderStudentRequest("Teslim Alan", "5550001122")]),
             cancellationToken);
         await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions", new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
-        await PostAsync<RentalAssignmentResponse>(
-            "/api/rental-assignments",
-            new CreateRentalAssignmentRequest(order.Lines.Single().Id, customer.Id, unit.Id, start, end),
+        await CompleteStudentAddressesAsync(order.Id, "Bilim Sokak 1", cancellationToken);
+        await PostAsync<OrderKitPreparationResponse>(
+            $"/api/orders/{order.Id}/kits",
+            new { lines = new[] { new { productModelId = model.Id, quantity = 1 } }, useAvailableKits = true },
             cancellationToken);
         await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions", new OrderTransitionRequest(RentalOrderStatus.Preparing), cancellationToken);
         await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions", new OrderTransitionRequest(RentalOrderStatus.ReadyToShip), cancellationToken);
@@ -112,8 +113,12 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
         var start = new DateOnly(2026, 10, 1);
         var end = new DateOnly(2026, 10, 15);
         var order = await PostAsync<OrderResponse>("/api/orders",
-            new CreateOrderRequest(customer.Id, customer.Addresses.Single().Id, start, end,
-                [new OrderLineRequest(model.Id, 1)]), cancellationToken);
+            new CreateOrderRequest(customer.Id, model.Id, start, end,
+                [
+                    new CreateOrderStudentRequest("Birinci Öğrenci", "5550007788"),
+                    new CreateOrderStudentRequest("İkinci Öğrenci", "5550007799")
+                ]), cancellationToken);
+        await CompleteStudentAddressesAsync(order.Id, "Test Sokak 1", cancellationToken);
 
         order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions",
             new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
@@ -132,19 +137,10 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
         Assert.Equal(2, componentMovements!.Where(item =>
             item.Type == KitRental.Core.Domain.Warehouse.StockMovementType.Consumption).Sum(item => item.Quantity));
         order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions",
-            new OrderTransitionRequest(RentalOrderStatus.Preparing), cancellationToken);
-        Assert.Equal(RentalOrderStatus.Preparing, order.Status);
-        var units = await _client.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
-        Assert.All(units!.Where(item => prepared.Kits.Any(kit => kit.ProductUnitId == item.Id)),
-            item => Assert.Equal(ProductUnitStatus.Preparing, item.Status));
-        order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions",
-            new OrderTransitionRequest(RentalOrderStatus.OutboundInTransit), cancellationToken);
-        Assert.Equal(RentalOrderStatus.OutboundInTransit, order.Status);
-        order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions",
-            new OrderTransitionRequest(RentalOrderStatus.Delivered), cancellationToken);
+            new OrderTransitionRequest(RentalOrderStatus.Completed), cancellationToken);
         Assert.Equal(RentalOrderStatus.Completed, order.Status);
 
-        units = await _client.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
+        var units = await _client.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
         Assert.All(units!.Where(item => prepared.Kits.Any(kit => kit.ProductUnitId == item.Id)),
             item => Assert.Equal(ProductUnitStatus.WithCustomer, item.Status));
     }
@@ -189,12 +185,8 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
         Assert.Equal(1, prepared.CreatedCount);
         Assert.Contains(prepared.Kits, item => item.ProductUnitId == readyUnit.Id);
 
-        await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions",
-            new OrderTransitionRequest(RentalOrderStatus.Preparing), cancellationToken);
-        await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions",
-            new OrderTransitionRequest(RentalOrderStatus.OutboundInTransit), cancellationToken);
         order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions",
-            new OrderTransitionRequest(RentalOrderStatus.Delivered), cancellationToken);
+            new OrderTransitionRequest(RentalOrderStatus.Completed), cancellationToken);
         Assert.Equal(RentalOrderStatus.Completed, order.Status);
 
         var units = await _client.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
@@ -205,6 +197,19 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
             cancellationToken);
         Assert.Equal(OrderType.Purchase, detail!.Type);
         Assert.Equal(2, detail.Kits.Count);
+    }
+
+    private async Task CompleteStudentAddressesAsync(Guid orderId, string addressLine, CancellationToken cancellationToken)
+    {
+        var detail = await _client.GetFromJsonAsync<OrderDetailResponse>($"/api/orders/{orderId}/detail",
+            cancellationToken);
+        foreach (var student in detail!.Students)
+        {
+            var response = await _client.PostAsJsonAsync(
+                $"/api/public/student-addresses/{student.PublicAddressToken}",
+                new PublicStudentAddressRequest(addressLine), cancellationToken);
+            response.EnsureSuccessStatusCode();
+        }
     }
 
     private async Task<T> PostAsync<T>(string path, object body, CancellationToken cancellationToken)

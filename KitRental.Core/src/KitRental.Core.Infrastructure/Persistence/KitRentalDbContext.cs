@@ -241,6 +241,8 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             students.Property(item => item.FullName).HasMaxLength(160).IsRequired(false);
             students.Property(item => item.GuardianPhone).HasMaxLength(40).IsRequired(false);
             students.Property(item => item.AddressLine).HasMaxLength(1000).IsRequired(false);
+            students.Property(item => item.PublicAddressToken).HasMaxLength(80).IsRequired();
+            students.HasIndex(item => item.PublicAddressToken).IsUnique();
             students.HasIndex(item => item.ProductModelId);
             students.HasIndex(item => item.AssignmentId);
             students.HasIndex(item => item.ProductUnitId);

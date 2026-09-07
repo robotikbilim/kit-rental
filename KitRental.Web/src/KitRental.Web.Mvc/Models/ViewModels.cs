@@ -353,7 +353,8 @@ public sealed record PortalRentalCohortStudentViewModel(Guid Id, string FullName
     string AddressLine, Guid ProductModelId, string ProductModelName, string ProductModelSku, Guid? OrderId,
     Guid? AssignmentId, Guid? ProductUnitId, string? SerialNumber, string? QrCode, bool IsDeleted,
     bool HasActiveReturn, bool HasCompletedReturn = false, bool HasDeliveryForm = false, string? DeliveredTo = null,
-    string? DeliveryPhone = null, string? DeliveryAddress = null, DateTimeOffset? DeliveredAt = null);
+    string? DeliveryPhone = null, string? DeliveryAddress = null, DateTimeOffset? DeliveredAt = null,
+    string PublicAddressToken = "", DateTimeOffset? AddressSubmittedAt = null);
 public sealed record PortalUnassignedCohortKitViewModel(Guid ProductUnitId, Guid AssignmentId, Guid OrderId,
     Guid ProductModelId, string ProductModelName, string ProductModelSku, string SerialNumber, string QrCode);
 public sealed record PortalRentalCohortViewModel(Guid Id, Guid CustomerId, string Name, DateOnly StartDate,
@@ -455,10 +456,15 @@ public sealed class CreateCustomerViewModel
 public sealed class AdminOrderInputViewModel
 {
     [Required, Display(Name = "Müşteri")] public Guid CustomerId { get; set; }
-    [Required, Display(Name = "Teslimat adresi")] public Guid AddressId { get; set; }
+    [Required, Display(Name = "Eğitim kiti")] public Guid ProductModelId { get; set; }
     [Required, DataType(DataType.Date), Display(Name = "Başlangıç tarihi")] public DateOnly StartDate { get; set; }
     [Required, DataType(DataType.Date), Display(Name = "Bitiş tarihi")] public DateOnly EndDate { get; set; }
-    public List<PortalRentalLineInputViewModel> Lines { get; set; } = [new()];
+    public List<AdminOrderStudentInputViewModel> Students { get; set; } = [new()];
+}
+public sealed class AdminOrderStudentInputViewModel
+{
+    [Required, StringLength(160), Display(Name = "Öğrenci adı soyadı")] public string FullName { get; set; } = string.Empty;
+    [Required, TurkishPhone, StringLength(40), Display(Name = "Telefon numarası")] public string GuardianPhone { get; set; } = string.Empty;
 }
 public sealed record AdminOrderPageViewModel(AdminOrderInputViewModel Form,
     IReadOnlyCollection<OrderCustomerViewModel> Customers,
@@ -480,9 +486,13 @@ public sealed record OrderDetailLineViewModel(Guid Id, Guid ProductModelId, stri
     int Quantity, int CreatedKitCount);
 public sealed record OrderDetailKitViewModel(Guid Id, Guid OrderLineId, Guid ProductModelId, string ProductName,
     string ProductSku, string SerialNumber, string QrCode, int Status);
+public sealed record OrderDetailStudentViewModel(Guid Id, string FullName, string GuardianPhone, string AddressLine,
+    bool HasAddress, string PublicAddressToken, DateTimeOffset? AddressSubmittedAt, Guid ProductModelId = default,
+    string ProductName = "", string ProductSku = "");
 public sealed record OrderDetailViewModel(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName,
     int Type, int Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt, Guid? RentalCohortId,
-    IReadOnlyCollection<OrderDetailLineViewModel> Lines, IReadOnlyCollection<OrderDetailKitViewModel> Kits);
+    IReadOnlyCollection<OrderDetailLineViewModel> Lines, IReadOnlyCollection<OrderDetailKitViewModel> Kits,
+    IReadOnlyCollection<OrderDetailStudentViewModel> Students);
 public sealed class PrepareOrderKitsViewModel
 {
     public Guid OrderId { get; set; }
@@ -568,6 +578,23 @@ public sealed class PublicDeliveryFormViewModel
     [Display(Name = "Enlem")] public double? Latitude { get; set; }
     [Display(Name = "Boylam")] public double? Longitude { get; set; }
 }
+public sealed record PublicStudentAddressContextViewModel(string StudentName, string GuardianPhone,
+    string CustomerName, string OrderNumber, string ProductName, string? AddressLine,
+    double? Latitude, double? Longitude);
+public sealed class PublicStudentAddressFormViewModel
+{
+    public string Token { get; set; } = string.Empty;
+    public string StudentName { get; set; } = string.Empty;
+    public string GuardianPhone { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
+    public string OrderNumber { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    [Display(Name = "İl")] public string City { get; set; } = string.Empty;
+    [Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
+    [Required, StringLength(1000), Display(Name = "Adres")] public string AddressLine { get; set; } = string.Empty;
+    [Display(Name = "Enlem")] public double? Latitude { get; set; }
+    [Display(Name = "Boylam")] public double? Longitude { get; set; }
+}
 public sealed record CustomerPortalViewModel(string CustomerName, string CustomerEmail, int TotalRentedKitCount,
     int UndeliveredKitCount, int ActiveKitCount, int UnassignedKitCount, int PendingRequestCount, int OpenFaultCount,
     int CompletedFaultCount, int ExpiredRentalKitCount, int ReturnProcessStartedKitCount, int ReturnedKitCount,
@@ -636,7 +663,7 @@ public sealed class RentalCohortStudentInputViewModel
     public Guid CohortId { get; set; }
     [Required, StringLength(160), Display(Name = "Öğrenci adı soyadı")] public string FullName { get; set; } = string.Empty;
     [Required, TurkishPhone, StringLength(40), Display(Name = "Veli telefon numarası")] public string GuardianPhone { get; set; } = string.Empty;
-    [Required, StringLength(1000), Display(Name = "Adres bilgileri")] public string AddressLine { get; set; } = string.Empty;
+    [StringLength(1000), Display(Name = "Adres bilgileri")] public string? AddressLine { get; set; }
     [Required, Display(Name = "Eğitim kiti")] public Guid ProductModelId { get; set; }
 }
 
@@ -652,7 +679,7 @@ public sealed record RentalCohortsPageViewModel(string CustomerName,
 public sealed record RentalCohortDetailPageViewModel(PortalRentalCohortViewModel Cohort,
     RentalCohortStudentInputViewModel StudentForm, IReadOnlyCollection<PortalProductModelViewModel> ProductModels,
     IReadOnlyCollection<PortalRentalCohortStudentViewModel> Students, string? StudentQuery,
-    Guid? ProductModelId, string? AssignmentState, int Page, int PageSize, int TotalCount)
+    Guid? ProductModelId, string? AssignmentState, string? AddressState, int Page, int PageSize, int TotalCount)
 {
     public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)PageSize));
     public int FirstItem => TotalCount == 0 ? 0 : ((Page - 1) * PageSize) + 1;
@@ -663,7 +690,7 @@ public sealed class RentalCohortStudentImportPreviewRowViewModel
 {
     public string FullName { get; set; } = string.Empty;
     public string GuardianPhone { get; set; } = string.Empty;
-    public string AddressLine { get; set; } = string.Empty;
+    public string? AddressLine { get; set; }
     public Guid ProductModelId { get; set; }
 }
 

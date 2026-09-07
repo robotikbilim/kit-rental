@@ -14,7 +14,8 @@ public sealed record PortalRentalCohortStudentResponse(Guid Id, string FullName,
     string AddressLine, Guid ProductModelId, string ProductModelName, string ProductModelSku, Guid? OrderId,
     Guid? AssignmentId, Guid? ProductUnitId, string? SerialNumber, string? QrCode, bool IsDeleted,
     bool HasActiveReturn, bool HasCompletedReturn = false, bool HasDeliveryForm = false, string? DeliveredTo = null,
-    string? DeliveryPhone = null, string? DeliveryAddress = null, DateTimeOffset? DeliveredAt = null);
+    string? DeliveryPhone = null, string? DeliveryAddress = null, DateTimeOffset? DeliveredAt = null,
+    string PublicAddressToken = "", DateTimeOffset? AddressSubmittedAt = null);
 public sealed record PortalUnassignedCohortKitResponse(Guid ProductUnitId, Guid AssignmentId, Guid OrderId,
     Guid ProductModelId, string ProductModelName, string ProductModelSku, string SerialNumber, string QrCode);
 public sealed record PortalRentalCohortResponse(Guid Id, Guid CustomerId, string Name, DateOnly StartDate,

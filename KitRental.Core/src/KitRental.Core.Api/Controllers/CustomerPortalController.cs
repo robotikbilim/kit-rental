@@ -79,7 +79,7 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     public async Task<IActionResult> Post_CustomerPortalRentalPeriodsPeriodIdGuidStudents_15(Guid periodId, RentalCohortStudentRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         var result = await service.SaveRentalCohortStudentAsync(new SaveRentalCohortStudentCommand(null,
-                GetRequiredCustomerId(), periodId, request.FullName, request.GuardianPhone, request.AddressLine,
+                GetRequiredCustomerId(), periodId, request.FullName, request.GuardianPhone, request.AddressLine ?? string.Empty,
                 request.ProductModelId, User.GetRequiredUserId(), GetActorDisplayName()), cancellationToken);
         return Created($"/api/customer-portal/rental-periods/{periodId}/students/{result.Id}", result);
     }
@@ -89,7 +89,7 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     public async Task<IActionResult> Put_CustomerPortalRentalPeriodsPeriodIdGuidStudentsStudentIdGuid_16(Guid periodId, Guid studentId, RentalCohortStudentRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         return Ok(await service.SaveRentalCohortStudentAsync(new SaveRentalCohortStudentCommand(studentId,
-                GetRequiredCustomerId(), periodId, request.FullName, request.GuardianPhone, request.AddressLine,
+                GetRequiredCustomerId(), periodId, request.FullName, request.GuardianPhone, request.AddressLine ?? string.Empty,
                 request.ProductModelId, User.GetRequiredUserId(), GetActorDisplayName()), cancellationToken));
     }
 
@@ -108,7 +108,7 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     {
         return Ok(await service.ImportRentalCohortStudentsAsync(GetRequiredCustomerId(), periodId,
                 request.Rows.Select(row => new ImportRentalCohortStudentCommand(row.FullName, row.GuardianPhone,
-                    row.AddressLine, row.ProductModel)).ToArray(), User.GetRequiredUserId(), GetActorDisplayName(),
+                    row.AddressLine ?? string.Empty, row.ProductModel)).ToArray(), User.GetRequiredUserId(), GetActorDisplayName(),
                 cancellationToken));
     }
 

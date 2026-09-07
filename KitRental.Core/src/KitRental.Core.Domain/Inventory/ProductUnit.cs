@@ -68,6 +68,10 @@ public sealed class ProductUnit
     public void ConfirmDelivery(Guid actorId, DateTimeOffset occurredAt) =>
         TransitionTo(ProductUnitStatus.WithCustomer, actorId, occurredAt, "Delivery confirmed.", ProductUnitStatus.OutboundInTransit);
 
+    public void CompleteRentalFulfillment(Guid actorId, DateTimeOffset occurredAt) =>
+        TransitionTo(ProductUnitStatus.WithCustomer, actorId, occurredAt, "Rental fulfilled without shipment steps.",
+            ProductUnitStatus.Reserved, ProductUnitStatus.Preparing, ProductUnitStatus.OutboundInTransit);
+
     public void ConfirmDeliveryTo(Guid actorId, DateTimeOffset occurredAt, string recipientName, string address)
     {
         var reason = $"Delivery confirmed. Recipient: {recipientName.Trim()}. Address: {address.Trim()}";
@@ -78,6 +82,10 @@ public sealed class ProductUnit
     public void CompleteSale(Guid actorId, DateTimeOffset occurredAt) =>
         TransitionTo(ProductUnitStatus.Sold, actorId, occurredAt, "Sale delivery completed; kit removed from rental fleet.",
             ProductUnitStatus.OutboundInTransit);
+
+    public void CompleteSaleFulfillment(Guid actorId, DateTimeOffset occurredAt) =>
+        TransitionTo(ProductUnitStatus.Sold, actorId, occurredAt, "Sale fulfilled without shipment steps.",
+            ProductUnitStatus.Reserved, ProductUnitStatus.Preparing, ProductUnitStatus.OutboundInTransit);
 
     public void StartReturn(Guid actorId, DateTimeOffset occurredAt) =>
         TransitionTo(ProductUnitStatus.ReturnInTransit, actorId, occurredAt, "Sent to return shipping.", ProductUnitStatus.WithCustomer);

@@ -3,7 +3,7 @@
     ViewData["Title"] = "Siparişler";
     string StatusName(int value) => value switch
     {
-        2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Gönderim bekliyor",
+        2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Hazırlanıyor",
         5 => "Kargoya hazır", 6 => "Kargoya verildi", 7 => "Teslim edildi",
         8 => "Aktif kiralama", 9 => "İade bekleniyor", 10 => "İade yolunda", 11 => "Kontrolde",
         13 => "Teslim edildi", 14 => "Reddedildi", 15 => "İptal", _ => "Taslak"
@@ -11,7 +11,7 @@
     var canManageOrders = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager");
 }
 <div class="page-heading orders-heading">
-    <div><span class="eyebrow">SİPARİŞ AKIŞI</span><h1>Siparişler</h1><p class="block-muted">Kiralama ve satın alma siparişlerini hazırlıktan teslimata kadar yönetin.</p></div>
+    <div><span class="eyebrow">SİPARİŞ AKIŞI</span><h1>Siparişler</h1><p class="block-muted">Kiralama ve satın alma siparişlerini onaydan kit rezervasyonu ve tamamlamaya kadar yönetin.</p></div>
     <div class="orders-heading-actions"><span class="request-counter">@Model.Count(item => item.Status == 2) yeni talep</span>@if (canManageOrders) { <a class="secondary-action" asp-action="CreatePurchaseOrder">+ Satın Alma</a><a class="primary-action" asp-action="CreateOrder">+ Kiralama</a> }</div>
 </div>
 
@@ -21,8 +21,8 @@
     <a class="@((int?)ViewBag.OrderType == 2 ? "active" : null)" asp-action="Orders" asp-route-type="2">Satın alma</a>
 </nav>
 
-<div class="order-flow order-flow-six" aria-label="Sipariş durum akışı">
-    <span><b>1</b>Sipariş</span><i>→</i><span><b>2</b>Onay</span><i>→</i><span><b>3</b>Kitleri oluştur / rezerve et</span><i>→</i><span><b>4</b>Gönderime hazırla</span><i>→</i><span><b>5</b>Kargoya ver</span><i>→</i><span><b>6</b>Teslim et / kilitle</span>
+<div class="order-flow" aria-label="Sipariş durum akışı">
+    <span><b>1</b>Sipariş</span><i>→</i><span><b>2</b>Onay</span><i>→</i><span><b>3</b>Kitleri oluştur / rezerve et</span><i>→</i><span><b>4</b>Siparişi tamamla</span>
 </div>
 
 @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }

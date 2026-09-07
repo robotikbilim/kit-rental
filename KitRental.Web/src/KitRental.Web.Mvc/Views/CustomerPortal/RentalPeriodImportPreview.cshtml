@@ -21,7 +21,6 @@
                 <tr>
                     <th>Öğrenci</th>
                     <th>Veli telefonu</th>
-                    <th>Adres</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -35,9 +34,6 @@
                         <td>
                             @Model.Rows[i].GuardianPhone
                             <input type="hidden" asp-for="Rows[i].GuardianPhone" />
-                        </td>
-                        <td>
-                            @Model.Rows[i].AddressLine
                             <input type="hidden" asp-for="Rows[i].AddressLine" />
                             <input type="hidden" asp-for="Rows[i].ProductModelId" />
                         </td>

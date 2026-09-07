@@ -154,6 +154,7 @@ public sealed class RentalOrder
     public void Dispatch(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.OutboundInTransit, actorId, now, "Çıkış kargosunda.", RentalOrderStatus.ReadyToShip);
     public void ConfirmDelivery(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.Delivered, actorId, now, "Teslimat doğrulandı.", RentalOrderStatus.OutboundInTransit);
     public void LockAfterDelivery(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.Completed, actorId, now, "Teslimat tamamlandı; sipariş kilitlendi.", RentalOrderStatus.Delivered);
+    public void CompleteFulfillment(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.Completed, actorId, now, "Sipariş kitleri tamamlandı ve sipariş kapatıldı.", RentalOrderStatus.Approved, RentalOrderStatus.Preparing, RentalOrderStatus.ReadyToShip, RentalOrderStatus.OutboundInTransit, RentalOrderStatus.Delivered);
     public void ActivateRental(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.RentalActive, actorId, now, "Kiralama aktifleştirildi.", RentalOrderStatus.Delivered);
     public void RequestReturn(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.AwaitingReturn, actorId, now, "İade süreci başlatıldı.", RentalOrderStatus.RentalActive, RentalOrderStatus.Overdue);
     public void StartReturnShipment(Guid actorId, DateTimeOffset now) => Transition(RentalOrderStatus.ReturnInTransit, actorId, now, "İade kargosunda.", RentalOrderStatus.AwaitingReturn);

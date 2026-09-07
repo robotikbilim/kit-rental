@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using KitRental.Web.Mvc.Models;
 using KitRental.Web.Mvc.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -88,6 +89,17 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         return model is null ? NotFound() : View(model);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> ExportOrderStudents(Guid id, CancellationToken cancellationToken)
+    {
+        var order = await apiClient.GetOrderDetailAsync(id, cancellationToken);
+        if (order is null) return NotFound();
+        return ExportStudentAddressWorkbook(order.OrderNumber, order.Students.Select(student =>
+            new StudentAddressExportRow(student.FullName, student.GuardianPhone,
+                string.IsNullOrWhiteSpace(student.ProductName) ? "Eğitim kiti" : student.ProductName, student.HasAddress,
+                student.AddressLine, BuildStudentAddressUrl(student.PublicAddressToken))).ToArray());
+    }
+
     [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]
     public async Task<IActionResult> CreateOrder(CancellationToken cancellationToken)
     {
@@ -95,7 +107,6 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         var model = new AdminOrderInputViewModel
         {
             CustomerId = customers.FirstOrDefault()?.Id ?? Guid.Empty,
-            AddressId = customers.FirstOrDefault()?.Addresses.FirstOrDefault()?.Id ?? Guid.Empty,
             StartDate = DateOnly.FromDateTime(DateTime.Today.AddDays(7)),
             EndDate = DateOnly.FromDateTime(DateTime.Today.AddMonths(1).AddDays(7))
         };
@@ -107,9 +118,15 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     public async Task<IActionResult> CreateOrder(AdminOrderInputViewModel model,
         CancellationToken cancellationToken)
     {
-        model.Lines = model.Lines.Where(line => line.ProductModelId != Guid.Empty && line.Quantity > 0).ToList();
-        if (model.Lines.Count == 0)
-            ModelState.AddModelError(string.Empty, "En az bir eğitim kiti seçmelisiniz.");
+        model.Students ??= [];
+        model.Students = model.Students
+            .Where(student => !string.IsNullOrWhiteSpace(student.FullName) ||
+                !string.IsNullOrWhiteSpace(student.GuardianPhone))
+            .ToList();
+        if (model.ProductModelId == Guid.Empty)
+            ModelState.AddModelError(nameof(model.ProductModelId), "Eğitim kiti seçmelisiniz.");
+        if (model.Students.Count == 0)
+            ModelState.AddModelError(string.Empty, "En az bir öğrenci girmelisiniz.");
         if (model.EndDate <= model.StartDate)
             ModelState.AddModelError(string.Empty, "Bitiş tarihi başlangıç tarihinden sonra olmalıdır.");
         if (ModelState.IsValid)
@@ -122,6 +139,8 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             }
             ModelState.AddModelError(string.Empty, result.Error ?? "Sipariş oluşturulamadı.");
         }
+        if (model.Students.Count == 0)
+            model.Students.Add(new AdminOrderStudentInputViewModel());
         return View(new AdminOrderPageViewModel(model,
             (await apiClient.GetCustomersAsync(cancellationToken)).Where(item => item.IsActive).ToArray(),
             await apiClient.GetProductModelsAsync(cancellationToken)));
@@ -293,7 +312,7 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     public async Task<IActionResult> UpdateOrderStatus(Guid id, int target, bool returnToDetails,
         CancellationToken cancellationToken)
     {
-        if (target is not (3 or 4 or 6 or 7))
+        if (target is not (3 or 13))
             return BadRequest();
         var result = await apiClient.UpdateOrderStatusAsync(id, target, cancellationToken);
         if (result.IsSuccess)
@@ -301,9 +320,7 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             var statusName = target switch
             {
                 3 => "onaylandı",
-                4 => "hazırlanıyor",
-                6 => "kargoya verildi",
-                7 => "teslim edildi",
+                13 => "tamamlandı",
                 _ => "güncellendi"
             };
             TempData["Success"] = $"Sipariş durumu “{statusName}” olarak güncellendi.";
@@ -325,4 +342,49 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             ? "Arıza süreci güncellendi; müşteri portalına yansıtıldı." : result.Error;
         return RedirectToAction(nameof(Faults));
     }
+
+    private string BuildStudentAddressUrl(string token) =>
+        Url.Action("Index", "PublicStudentAddress", new { token }, Request.Scheme) ?? string.Empty;
+
+    private FileContentResult ExportStudentAddressWorkbook(string orderNumber,
+        IReadOnlyCollection<StudentAddressExportRow> students)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Öğrenci Adresleri");
+        sheet.Cell(1, 1).Value = "Öğrenci Adı Soyadı";
+        sheet.Cell(1, 2).Value = "Telefon Numarası";
+        sheet.Cell(1, 3).Value = "Eğitim Kiti";
+        sheet.Cell(1, 4).Value = "Adres Durumu";
+        sheet.Cell(1, 5).Value = "Adres";
+        sheet.Cell(1, 6).Value = "Public Link";
+        sheet.Row(1).Style.Font.Bold = true;
+        var rowIndex = 2;
+        foreach (var student in students)
+        {
+            sheet.Cell(rowIndex, 1).Value = student.FullName;
+            sheet.Cell(rowIndex, 2).Value = student.Phone;
+            sheet.Cell(rowIndex, 3).Value = student.ProductName;
+            sheet.Cell(rowIndex, 4).Value = student.HasAddress ? "Tamamlandı" : "Bekleniyor";
+            sheet.Cell(rowIndex, 5).Value = student.AddressLine;
+            sheet.Cell(rowIndex, 6).Value = student.PublicLink;
+            rowIndex++;
+        }
+        sheet.Columns().AdjustToContents();
+        using var output = new MemoryStream();
+        workbook.SaveAs(output);
+        return File(output.ToArray(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"{SafeFileName(orderNumber)}-ogrenci-adresleri.xlsx");
+    }
+
+    private static string SafeFileName(string value)
+    {
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var cleaned = new string(value.Select(character =>
+            invalidChars.Contains(character) ? '-' : character).ToArray()).Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? "ogrenci-adresleri" : cleaned;
+    }
+
+    private sealed record StudentAddressExportRow(string FullName, string Phone, string ProductName,
+        bool HasAddress, string AddressLine, string PublicLink);
 }

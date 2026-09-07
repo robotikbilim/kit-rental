@@ -1,0 +1,47 @@
+@model PublicStudentAddressFormViewModel
+@{ ViewData["Title"] = "Adres Bilgisi"; }
+@section Head {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="~/css/public-location-map.css" asp-append-version="true" />
+}
+<div class="public-fault-shell">
+    <section class="public-fault-card">
+        <span class="eyebrow">SİPARİŞ ADRESİ</span>
+        <h1>Adres bilgisi</h1>
+        <p class="block-muted">Gönderim yapılacak güncel adresinizi kaydedin.</p>
+        <div class="public-kit-summary"><span>@Model.CustomerName · @Model.OrderNumber</span><strong>@Model.StudentName</strong><code>@Model.ProductName</code></div>
+        <form method="post" class="public-fault-form">
+            <input asp-for="Token" type="hidden" />
+            <input asp-for="Latitude" type="hidden" />
+            <input asp-for="Longitude" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="error"></div>
+            <div class="field"><label>Ad soyad</label><input value="@Model.StudentName" autocomplete="name" readonly /></div>
+            <div class="field"><label>Telefon numarası</label><input value="@Model.GuardianPhone" type="tel" autocomplete="tel" readonly /></div>
+            <div class="form-grid">
+                <div class="field">
+                    <label asp-for="City"></label>
+                    <select asp-for="City" id="City" autocomplete="address-level1" data-selected="@Model.City">
+                        <option value="">İl seçin</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label asp-for="District"></label>
+                    <select asp-for="District" id="District" autocomplete="address-level2" data-selected="@Model.District" disabled>
+                        <option value="">Önce il seçin</option>
+                    </select>
+                </div>
+            </div>
+            <div class="field"><label asp-for="AddressLine"></label><textarea asp-for="AddressLine" rows="3" autocomplete="street-address" placeholder="Açık adresinizi yazın"></textarea><span asp-validation-for="AddressLine" class="error"></span></div>
+            <div class="public-location-box">
+                <button class="secondary-action" id="use-location" type="button">Konumumu Bul</button>
+                <div id="public-location-map" class="public-location-map"></div>
+                <span id="location-status">Konumumu bul ile pimi yakın noktaya getirin veya haritadan seçin.</span>
+            </div>
+            <button class="primary-action" type="submit">Adresi Kaydet</button>
+        </form>
+    </section>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="~/js/turkey-address-dropdowns.js" asp-append-version="true"></script>
+<script src="~/js/public-student-address.js" asp-append-version="true"></script>
+<script src="~/js/public-location.js" asp-append-version="true"></script>

@@ -1493,6 +1493,9 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                                 .HasMaxLength(1000)
                                 .HasColumnType("nvarchar(1000)");
 
+                            b1.Property<DateTimeOffset?>("AddressSubmittedAt")
+                                .HasColumnType("datetimeoffset");
+
                             b1.Property<Guid?>("AssignmentId")
                                 .HasColumnType("uniqueidentifier");
 
@@ -1522,6 +1525,11 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                             b1.Property<Guid?>("ProductUnitId")
                                 .HasColumnType("uniqueidentifier");
 
+                            b1.Property<string>("PublicAddressToken")
+                                .IsRequired()
+                                .HasMaxLength(80)
+                                .HasColumnType("nvarchar(80)");
+
                             b1.Property<Guid>("RentalCohortId")
                                 .HasColumnType("uniqueidentifier");
 
@@ -1534,6 +1542,9 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                             b1.HasIndex("ProductModelId");
 
                             b1.HasIndex("ProductUnitId");
+
+                            b1.HasIndex("PublicAddressToken")
+                                .IsUnique();
 
                             b1.HasIndex("RentalCohortId");
 

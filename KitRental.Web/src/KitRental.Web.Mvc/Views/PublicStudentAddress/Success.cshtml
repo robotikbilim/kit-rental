@@ -1,0 +1,10 @@
+@model PublicStudentAddressFormViewModel
+@{ ViewData["Title"] = "Adres Kaydedildi"; }
+<div class="public-fault-shell">
+    <section class="public-fault-card">
+        <span class="eyebrow">ADRES FORMU</span>
+        <h1>@(ViewData["SuccessTitle"] ?? "Adres Kaydedildi")</h1>
+        <p class="block-muted">@(ViewData["SuccessMessage"] ?? "Adres bilginiz kaydedildi.")</p>
+        <div class="public-kit-summary"><span>@Model.CustomerName · @Model.OrderNumber</span><strong>@Model.StudentName</strong><code>@Model.ProductName</code></div>
+    </section>
+</div>

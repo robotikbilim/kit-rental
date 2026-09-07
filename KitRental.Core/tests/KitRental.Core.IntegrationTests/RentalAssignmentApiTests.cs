@@ -56,10 +56,10 @@ public sealed class RentalAssignmentApiTests : IClassFixture<WebApplicationFacto
             "/api/orders",
             new CreateOrderRequest(
                 customer!.Id,
-                customer.Addresses.Single().Id,
+                model.Id,
                 new DateOnly(2026, 8, 1),
                 new DateOnly(2026, 8, 10),
-                [new OrderLineRequest(model.Id, 1)]),
+                [new CreateOrderStudentRequest("Test Öğrenci", "5551112233")]),
             cancellationToken);
         orderResponse.EnsureSuccessStatusCode();
         var order = await orderResponse.Content.ReadFromJsonAsync<OrderApiResponse>(cancellationToken);

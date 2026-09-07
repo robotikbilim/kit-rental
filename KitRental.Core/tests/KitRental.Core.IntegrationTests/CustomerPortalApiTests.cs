@@ -58,8 +58,8 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal(System.Net.HttpStatusCode.NotFound, blockedRequest.StatusCode);
 
         var deliveryOrder = await PostAsync<CreatedOrderResponse>(admin, "/api/orders", new CreateOrderRequest(
-            rental.CustomerId, overview.Addresses.Single().Id, new DateOnly(2026, 11, 1), new DateOnly(2026, 12, 1),
-            [new OrderLineRequest(model.Id, 1)]), cancellationToken);
+            rental.CustomerId, model.Id, new DateOnly(2026, 11, 1), new DateOnly(2026, 12, 1),
+            [new CreateOrderStudentRequest("Teslim Öğrenci", "05320000000")]), cancellationToken);
         Assert.Equal(OrderType.Rental, deliveryOrder.Type);
 
         var fault = await customer.PostAsJsonAsync("/api/customer-portal/faults", new PortalFaultRequest(
@@ -80,6 +80,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         await PostAsync<OrderResponse>(admin, $"/api/orders/{deliveryOrder.Id}/transitions",
             new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
+        await CompleteStudentAddressesAsync(admin, deliveryOrder.Id, "Test Sokak 1", cancellationToken);
         await PostAsync<OrderKitPreparationResponse>(admin, $"/api/orders/{deliveryOrder.Id}/kits",
             new { lines = new[] { new { productModelId = model.Id, quantity = 1 } }, useAvailableKits = true }, cancellationToken);
         await PostAsync<OrderResponse>(admin, $"/api/orders/{deliveryOrder.Id}/transitions",
@@ -125,6 +126,20 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         CancellationToken cancellationToken) =>
         (await PostAsync<PublicFormAccessTokenResponse>(client,
             $"/api/public/form-access/{Uri.EscapeDataString(qrCode)}", new { }, cancellationToken)).Token;
+
+    private static async Task CompleteStudentAddressesAsync(HttpClient client, Guid orderId, string addressLine,
+        CancellationToken cancellationToken)
+    {
+        var detail = await client.GetFromJsonAsync<OrderDetailResponse>($"/api/orders/{orderId}/detail",
+            cancellationToken);
+        foreach (var student in detail!.Students)
+        {
+            var response = await client.PostAsJsonAsync(
+                $"/api/public/student-addresses/{student.PublicAddressToken}",
+                new PublicStudentAddressRequest(addressLine), cancellationToken);
+            response.EnsureSuccessStatusCode();
+        }
+    }
 
     [Fact]
     public async Task PublicQr_CreatesOpenFaultAndReturnRequest_ForActiveRental()
@@ -202,11 +217,12 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
                 new AddressRequest("Okul", "Operasyon", "02120000000", "Okul Sokak 1", "06000")),
             cancellationToken);
         var order = await PostAsync<CreatedOrderResponse>(admin, "/api/orders", new CreateOrderRequest(
-            customer.Id, customer.Addresses.Single().Id, new DateOnly(2026, 11, 1), new DateOnly(2026, 12, 1),
-            [new OrderLineRequest(model.Id, 1)]), cancellationToken);
+            customer.Id, model.Id, new DateOnly(2026, 11, 1), new DateOnly(2026, 12, 1),
+            [new CreateOrderStudentRequest("Ece Yilmaz", "05325550000")]), cancellationToken);
 
         await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
             new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
+        await CompleteStudentAddressesAsync(admin, order.Id, "Okul Sokak 1", cancellationToken);
         var prepared = await PostAsync<OrderKitPreparationResponse>(admin, $"/api/orders/{order.Id}/kits",
             new { lines = new[] { new { productModelId = model.Id, quantity = 1 } }, useAvailableKits = true },
             cancellationToken);
@@ -242,6 +258,69 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         var units = await admin.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
         Assert.Equal(ProductUnitStatus.WithCustomer, units!.Single(item => item.Id == unit.Id).Status);
+    }
+
+    [Fact]
+    public async Task StudentOrderCompletionRequiresAddress_AndWritesStudentKitLocation()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin-student-location@test.local", "SystemAdmin", null));
+        var publicClient = _factory.CreateClient();
+        var model = await PostAsync<ProductModelResponse>(admin, "/api/product-models",
+            new CreateProductModelRequest("Adres Sonra Kiti", $"ASK-{Guid.NewGuid():N}"), cancellationToken);
+        var unit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
+            new CreateProductUnitRequest(model.Id, $"ASK-SN-{Guid.NewGuid():N}", $"ASK-QR-{Guid.NewGuid():N}"),
+            cancellationToken);
+        var customer = await PostAsync<CustomerResponse>(admin, "/api/customers",
+            new CreateCustomerRequest("Adres Sonra Okulu", $"address-later-{Guid.NewGuid():N}@example.com",
+                new AddressRequest("Okul", "Operasyon", "02120000000", "Okul Sokak 1", "06000")),
+            cancellationToken);
+        var order = await PostAsync<CreatedOrderResponse>(admin, "/api/orders", new CreateOrderRequest(
+            customer.Id, model.Id, new DateOnly(2026, 11, 1), new DateOnly(2026, 12, 1),
+            [new CreateOrderStudentRequest("Adres Bekleyen Öğrenci", "05320000000")]), cancellationToken);
+
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+            new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
+        var orderDetail = await admin.GetFromJsonAsync<OrderDetailResponse>(
+            $"/api/orders/{order.Id}/detail", cancellationToken);
+        var student = Assert.Single(orderDetail!.Students);
+        Assert.False(student.HasAddress);
+
+        var prepared = await PostAsync<OrderKitPreparationResponse>(admin, $"/api/orders/{order.Id}/kits",
+            new { lines = Array.Empty<OrderLineRequest>(), useAvailableKits = true },
+            cancellationToken);
+        Assert.Equal(unit.Id, prepared.Kits.Single().ProductUnitId);
+
+        var blockedCompletion = await admin.PostAsJsonAsync($"/api/orders/{order.Id}/transitions",
+            new OrderTransitionRequest(RentalOrderStatus.Completed), cancellationToken);
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, blockedCompletion.StatusCode);
+
+        var detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
+            $"/api/physical-kits/{unit.Id}", cancellationToken);
+        Assert.NotEqual("Adres Bekleyen Öğrenci", detail!.CurrentLocation?.RecipientName);
+        Assert.DoesNotContain(detail.DeliveryHistory, item => item.RecipientName == "Adres Bekleyen Öğrenci");
+
+        var addressResponse = await publicClient.PostAsJsonAsync(
+            $"/api/public/student-addresses/{student.PublicAddressToken}",
+            new PublicStudentAddressRequest("İstanbul / Kadıköy - Test Sokak 1", 99, null),
+            cancellationToken);
+        addressResponse.EnsureSuccessStatusCode();
+
+        detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
+            $"/api/physical-kits/{unit.Id}", cancellationToken);
+        Assert.NotEqual("Adres Bekleyen Öğrenci", detail!.CurrentLocation?.RecipientName);
+        Assert.DoesNotContain(detail.DeliveryHistory, item => item.RecipientName == "Adres Bekleyen Öğrenci");
+
+        var completedOrder = await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+            new OrderTransitionRequest(RentalOrderStatus.Completed), cancellationToken);
+        Assert.Equal(RentalOrderStatus.Completed, completedOrder.Status);
+
+        detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
+            $"/api/physical-kits/{unit.Id}", cancellationToken);
+        Assert.Equal("Adres Bekleyen Öğrenci", detail!.CurrentLocation!.RecipientName);
+        Assert.Equal("İstanbul / Kadıköy - Test Sokak 1", detail.CurrentLocation.AddressLine);
+        Assert.Null(detail.CurrentLocation.Latitude);
+        Assert.Null(detail.CurrentLocation.Longitude);
     }
 
     [Fact]
@@ -417,21 +496,15 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var assigned = overview!.RentalCohorts.Single(x => x.Id == cohort.Id).Students.Single(x => x.Id == student.Id);
         Assert.Equal(prepared.Kits.Single().ProductUnitId, assigned.ProductUnitId);
         Assert.Equal(prepared.Kits.Single().AssignmentId, assigned.AssignmentId);
-        Assert.True(assigned.HasDeliveryForm);
-        Assert.Equal("Ayşe Yılmaz", assigned.DeliveredTo);
-        Assert.Equal("0532 000 00 00", assigned.DeliveryPhone);
-        Assert.Equal("Test Mahallesi 1", assigned.DeliveryAddress);
-        Assert.True(overview.Kits.Single(x => x.AssignmentId == assigned.AssignmentId).HasDeliveryForm);
+        Assert.False(assigned.HasDeliveryForm);
+        Assert.False(overview.Kits.Single(x => x.AssignmentId == assigned.AssignmentId).HasDeliveryForm);
 
         var detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
             $"/api/physical-kits/{prepared.Kits.Single().ProductUnitId}", cancellationToken);
         Assert.Contains(detail!.ActivityHistory, item =>
             item.Description.Contains("Ayşe Yılmaz", StringComparison.OrdinalIgnoreCase) &&
             item.Action.Contains("atandı", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(detail.DeliveryHistory, item =>
-            item.RecipientName == "Ayşe Yılmaz" &&
-            item.Phone == "0532 000 00 00" &&
-            item.AddressLine == "Test Mahallesi 1");
+        Assert.DoesNotContain(detail.DeliveryHistory, item => item.RecipientName == "Ayşe Yılmaz");
 
         var blockedAdd = await portal.PostAsJsonAsync(
             $"/api/customer-portal/rental-periods/{cohort.Id}/students",
@@ -444,11 +517,15 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal(System.Net.HttpStatusCode.Conflict, blockedDelete.StatusCode);
 
         await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
-            new OrderTransitionRequest(RentalOrderStatus.Preparing), cancellationToken);
-        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
-            new OrderTransitionRequest(RentalOrderStatus.OutboundInTransit), cancellationToken);
-        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
-            new OrderTransitionRequest(RentalOrderStatus.Delivered), cancellationToken);
+            new OrderTransitionRequest(RentalOrderStatus.Completed), cancellationToken);
+
+        overview = await portal.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
+        assigned = overview!.RentalCohorts.Single(x => x.Id == cohort.Id).Students.Single(x => x.Id == student.Id);
+        Assert.True(assigned.HasDeliveryForm);
+        Assert.Equal("Ayşe Yılmaz", assigned.DeliveredTo);
+        Assert.Equal("0532 000 00 00", assigned.DeliveryPhone);
+        Assert.Equal("Test Mahallesi 1", assigned.DeliveryAddress);
+        Assert.True(overview.Kits.Single(x => x.AssignmentId == assigned.AssignmentId).HasDeliveryForm);
 
         var returnRequest = await PostAsync<ReturnResponse>(portal,
             $"/api/customer-portal/rental-periods/{cohort.Id}/students/{student.Id}/return",

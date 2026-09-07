@@ -405,6 +405,63 @@
         });
     });
 
+    const ensureTextPreviewDialog = () => {
+        let dialog = document.getElementById('text-preview-dialog');
+        if (dialog) return dialog;
+
+        dialog = document.createElement('dialog');
+        dialog.id = 'text-preview-dialog';
+        dialog.className = 'text-preview-dialog';
+        dialog.innerHTML = [
+            '<section class="text-preview-modal">',
+            '<header>',
+            '<div><span class="eyebrow">DETAY</span><h2 id="text-preview-title">Detay</h2></div>',
+            '<button class="icon-action icon-action-neutral" type="button" data-text-preview-close aria-label="Pencereyi kapat" title="Kapat"><i data-lucide="x"></i></button>',
+            '</header>',
+            '<pre id="text-preview-body"></pre>',
+            '<footer>',
+            '<button class="secondary-action" type="button" data-text-preview-copy>Metni Kopyala</button>',
+            '<button class="primary-action" type="button" data-text-preview-close>Kapat</button>',
+            '</footer>',
+            '</section>'
+        ].join('');
+        document.body.append(dialog);
+        dialog.addEventListener('click', (event) => {
+            if (event.target === dialog) closeDialog(dialog);
+        });
+        dialog.querySelectorAll('[data-text-preview-close]').forEach((trigger) => {
+            trigger.addEventListener('click', () => closeDialog(dialog));
+        });
+        dialog.querySelector('[data-text-preview-copy]')?.addEventListener('click', async () => {
+            const text = dialog.dataset.previewText || '';
+            if (!text) return;
+            await navigator.clipboard?.writeText(text);
+        });
+        return dialog;
+    };
+
+    document.addEventListener('click', (event) => {
+        const button = event.target.closest?.('[data-fulltext-modal]');
+        if (!button) return;
+        const dialog = ensureTextPreviewDialog();
+        const title = dialog.querySelector('#text-preview-title');
+        const body = dialog.querySelector('#text-preview-body');
+        const text = button.dataset.text || '';
+        dialog.dataset.previewText = text;
+        if (title) title.textContent = button.dataset.title || 'Detay';
+        if (body) body.textContent = text || '-';
+        openDialog(dialog);
+    });
+
+    document.addEventListener('click', async (event) => {
+        const button = event.target.closest?.('.copy-address-link');
+        if (!button) return;
+        await navigator.clipboard?.writeText(button.dataset.link || '');
+        const text = button.textContent;
+        button.textContent = 'Kopyalandı';
+        window.setTimeout(() => button.textContent = text, 1600);
+    });
+
     const rentalPeriodDialog = document.getElementById('rental-period-dialog');
     if (rentalPeriodDialog) {
         const form = rentalPeriodDialog.querySelector('form');

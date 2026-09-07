@@ -115,6 +115,25 @@ public sealed class PublicController : CoreApiControllerBase
     }
 
     [AllowAnonymous]
+    [HttpGet("public/student-addresses/{token}")]
+    public async Task<IActionResult> Get_publicStudentAddressesToken(string token,
+        [FromServices] OperationsService service, CancellationToken cancellationToken)
+    {
+        return Ok(await service.GetPublicStudentAddressContextAsync(token, cancellationToken));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("public/student-addresses/{token}")]
+    public async Task<IActionResult> Post_publicStudentAddressesToken(string token,
+        PublicStudentAddressRequest request, [FromServices] OperationsService service,
+        CancellationToken cancellationToken)
+    {
+        await service.SavePublicStudentAddressAsync(new SavePublicStudentAddressCommand(token,
+            request.AddressLine, request.Latitude, request.Longitude), cancellationToken);
+        return NoContent();
+    }
+
+    [AllowAnonymous]
     [HttpGet("public/fault-guides")]
     public async Task<IActionResult> Get_publicFaultGuides_6([FromServices] OperationsService service, CancellationToken cancellationToken)
     {

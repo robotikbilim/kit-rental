@@ -92,6 +92,14 @@ Rentals:
 - Customer/TACEV rental planning uses `RentalCohort` with owned `RentalCohortStudent` rows for named date ranges and student kit choices.
 - Customer/TACEV period names are persisted on `RentalCohort.Name`; the customer portal order-period form offers distinct previous period names as selectable suggestions while still allowing a new name to be typed.
 - TACEV can create a rental order from a rental cohort in the customer portal. Active students are linked to the created order through `RentalCohortStudent.OrderId`.
+- Admin rental order creation collects one education kit selection plus student full name/guardian phone rows, creates an order-linked `RentalCohort`, and computes the order quantity from the student count.
+- Order-linked rental cohort students can start without an address. Public student address links under `/adres/{token}` collect the current free-text address and optional coordinates into the student row; admin order detail and customer portal order-period detail show student address status, addresses, and copyable links.
+- Public student address collection treats coordinates as optional: an open address is sufficient, and missing/invalid map coordinates are ignored instead of blocking save. The MVC form also offers city/district dropdowns from `wwwroot/js/turkey-address-dropdowns.js`; selected city/district are folded into the saved free-text address rather than stored in separate schema columns.
+- Admin order detail and customer portal order-period detail can export the order student/address-link list as Excel, including student full name, phone, kit, address status, address, and public link.
+- Admin kit preparation for order-linked student cohorts can continue even when some student addresses are still missing.
+- Admin order details use a shortened order flow: approve the incoming order, create/reserve kits, then complete the order directly. The previous admin "prepare for shipment" and "mark shipped" actions are no longer shown; completion requires every order student to have an address, writes each assigned student's address to `KitLocationEvents`, moves reserved rental kits to customer/rented state, and moves purchase kits to sold state without requiring shipment statuses.
+- Admin kit preparation assigns physical kits to order-linked students but no longer writes student address location events at reservation time; student kit location is written when the order is completed.
+- If a student address is edited from the public address form after the order is already completed, the kit's latest location history is updated from that new address.
 - In the customer portal, rental cohorts are presented as `Siparişler`: the former customer `Orders` page redirects to `RentalPeriods`, and the list shows each cohort's linked order number plus approved/unapproved state. The detail action opens the cohort's student list.
 - In the customer portal `Siparişler` list, delivered/active/completed linked orders (`Delivered`, `RentalActive`, `Completed`) display the detail label `Tamamlandı`.
 - Rental cohort responses include `IsApproved`; once the linked order reaches `Approved` or any later non-cancelled/non-rejected status, the customer portal treats the student list/order as locked only for student-list mutations. Student add/update/import/delete and order-period plan edits are hidden in MVC and rejected by the application service/API, while linked-kit fault reporting and return request flows remain available.
@@ -99,11 +107,12 @@ Rentals:
 - Admin order kit preparation can select a customer's rental cohort. When selected, kit quantities are calculated from unassigned cohort students, and reserved/created kits are linked to the matching students.
 - When admin kit preparation assigns a rental cohort student to a kit, the generated `KitLocationEvent` uses the student's free-text address and does not copy separate student regional fields or coordinates.
 - If an admin opens kit preparation for an order created from a TACEV cohort, the cohort is inferred from student `OrderId` links and selected automatically.
-- Preparing kits for a TACEV cohort creates `DeliveryReceipt` kit-location events from each student's name, guardian phone, and address, so the student delivery forms are prefilled immediately after assignment.
+- Preparing kits for a TACEV cohort assigns kits to students without requiring addresses. Completing the order creates `DeliveryReceipt` kit-location events from each student's name, guardian phone, and address, and completion is blocked until every order student has an address.
 - Order-scoped QR label printing keeps the physical kit serial number and QR code unchanged, but includes the currently assigned cohort student's name and guardian phone when a kit is linked to a TACEV order; student address is intentionally not printed on the label. Printed labels use the ordering customer's name as the label heading and the "Arıza bildirimi veya iade için okutun" instruction; non-order label printing falls back to `Robotik Bilim`. Print CSS pins the A4 layout to fixed-width label cards instead of allowing mobile rules to collapse labels to a single column.
 - TACEV rental period student rows include assigned kit serial/QR plus delivery-form summary fields when the kit has been delivered or auto-filled from the student list.
-- TACEV rental period student rows show only the student's defined address; delivery-form summary fields do not repeat the delivery address in the student list.
-- TACEV rental period student create/edit forms and Excel import collect only the free-text student address. Separate regional student fields are no longer stored.
+- TACEV rental period student rows show address status and address in separate columns; rows created for public address collection show that the address is still pending, and the single-line student filter bar includes address-status filtering.
+- Admin and customer student/address tables keep address and public-link cells empty when there is no value; filled cells expose full values through compact popup buttons and copyable public links. Global MVC table/form styling loads at 90% zoom by default, keeps table rows, filters, dropdowns, and action buttons compact, and preserves full-height/responsive desktop sidebar behavior when the sidebar is collapsed.
+- TACEV rental period student create/edit forms and Excel import collect student full name and guardian phone without requiring address. Separate regional student fields are no longer stored.
 - TACEV rental period student updates are handled from an in-page modal opened by compact icon-only row actions; delete, return-request, and fault actions also use compact color-coded Lucide icon buttons.
 - Removing an already assigned student anonymizes the student row and hides it from the active student list, while the kit and rental assignment remain rented/reserved and appear as unassigned cohort kits.
 - Customer-portal student kit returns open a prefilled return form instead of creating the request immediately; the form uses the delivery-form recipient/address when present, otherwise the student record, requires a return reason, and does not ask for map coordinates.
@@ -189,6 +198,7 @@ Migration status:
 - `20260818123000_AddRentalCohortStudentCoordinates` adds nullable latitude/longitude columns to `RentalCohortStudents`.
 - `20260820162000_AddFaultTicketOrigin` adds `FaultTickets.Origin` with default `Internal`.
 - `20260820222749_AddPublicFormAccessTokens` adds `PublicFormAccessTokens` for 24-hour hashed public form access tokens.
+- `20260907120000_AddStudentAddressCollectionTokens` adds `RentalCohortStudents.PublicAddressToken` and `AddressSubmittedAt` for order-specific public student address collection.
 
 ## Public QR Flows
 
@@ -207,6 +217,8 @@ Core API routes:
 - `GET /api/public/returns/context/{token}`
 - `POST /api/public/deliveries` requires `Token` in the request body.
 - `GET /api/public/fault-guides/{token}` returns active kit-specific guides through a valid token.
+- `GET /api/public/student-addresses/{token}` returns the public student address form context.
+- `POST /api/public/student-addresses/{token}` saves the public student address and optional coordinates.
 - `GET/POST/PUT /api/customer-portal/rental-periods`
 - `DELETE /api/customer-portal/rental-periods/{periodId}`
 - `POST/PUT/DELETE /api/customer-portal/rental-periods/{periodId}/students`
@@ -309,7 +321,7 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 2026-08-15:
 
 - Added customer/TACEV rental periods and student lists with Excel template/import support in the MVC customer portal.
-- TACEV student Excel import reads student full name, guardian phone, and free-text address. The Excel upload popup selects one education kit for the whole uploaded list before opening the preview screen.
+- TACEV student Excel import reads student full name and guardian phone. The Excel upload popup selects one education kit for the whole uploaded list before opening the preview screen.
 - Added `RentalCohort`, `RentalCohortStudent`, and `ProductUnitActivity` persistence, repository access, and migration `20260815175751_AddRentalCohortsAndProductUnitActivitiesSnapshotFix`.
 - Admin order kit preparation can select a customer's rental period; selected periods drive kit quantities from student kit choices and link created/reused units to students.
 - TACEV rental period detail now has an `Onayla ve sipariş oluştur` action that confirms the student list will be locked, then creates a pending rental order for admins from the student kit totals.
@@ -332,12 +344,12 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Customer portal `Siparişler` list supports filtering by `Sipariş Dönemi` and `Onay Durumu`, and paginates filtered results with a fixed default of 20 records per page.
 - Filter forms marked with `data-auto-filter="true"` auto-submit when an input/select changes, so filter screens no longer show manual `Temizle` or `Filtrele` buttons.
 - Customer portal `Siparişler` list displays `Oluşturulma Tarihi` and sorts by `CreatedAt` descending by default.
-- Customer portal student-list detail supports auto-filtering by student text search, education kit, and assignment state, and paginates filtered students with 20 records per page.
+- Customer portal student-list detail supports auto-filtering by student text search, education kit, assignment state, and address state, and paginates filtered students with 20 records per page.
 - Customer portal `Kitler` list includes the assigned TACEV student name, guardian phone, and period when a kit is linked to a rental cohort student; student address is not shown in that list, though kit search still matches student fields.
 - Customer portal overview map no longer renders status, serial-number, or product-model filters; it always shows all customer kit markers with coordinates, while the admin dashboard map keeps its filters.
 - Customer portal `Siparişler` list now shows `Düzenle` and `Sil` actions for unapproved rental cohorts. Editing can change the period name and rental date range before admin approval; if a pending order exists, its rental period and kit quantity lines are synchronized from the cohort student list. Deleting removes the unapproved cohort and its linked unapproved order, but remains blocked after kit assignment or approval.
 - Admin approval of a rental order linked to TACEV students no longer geocodes student addresses or stores separate student location coordinates from that flow.
-- Customer portal TACEV student Excel templates and import preview screens use only student name, guardian phone, and free-text address columns.
+- Customer portal TACEV student Excel templates and import preview screens use only student name and guardian phone columns.
 
 2026-08-20:
 
@@ -370,10 +382,25 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 
 2026-09-01:
 
-- Removed separate regional collection from customer portal TACEV student create/edit and Excel import flows. The Excel template now contains only student full name, guardian phone, and free-text address.
+- Removed separate regional collection from customer portal TACEV student create/edit and Excel import flows. The Excel template later contains only student full name and guardian phone; address can be collected after order submission through public student address links.
 - Removed student regional fields from customer-portal API contracts, MVC view models, and `RentalCohortStudent`; migration `20260901180730_RemoveRentalCohortStudentLocationFields` drops the old student regional columns from `RentalCohortStudents`.
 - Removed project-wide separate regional storage from customer addresses, order delivery snapshots, kit location events, public/customer portal request contracts, map popups, and QR forms. Migration `20260901185000_RemoveProjectWideCityDistrictFields` drops the remaining regional columns and lookup tables; free-text address and optional latitude/longitude remain.
 - Admin kit preparation no longer geocodes TACEV student addresses or copies student regional fields/coordinates into generated delivery location events; the student free-text address remains the only student address source.
+
+2026-09-07:
+
+- Admin rental order creation no longer asks for a customer delivery address or kit quantity lines. The admin selects a customer, date range, one education kit, and student rows containing full name plus phone number.
+- Creating an admin rental order now creates an order-linked `RentalCohort` behind the scenes, links all students to the order, and uses the student count as the order quantity.
+- `RentalCohortStudent` can be created with an empty address for public address collection, stores `PublicAddressToken` and `AddressSubmittedAt`, and can update its address/optional coordinates from the tokenized public form.
+- Added public student address collection routes: MVC `/adres/{token}` and Core API `GET/POST /api/public/student-addresses/{token}`.
+- Public student address forms now allow saving with only open address; invalid or incomplete coordinates are discarded. City/district dropdown selections are prepended to the saved address text without reintroducing separate location columns.
+- Admin order details show order-linked students, address completion status, entered addresses, and copyable public address links.
+- Customer portal order-period details also show each student's public address link and include an Excel export for the student address/link list; admin order detail has the same Excel export.
+- Customer portal order-period student tables display address status and address in separate columns, with an `Adres Durumu` filter for completed vs pending public addresses.
+- MVC tables and filter/form panels are globally compacted for the admin and customer portals. Student address and public-link columns render a one-line truncated preview in the row and open the full value in the shared text-preview popup, so long values do not change table row height or width.
+- Admin kit preparation for order-linked student cohorts no longer waits for all public student addresses. Students without addresses can still receive a physical kit assignment, but order completion is blocked until all student addresses are present; completion writes the student addresses into kit location history.
+- Added migration `20260907120000_AddStudentAddressCollectionTokens` for student public address token and submission timestamp columns.
+- Customer portal student create/edit and Excel import now allow orders to be sent for approval with only student full name and guardian phone; address fields are left empty until public address collection is completed.
 
 ## Development Checklist
 

@@ -103,14 +103,16 @@ public sealed class OperationsController : CoreApiControllerBase
         return NoContent();
     }
 
-    [Authorize]
+    [Authorize(Roles = "SystemAdmin,OperationsManager")]
     [HttpPost("orders")]
     public async Task<IActionResult> Post_Orders_84(CreateOrderRequest request, [FromServices] OperationsService service, CancellationToken cancellationToken)
     {
         EnsureCustomerScope(request.CustomerId);
-        var result = await service.CreateOrderAsync(
-            new CreateOrderCommand(request.CustomerId, request.AddressId, request.StartDate, request.EndDate,
-                request.Lines.Select(line => new OrderLineCommand(line.ProductModelId, line.Quantity)).ToArray(),
+        var result = await service.CreateStudentAddressOrderAsync(
+            new CreateStudentAddressOrderCommand(request.CustomerId, request.ProductModelId,
+                request.StartDate, request.EndDate,
+                request.Students.Select(student =>
+                    new CreateStudentAddressOrderStudentCommand(student.FullName, student.GuardianPhone)).ToArray(),
                 User.GetRequiredUserId()),
             cancellationToken);
         return Created($"/api/orders/{result.Id}", result);

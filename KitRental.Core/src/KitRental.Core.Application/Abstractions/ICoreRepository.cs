@@ -48,6 +48,7 @@ public interface ICoreRepository
     Task<IReadOnlyCollection<RentalAssignment>> GetAssignmentsForProductUnitAsync(Guid productUnitId, CancellationToken cancellationToken);
     Task AddRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken);
     Task<RentalCohort?> GetRentalCohortAsync(Guid id, CancellationToken cancellationToken);
+    Task<RentalCohort?> GetRentalCohortByStudentAddressTokenAsync(string token, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<RentalCohort>> GetRentalCohortsAsync(Guid? customerId, CancellationToken cancellationToken);
     Task RemoveRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken);
     Task AddShipmentAsync(Shipment shipment, CancellationToken cancellationToken);

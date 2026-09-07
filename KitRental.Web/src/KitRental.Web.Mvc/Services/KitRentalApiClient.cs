@@ -148,10 +148,10 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => PostAsync<OrderViewModel>("/core/api/orders", new
         {
             model.CustomerId,
-            model.AddressId,
+            model.ProductModelId,
             model.StartDate,
             model.EndDate,
-            lines = model.Lines.Select(line => new { line.ProductModelId, line.Quantity }).ToArray()
+            students = model.Students.Select(student => new { student.FullName, student.GuardianPhone }).ToArray()
         }, cancellationToken);
 
     public Task<ApiCommandResult<OrderViewModel>> CreatePurchaseOrderAsync(PurchaseOrderInputViewModel model,
@@ -415,14 +415,14 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         RentalCohortStudentInputViewModel model, CancellationToken cancellationToken) =>
         PostAsync<PortalRentalCohortStudentViewModel>(
             $"/core/api/customer-portal/rental-periods/{model.CohortId}/students",
-            new { model.FullName, model.GuardianPhone, model.AddressLine, model.ProductModelId },
+            new { model.FullName, model.GuardianPhone, AddressLine = model.AddressLine ?? string.Empty, model.ProductModelId },
             cancellationToken);
 
     public Task<ApiCommandResult<PortalRentalCohortStudentViewModel>> UpdateRentalCohortStudentAsync(
         RentalCohortStudentInputViewModel model, CancellationToken cancellationToken) =>
         SendAsync<PortalRentalCohortStudentViewModel>(HttpMethod.Put,
             $"/core/api/customer-portal/rental-periods/{model.CohortId}/students/{model.Id}",
-            new { model.FullName, model.GuardianPhone, model.AddressLine, model.ProductModelId },
+            new { model.FullName, model.GuardianPhone, AddressLine = model.AddressLine ?? string.Empty, model.ProductModelId },
             cancellationToken);
 
     public Task<ApiCommandResult<object>> DeleteRentalCohortStudentAsync(Guid cohortId, Guid studentId,
@@ -519,6 +519,20 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             token = model.AccessToken,
             model.RecipientName,
             model.RecipientPhone,
+            model.AddressLine,
+            model.Latitude,
+            model.Longitude
+        }, cancellationToken);
+
+    public Task<PublicStudentAddressContextViewModel?> GetPublicStudentAddressContextAsync(string token,
+        CancellationToken cancellationToken) =>
+        GetAsync<PublicStudentAddressContextViewModel>(
+            $"/core/api/public/student-addresses/{Uri.EscapeDataString(token)}", cancellationToken);
+
+    public Task<ApiCommandResult<object>> SavePublicStudentAddressAsync(PublicStudentAddressFormViewModel model,
+        CancellationToken cancellationToken) =>
+        PostAsync<object>($"/core/api/public/student-addresses/{Uri.EscapeDataString(model.Token)}", new
+        {
             model.AddressLine,
             model.Latitude,
             model.Longitude

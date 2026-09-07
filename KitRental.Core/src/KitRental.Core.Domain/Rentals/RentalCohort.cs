@@ -1,4 +1,5 @@
 using KitRental.SharedKernel;
+using System.Security.Cryptography;
 
 namespace KitRental.Core.Domain.Rentals;
 
@@ -100,6 +101,17 @@ public sealed class RentalCohort
             student.LinkOrder(orderId);
     }
 
+    public RentalCohortStudent UpdateStudentAddressByToken(string publicAddressToken, string addressLine,
+        double? latitude, double? longitude, DateTimeOffset submittedAt)
+    {
+        var student = _students.SingleOrDefault(item =>
+            !item.IsDeleted &&
+            string.Equals(item.PublicAddressToken, publicAddressToken.Trim(), StringComparison.Ordinal))
+            ?? throw new DomainException("rental_cohort.student_not_found", "Öğrenci bulunamadı.");
+        student.UpdatePublicAddress(addressLine, latitude, longitude, submittedAt);
+        return student;
+    }
+
     private RentalCohortStudent GetStudent(Guid studentId) =>
         _students.SingleOrDefault(item => item.Id == studentId)
         ?? throw new DomainException("rental_cohort.student_not_found", "Öğrenci bulunamadı.");
@@ -118,8 +130,9 @@ public sealed class RentalCohortStudent
         RentalCohortId = rentalCohortId;
         FullName = fullName.Trim();
         GuardianPhone = TurkishPhoneNumber.Normalize(guardianPhone, "Veli telefon numarası");
-        AddressLine = addressLine.Trim();
+        AddressLine = addressLine?.Trim() ?? string.Empty;
         ProductModelId = productModelId;
+        PublicAddressToken = CreatePublicAddressToken();
     }
 
     public Guid Id { get; private set; }
@@ -133,18 +146,20 @@ public sealed class RentalCohortStudent
     public Guid? ProductUnitId { get; private set; }
     public double? Latitude { get; private set; }
     public double? Longitude { get; private set; }
+    public string PublicAddressToken { get; private set; } = string.Empty;
+    public DateTimeOffset? AddressSubmittedAt { get; private set; }
     public bool IsDeleted { get; private set; }
     public bool HasKitAssignment => AssignmentId.HasValue && ProductUnitId.HasValue;
     public bool HasCoordinates => Latitude.HasValue && Longitude.HasValue;
+    public bool HasAddress => !string.IsNullOrWhiteSpace(AddressLine);
 
     public static RentalCohortStudent Create(Guid id, Guid rentalCohortId, string fullName,
         string guardianPhone, string addressLine, Guid productModelId)
     {
         if (id == Guid.Empty || rentalCohortId == Guid.Empty || productModelId == Guid.Empty ||
-            string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(guardianPhone) ||
-            string.IsNullOrWhiteSpace(addressLine))
+            string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(guardianPhone))
             throw new DomainException("rental_cohort_student.required_fields",
-                "Öğrenci adı, veli telefonu, adres ve eğitim kiti zorunludur.");
+                "Öğrenci adı, veli telefonu ve eğitim kiti zorunludur.");
 
         return new RentalCohortStudent(id, rentalCohortId, fullName, guardianPhone, addressLine, productModelId);
     }
@@ -162,6 +177,27 @@ public sealed class RentalCohortStudent
         GuardianPhone = updated.GuardianPhone;
         AddressLine = updated.AddressLine;
         ProductModelId = updated.ProductModelId;
+    }
+
+    public void UpdatePublicAddress(string addressLine, double? latitude, double? longitude,
+        DateTimeOffset submittedAt)
+    {
+        if (IsDeleted)
+            throw new DomainException("rental_cohort_student.deleted", "Silinmiş öğrenci güncellenemez.");
+        if (string.IsNullOrWhiteSpace(addressLine))
+            throw new DomainException("rental_cohort_student.address_required", "Adres zorunludur.");
+        AddressLine = addressLine.Trim();
+        if (latitude.HasValue && longitude.HasValue && CoordinatesAreValid(latitude.Value, longitude.Value))
+        {
+            Latitude = latitude;
+            Longitude = longitude;
+        }
+        else
+        {
+            Latitude = null;
+            Longitude = null;
+        }
+        AddressSubmittedAt = submittedAt;
     }
 
     public void UpdateCoordinates(double latitude, double longitude)
@@ -208,6 +244,7 @@ public sealed class RentalCohortStudent
         AddressLine = string.Empty;
         Latitude = null;
         Longitude = null;
+        AddressSubmittedAt = null;
         IsDeleted = true;
     }
 
@@ -222,4 +259,10 @@ public sealed class RentalCohortStudent
 
     private static bool CoordinatesAreValid(double latitude, double longitude) =>
         latitude is >= -90 and <= 90 && longitude is >= -180 and <= 180;
+
+    private static string CreatePublicAddressToken() =>
+        Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
 }

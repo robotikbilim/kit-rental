@@ -38,14 +38,16 @@ public sealed record CreateCustomerRequest(string Name, string Email, AddressReq
 public sealed record UpdateCustomerRequest(string Name, string Email, bool IsActive,
     IReadOnlyCollection<Guid>? AllowedProductModelIds = null);
 public sealed record OrderLineRequest(Guid ProductModelId, int Quantity);
-public sealed record CreateOrderRequest(Guid CustomerId, Guid AddressId, DateOnly StartDate, DateOnly EndDate, IReadOnlyCollection<OrderLineRequest> Lines);
+public sealed record CreateOrderStudentRequest(string FullName, string GuardianPhone);
+public sealed record CreateOrderRequest(Guid CustomerId, Guid ProductModelId, DateOnly StartDate, DateOnly EndDate,
+    IReadOnlyCollection<CreateOrderStudentRequest> Students);
 public sealed record OrderTransitionRequest(RentalOrderStatus Target);
 public sealed record CreateOrderKitsRequest(IReadOnlyCollection<OrderLineRequest> Lines, bool UseAvailableKits = false,
     Guid? RentalCohortId = null);
 public sealed record RentalCohortRequest(string Name, DateOnly StartDate, DateOnly EndDate);
-public sealed record RentalCohortStudentRequest(string FullName, string GuardianPhone, string AddressLine,
+public sealed record RentalCohortStudentRequest(string FullName, string GuardianPhone, string? AddressLine,
     Guid ProductModelId);
-public sealed record RentalCohortImportRowRequest(string FullName, string GuardianPhone, string AddressLine,
+public sealed record RentalCohortImportRowRequest(string FullName, string GuardianPhone, string? AddressLine,
     string ProductModel);
 public sealed record RentalCohortStudentImportRequest(IReadOnlyCollection<RentalCohortImportRowRequest> Rows);
 public sealed record CreatePurchaseOrderRequest(Guid CustomerId, Guid AddressId,
@@ -74,3 +76,4 @@ public sealed record PortalStudentReturnRequest(string RequesterName, string Req
 public sealed record PortalReturnShipmentRequest(string Carrier, string TrackingNumber);
 public sealed record PublicKitDeliveryRequest(string Token, string RecipientName,
     string RecipientPhone, string AddressLine, double? Latitude = null, double? Longitude = null);
+public sealed record PublicStudentAddressRequest(string AddressLine, double? Latitude = null, double? Longitude = null);

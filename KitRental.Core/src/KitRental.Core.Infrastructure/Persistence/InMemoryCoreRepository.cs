@@ -310,6 +310,15 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         lock (_gate) return Task.FromResult(_rentalCohorts.GetValueOrDefault(id));
     }
 
+    public Task<RentalCohort?> GetRentalCohortByStudentAddressTokenAsync(string token,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+            return Task.FromResult(_rentalCohorts.Values.SingleOrDefault(cohort =>
+                cohort.Students.Any(student => student.PublicAddressToken == token)));
+    }
+
     public Task<IReadOnlyCollection<RentalCohort>> GetRentalCohortsAsync(Guid? customerId,
         CancellationToken cancellationToken)
     {
