@@ -275,6 +275,14 @@
     collectNotifications();
     window.addEventListener('pageshow', clearPageBusy);
 
+    document.addEventListener('click', (event) => {
+        const trigger = event.target.closest?.('[data-inline-error]');
+        if (!trigger) return;
+        event.preventDefault();
+        event.stopPropagation();
+        showPopup(trigger.dataset.inlineError, 'error');
+    });
+
     document.querySelectorAll('form[data-auto-filter="true"]').forEach((form) => {
         let filterTimer = null;
         const submitFilter = (delay = 0) => {

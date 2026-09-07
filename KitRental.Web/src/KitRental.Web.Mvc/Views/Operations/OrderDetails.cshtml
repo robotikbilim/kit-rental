@@ -1,10 +1,33 @@
 @model OrderDetailViewModel
+@functions {
+    static IReadOnlyCollection<int> PaginationPages(int currentPage, int totalPages)
+    {
+        var start = Math.Max(1, currentPage - 2);
+        var end = Math.Min(totalPages, currentPage + 2);
+        return Enumerable.Range(start, end - start + 1).ToArray();
+    }
+}
 @{
     ViewData["Title"] = $"Sipariş {Model.OrderNumber}";
     var requestedCount = Model.Lines.Sum(line => line.Quantity);
     var allKitsCreated = Model.Kits.Count == requestedCount;
     var hasIncompleteStudentAddresses = Model.Students.Count > 0 && Model.Students.Any(student => !student.HasAddress);
     var canManage = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager");
+    const int orderDetailPageSize = 10;
+    int ReadPositivePage(string key) =>
+        int.TryParse(Context.Request.Query[key].ToString(), out var value) && value > 0 ? value : 1;
+    var studentTotalCount = Model.Students.Count;
+    var studentTotalPages = Math.Max(1, (int)Math.Ceiling(studentTotalCount / (double)orderDetailPageSize));
+    var studentPage = Math.Min(ReadPositivePage("studentPage"), studentTotalPages);
+    var studentFirstItem = studentTotalCount == 0 ? 0 : (studentPage - 1) * orderDetailPageSize + 1;
+    var studentLastItem = Math.Min(studentPage * orderDetailPageSize, studentTotalCount);
+    var pagedStudents = Model.Students.Skip((studentPage - 1) * orderDetailPageSize).Take(orderDetailPageSize).ToArray();
+    var kitTotalCount = Model.Kits.Count;
+    var kitTotalPages = Math.Max(1, (int)Math.Ceiling(kitTotalCount / (double)orderDetailPageSize));
+    var kitPage = Math.Min(ReadPositivePage("kitPage"), kitTotalPages);
+    var kitFirstItem = kitTotalCount == 0 ? 0 : (kitPage - 1) * orderDetailPageSize + 1;
+    var kitLastItem = Math.Min(kitPage * orderDetailPageSize, kitTotalCount);
+    var pagedKits = Model.Kits.Skip((kitPage - 1) * orderDetailPageSize).Take(orderDetailPageSize).ToArray();
     string OrderStatus(int status) => status switch { 2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Hazırlanıyor", 5 => "Kargoya hazır", 6 => "Kargoya verildi", 13 => "Tamamlandı", _ => "İşlemde" };
     string KitStatus(int status) => status switch { 2 => "Rezerve", 3 => "Gönderim bekliyor", 4 => "Kargoya verildi", 5 => "Teslim edildi / kirada", 12 => "Satıldı", _ => "Hazırlanıyor" };
     var isPurchase = Model.Type == 2;
@@ -43,13 +66,13 @@
 
 @if (!isPurchase && Model.Students.Count > 0)
 {
-    <section class="detail-section">
+    <section class="detail-section" id="student-addresses">
         <div class="section-heading"><div><span class="eyebrow">ÖĞRENCİ ADRESLERİ</span><h2>Public adres toplama linkleri</h2><p>Her öğrenciye kendi linkini gönderin; adres geldiğinde bu tabloda görünür.</p></div><a class="secondary-action" asp-action="ExportOrderStudents" asp-route-id="@Model.Id">Excel Olarak İndir</a></div>
         <div class="table-scroll">
             <table class="order-kits-table">
                 <thead><tr><th>Öğrenci</th><th>Telefon</th><th>Adres Durumu</th><th>Adres</th><th>Public Link</th></tr></thead>
                 <tbody>
-                @foreach (var student in Model.Students)
+                @foreach (var student in pagedStudents)
                 {
                     var addressUrl = Url.Action("Index", "PublicStudentAddress", new { token = student.PublicAddressToken }, Context.Request.Scheme) ?? string.Empty;
                     <tr>
@@ -77,6 +100,17 @@
                 </tbody>
             </table>
         </div>
+        <footer class="pagination-shell">
+            <span>@studentFirstItem–@studentLastItem / @studentTotalCount öğrenci</span>
+            @if (studentTotalPages > 1)
+            {
+                <nav class="pagination" aria-label="Öğrenci adresleri sayfaları">
+                    @if (studentPage > 1) { <a asp-action="OrderDetails" asp-route-id="@Model.Id" asp-route-studentPage="@(studentPage - 1)" asp-route-kitPage="@kitPage" asp-fragment="student-addresses">←</a> }
+                    @foreach (var pageNumber in PaginationPages(studentPage, studentTotalPages)) { <a class="@(pageNumber == studentPage ? "active" : null)" aria-current="@(pageNumber == studentPage ? "page" : null)" asp-action="OrderDetails" asp-route-id="@Model.Id" asp-route-studentPage="@pageNumber" asp-route-kitPage="@kitPage" asp-fragment="student-addresses">@pageNumber</a> }
+                    @if (studentPage < studentTotalPages) { <a asp-action="OrderDetails" asp-route-id="@Model.Id" asp-route-studentPage="@(studentPage + 1)" asp-route-kitPage="@kitPage" asp-fragment="student-addresses">→</a> }
+                </nav>
+            }
+        </footer>
     </section>
 }
 
@@ -90,7 +124,7 @@ else if (canManage && (Model.Status is 3 or 4 or 5 or 6 or 7) && allKitsCreated)
         <p>@(hasIncompleteStudentAddresses ? "Siparişi tamamlamak için siparişteki tüm öğrencilerin adres bilgileri girilmiş olmalıdır." : isPurchase ? "Tüm fiziksel kitler rezerve edildi; tamamlandığında kitler satıldı durumuna alınır." : "Tüm fiziksel kitler oluşturuldu ve öğrencilere rezerve edildi; tamamlandığında öğrenci adresleri kit konum geçmişine işlenir.")</p>
         @if (hasIncompleteStudentAddresses)
         {
-            <button class="primary-action" type="button" disabled>Siparişi Tamamla →</button>
+            <button class="primary-action" type="button" data-inline-error="Eksik adres bilgisi olan kayıtlar var, önce adresleri doldurun.">Siparişi Tamamla →</button>
         }
         else
         {
@@ -99,7 +133,7 @@ else if (canManage && (Model.Status is 3 or 4 or 5 or 6 or 7) && allKitsCreated)
     </div>
 }
 
-<section class="detail-section">
+<section class="detail-section" id="order-kits">
     <div class="section-heading"><div><span class="eyebrow">SİPARİŞE BAĞLI FİZİKSEL KİTLER</span><h2>Seri numaraları ve QR kodları</h2></div>@if (Model.Kits.Count > 0) { <a class="primary-action" asp-controller="PhysicalKits" asp-action="OrderLabels" asp-route-orderId="@Model.Id">QR Etiketlerini Yazdır</a> }</div>
     @if (Model.Kits.Count == 0)
     {
@@ -107,6 +141,17 @@ else if (canManage && (Model.Status is 3 or 4 or 5 or 6 or 7) && allKitsCreated)
     }
     else
     {
-        <div class="table-scroll"><table class="order-kits-table"><thead><tr><th>Kit</th><th>Seri numarası</th><th>QR kod</th><th>Durum</th><th></th></tr></thead><tbody>@foreach (var kit in Model.Kits) { <tr><td><strong>@kit.ProductName</strong><small class="block-muted">@kit.ProductSku</small></td><td><code class="unit-serial">@kit.SerialNumber</code></td><td><span class="unit-qr">@kit.QrCode</span></td><td><span class="fleet-status status-@kit.Status">@KitStatus(kit.Status)</span></td><td><a class="row-link" asp-controller="PhysicalKits" asp-action="Details" asp-route-id="@kit.Id">Kit Detayı →</a></td></tr> }</tbody></table></div>
+        <div class="table-scroll"><table class="order-kits-table"><thead><tr><th>Kit</th><th>Seri numarası</th><th>QR kod</th><th>Durum</th><th></th></tr></thead><tbody>@foreach (var kit in pagedKits) { <tr><td><strong>@kit.ProductName</strong><small class="block-muted">@kit.ProductSku</small></td><td><code class="unit-serial">@kit.SerialNumber</code></td><td><span class="unit-qr">@kit.QrCode</span></td><td><span class="fleet-status status-@kit.Status">@KitStatus(kit.Status)</span></td><td><a class="row-link" asp-controller="PhysicalKits" asp-action="Details" asp-route-id="@kit.Id">Kit Detayı →</a></td></tr> }</tbody></table></div>
+        <footer class="pagination-shell">
+            <span>@kitFirstItem–@kitLastItem / @kitTotalCount kit</span>
+            @if (kitTotalPages > 1)
+            {
+                <nav class="pagination" aria-label="Siparişe bağlı fiziksel kit sayfaları">
+                    @if (kitPage > 1) { <a asp-action="OrderDetails" asp-route-id="@Model.Id" asp-route-studentPage="@studentPage" asp-route-kitPage="@(kitPage - 1)" asp-fragment="order-kits">←</a> }
+                    @foreach (var pageNumber in PaginationPages(kitPage, kitTotalPages)) { <a class="@(pageNumber == kitPage ? "active" : null)" aria-current="@(pageNumber == kitPage ? "page" : null)" asp-action="OrderDetails" asp-route-id="@Model.Id" asp-route-studentPage="@studentPage" asp-route-kitPage="@pageNumber" asp-fragment="order-kits">@pageNumber</a> }
+                    @if (kitPage < kitTotalPages) { <a asp-action="OrderDetails" asp-route-id="@Model.Id" asp-route-studentPage="@studentPage" asp-route-kitPage="@(kitPage + 1)" asp-fragment="order-kits">→</a> }
+                </nav>
+            }
+        </footer>
     }
 </section>

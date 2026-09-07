@@ -18,6 +18,11 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<DashboardViewModel?> GetDashboardAsync(CancellationToken cancellationToken) =>
         GetAsync<DashboardViewModel>("/core/api/dashboard", cancellationToken);
 
+    public Task<ApiCommandResult<KitLocationGeocodingResultViewModel>> UpdateKitLocationsAsync(
+        CancellationToken cancellationToken) =>
+        PostAsync<KitLocationGeocodingResultViewModel>("/core/api/dashboard/kit-locations/update", new { },
+            cancellationToken);
+
     public async Task<IReadOnlyCollection<ProductUnitViewModel>> GetProductUnitsAsync(CancellationToken cancellationToken) =>
         await GetAsync<ProductUnitViewModel[]>("/core/api/product-units", cancellationToken) ?? [];
 

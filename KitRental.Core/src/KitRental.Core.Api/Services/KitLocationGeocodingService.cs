@@ -1,114 +1,90 @@
 using KitRental.Core.Application.Abstractions;
-using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Threading.Channels;
 
 namespace KitRental.Core.Api;
 
-public sealed class KitLocationGeocodingQueue
-{
-    private readonly Channel<Guid> _channel = Channel.CreateUnbounded<Guid>(
-        new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
-    private readonly ConcurrentDictionary<Guid, byte> _queued = new();
+public sealed record KitLocationGeocodingResult(
+    int LatestAddressCount,
+    int CandidateCount,
+    int UpdatedCount,
+    int UnresolvedCount,
+    int FailedCount,
+    bool IsConfigured);
 
-    public bool TryEnqueue(Guid locationEventId) =>
-        _queued.TryAdd(locationEventId, 0) && _channel.Writer.TryWrite(locationEventId);
-
-    public void MarkDequeued(Guid locationEventId) => _queued.TryRemove(locationEventId, out _);
-
-    public IAsyncEnumerable<Guid> ReadAllAsync(CancellationToken cancellationToken) =>
-        _channel.Reader.ReadAllAsync(cancellationToken);
-}
-
-public sealed class KitLocationGeocodingWorker(
-    KitLocationGeocodingQueue queue,
-    IServiceScopeFactory scopeFactory,
+public sealed class KitLocationGeocodingService(
+    ICoreRepository repository,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
-    ILogger<KitLocationGeocodingWorker> logger) : BackgroundService
+    ILogger<KitLocationGeocodingService> logger)
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    public async Task<KitLocationGeocodingResult> UpdateLatestMissingCoordinatesAsync(
+        CancellationToken cancellationToken)
     {
-        await EnqueuePendingEventsAsync(stoppingToken);
-        using var refreshTimer = new PeriodicTimer(TimeSpan.FromSeconds(
-            Math.Max(5, configuration.GetValue("Gemini:QueueScanSeconds", 30))));
-        var refreshTask = RefreshQueueAsync(refreshTimer, stoppingToken);
-
-        try
+        var latestLocations = (await repository.GetKitLocationEventsAsync(cancellationToken))
+            .GroupBy(location => location.ProductUnitId)
+            .Select(group => group.OrderByDescending(location => location.OccurredAt)
+                .ThenByDescending(location => location.Id).First())
+            .Where(location => !string.IsNullOrWhiteSpace(location.AddressLine))
+            .ToArray();
+        var candidates = latestLocations
+            .Where(location => !location.Latitude.HasValue || !location.Longitude.HasValue)
+            .ToArray();
+        if (candidates.Length == 0)
+            return new KitLocationGeocodingResult(latestLocations.Length, 0, 0, 0, 0, IsConfigured());
+        if (!IsConfigured())
         {
-            await foreach (var eventId in queue.ReadAllAsync(stoppingToken))
+            logger.LogWarning("Gemini geocoding yapılandırması eksik veya kapalı; kit konumları güncellenemedi.");
+            return new KitLocationGeocodingResult(latestLocations.Length, candidates.Length, 0, 0,
+                candidates.Length, false);
+        }
+
+        var updated = 0;
+        var unresolved = 0;
+        var failed = 0;
+        foreach (var candidate in candidates)
+        {
+            try
             {
-                queue.MarkDequeued(eventId);
-                await ProcessAsync(eventId, stoppingToken);
+                var coordinates = await ResolveAsync(candidate.AddressLine, cancellationToken);
+                if (coordinates is null)
+                {
+                    unresolved++;
+                    logger.LogWarning("Adres için Gemini koordinat üretemedi. KitLocationEventId={EventId}",
+                        candidate.Id);
+                    continue;
+                }
+
+                var locationEvent = await repository.GetKitLocationEventAsync(candidate.Id, cancellationToken);
+                if (locationEvent is null || locationEvent.Latitude.HasValue && locationEvent.Longitude.HasValue)
+                    continue;
+                locationEvent.SetCoordinates(coordinates.Value.Latitude, coordinates.Value.Longitude);
+                await repository.SaveChangesAsync(cancellationToken);
+                updated++;
+                logger.LogInformation("Kit adres koordinatları güncellendi. KitLocationEventId={EventId}",
+                    candidate.Id);
+            }
+            catch (Exception exception) when (exception is HttpRequestException or JsonException or InvalidOperationException)
+            {
+                failed++;
+                logger.LogError(exception,
+                    "Kit adresi için Gemini geocoding işlemi başarısız. KitLocationEventId={EventId}",
+                    candidate.Id);
             }
         }
-        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-        {
-        }
-        finally
-        {
-            try { await refreshTask; }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
-        }
+
+        return new KitLocationGeocodingResult(latestLocations.Length, candidates.Length, updated, unresolved, failed,
+            true);
     }
 
-    private async Task RefreshQueueAsync(PeriodicTimer timer, CancellationToken cancellationToken)
-    {
-        while (await timer.WaitForNextTickAsync(cancellationToken))
-            await EnqueuePendingEventsAsync(cancellationToken);
-    }
-
-    private async Task EnqueuePendingEventsAsync(CancellationToken cancellationToken)
-    {
-        using var scope = scopeFactory.CreateScope();
-        var repository = scope.ServiceProvider.GetRequiredService<ICoreRepository>();
-        foreach (var locationEvent in await repository.GetKitLocationEventsAsync(cancellationToken))
-        {
-            if (!locationEvent.Latitude.HasValue || !locationEvent.Longitude.HasValue)
-                queue.TryEnqueue(locationEvent.Id);
-        }
-    }
-
-    private async Task ProcessAsync(Guid eventId, CancellationToken cancellationToken)
-    {
-        using var scope = scopeFactory.CreateScope();
-        var repository = scope.ServiceProvider.GetRequiredService<ICoreRepository>();
-        var locationEvent = await repository.GetKitLocationEventAsync(eventId, cancellationToken);
-        if (locationEvent is null || locationEvent.Latitude.HasValue && locationEvent.Longitude.HasValue)
-            return;
-
-        try
-        {
-            var coordinates = await ResolveAsync(locationEvent.AddressLine, cancellationToken);
-            if (coordinates is null)
-            {
-                logger.LogWarning("Adres için Gemini koordinat üretemedi. KitLocationEventId={EventId}", eventId);
-                return;
-            }
-
-            locationEvent.SetCoordinates(coordinates.Value.Latitude, coordinates.Value.Longitude);
-            await repository.SaveChangesAsync(cancellationToken);
-            logger.LogInformation("Kit adres koordinatları güncellendi. KitLocationEventId={EventId}", eventId);
-        }
-        catch (Exception exception) when (exception is HttpRequestException or JsonException or InvalidOperationException)
-        {
-            logger.LogError(exception, "Kit adresi için Gemini geocoding işlemi başarısız. KitLocationEventId={EventId}", eventId);
-        }
-    }
+    private bool IsConfigured() =>
+        configuration.GetValue("Gemini:Enabled", true) &&
+        !string.IsNullOrWhiteSpace(configuration["Gemini:ApiKey"]);
 
     private async Task<(double Latitude, double Longitude)?> ResolveAsync(string address,
         CancellationToken cancellationToken)
     {
-        if (!configuration.GetValue("Gemini:Enabled", true))
-            return null;
-        var apiKey = configuration["Gemini:ApiKey"];
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            logger.LogWarning("Gemini:ApiKey tanımlı değil; adres geocoding kuyruğu bekletiliyor.");
-            return null;
-        }
-
+        var apiKey = configuration["Gemini:ApiKey"]!;
         var model = configuration["Gemini:Model"] ?? "gemini-2.5-flash";
         var client = httpClientFactory.CreateClient("gemini");
         var prompt = "Aşağıdaki Türkiye adresinin enlem ve boylamını bul. " +
@@ -132,6 +108,8 @@ public sealed class KitLocationGeocodingWorker(
             .Replace("```", string.Empty, StringComparison.Ordinal).Trim();
         using var result = JsonDocument.Parse(json);
         var root = result.RootElement;
+        if (root.ValueKind != JsonValueKind.Object)
+            return null;
         if (!root.TryGetProperty("latitude", out var latitude) || !root.TryGetProperty("longitude", out var longitude) ||
             latitude.ValueKind != JsonValueKind.Number || longitude.ValueKind != JsonValueKind.Number)
             return null;

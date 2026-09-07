@@ -12,6 +12,29 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     public async Task<IActionResult> Dashboard(CancellationToken cancellationToken) =>
         View(await apiClient.GetDashboardAsync(cancellationToken));
 
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> UpdateKitLocations(CancellationToken cancellationToken)
+    {
+        var result = await apiClient.UpdateKitLocationsAsync(cancellationToken);
+        if (!result.IsSuccess)
+        {
+            TempData["Error"] = result.Error ?? "Kit konumları güncellenemedi.";
+            return RedirectToAction(nameof(Dashboard));
+        }
+
+        var data = result.Data!;
+        if (data.CandidateCount == 0)
+        {
+            TempData["Success"] = $"Kit konumları kontrol edildi. Son adres kaydı olan {data.LatestAddressCount} kit içinde konumu eksik kayıt bulunmadı.";
+            return RedirectToAction(nameof(Dashboard));
+        }
+
+        TempData[data.IsConfigured && data.FailedCount == 0 ? "Success" : "Error"] = data.IsConfigured
+            ? $"Kit konum güncellemesi tamamlandı. Son adres kaydı olan {data.LatestAddressCount} kitten {data.CandidateCount} tanesinde konum eksikti; {data.UpdatedCount} kayıt güncellendi, {data.UnresolvedCount} adres çözümlenemedi, {data.FailedCount} hata oluştu."
+            : "Gemini yapılandırması eksik veya kapalı olduğu için kit konumları güncellenemedi.";
+        return RedirectToAction(nameof(Dashboard));
+    }
+
     public async Task<IActionResult> Returns(CancellationToken cancellationToken)
     {
         var dashboard = await apiClient.GetDashboardAsync(cancellationToken);

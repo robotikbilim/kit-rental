@@ -17,6 +17,15 @@ public sealed class ReportingController : CoreApiControllerBase
         return Ok(await service.GetDashboardAsync(cancellationToken));
     }
 
+    [Authorize(Roles = "SystemAdmin,OperationsManager")]
+    [HttpPost("dashboard/kit-locations/update")]
+    public async Task<IActionResult> Post_DashboardKitLocationsUpdate_107(
+        [FromServices] KitLocationGeocodingService service,
+        CancellationToken cancellationToken)
+    {
+        return Ok(await service.UpdateLatestMissingCoordinatesAsync(cancellationToken));
+    }
+
     [Authorize(Roles = "SystemAdmin,Auditor")]
     [HttpGet("audit")]
     public async Task<IActionResult> Get_Audit_104([FromServices] ReportingService service, CancellationToken cancellationToken)

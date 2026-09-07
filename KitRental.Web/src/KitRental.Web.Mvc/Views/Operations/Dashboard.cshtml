@@ -114,7 +114,18 @@ else
     <section class="dashboard-group kit-map-section">
         <header class="dashboard-group-heading">
             <div><span class="eyebrow">KIT KONUM HARITASI</span><h2>Türkiye genelinde kit dağılımı</h2></div>
-            <p>Kitler teslim formundaki enlem ve boylam bilgisine göre yerleştirilir; haritayı yakınlaştırdıkça kümeler ayrılır.</p>
+            <div class="heading-actions">
+                <p>Kitler teslim formundaki enlem ve boylam bilgisine göre yerleştirilir; haritayı yakınlaştırdıkça kümeler ayrılır.</p>
+                @if (User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager"))
+                {
+                    <form asp-action="UpdateKitLocations" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="secondary-action" data-confirm="Son adresi olup konumu eksik olan kit kayıtları adreslerine göre güncellenecek. Devam edilsin mi?">
+                            <partial name="_DashboardIcon" model="@("map")" />Kit Konumlarını Güncelle
+                        </button>
+                    </form>
+                }
+            </div>
         </header>
         @if (allKitLocations.Length == 0)
         {
