@@ -21,9 +21,21 @@ public sealed class ReportingController : CoreApiControllerBase
     [HttpPost("dashboard/kit-locations/update")]
     public async Task<IActionResult> Post_DashboardKitLocationsUpdate_107(
         [FromServices] KitLocationGeocodingService service,
+        [FromServices] IKitLocationGeocodingQueue queue,
         CancellationToken cancellationToken)
     {
-        return Ok(await service.UpdateLatestMissingCoordinatesAsync(cancellationToken));
+        var plan = await service.GetMissingCoordinateQueuePlanAsync(cancellationToken);
+        if (!plan.IsConfigured || plan.CandidateCount == 0)
+            return Accepted(plan);
+
+        var enqueued = 0;
+        foreach (var candidateId in await service.GetMissingCoordinateCandidateIdsAsync(cancellationToken))
+        {
+            if (queue.TryEnqueue(candidateId))
+                enqueued++;
+        }
+
+        return Accepted(plan with { EnqueuedCount = enqueued });
     }
 
     [Authorize(Roles = "SystemAdmin,Auditor")]

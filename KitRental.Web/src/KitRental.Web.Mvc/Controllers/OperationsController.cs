@@ -25,12 +25,12 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         var data = result.Data!;
         if (data.CandidateCount == 0)
         {
-            TempData["Success"] = $"Kit konumları kontrol edildi. Son adres kaydı olan {data.LatestAddressCount} kit içinde konumu eksik kayıt bulunmadı.";
+            TempData["Success"] = $"Kit konumları kontrol edildi. Adresi olan {data.AddressRecordCount} kayıt içinde konumu eksik kayıt bulunmadı.";
             return RedirectToAction(nameof(Dashboard));
         }
 
-        TempData[data.IsConfigured && data.FailedCount == 0 ? "Success" : "Error"] = data.IsConfigured
-            ? $"Kit konum güncellemesi tamamlandı. Son adres kaydı olan {data.LatestAddressCount} kitten {data.CandidateCount} tanesinde konum eksikti; {data.UpdatedCount} kayıt güncellendi, {data.UnresolvedCount} adres çözümlenemedi, {data.FailedCount} hata oluştu."
+        TempData[data.IsConfigured ? "Success" : "Error"] = data.IsConfigured
+            ? $"Kit konum güncellemesi arka plana alındı. Adresi olan {data.AddressRecordCount} kayıttan {data.CandidateCount} tanesinde konum eksik; {data.EnqueuedCount} kayıt kuyruğa eklendi."
             : "Gemini yapılandırması eksik veya kapalı olduğu için kit konumları güncellenemedi.";
         return RedirectToAction(nameof(Dashboard));
     }

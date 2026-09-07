@@ -44,6 +44,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<EmailNotificationDispatcher>();
         services.AddScoped<IEmailNotificationService, QueuedEmailNotificationService>();
         services.AddScoped<KitLocationGeocodingService>();
+        services.AddSingleton<IKitLocationGeocodingQueue, KitLocationGeocodingQueue>();
+        services.AddHostedService<KitLocationGeocodingWorker>();
 
         services.AddHttpClient("identity-notifications", client =>
             client.BaseAddress = new Uri(configuration["Notifications:IdentityBaseUrl"]

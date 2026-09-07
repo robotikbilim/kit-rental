@@ -1,15 +1,22 @@
 using KitRental.Core.Application.Abstractions;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Threading.Channels;
 
 namespace KitRental.Core.Api;
 
 public sealed record KitLocationGeocodingResult(
-    int LatestAddressCount,
+    int AddressRecordCount,
     int CandidateCount,
     int UpdatedCount,
     int UnresolvedCount,
     int FailedCount,
+    bool IsConfigured);
+
+public sealed record KitLocationGeocodingQueueResult(
+    int AddressRecordCount,
+    int CandidateCount,
+    int EnqueuedCount,
     bool IsConfigured);
 
 public sealed class KitLocationGeocodingService(
@@ -18,24 +25,21 @@ public sealed class KitLocationGeocodingService(
     IConfiguration configuration,
     ILogger<KitLocationGeocodingService> logger)
 {
-    public async Task<KitLocationGeocodingResult> UpdateLatestMissingCoordinatesAsync(
+    public async Task<KitLocationGeocodingResult> UpdateMissingCoordinatesAsync(
         CancellationToken cancellationToken)
     {
-        var latestLocations = (await repository.GetKitLocationEventsAsync(cancellationToken))
-            .GroupBy(location => location.ProductUnitId)
-            .Select(group => group.OrderByDescending(location => location.OccurredAt)
-                .ThenByDescending(location => location.Id).First())
+        var addressLocations = (await repository.GetKitLocationEventsAsync(cancellationToken))
             .Where(location => !string.IsNullOrWhiteSpace(location.AddressLine))
             .ToArray();
-        var candidates = latestLocations
+        var candidates = addressLocations
             .Where(location => !location.Latitude.HasValue || !location.Longitude.HasValue)
             .ToArray();
         if (candidates.Length == 0)
-            return new KitLocationGeocodingResult(latestLocations.Length, 0, 0, 0, 0, IsConfigured());
+            return new KitLocationGeocodingResult(addressLocations.Length, 0, 0, 0, 0, IsConfigured());
         if (!IsConfigured())
         {
             logger.LogWarning("Gemini geocoding yapılandırması eksik veya kapalı; kit konumları güncellenemedi.");
-            return new KitLocationGeocodingResult(latestLocations.Length, candidates.Length, 0, 0,
+            return new KitLocationGeocodingResult(addressLocations.Length, candidates.Length, 0, 0,
                 candidates.Length, false);
         }
 
@@ -73,8 +77,70 @@ public sealed class KitLocationGeocodingService(
             }
         }
 
-        return new KitLocationGeocodingResult(latestLocations.Length, candidates.Length, updated, unresolved, failed,
+        return new KitLocationGeocodingResult(addressLocations.Length, candidates.Length, updated, unresolved, failed,
             true);
+    }
+
+    public async Task<KitLocationGeocodingQueueResult> GetMissingCoordinateQueuePlanAsync(
+        CancellationToken cancellationToken)
+    {
+        var addressLocations = (await repository.GetKitLocationEventsAsync(cancellationToken))
+            .Where(location => !string.IsNullOrWhiteSpace(location.AddressLine))
+            .ToArray();
+        var candidateCount = addressLocations.Count(location =>
+            !location.Latitude.HasValue || !location.Longitude.HasValue);
+
+        return new KitLocationGeocodingQueueResult(addressLocations.Length, candidateCount, 0, IsConfigured());
+    }
+
+    public async Task<IReadOnlyCollection<Guid>> GetMissingCoordinateCandidateIdsAsync(
+        CancellationToken cancellationToken)
+    {
+        return (await repository.GetKitLocationEventsAsync(cancellationToken))
+            .Where(location => !string.IsNullOrWhiteSpace(location.AddressLine) &&
+                (!location.Latitude.HasValue || !location.Longitude.HasValue))
+            .Select(location => location.Id)
+            .ToArray();
+    }
+
+    public async Task<KitLocationGeocodingResult> UpdateMissingCoordinateAsync(
+        Guid kitLocationEventId,
+        CancellationToken cancellationToken)
+    {
+        var locationEvent = await repository.GetKitLocationEventAsync(kitLocationEventId, cancellationToken);
+        if (locationEvent is null || string.IsNullOrWhiteSpace(locationEvent.AddressLine))
+            return new KitLocationGeocodingResult(0, 0, 0, 0, 0, IsConfigured());
+        if (locationEvent.Latitude.HasValue && locationEvent.Longitude.HasValue)
+            return new KitLocationGeocodingResult(1, 0, 0, 0, 0, IsConfigured());
+        if (!IsConfigured())
+        {
+            logger.LogWarning("Gemini geocoding yapılandırması eksik veya kapalı; kit konumu güncellenemedi.");
+            return new KitLocationGeocodingResult(1, 1, 0, 0, 1, false);
+        }
+
+        try
+        {
+            var coordinates = await ResolveAsync(locationEvent.AddressLine, cancellationToken);
+            if (coordinates is null)
+            {
+                logger.LogWarning("Adres için Gemini koordinat üretemedi. KitLocationEventId={EventId}",
+                    locationEvent.Id);
+                return new KitLocationGeocodingResult(1, 1, 0, 1, 0, true);
+            }
+
+            locationEvent.SetCoordinates(coordinates.Value.Latitude, coordinates.Value.Longitude);
+            await repository.SaveChangesAsync(cancellationToken);
+            logger.LogInformation("Kit adres koordinatları güncellendi. KitLocationEventId={EventId}",
+                locationEvent.Id);
+            return new KitLocationGeocodingResult(1, 1, 1, 0, 0, true);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException or InvalidOperationException)
+        {
+            logger.LogError(exception,
+                "Kit adresi için Gemini geocoding işlemi başarısız. KitLocationEventId={EventId}",
+                locationEvent.Id);
+            return new KitLocationGeocodingResult(1, 1, 0, 0, 1, true);
+        }
     }
 
     private bool IsConfigured() =>
@@ -116,5 +182,79 @@ public sealed class KitLocationGeocodingService(
         var lat = latitude.GetDouble();
         var lon = longitude.GetDouble();
         return lat is >= -90 and <= 90 && lon is >= -180 and <= 180 ? (lat, lon) : null;
+    }
+}
+
+public interface IKitLocationGeocodingQueue
+{
+    bool TryEnqueue(Guid kitLocationEventId);
+    void MarkCompleted(Guid kitLocationEventId);
+    IAsyncEnumerable<Guid> ReadAllAsync(CancellationToken cancellationToken);
+}
+
+public sealed class KitLocationGeocodingQueue : IKitLocationGeocodingQueue
+{
+    private readonly Channel<Guid> _channel = Channel.CreateUnbounded<Guid>(
+        new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
+    private readonly HashSet<Guid> _queued = [];
+    private readonly object _lock = new();
+
+    public bool TryEnqueue(Guid kitLocationEventId)
+    {
+        lock (_lock)
+        {
+            if (!_queued.Add(kitLocationEventId))
+                return false;
+
+            if (_channel.Writer.TryWrite(kitLocationEventId))
+                return true;
+
+            _queued.Remove(kitLocationEventId);
+            return false;
+        }
+    }
+
+    public void MarkCompleted(Guid kitLocationEventId)
+    {
+        lock (_lock)
+        {
+            _queued.Remove(kitLocationEventId);
+        }
+    }
+
+    public IAsyncEnumerable<Guid> ReadAllAsync(CancellationToken cancellationToken) =>
+        _channel.Reader.ReadAllAsync(cancellationToken);
+}
+
+public sealed class KitLocationGeocodingWorker(
+    IKitLocationGeocodingQueue queue,
+    IServiceScopeFactory scopeFactory,
+    ILogger<KitLocationGeocodingWorker> logger) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        await foreach (var kitLocationEventId in queue.ReadAllAsync(stoppingToken))
+        {
+            try
+            {
+                using var scope = scopeFactory.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<KitLocationGeocodingService>();
+                await service.UpdateMissingCoordinateAsync(kitLocationEventId, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(exception,
+                    "Kit konumu arka plan kuyruğunda işlenemedi. KitLocationEventId={KitLocationEventId}",
+                    kitLocationEventId);
+            }
+            finally
+            {
+                queue.MarkCompleted(kitLocationEventId);
+            }
+        }
     }
 }

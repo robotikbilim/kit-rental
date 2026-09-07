@@ -171,7 +171,7 @@ Rules:
 - Do not add current-location fields back onto `ProductUnit`.
 - Do not reintroduce `KitDeliveryReceipts` as a live domain/repository table.
 - The latest `KitLocationEvents` row for a `ProductUnitId`, ordered by `OccurredAt` then `Id`, is the current kit address.
-- `KitLocationEvents` rows without coordinates are resolved through the configured Gemini model from the admin dashboard `Kit Konumlarını Güncelle` action. The manual action checks each physical kit's latest address event and updates that event's latitude/longitude when the address is filled and coordinates are missing.
+- `KitLocationEvents` rows without coordinates are resolved through the configured Gemini model from the admin dashboard `Kit Konumlarını Güncelle` action. The manual action returns immediately after queuing every address-filled `KitLocationEvent` with missing latitude/longitude; `KitLocationGeocodingWorker` drains the in-process queue one record at a time and rechecks each event before saving coordinates.
 - Gemini geocoding is configured under `Gemini` in Core API configuration. `Gemini:ApiKey` must be supplied through user secrets, environment variables, or deployment secret storage; it is intentionally empty in tracked `appsettings.json` and must never be committed.
 - Delivery form inserts a `KitLocationEvent` with source `DeliveryReceipt`.
 - Public fault creation inserts source `FaultReport`.
@@ -407,7 +407,7 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - QR label print CSS keeps the same visual proportions as the on-screen label cards: A4 print still uses a three-column grid, but normal and student-recipient labels preserve their own card, QR, spacing, and text scale ratios instead of being forced into a taller shared print size.
 - On admin order details, the `Siparişi Tamamla` control remains clickable when student addresses are missing, but it shows the popup warning `Eksik adres bilgisi olan kayıtlar var, önce adresleri doldurun.` instead of submitting the completion transition. Once every student has an address, the normal completion form is shown.
 - Admin order detail paginates the student address table and the order-linked physical kit table independently with `studentPage` and `kitPage` query parameters, showing 10 rows per card and preserving the other card's current page while navigating.
-- Admin dashboard now exposes `Kit Konumlarını Güncelle` for `SystemAdmin` and `OperationsManager`. It calls Core API `POST /api/dashboard/kit-locations/update`, checks each kit's latest filled `KitLocationEvents` address, and updates missing latitude/longitude values through Gemini geocoding.
+- Admin dashboard now exposes `Kit Konumlarını Güncelle` for `SystemAdmin` and `OperationsManager`. It calls Core API `POST /api/dashboard/kit-locations/update`, which queues all address-filled `KitLocationEvents` missing latitude/longitude for the Core API background worker instead of geocoding synchronously during the MVC request.
 - Data migration `20260907143000_SeedRedKitFaultGuides` replaces red-kit fault-guide seed rows with active kit-specific troubleshooting entries for DHT11, LDR, PIR, Ultrasonik Sensör, POT, Buton, RGB LED, LED, LED / PWM, Buzzer, and LCD. The migration resolves the red-kit product model by SKU/name/image URL and removes matching legacy general seed titles before inserting the new list.
 
 ## Development Checklist

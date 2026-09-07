@@ -77,12 +77,10 @@ public sealed record DashboardRentalExpiryViewModel(Guid ProductUnitId, string K
 public sealed record DashboardKitLocationViewModel(Guid ProductUnitId, Guid ProductModelId, string KitName,
     string KitSku, string SerialNumber, string RecipientName, string AddressLine,
     int Status, double? Latitude = null, double? Longitude = null, string LocationCategory = "active");
-public sealed record KitLocationGeocodingResultViewModel(
-    int LatestAddressCount,
+public sealed record KitLocationGeocodingQueueResultViewModel(
+    int AddressRecordCount,
     int CandidateCount,
-    int UpdatedCount,
-    int UnresolvedCount,
-    int FailedCount,
+    int EnqueuedCount,
     bool IsConfigured);
 public sealed record ProductUnitViewModel(Guid Id, Guid ProductModelId, string SerialNumber, string QrCode, int Status);
 public sealed record InventoryItemViewModel(Guid Id, Guid ProductModelId, string ProductModelName,
