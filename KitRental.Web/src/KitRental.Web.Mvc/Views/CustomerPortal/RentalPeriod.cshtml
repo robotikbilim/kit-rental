@@ -38,18 +38,9 @@
             }
         </div>
     </div>
-    @if (!Model.Cohort.OrderId.HasValue && Model.Cohort.Students.Count > 0)
-    {
-        <div class="form-actions">
-            <form asp-action="CreateRentalPeriodOrder" method="post" class="inline-form" data-confirm="Siparişi onayladıktan sonra öğrenci ekleme veya çıkarma yapamazsınız. Onaylamak istediğinize emin misiniz?">
-                <input type="hidden" name="cohortId" value="@Model.Cohort.Id" />
-                <button class="primary-action" type="submit">Onayla Ve Sipariş Oluştur</button>
-            </form>
-        </div>
-    }
     @if (studentsLocked)
     {
-        <div class="info-banner">Bu sipariş admin tarafından onaylandığı için öğrenci listesi kilitlendi. Bu listede yeni öğrenci ekleme, düzenleme veya silme yapılamaz; arıza ve iade akışları kullanılmaya devam eder.</div>
+        <div class="info-banner">Bu sipariş admin tarafından onaylandığı için kilitlendi. Bu siparişle ilgili öğrenci ekleme, düzenleme veya silme yapılamaz.</div>
     }
 </section>
 
@@ -198,7 +189,6 @@
                             @if (!string.IsNullOrWhiteSpace(addressUrl))
                             {
                                 <div class="table-actions-compact">
-                                    <button class="row-link copy-address-link" type="button" data-link="@addressUrl">Kopyala</button>
                                     <button class="row-link" type="button" data-fulltext-modal data-title="@($"{student.FullName} public adres linki")" data-text="@addressUrl">Göster</button>
                                 </div>
                             }

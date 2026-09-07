@@ -68,7 +68,6 @@
                             @if (!string.IsNullOrWhiteSpace(addressUrl))
                             {
                                 <div class="table-actions-compact">
-                                    <button class="row-link copy-address-link" type="button" data-link="@addressUrl">Kopyala</button>
                                     <button class="row-link" type="button" data-fulltext-modal data-title="@($"{student.FullName} public adres linki")" data-text="@addressUrl">Göster</button>
                                 </div>
                             }

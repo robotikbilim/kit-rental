@@ -278,7 +278,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
                 : await apiClient.CreateRentalCohortStudentAsync(model, cancellationToken);
             if (result.IsSuccess)
             {
-                TempData["Success"] = "Öğrenci kaydedildi.";
+                TempData["Success"] = "Öğrenci kaydedildi. Sipariş admin onayında görünür ve onaya kadar öğrenci listesi düzenlenebilir.";
                 return RedirectToAction(nameof(RentalPeriod), new { id = model.CohortId });
             }
             ModelState.AddModelError(string.Empty, result.Error ?? "Öğrenci kaydedilemedi.");
@@ -399,7 +399,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         }).ToArray();
         var result = await apiClient.ImportRentalCohortStudentsAsync(model.CohortId, rows, cancellationToken);
         TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
-            ? $"{rows.Length} öğrenci içe aktarıldı."
+            ? $"{rows.Length} öğrenci içe aktarıldı. Sipariş admin onayında görünür ve onaya kadar öğrenci listesi düzenlenebilir."
             : result.Error ?? "Öğrenci listesi içe aktarılamadı.";
         return RedirectToAction(nameof(RentalPeriod), new { id = model.CohortId });
     }

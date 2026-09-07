@@ -55,10 +55,19 @@
             if (requestId !== activeRequestId) return;
 
             const displayName = typeof data.display_name === "string" ? data.display_name.trim() : "";
+            const address = data && typeof data.address === "object" ? data.address : {};
 
             if (displayName) {
                 addressInput.value = displayName;
             }
+
+            addressInput.dispatchEvent(new CustomEvent("public-location:address-resolved", {
+                bubbles: true,
+                detail: {
+                    displayName,
+                    address
+                }
+            }));
 
             setStatus(`Secilen konum kaydedildi: ${formatCoordinate(lat)}, ${formatCoordinate(lon)}`);
         } catch {

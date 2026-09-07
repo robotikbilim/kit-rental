@@ -274,6 +274,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             ? cohort.UpdateStudent(command.Id.Value, command.FullName, command.GuardianPhone, command.AddressLine,
                 command.ProductModelId)
             : cohort.AddStudent(command.FullName, command.GuardianPhone, command.AddressLine, command.ProductModelId);
+        await SyncLinkedUnapprovedOrderAfterStudentChangeAsync(customer, cohort, command.ActorId, cancellationToken);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(RentalCohort),
             cohort.Id, command.Id.HasValue ? "StudentUpdated" : "StudentAdded", null, student.FullName,
             TurkeyTime.Now()), cancellationToken);
@@ -298,6 +299,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 ?? throw new ResourceNotFoundException($"{row.ProductModel} eğitim kiti bulunamadı.");
             cohort.AddStudent(row.FullName, row.GuardianPhone, row.AddressLine, model.Id);
         }
+        await SyncLinkedUnapprovedOrderAfterStudentChangeAsync(customer, cohort, actorId, cancellationToken);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId, nameof(RentalCohort),
             cohort.Id, "StudentsImported", null, $"{rows.Count} öğrenci", TurkeyTime.Now()), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
@@ -315,7 +317,12 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var unitId = student.ProductUnitId;
         var assignmentId = student.AssignmentId;
         var orderId = student.OrderId;
+        var linkedOrder = await GetSingleLinkedOrderAsync(cohort, cancellationToken);
         cohort.RemoveStudent(studentId);
+        var customer = await repository.GetCustomerAsync(customerId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Müşteri hesabı bulunamadı.");
+        await SyncLinkedUnapprovedOrderAfterStudentChangeAsync(customer, cohort, actorId, cancellationToken,
+            linkedOrder);
         if (unitId.HasValue)
             await AddActivityAsync(unitId.Value, assignmentId, orderId, studentId, actorId, actorDisplayName,
                 "Öğrenci ataması kaldırıldı", $"{studentName} öğrencisi kit üzerinden kaldırıldı.",
@@ -712,9 +719,49 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var lines = cohort.Students
             .Where(item => !item.IsDeleted)
             .GroupBy(item => item.ProductModelId)
-            .Select(group => (group.Key, group.Count()))
+            .Select(group => (ProductModelId: group.Key, Quantity: group.Count()))
             .ToArray();
         linkedOrder.UpdateUnapprovedRentalPlan(cohort.StartDate, cohort.EndDate, lines);
+    }
+
+    private async Task SyncLinkedUnapprovedOrderAfterStudentChangeAsync(Customer customer, RentalCohort cohort,
+        Guid actorId, CancellationToken cancellationToken, RentalOrder? linkedOrder = null)
+    {
+        var activeStudents = cohort.Students.Where(item => !item.IsDeleted).ToArray();
+        linkedOrder ??= await GetSingleLinkedOrderAsync(cohort, cancellationToken);
+        if (activeStudents.Length == 0)
+        {
+            if (linkedOrder is not null && !IsApprovedOrderStatus(linkedOrder.Status))
+            {
+                await repository.RemoveOrderAsync(linkedOrder, cancellationToken);
+                await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId, nameof(RentalOrder),
+                    linkedOrder.Id, "RemovedAfterStudentListEmptied", linkedOrder.OrderNumber, null,
+                    TurkeyTime.Now()), cancellationToken);
+            }
+            return;
+        }
+
+        var lines = activeStudents
+            .GroupBy(item => item.ProductModelId)
+            .Select(group => (ProductModelId: group.Key, Quantity: group.Count()))
+            .ToArray();
+        if (linkedOrder is not null)
+        {
+            linkedOrder.UpdateUnapprovedRentalPlan(cohort.StartDate, cohort.EndDate, lines);
+            cohort.LinkActiveStudentsToOrder(linkedOrder.Id);
+            return;
+        }
+
+        var address = customer.Addresses.FirstOrDefault()
+            ?? throw new ConflictException("customer.address_required",
+                "Sipariş oluşturmak için müşteri teslimat adresi bulunmalıdır.");
+        var order = await operationsService.CreateOrderAsync(new CreateOrderCommand(customer.Id, address.Id,
+            cohort.StartDate, cohort.EndDate,
+            lines.Select(line => new OrderLineCommand(line.ProductModelId, line.Quantity)).ToArray(), actorId),
+            cancellationToken);
+        cohort.LinkActiveStudentsToOrder(order.Id);
+        await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId, nameof(RentalCohort),
+            cohort.Id, "OrderAutoCreated", null, order.OrderNumber, TurkeyTime.Now()), cancellationToken);
     }
 
     private async Task<RentalOrder?> GetSingleLinkedOrderAsync(RentalCohort cohort,

@@ -10,6 +10,7 @@
         <div>
             <span class="eyebrow">@Model.CohortName</span>
             <h1>Öğrenci listesi önizleme</h1>
+            <p class="block-muted">Toplam öğrenci sayısı: @Model.Rows.Count</p>
         </div>
     </div>
     <form class="catalog-form" asp-action="ConfirmRentalPeriodStudentImport" method="post">

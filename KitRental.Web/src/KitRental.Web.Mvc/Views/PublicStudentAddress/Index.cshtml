@@ -20,15 +20,17 @@
             <div class="form-grid">
                 <div class="field">
                     <label asp-for="City"></label>
-                    <select asp-for="City" id="City" autocomplete="address-level1" data-selected="@Model.City">
+                    <select asp-for="City" id="City" autocomplete="address-level1" data-selected="@Model.City" required>
                         <option value="">İl seçin</option>
                     </select>
+                    <span asp-validation-for="City" class="error"></span>
                 </div>
                 <div class="field">
                     <label asp-for="District"></label>
-                    <select asp-for="District" id="District" autocomplete="address-level2" data-selected="@Model.District" disabled>
+                    <select asp-for="District" id="District" autocomplete="address-level2" data-selected="@Model.District" disabled required>
                         <option value="">Önce il seçin</option>
                     </select>
+                    <span asp-validation-for="District" class="error"></span>
                 </div>
             </div>
             <div class="field"><label asp-for="AddressLine"></label><textarea asp-for="AddressLine" rows="3" autocomplete="street-address" placeholder="Açık adresinizi yazın"></textarea><span asp-validation-for="AddressLine" class="error"></span></div>

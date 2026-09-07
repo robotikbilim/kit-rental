@@ -480,8 +480,14 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             $"/api/customer-portal/rental-periods/{cohort.Id}/students",
             new RentalCohortStudentRequest("Ayşe Yılmaz", "05320000000", "Test Mahallesi 1", model.Id),
             cancellationToken);
-        var order = await PostAsync<CreatedOrderResponse>(portal,
-            $"/api/customer-portal/rental-periods/{cohort.Id}/order", new { }, cancellationToken);
+        var orders = await portal.GetFromJsonAsync<PortalOrderResponse[]>("/api/orders", cancellationToken);
+        var order = Assert.Single(orders!, item => item.Status == RentalOrderStatus.PendingApproval);
+        var editableStudent = await PostAsync<PortalRentalCohortStudentResponse>(portal,
+            $"/api/customer-portal/rental-periods/{cohort.Id}/students",
+            new RentalCohortStudentRequest("Mehmet Yılmaz", "05320000001", "Test Mahallesi 2", model.Id),
+            cancellationToken);
+        await portal.DeleteAsync($"/api/customer-portal/rental-periods/{cohort.Id}/students/{editableStudent.Id}",
+            cancellationToken);
         await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
             new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
         var orderDetail = await admin.GetFromJsonAsync<OrderDetailResponse>(

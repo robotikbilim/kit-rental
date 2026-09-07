@@ -453,15 +453,6 @@
         openDialog(dialog);
     });
 
-    document.addEventListener('click', async (event) => {
-        const button = event.target.closest?.('.copy-address-link');
-        if (!button) return;
-        await navigator.clipboard?.writeText(button.dataset.link || '');
-        const text = button.textContent;
-        button.textContent = 'Kopyalandı';
-        window.setTimeout(() => button.textContent = text, 1600);
-    });
-
     const rentalPeriodDialog = document.getElementById('rental-period-dialog');
     if (rentalPeriodDialog) {
         const form = rentalPeriodDialog.querySelector('form');
