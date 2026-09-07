@@ -161,10 +161,6 @@
                     <tr>
                         <td>
                             <strong>@student.FullName</strong>
-                            @if (student.ProductUnitId.HasValue)
-                            {
-                                <small class="block-muted">Kit: @student.SerialNumber (@student.QrCode)</small>
-                            }
                             @if (student.HasDeliveryForm)
                             {
                                 <small class="block-muted">Teslim: @student.DeliveredTo - @student.DeliveryPhone</small>
@@ -193,7 +189,19 @@
                                 </div>
                             }
                         </td>
-                        <td>@if (student.ProductUnitId.HasValue) { <code class="unit-serial">@student.SerialNumber</code><small class="block-muted">@student.QrCode</small> } else { <span>Henüz atanmadı</span> }</td>
+                        <td>
+                            @if (student.ProductUnitId.HasValue)
+                            {
+                                <a class="row-link" asp-action="Kit" asp-route-id="@student.ProductUnitId.Value">
+                                    <code class="unit-serial">@student.SerialNumber</code>
+                                </a>
+                                <small class="block-muted">@student.QrCode</small>
+                            }
+                            else
+                            {
+                                <span>Henüz atanmadı</span>
+                            }
+                        </td>
                         <td>
                             <div class="student-row-actions" aria-label="Öğrenci işlemleri">
                             @if (!studentsLocked)
