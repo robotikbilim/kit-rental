@@ -6,7 +6,9 @@
 
     const selectedCity = citySelect.dataset.selected || citySelect.value;
     const selectedDistrict = districtSelect.dataset.selected || districtSelect.value;
-    const addressInput = document.getElementById("AddressLine");
+    const addressInput = document.getElementById("AddressLine")
+        || document.getElementById("ReporterAddress")
+        || document.getElementById("ReturnAddress");
 
     const createOption = (value, text) => {
         const option = document.createElement("option");

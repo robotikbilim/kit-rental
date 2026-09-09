@@ -27,7 +27,23 @@
                 <option value="1">Adresimden Alınsın</option>
                 <option value="2">Kendim Bırakacağım</option>
             </select><span asp-validation-for="DeliveryMethod" class="error"></span></div>
-            <div class="field" data-return-pickup-field><label asp-for="ReturnAddress"></label><textarea asp-for="ReturnAddress" rows="3" autocomplete="street-address" placeholder="Kargo alinacak acik adresi yazin."></textarea><span asp-validation-for="ReturnAddress" class="error"></span></div>
+            <div class="form-grid" data-return-pickup-field>
+                <div class="field">
+                    <label asp-for="City"></label>
+                    <select asp-for="City" id="City" autocomplete="address-level1" data-selected="@Model.City">
+                        <option value="">İl seçin</option>
+                    </select>
+                    <span asp-validation-for="City" class="error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="District"></label>
+                    <select asp-for="District" id="District" autocomplete="address-level2" data-selected="@Model.District" disabled>
+                        <option value="">Önce il seçin</option>
+                    </select>
+                    <span asp-validation-for="District" class="error"></span>
+                </div>
+            </div>
+            <div class="field" data-return-pickup-field><label asp-for="ReturnAddress"></label><textarea asp-for="ReturnAddress" rows="3" autocomplete="street-address" placeholder="Kargo alınacak açık adresi yazın."></textarea><span asp-validation-for="ReturnAddress" class="error"></span></div>
             <div class="public-location-box" data-return-pickup-field>
                 <button class="secondary-action" id="use-location" type="button">Konumumu Bul</button>
                 <div id="public-location-map" class="public-location-map"></div>
@@ -38,6 +54,8 @@
     </section>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="~/js/turkey-address-dropdowns.js" asp-append-version="true"></script>
+<script src="~/js/public-student-address.js" asp-append-version="true"></script>
 <script src="~/js/public-location.js" asp-append-version="true"></script>
 <script>
     (() => {

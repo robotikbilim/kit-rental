@@ -2,57 +2,62 @@
 @{
     ViewData["Title"] = "Problem Rehberi";
     var isEdit = Model.Form.Id.HasValue;
+    var selectedKit = Model.ProductModels.SingleOrDefault(item => item.Id == Model.SelectedProductModelId);
+    var dialogShouldOpen = isEdit || !ViewData.ModelState.IsValid;
 }
 <div class="page-heading">
-    <div><span class="eyebrow">SERVIS & DESTEK</span><h1>Sik Karsilasilan Problemler</h1><p class="block-muted">QR ariza akisi oncesinde kullanicilara gosterilecek problem ve cozum onerilerini yonetin.</p></div>
+    <div><span class="eyebrow">SERVİS & DESTEK</span><h1>Sık Karşılaşılan Problemler</h1><p class="block-muted">Seçtiğiniz eğitim kitinin problem ve çözüm önerilerini yönetin.</p></div>
 </div>
 @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 
 <section class="panel fault-guide-admin">
-    <form asp-action="SaveFaultGuide" method="post" class="fault-guide-form">
-        <input type="hidden" name="Id" value="@Model.Form.Id" />
-        <div asp-validation-summary="ModelOnly" class="error"></div>
-        <div class="field wide"><label asp-for="Form.ProductModelId">Kit</label><select asp-for="Form.ProductModelId" name="ProductModelId">
-            <option value="">Kit seçin</option>
-            @foreach (var kit in Model.ProductModels.OrderBy(item => item.Name))
-            {
-                <option value="@kit.Id">@kit.Name (@kit.Sku)</option>
-            }
-        </select><span asp-validation-for="Form.ProductModelId" class="error"></span></div>
-        <div class="field"><label for="Title">Baslik</label><input id="Title" name="Title" value="@Model.Form.Title" placeholder="Orn. Motor calismiyor" /></div>
-        <div class="field"><label for="DisplayOrder">Siralama</label><input id="DisplayOrder" name="DisplayOrder" value="@Model.Form.DisplayOrder" type="number" min="0" max="999" /></div>
-        <label class="toggle-field"><input name="IsActive" type="checkbox" value="true" checked="@Model.Form.IsActive" /><input name="IsActive" type="hidden" value="false" /> Public ekranda yayinla</label>
-        <div class="field wide"><label for="Problem">Karsilasilan problem</label><textarea id="Problem" name="Problem" rows="4" placeholder="Kullanicinin gorecegi problem tanimi">@Model.Form.Problem</textarea></div>
-        <div class="field wide"><label for="Solution">Cozum onerisi</label><textarea id="Solution" name="Solution" rows="5" placeholder="Adim adim cozum onerisi">@Model.Form.Solution</textarea></div>
-        <div class="form-actions">
-            @if (isEdit) { <a class="secondary-action" asp-action="FaultGuide">Vazgeç</a> }
-            <button class="primary-action" type="submit">@(isEdit ? "Güncelle" : "Yeni Rehber Ekle")</button>
+    <form asp-action="FaultGuide" method="get" class="fault-guide-filter" data-auto-filter="true">
+        <div class="field">
+            <label for="fault-guide-kit-filter">Kit</label>
+            <select id="fault-guide-kit-filter" name="productModelId">
+                <option value="">Kit seçin</option>
+                @foreach (var kit in Model.ProductModels.OrderBy(item => item.Name))
+                {
+                    <option value="@kit.Id" selected="@(kit.Id == Model.SelectedProductModelId ? "selected" : null)">@kit.Name (@kit.Sku)</option>
+                }
+            </select>
         </div>
+        @if (Model.SelectedProductModelId.HasValue)
+        {
+            <button class="primary-action" type="button" data-dialog-open="fault-guide-dialog" data-fault-guide-create>Yeni Arıza Rehberi</button>
+        }
     </form>
 </section>
 
 <section class="fault-guide-admin-list">
-    @if (Model.Entries.Count == 0)
+    @if (!Model.SelectedProductModelId.HasValue)
     {
-        <div class="empty">Henuz problem rehberi eklenmedi.</div>
+        <div class="empty">Arıza rehberlerini görmek için yukarıdan bir kit seçin.</div>
+    }
+    else if (Model.Entries.Count == 0)
+    {
+        <div class="empty">Seçili kit için henüz arıza rehberi eklenmedi.</div>
     }
     else
     {
-        @foreach (var item in Model.Entries)
+        @foreach (var item in Model.Entries.OrderBy(item => item.DisplayOrder).ThenBy(item => item.Title))
         {
             <article class="fault-guide-admin-card @(item.IsActive ? null : "is-passive")">
                 <header>
-                    <div><span class="eyebrow">@(item.ProductModelName ?? "Genel") · SIRA @item.DisplayOrder</span><h2>@item.Title</h2></div>
+                    <div><span class="eyebrow">SIRA @item.DisplayOrder</span><h2>@item.Title</h2></div>
                     <span class="status-badge @(item.IsActive ? "success" : "warning")">@(item.IsActive ? "Aktif" : "Pasif")</span>
                 </header>
                 <dl>
                     <div><dt>Problem</dt><dd>@item.Problem</dd></div>
-                    <div><dt>Cozum onerisi</dt><dd>@item.Solution</dd></div>
+                    <div><dt>Çözüm önerisi</dt><dd>@item.Solution</dd></div>
                 </dl>
                 <footer>
-                    <a class="secondary-action" asp-action="FaultGuide" asp-route-editId="@item.Id">Düzenle</a>
-                    <form asp-action="DeleteFaultGuide" asp-route-id="@item.Id" method="post" data-confirm="Bu problem rehberi silinsin mi?">
+                    <button class="secondary-action" type="button" data-dialog-open="fault-guide-dialog" data-fault-guide-edit
+                            data-guide-id="@item.Id" data-guide-title="@item.Title" data-guide-problem="@item.Problem"
+                            data-guide-solution="@item.Solution" data-guide-order="@item.DisplayOrder"
+                            data-guide-active="@item.IsActive.ToString().ToLowerInvariant()">Düzenle</button>
+                    <form asp-action="DeleteFaultGuide" asp-route-id="@item.Id" asp-route-productModelId="@Model.SelectedProductModelId" method="post" data-confirm="Bu problem rehberi silinsin mi?">
                         <button class="table-action danger" type="submit">Sil</button>
                     </form>
                 </footer>
@@ -60,3 +65,62 @@
         }
     }
 </section>
+
+<dialog class="student-edit-dialog" id="fault-guide-dialog" aria-labelledby="fault-guide-dialog-title" data-auto-open="@(dialogShouldOpen.ToString().ToLowerInvariant())">
+    <form class="student-edit-modal" asp-action="SaveFaultGuide" method="post">
+        <input type="hidden" name="Id" value="@Model.Form.Id" />
+        <input type="hidden" name="ProductModelId" value="@Model.SelectedProductModelId" />
+        <div asp-validation-summary="All" class="error"></div>
+        <header>
+            <div>
+                <span class="eyebrow" id="fault-guide-dialog-eyebrow">YENİ ARIZA REHBERİ</span>
+                <h2 id="fault-guide-dialog-title">Yeni arıza rehberi</h2>
+                <p class="block-muted" id="fault-guide-dialog-kit">@(selectedKit is null ? "Kit seçilmedi" : $"Kit: {selectedKit.Name} ({selectedKit.Sku})")</p>
+            </div>
+            <button class="icon-action icon-action-neutral" type="button" data-dialog-close title="Kapat" aria-label="Pencereyi Kapat"><i data-lucide="x"></i></button>
+        </header>
+        <div class="form-grid">
+            <div class="field wide"><label for="fault-guide-title">Başlık</label><input id="fault-guide-title" name="Title" value="@Model.Form.Title" placeholder="Örn. Motor çalışmıyor" /></div>
+            <div class="field"><label for="fault-guide-order">Sıralama</label><input id="fault-guide-order" name="DisplayOrder" value="@Model.Form.DisplayOrder" type="number" min="0" max="999" /></div>
+            <label class="toggle-field"><input id="fault-guide-active" name="IsActive" type="checkbox" value="true" checked="@(Model.Form.IsActive ? "checked" : null)" /><input name="IsActive" type="hidden" value="false" /> Public ekranda yayınla</label>
+            <div class="field wide"><label for="fault-guide-problem">Karşılaşılan problem</label><textarea id="fault-guide-problem" name="Problem" rows="4" placeholder="Kullanıcının göreceği problem tanımı">@Model.Form.Problem</textarea></div>
+            <div class="field wide"><label for="fault-guide-solution">Çözüm önerisi</label><textarea id="fault-guide-solution" name="Solution" rows="5" placeholder="Adım adım çözüm önerisi">@Model.Form.Solution</textarea></div>
+        </div>
+        <footer>
+            <button class="secondary-action" type="button" data-dialog-close>Vazgeç</button>
+            <button class="primary-action" type="submit">Kaydet</button>
+        </footer>
+    </form>
+</dialog>
+
+@section Scripts {
+    <script>
+        (() => {
+            const dialog = document.getElementById('fault-guide-dialog');
+            if (!dialog) return;
+            const form = dialog.querySelector('form');
+            const id = form.querySelector('[name="Id"]');
+            const title = form.querySelector('[name="Title"]');
+            const problem = form.querySelector('[name="Problem"]');
+            const solution = form.querySelector('[name="Solution"]');
+            const order = form.querySelector('[name="DisplayOrder"]');
+            const active = form.querySelector('#fault-guide-active');
+            const eyebrow = dialog.querySelector('#fault-guide-dialog-eyebrow');
+            const heading = dialog.querySelector('#fault-guide-dialog-title');
+            const setMode = (trigger) => {
+                const edit = trigger.hasAttribute('data-fault-guide-edit');
+                id.value = edit ? trigger.dataset.guideId || '' : '';
+                title.value = edit ? trigger.dataset.guideTitle || '' : '';
+                problem.value = edit ? trigger.dataset.guideProblem || '' : '';
+                solution.value = edit ? trigger.dataset.guideSolution || '' : '';
+                order.value = edit ? trigger.dataset.guideOrder || '10' : '10';
+                active.checked = edit ? trigger.dataset.guideActive === 'true' : true;
+                eyebrow.textContent = edit ? 'ARIZA REHBERİNİ DÜZENLE' : 'YENİ ARIZA REHBERİ';
+                heading.textContent = edit ? 'Arıza rehberini düzenle' : 'Yeni arıza rehberi';
+            };
+            document.querySelectorAll('[data-fault-guide-create],[data-fault-guide-edit]').forEach((trigger) => {
+                trigger.addEventListener('click', () => setMode(trigger));
+            });
+        })();
+    </script>
+}
