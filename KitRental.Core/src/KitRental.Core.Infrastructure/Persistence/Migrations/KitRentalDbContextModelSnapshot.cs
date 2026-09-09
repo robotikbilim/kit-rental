@@ -57,6 +57,10 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ActorId");
+
+                    b.HasIndex("Action", "OccurredAt");
+
                     b.HasIndex("EntityType", "EntityId", "OccurredAt");
 
                     b.ToTable("AuditEntries", (string)null);
@@ -91,6 +95,10 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("Name");
+
                     b.ToTable("Customers", (string)null);
                 });
 
@@ -124,6 +132,8 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(80)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Name");
 
                     b.HasIndex("Sku")
                         .IsUnique();
@@ -167,6 +177,10 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SerialNumber")
                         .IsUnique();
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("ProductModelId", "Status");
 
                     b.ToTable("ProductUnits", (string)null);
                 });
@@ -279,11 +293,13 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AssignmentId");
-
-                    b.HasIndex("CustomerId");
-
                     b.HasIndex("OrderId");
+
+                    b.HasIndex("AssignmentId", "OccurredAt");
+
+                    b.HasIndex("CustomerId", "OccurredAt");
+
+                    b.HasIndex("Latitude", "Longitude");
 
                     b.HasIndex("ProductUnitId", "OccurredAt");
 
@@ -444,7 +460,11 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.HasIndex("OrderNumber")
                         .IsUnique();
 
+                    b.HasIndex("CustomerId", "CreatedAt");
+
                     b.HasIndex("CustomerId", "Status");
+
+                    b.HasIndex("Status", "CreatedAt");
 
                     b.ToTable("RentalOrders", (string)null);
                 });
@@ -512,6 +532,12 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("OrderLineId");
+
+                    b.HasIndex("CustomerId", "Status");
+
                     b.HasIndex("ProductUnitId", "Status");
 
                     b.ToTable("RentalAssignments", (string)null);
@@ -546,6 +572,8 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                         .HasColumnType("date");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CustomerId", "CreatedAt");
 
                     b.HasIndex("CustomerId", "StartDate");
 
@@ -615,11 +643,15 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
                     b.HasIndex("TrackingNumber")
                         .IsUnique()
                         .HasFilter("[TrackingNumber] IS NOT NULL");
 
                     b.HasIndex("CustomerId", "Status");
+
+                    b.HasIndex("Status", "CreatedAt");
 
                     b.ToTable("KitReturnRequests", (string)null);
                 });
@@ -704,9 +736,9 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProductModelId");
-
                     b.HasIndex("IsActive", "DisplayOrder");
+
+                    b.HasIndex("ProductModelId", "IsActive", "DisplayOrder");
 
                     b.ToTable("FaultGuideEntries", (string)null);
                 });
@@ -795,7 +827,15 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.HasIndex("Number")
                         .IsUnique();
 
+                    b.HasIndex("ProductUnitId");
+
                     b.HasIndex("CustomerId", "Status");
+
+                    b.HasIndex("Origin", "OpenedAt");
+
+                    b.HasIndex("Severity", "OpenedAt");
+
+                    b.HasIndex("Status", "OpenedAt");
 
                     b.ToTable("FaultTickets", (string)null);
                 });
@@ -876,6 +916,8 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DefaultStorageLocationId");
+
+                    b.HasIndex("Name");
 
                     b.HasIndex("Sku")
                         .IsUnique();

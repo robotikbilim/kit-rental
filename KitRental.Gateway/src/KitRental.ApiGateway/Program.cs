@@ -3,6 +3,17 @@ using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddKitRentalObservability();
+// The standalone React UI uses bearer tokens, never cross-origin cookies.
+// An explicit origin list can be configured without changing either application.
+builder.Services.AddCors(options => options.AddPolicy("StandaloneUi", policy =>
+{
+    var uiOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["*"];
+    if (uiOrigins.Contains("*", StringComparer.Ordinal))
+        policy.AllowAnyOrigin();
+    else if (uiOrigins.Length > 0)
+        policy.WithOrigins(uiOrigins);
+    policy.AllowAnyHeader().AllowAnyMethod().WithExposedHeaders("Content-Disposition");
+}));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -30,6 +41,7 @@ builder.Services.AddHttpClient("core", client =>
     client.BaseAddress = new Uri(builder.Configuration["Services:Core"] ?? "https://localhost:59590"));
 
 var app = builder.Build();
+app.UseCors("StandaloneUi");
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {

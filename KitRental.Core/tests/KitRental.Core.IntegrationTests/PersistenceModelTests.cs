@@ -10,7 +10,7 @@ namespace KitRental.Core.IntegrationTests;
 public sealed class PersistenceModelTests
 {
     [Fact]
-    public void ClientGeneratedOwnedEntityIds_AreNeverDatabaseGenerated()
+    public void ClientGeneratedOwnedEntityIdsAreNeverDatabaseGenerated()
     {
         var options = new DbContextOptionsBuilder<KitRentalDbContext>()
             .UseSqlServer("Server=(localdb)\\MSSQLLocalDB;Database=KitRentalModelMetadata;Trusted_Connection=True")
@@ -33,7 +33,7 @@ public sealed class PersistenceModelTests
     }
 
     [Fact]
-    public void CustomerAllowedProductModels_GetDistinctClientGeneratedIds()
+    public void CustomerAllowedProductModelsGetDistinctClientGeneratedIds()
     {
         var customer = Customer.Create(Guid.NewGuid(), "Test Customer", "test@example.com");
 
@@ -45,7 +45,7 @@ public sealed class PersistenceModelTests
     }
 
     [Fact]
-    public void NewOrderStatusEvent_OnTrackedOrder_IsMarkedAsAdded()
+    public void NewOrderStatusEventOnTrackedOrderIsMarkedAsAdded()
     {
         var options = new DbContextOptionsBuilder<KitRentalDbContext>()
             .UseSqlServer("Server=(localdb)\\MSSQLLocalDB;Database=KitRentalModelMetadata;Trusted_Connection=True")

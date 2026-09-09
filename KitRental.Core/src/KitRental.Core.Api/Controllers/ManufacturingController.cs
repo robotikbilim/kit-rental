@@ -14,21 +14,21 @@ public sealed class ManufacturingController : CoreApiControllerBase
 {
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff")]
     [HttpGet("manufacturing/buildable-kits")]
-    public async Task<IActionResult> Get_ManufacturingBuildableKits_72([FromServices] WorkshopService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetBuildableKits(int? page, int? pageSize, [FromServices] WorkshopService service, CancellationToken cancellationToken)
     {
-        return Ok(await service.GetBuildableKitsAsync(null, cancellationToken));
+        return Ok((await service.GetBuildableKitsAsync(null, cancellationToken)).ToPagedResponse(page, pageSize));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff")]
     [HttpGet("manufacturing/buildable-kits/{productModelId:guid}")]
-    public async Task<IActionResult> Get_ManufacturingBuildableKitsProductModelIdGuid_73(Guid productModelId, [FromServices] WorkshopService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetBuildableKit(Guid productModelId, [FromServices] WorkshopService service, CancellationToken cancellationToken)
     {
         return Ok((await service.GetBuildableKitsAsync(productModelId, cancellationToken)).Single());
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager")]
-    [HttpPost("kits")]
-    public async Task<IActionResult> Post_Kits_74(CreateKitRequest request, [FromServices] WorkshopService service, CancellationToken cancellationToken)
+    [HttpPost("kit-models")]
+    public async Task<IActionResult> CreateKitModel(CreateKitRequest request, [FromServices] WorkshopService service, CancellationToken cancellationToken)
     {
         var result = await service.CreateKitAsync(new CreateKitCommand(request.Name, request.Sku, request.Description,
                 request.ImageUrl, request.BomVersion,
@@ -39,7 +39,7 @@ public sealed class ManufacturingController : CoreApiControllerBase
 
     [Authorize(Roles = "SystemAdmin,OperationsManager")]
     [HttpPost("orders/{orderId:guid}/kits")]
-    public async Task<IActionResult> Post_OrdersOrderIdGuidKits_89(Guid orderId, CreateOrderKitsRequest request, [FromServices] OperationsService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateOrderKits(Guid orderId, CreateOrderKitsRequest request, [FromServices] OperationsService service, CancellationToken cancellationToken)
     {
         return Ok(await service.CreateAndReserveOrderKitsAsync(
                 orderId, request.Lines.Select(line => new OrderKitLineCommand(line.ProductModelId, line.Quantity)).ToArray(),

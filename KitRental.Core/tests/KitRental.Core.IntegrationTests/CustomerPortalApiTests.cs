@@ -1,4 +1,4 @@
-﻿using KitRental.Core.Application.CustomerPortal;
+using KitRental.Core.Application.CustomerPortal;
 using KitRental.Core.Application.Inventory;
 using KitRental.Core.Application.Operations;
 using KitRental.Core.Application.PhysicalKits;
@@ -25,7 +25,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         _factory = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Testing"));
 
     [Fact]
-    public async Task CustomerPortal_ListsOwnKit_BlocksRentalRequestAndCreatesFault()
+    public async Task CustomerPortalListsOwnKitBlocksRentalRequestAndCreatesFault()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin@portal.test", "SystemAdmin", null));
@@ -36,7 +36,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var deliverableUnit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
             new CreateProductUnitRequest(model.Id, $"PT-DEL-{Guid.NewGuid():N}", $"PT-DEL-QR-{Guid.NewGuid():N}"), cancellationToken);
         var email = $"tacev-{Guid.NewGuid():N}@example.com";
-        var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rent",
+        var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rentals",
             new RentPhysicalKitRequest("TACEV Test Merkezi", email, "02165550000", "Bilim Sokak 1",
                 "34000", new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1)), cancellationToken);
 
@@ -69,7 +69,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var createdFault = (await fault.Content.ReadFromJsonAsync<CreatedFaultResponse>(cancellationToken))!;
 
         var faultPage = await admin.GetFromJsonAsync<FaultPageResponse>(
-            "/api/faults/search?page=1&pageSize=10&status=1&query=TACEV%20Test%20Merkezi", cancellationToken);
+            "/api/faults?page=1&pageSize=10&status=1&query=TACEV%20Test%20Merkezi", cancellationToken);
         var listedFault = Assert.Single(faultPage!.Items, item => item.Id == createdFault.Id);
         Assert.Equal("TACEV Test Merkezi", listedFault.ReporterName);
         Assert.Equal("(0216) 555 00 00", listedFault.ReporterPhone);
@@ -78,23 +78,23 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Contains(overview!.Orders, item => item.Status == RentalOrderStatus.PendingApproval);
         Assert.Contains(overview.Faults, item => item.ProductUnitId == unit.Id && item.Status == FaultStatus.Open);
 
-        await PostAsync<OrderResponse>(admin, $"/api/orders/{deliveryOrder.Id}/transitions",
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{deliveryOrder.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
         await CompleteStudentAddressesAsync(admin, deliveryOrder.Id, "Test Sokak 1", cancellationToken);
         await PostAsync<OrderKitPreparationResponse>(admin, $"/api/orders/{deliveryOrder.Id}/kits",
             new { lines = new[] { new { productModelId = model.Id, quantity = 1 } }, useAvailableKits = true }, cancellationToken);
-        await PostAsync<OrderResponse>(admin, $"/api/orders/{deliveryOrder.Id}/transitions",
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{deliveryOrder.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Preparing), cancellationToken);
-        await PostAsync<OrderResponse>(admin, $"/api/orders/{deliveryOrder.Id}/transitions",
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{deliveryOrder.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.OutboundInTransit), cancellationToken);
 
         var otherCustomer = CreateClient(new TokenUser(Guid.NewGuid(), "other@portal.test", "CustomerUser", Guid.NewGuid()));
         var forbiddenConfirmation = await otherCustomer.PostAsJsonAsync(
-            $"/api/customer-portal/orders/{deliveryOrder.Id}/confirm-delivery", new { }, cancellationToken);
+            $"/api/customer-portal/orders/{deliveryOrder.Id}/delivery-confirmations", new { }, cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Forbidden, forbiddenConfirmation.StatusCode);
 
         var confirmation = await customer.PostAsJsonAsync(
-            $"/api/customer-portal/orders/{deliveryOrder.Id}/confirm-delivery", new { }, cancellationToken);
+            $"/api/customer-portal/orders/{deliveryOrder.Id}/delivery-confirmations", new { }, cancellationToken);
         confirmation.EnsureSuccessStatusCode();
         var confirmedOrder = (await confirmation.Content.ReadFromJsonAsync<OrderResponse>(cancellationToken))!;
         Assert.Equal(RentalOrderStatus.Completed, confirmedOrder.Status);
@@ -104,7 +104,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Contains(overview.Kits, item => item.ProductUnitId == deliverableUnit.Id &&
             item.UnitStatus == KitRental.Core.Domain.Inventory.ProductUnitStatus.WithCustomer);
 
-        var adminOrders = await admin.GetFromJsonAsync<PortalOrderResponse[]>("/api/order-summaries", cancellationToken);
+        var adminOrders = (await admin.GetFromJsonAsync<PagedResponse<PortalOrderResponse>>("/api/order-summaries?pageSize=5000", cancellationToken))!.Items;
         Assert.Contains(adminOrders!, item => item.Id == deliveryOrder.Id && item.Status == RentalOrderStatus.Completed);
     }
 
@@ -130,7 +130,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     private static async Task CompleteStudentAddressesAsync(HttpClient client, Guid orderId, string addressLine,
         CancellationToken cancellationToken)
     {
-        var detail = await client.GetFromJsonAsync<OrderDetailResponse>($"/api/orders/{orderId}/detail",
+        var detail = await client.GetFromJsonAsync<OrderDetailResponse>($"/api/orders/{orderId}",
             cancellationToken);
         foreach (var student in detail!.Students)
         {
@@ -142,7 +142,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
-    public async Task PublicQr_CreatesOpenFaultAndReturnRequest_ForActiveRental()
+    public async Task PublicQrCreatesOpenFaultAndReturnRequestForActiveRental()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var today = TurkeyTime.Today();
@@ -152,7 +152,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             new CreateProductModelRequest("Public QR Test Kiti", $"PQR-{Guid.NewGuid():N}"), cancellationToken);
         var unit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
             new CreateProductUnitRequest(model.Id, $"PQR-SN-{Guid.NewGuid():N}", $"PQR-QR-{Guid.NewGuid():N}"), cancellationToken);
-        var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rent",
+        var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rentals",
             new RentPhysicalKitRequest("Public QR Musterisi", $"public-{Guid.NewGuid():N}@example.com",
                 "05320000000", "Test Sokak 10", "34000",
                 today.AddDays(-1), today.AddDays(30)), cancellationToken);
@@ -164,7 +164,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         fault.EnsureSuccessStatusCode();
         var createdFault = (await fault.Content.ReadFromJsonAsync<CreatedFaultResponse>(cancellationToken))!;
         var faultPage = await admin.GetFromJsonAsync<FaultPageResponse>(
-            "/api/faults/search?page=1&pageSize=10&query=Ayse%20Test", cancellationToken);
+            "/api/faults?page=1&pageSize=10&query=Ayse%20Test", cancellationToken);
         var listedFault = Assert.Single(faultPage!.Items, item => item.Id == createdFault.Id);
         Assert.Equal(FaultApprovalStatus.NotRequired, listedFault.ApprovalStatus);
         Assert.Equal(FaultStatus.Open, listedFault.Status);
@@ -203,7 +203,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
-    public async Task PublicQr_ReceivesInTransitKit_AndAddsDashboardLocation()
+    public async Task PublicQrReceivesInTransitKitAndAddsDashboardLocation()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin-public-delivery@test.local", "SystemAdmin", null));
@@ -220,16 +220,16 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             customer.Id, model.Id, new DateOnly(2026, 11, 1), new DateOnly(2026, 12, 1),
             [new CreateOrderStudentRequest("Ece Yilmaz", "05325550000")]), cancellationToken);
 
-        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
         await CompleteStudentAddressesAsync(admin, order.Id, "Okul Sokak 1", cancellationToken);
         var prepared = await PostAsync<OrderKitPreparationResponse>(admin, $"/api/orders/{order.Id}/kits",
             new { lines = new[] { new { productModelId = model.Id, quantity = 1 } }, useAvailableKits = true },
             cancellationToken);
         Assert.Equal(unit.Id, prepared.Kits.Single().ProductUnitId);
-        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Preparing), cancellationToken);
-        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.OutboundInTransit), cancellationToken);
 
         var token = await CreatePublicTokenAsync(publicClient, unit.QrCode, cancellationToken);
@@ -256,12 +256,12 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             item.NewStatus == ProductUnitStatus.WithCustomer &&
             item.Reason.Contains("Ece Yilmaz", StringComparison.OrdinalIgnoreCase));
 
-        var units = await admin.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
+        var units = (await admin.GetFromJsonAsync<PagedResponse<ProductUnitResponse>>("/api/product-units?pageSize=5000", cancellationToken))!.Items;
         Assert.Equal(ProductUnitStatus.WithCustomer, units!.Single(item => item.Id == unit.Id).Status);
     }
 
     [Fact]
-    public async Task StudentOrderCompletionRequiresAddress_AndWritesStudentKitLocation()
+    public async Task StudentOrderCompletionRequiresAddressAndWritesStudentKitLocation()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin-student-location@test.local", "SystemAdmin", null));
@@ -279,10 +279,10 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             customer.Id, model.Id, new DateOnly(2026, 11, 1), new DateOnly(2026, 12, 1),
             [new CreateOrderStudentRequest("Adres Bekleyen Öğrenci", "05320000000")]), cancellationToken);
 
-        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
         var orderDetail = await admin.GetFromJsonAsync<OrderDetailResponse>(
-            $"/api/orders/{order.Id}/detail", cancellationToken);
+            $"/api/orders/{order.Id}", cancellationToken);
         var student = Assert.Single(orderDetail!.Students);
         Assert.False(student.HasAddress);
 
@@ -291,7 +291,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             cancellationToken);
         Assert.Equal(unit.Id, prepared.Kits.Single().ProductUnitId);
 
-        var blockedCompletion = await admin.PostAsJsonAsync($"/api/orders/{order.Id}/transitions",
+        var blockedCompletion = await admin.PostAsJsonAsync($"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Completed), cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, blockedCompletion.StatusCode);
 
@@ -311,7 +311,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.NotEqual("Adres Bekleyen Öğrenci", detail!.CurrentLocation?.RecipientName);
         Assert.DoesNotContain(detail.DeliveryHistory, item => item.RecipientName == "Adres Bekleyen Öğrenci");
 
-        var completedOrder = await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+        var completedOrder = await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Completed), cancellationToken);
         Assert.Equal(RentalOrderStatus.Completed, completedOrder.Status);
 
@@ -324,7 +324,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
-    public async Task CustomerPortal_UnassignedKitCount_ExcludesReturnedKits()
+    public async Task CustomerPortalUnassignedKitCountExcludesReturnedKits()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var today = TurkeyTime.Today();
@@ -340,10 +340,10 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             cancellationToken);
 
         var email = $"active-kit-{Guid.NewGuid():N}@example.com";
-        var faultyRental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{faultyUnit.Id}/rent",
+        var faultyRental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{faultyUnit.Id}/rentals",
             new RentPhysicalKitRequest("Aktif Kit Musterisi", email, "05320000000", "Test Sokak 1",
                 "34000", today.AddDays(-5), today.AddDays(10)), cancellationToken);
-        var returnedRental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{returnedUnit.Id}/rent",
+        var returnedRental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{returnedUnit.Id}/rentals",
             new RentPhysicalKitRequest("Aktif Kit Musterisi", email, "05320000000", "Test Sokak 2",
                 "34000", today.AddDays(-5), today.AddDays(10)), cancellationToken);
 
@@ -361,7 +361,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var publicReturn = await PostAsync<PublicReturnResponse>(publicClient, "/api/public/returns",
             new PublicKitReturnRequest(returnedToken, "Aktif Kit Musterisi", "05320000000",
                 "Test Sokak 2 Kadikoy Istanbul", null, null, KitReturnReason.EnrollmentCancelled), cancellationToken);
-        await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{publicReturn.Id}/receive", new { }, cancellationToken);
+        await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{publicReturn.Id}/receipts", new { }, cancellationToken);
 
         var updatedOverview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
         Assert.Equal(0, updatedOverview!.ActiveKitCount);
@@ -378,7 +378,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
-    public async Task Admin_ManagesFaultGuideEntries_AndPublicReadsActiveOnes()
+    public async Task AdminManagesFaultGuideEntriesAndPublicReadsActiveOnes()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin-guide@test.local", "SystemAdmin", null));
@@ -400,25 +400,25 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             new FaultGuideEntryRequest("Pasif rehber", "Public ekranda gorunmemeli.",
                 "Admin tarafinda sakli kalir.", 20, false), cancellationToken);
 
-        var publicEntries = await publicClient.GetFromJsonAsync<FaultGuideEntryResponse[]>(
-            "/api/public/fault-guides", cancellationToken);
+        var publicEntries = (await publicClient.GetFromJsonAsync<PagedResponse<FaultGuideEntryResponse>>(
+            "/api/public/fault-guides?pageSize=5000", cancellationToken))!.Items;
         Assert.Contains(publicEntries!, item => item.Id == created.Id);
         Assert.DoesNotContain(publicEntries!, item => item.Id == passive.Id);
         var firstToken = await CreatePublicTokenAsync(publicClient, firstUnit.QrCode, cancellationToken);
-        var kitEntries = await publicClient.GetFromJsonAsync<FaultGuideEntryResponse[]>(
-            $"/api/public/fault-guides/{firstToken}", cancellationToken);
+        var kitEntries = (await publicClient.GetFromJsonAsync<PagedResponse<FaultGuideEntryResponse>>(
+            $"/api/public/fault-guides/{firstToken}?pageSize=5000", cancellationToken))!.Items;
         Assert.Contains(kitEntries!, item => item.Id == created.Id);
         Assert.DoesNotContain(kitEntries!, item => item.Id == secondGuide.Id);
 
         var delete = await admin.DeleteAsync($"/api/fault-guides/{created.Id}", cancellationToken);
         delete.EnsureSuccessStatusCode();
-        publicEntries = await publicClient.GetFromJsonAsync<FaultGuideEntryResponse[]>(
-            "/api/public/fault-guides", cancellationToken);
+        publicEntries = (await publicClient.GetFromJsonAsync<PagedResponse<FaultGuideEntryResponse>>(
+            "/api/public/fault-guides?pageSize=5000", cancellationToken))!.Items;
         Assert.DoesNotContain(publicEntries!, item => item.Id == created.Id);
     }
 
     [Fact]
-    public async Task Customer_CanReturnExpiredSelectedKit_AndAdminReceivesItIntoAvailableStock()
+    public async Task CustomerCanReturnExpiredSelectedKitAndAdminReceivesItIntoAvailableStock()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var today = TurkeyTime.Today();
@@ -430,11 +430,11 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var expiringUnit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
             new CreateProductUnitRequest(model.Id, $"EXP-SN-{Guid.NewGuid():N}", $"EXP-QR-{Guid.NewGuid():N}"), cancellationToken);
         var email = $"return-{Guid.NewGuid():N}@example.com";
-        var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rent",
+        var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rentals",
             new RentPhysicalKitRequest("İade Müşterisi", email, "02120000000", "Test Sokak 1",
                 "34000", today.AddMonths(-2), today.AddDays(-1)), cancellationToken);
         var customer = CreateClient(new TokenUser(Guid.NewGuid(), email, "CustomerAccountManager", rental.CustomerId));
-        await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{expiringUnit.Id}/rent",
+        await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{expiringUnit.Id}/rentals",
             new RentPhysicalKitRequest("Yaklaşan Kiralama", $"expiring-{Guid.NewGuid():N}@example.com", "02120000001",
                 "Test Sokak 2", "34000", today.AddDays(-10), today.AddDays(7)), cancellationToken);
 
@@ -446,22 +446,22 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var created = await PostAsync<ReturnResponse>(customer, "/api/customer-portal/returns",
             new { assignmentIds = new[] { rental.AssignmentId } }, cancellationToken);
         Assert.Equal(KitReturnStatus.Requested, created.Status);
-        var shipped = await PostAsync<ReturnResponse>(customer, $"/api/customer-portal/returns/{created.Id}/ship",
+        var shipped = await PostAsync<ReturnResponse>(customer, $"/api/customer-portal/returns/{created.Id}/shipments",
             new { carrier = "Test Kargo", trackingNumber = $"TK-{Guid.NewGuid():N}" }, cancellationToken);
         Assert.Equal(KitReturnStatus.InTransit, shipped.Status);
 
         var dashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
         Assert.Contains(dashboard!.ReturnsInProgress, x => x.Id == created.Id && x.KitCount == 1);
-        await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{created.Id}/receive", new { }, cancellationToken);
+        await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{created.Id}/receipts", new { }, cancellationToken);
 
-        var units = await admin.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
+        var units = (await admin.GetFromJsonAsync<PagedResponse<ProductUnitResponse>>("/api/product-units?pageSize=5000", cancellationToken))!.Items;
         Assert.Equal(ProductUnitStatus.Available, units!.Single(x => x.Id == unit.Id).Status);
         var overview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
         Assert.Contains(overview!.Returns, x => x.Id == created.Id && x.Status == KitReturnStatus.Received);
     }
 
     [Fact]
-    public async Task CustomerRentalCohort_LocksApprovedStudentList_AndUnlinksStudentKitAfterReturnReceived()
+    public async Task CustomerRentalCohortLocksApprovedStudentListAndUnlinksStudentKitAfterReturnReceived()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin-cohort@test.local", "SystemAdmin", null));
@@ -480,7 +480,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             $"/api/customer-portal/rental-periods/{cohort.Id}/students",
             new RentalCohortStudentRequest("Ayşe Yılmaz", "05320000000", "Test Mahallesi 1", model.Id),
             cancellationToken);
-        var orders = await portal.GetFromJsonAsync<PortalOrderResponse[]>("/api/orders", cancellationToken);
+        var orders = (await portal.GetFromJsonAsync<PagedResponse<PortalOrderResponse>>("/api/orders?pageSize=5000", cancellationToken))!.Items;
         var order = Assert.Single(orders!, item => item.Status == RentalOrderStatus.PendingApproval);
         var editableStudent = await PostAsync<PortalRentalCohortStudentResponse>(portal,
             $"/api/customer-portal/rental-periods/{cohort.Id}/students",
@@ -488,10 +488,10 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             cancellationToken);
         await portal.DeleteAsync($"/api/customer-portal/rental-periods/{cohort.Id}/students/{editableStudent.Id}",
             cancellationToken);
-        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
         var orderDetail = await admin.GetFromJsonAsync<OrderDetailResponse>(
-            $"/api/orders/{order.Id}/detail", cancellationToken);
+            $"/api/orders/{order.Id}", cancellationToken);
         Assert.Equal(cohort.Id, orderDetail!.RentalCohortId);
 
         var prepared = await PostAsync<OrderKitPreparationResponse>(admin, $"/api/orders/{order.Id}/kits",
@@ -522,7 +522,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             $"/api/customer-portal/rental-periods/{cohort.Id}/students/{student.Id}", cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, blockedDelete.StatusCode);
 
-        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/transitions",
+        await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Completed), cancellationToken);
 
         overview = await portal.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
@@ -534,12 +534,12 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.True(overview.Kits.Single(x => x.AssignmentId == assigned.AssignmentId).HasDeliveryForm);
 
         var returnRequest = await PostAsync<ReturnResponse>(portal,
-            $"/api/customer-portal/rental-periods/{cohort.Id}/students/{student.Id}/return",
+            $"/api/customer-portal/rental-periods/{cohort.Id}/students/{student.Id}/returns",
             new PortalStudentReturnRequest("Ayşe Yılmaz", "05320000000", "Test Mahallesi 1",
                 KitReturnReason.EducationCompleted),
             cancellationToken);
         Assert.Equal(KitReturnStatus.Requested, returnRequest.Status);
-        await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{returnRequest.Id}/receive", new { },
+        await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{returnRequest.Id}/receipts", new { },
             cancellationToken);
 
         overview = await portal.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
@@ -552,7 +552,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.True(returnedStudent.HasCompletedReturn);
         Assert.Empty(updatedCohort.UnassignedKits);
 
-        var units = await admin.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
+        var units = (await admin.GetFromJsonAsync<PagedResponse<ProductUnitResponse>>("/api/product-units?pageSize=5000", cancellationToken))!.Items;
         Assert.Equal(ProductUnitStatus.Available, units!.Single(x => x.Id == prepared.Kits.Single().ProductUnitId).Status);
 
         detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(

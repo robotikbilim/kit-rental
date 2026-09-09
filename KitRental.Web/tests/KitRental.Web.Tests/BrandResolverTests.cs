@@ -25,7 +25,7 @@ public sealed class BrandResolverTests
     [InlineData("atolye.et-edu.net", "Robotik Bilim")]
     [InlineData("localhost", "Robotik Bilim")]
     [InlineData("unknown.example", "Robotik Bilim")]
-    public void Resolves_brand_from_normalized_host(string host, string expectedName)
+    public void ResolvesBrandFromNormalizedHost(string host, string expectedName)
     {
         var context = new DefaultHttpContext();
         context.Request.Host = new HostString(host, 8443);

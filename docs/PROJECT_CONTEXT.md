@@ -1,4 +1,4 @@
-﻿# Project Context For Future Development
+# Project Context For Future Development
 
 This file is the first-stop project memory for future agent work. Before scanning the full repository, read this file and then inspect only the directly relevant files. After every development task, update this file when behavior, schema, routes, workflows, project structure, or conventions change.
 
@@ -182,7 +182,9 @@ Rules:
 - Public return requests store `DeliveryMethod` (`Adresimden Alınsın` or `Kendim Bırakacağım`). Drop-off returns do not show the fixed Aras Kargo return code until the form is saved; after save, the public success page shows a pop-up with code `1234567890`. Drop-off returns do not require pickup address/map fields and store the Aras drop-off instruction as the return address.
 - Reopening the public QR return form before admin return receipt loads the active return request through `/api/public/returns/context/{token}` and allows updating the return reason, requester details, pickup/drop-off delivery method, and pickup location fields instead of creating a duplicate return.
 - Public QR forms treat latitude/longitude as optional and untrusted. Invalid or missing coordinates must not block saving; backend stores null coordinates when no valid map selection is provided.
-- Public QR fault, delivery, and return forms collect free-text address plus optional latitude/longitude only. Reopening the forms with a valid token refills the last saved address and any stored coordinates from the latest kit location context.
+- Public QR fault, delivery, and return forms store free-text address plus optional latitude/longitude; fault and pickup-return forms additionally collect city/district selections in the address prefix. Reopening the forms with a valid token refills the last saved address and any stored coordinates from the latest kit location context.
+- Public QR fault form now includes required city/district dropdowns, prefills the address from the kit's latest location event (falling back to the open fault address), preserves the selected city/district in the stored address prefix, and fills both dropdowns when reverse geocoding completes after `Konumumu Bul` or map selection.
+- Public QR return form uses the same city/district dropdown and address-prefix flow for pickup returns, restores the selections when an active return is reopened, and keeps city/district/address optional for drop-off returns.
 - The public QR landing screen offers only fault reporting and kit return; the user-facing `Kit Teslim Al` option is hidden because admins mark customer delivery automatically. The public delivery endpoint and MVC action still exist for internal compatibility.
 - Dashboard and portal maps read latest location events, with order delivery address as fallback for old kits with no event.
 - Physical kit detail uses assignment-specific latest location for rental history, and product-unit latest location for current location.
@@ -222,7 +224,7 @@ Core API routes:
 - `GET/POST/PUT /api/customer-portal/rental-periods`
 - `DELETE /api/customer-portal/rental-periods/{periodId}`
 - `POST/PUT/DELETE /api/customer-portal/rental-periods/{periodId}/students`
-- `POST /api/customer-portal/rental-periods/{periodId}/students/import`
+- `POST /api/customer-portal/rental-periods/{periodId}/student-imports`
 - `POST /api/customer-portal/rental-periods/{periodId}/students/{studentId}/return`
 - `POST /api/customer-portal/rental-periods/{periodId}/order`
 - `POST /api/customer-portal/returns`
@@ -405,11 +407,20 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Customer portal student Excel import preview shows the total parsed student count above the preview table.
 - Customer portal rental-period detail no longer exposes a customer-side `Onayla Ve Sipariş Oluştur` action. When the first student is added or students are imported, a linked `PendingApproval` rental order is created automatically so the order appears in the admin panel immediately; later student add/update/delete operations before admin approval synchronize the linked order's product-model quantities. Once admin approval moves the order past `PendingApproval`, customer-side period and student mutations remain blocked.
 - QR label print CSS keeps the same visual proportions as the on-screen label cards: A4 print still uses a three-column grid, but normal and student-recipient labels preserve their own card, QR, spacing, and text scale ratios instead of being forced into a taller shared print size.
+- QR label output uses a printer-sized print page for Xprinter XP-470B-compatible 30×60 mm stock: one 60 mm wide × 30 mm high label per page, zero page margins, no A4 grid, and browser zoom disabled. The browser print dialog must use actual-size/100% and the XP-470B label driver/paper preset.
 - Customer portal order-period student rows no longer repeat assigned kit serial/QR under the student name; the same values remain in the assigned physical kit column as a link to the portal kit detail page, while delivery summary lines starting with `Teslim:` still display under the student name.
 - On admin order details, the `Siparişi Tamamla` control remains clickable when student addresses are missing, but it shows the popup warning `Eksik adres bilgisi olan kayıtlar var, önce adresleri doldurun.` instead of submitting the completion transition. Once every student has an address, the normal completion form is shown.
 - Admin order detail paginates the student address table and the order-linked physical kit table independently with `studentPage` and `kitPage` query parameters, showing 10 rows per card and preserving the other card's current page while navigating.
-- Admin dashboard now exposes `Kit Konumlarını Güncelle` for `SystemAdmin` and `OperationsManager`. It calls Core API `POST /api/dashboard/kit-locations/update`, which queues all address-filled `KitLocationEvents` missing latitude/longitude for the Core API background worker instead of geocoding synchronously during the MVC request.
+- Admin dashboard now exposes `Kit Konumlarını Güncelle` for `SystemAdmin` and `OperationsManager`. It calls Core API `POST /api/dashboard/kit-location-geocoding-jobs`, which queues all address-filled `KitLocationEvents` missing latitude/longitude for the Core API background worker instead of geocoding synchronously during the MVC request.
 - Data migration `20260907143000_SeedRedKitFaultGuides` replaces red-kit fault-guide seed rows with active kit-specific troubleshooting entries for DHT11, LDR, PIR, Ultrasonik Sensör, POT, Buton, RGB LED, LED, LED / PWM, Buzzer, and LCD. The migration resolves the red-kit product model by SKU/name/image URL and removes matching legacy general seed titles before inserting the new list.
+- Core/Identity list-style GET endpoints now return a standard paged JSON envelope with `Page`, `PageSize`, `TotalCount`, `TotalPages`, and `Items`; MVC API client unwraps `Items` for existing dropdown, export, label, and list screens while sending explicit `pageSize` for whole-list support data.
+- API action method names were normalized away from generated underscore/number names to PascalCase C# method names. Test method names were also normalized to remove underscores.
+- REST route cleanup renamed command-style endpoints to resource-style names: product unit batch creation uses `POST /api/product-unit-batches`, kit model creation uses `POST /api/kit-models`, physical kit rental uses `POST /api/physical-kits/{id}/rentals`, bulk physical-kit rental uses `POST /api/physical-kit-rental-batches`, order transitions use `POST /api/orders/{orderId}/status-transitions`, order detail uses `GET /api/orders/{orderId}`, customer portal delivery confirmation uses `POST /api/customer-portal/orders/{orderId}/delivery-confirmations`, return receipt uses `POST /api/kit-returns/{returnId}/receipts`, fault status changes use `POST /api/faults/{ticketId}/status-events`, fault searching now uses filtered `GET /api/faults`, audit searching uses `GET /api/audit-entries`, component suggestions use `GET /api/component-suggestions`, and supply-need refresh/completion/approval use `POST /api/supply-need-recommendation-refreshes`, `POST /api/supply-needs/{id}/completions`, and `POST /api/supply-needs/{id}/approvals`.
+- Migration `20260907150000_AddListPaginationIndexes` adds indexes for frequently filtered/listed fields across customers, product models/units, rental orders/cohorts/assignments, kit locations, faults, fault guides, kit returns, components, and audit entries.
+
+## Recent UI Behavior
+
+- Operations `FaultGuide` requires selecting a kit before listing guides, filters entries by `ProductModelId`, and uses a shared popup for creating and editing the selected kit's guide entries. The MVC route accepts `productModelId` as the filter query parameter.
 
 ## Development Checklist
 

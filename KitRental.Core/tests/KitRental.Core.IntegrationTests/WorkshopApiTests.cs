@@ -25,16 +25,16 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
-    public async Task CreateKit_CreatesCatalogRecordAndRecipeTogether()
+    public async Task CreateKitCreatesCatalogRecordAndRecipeTogether()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var component = await PostAsync<ComponentResponse>("/api/components",
             new CreateComponentRequest("Kit Test Komponenti", $"CMP-{Guid.NewGuid():N}", "adet", 2), cancellationToken);
 
-        var kit = await PostAsync<KitCatalogResponse>("/api/kits",
+        var kit = await PostAsync<KitCatalogResponse>("/api/kit-models",
             new CreateKitRequest("Test Eğitim Kiti", $"KIT-{Guid.NewGuid():N}", "Reçeteli test kiti",
                 "/images/catalog/kit.svg", 1, [new BillOfMaterialsLineRequest(component.Id, 3)]), cancellationToken);
-        var catalog = await _client.GetFromJsonAsync<ProductModelResponse[]>("/api/product-models", cancellationToken);
+        var catalog = (await _client.GetFromJsonAsync<PagedResponse<ProductModelResponse>>("/api/product-models?pageSize=5000", cancellationToken))!.Items;
         var bom = await _client.GetFromJsonAsync<BillOfMaterialsResponse>($"/api/product-models/{kit.Id}/bom", cancellationToken);
 
         Assert.Contains(catalog!, item => item.Id == kit.Id && item.Description == "Reçeteli test kiti");
@@ -42,12 +42,12 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
-    public async Task CreateKit_WithoutRecipe_AllowsRecipeToBeAddedAndUpdatedLater()
+    public async Task CreateKitWithoutRecipeAllowsRecipeToBeAddedAndUpdatedLater()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var component = await PostAsync<ComponentResponse>("/api/components",
             new CreateComponentRequest("Sonradan Reçete Komponenti", $"CMP-{Guid.NewGuid():N}", "adet", 1), cancellationToken);
-        var kit = await PostAsync<KitCatalogResponse>("/api/kits",
+        var kit = await PostAsync<KitCatalogResponse>("/api/kit-models",
             new CreateKitRequest("Reçetesiz Eğitim Kiti", $"KIT-{Guid.NewGuid():N}", null, null, 1, []), cancellationToken);
 
         Assert.Null(kit.BomVersion);
@@ -67,10 +67,10 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
-    public async Task GetRecipe_DistinguishesARecipeLessKitFromAnUnknownKit()
+    public async Task GetRecipeDistinguishesARecipeLessKitFromAnUnknownKit()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        var kit = await PostAsync<KitCatalogResponse>("/api/kits",
+        var kit = await PostAsync<KitCatalogResponse>("/api/kit-models",
             new CreateKitRequest("Reçetesiz Detay Kiti", $"KIT-{Guid.NewGuid():N}", null, null, 1, []),
             cancellationToken);
 
@@ -82,7 +82,7 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
-    public async Task CreatePhysicalKit_WithoutIdentifiers_GeneratesUniqueSerialAndQrCode()
+    public async Task CreatePhysicalKitWithoutIdentifiersGeneratesUniqueSerialAndQrCode()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var model = await PostAsync<ProductModelResponse>("/api/product-models",
@@ -101,7 +101,7 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
-    public async Task PhysicalKitLookup_FindsCompleteKitBySerialNumberOrQrCode()
+    public async Task PhysicalKitLookupFindsCompleteKitBySerialNumberOrQrCode()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var model = await PostAsync<ProductModelResponse>("/api/product-models",
@@ -120,13 +120,13 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
-    public async Task CreatePhysicalKitsBulk_GeneratesDistinctIdentifiersForEveryUnit()
+    public async Task CreatePhysicalKitsBulkGeneratesDistinctIdentifiersForEveryUnit()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var model = await PostAsync<ProductModelResponse>("/api/product-models",
             new CreateProductModelRequest("Toplu Üretim Test Kiti", $"KIT-{Guid.NewGuid():N}"), cancellationToken);
 
-        var units = await PostAsync<ProductUnitResponse[]>("/api/product-units/bulk",
+        var units = await PostAsync<ProductUnitResponse[]>("/api/product-unit-batches",
             new { ProductModelId = model.Id, Quantity = 23 }, cancellationToken);
 
         Assert.Equal(23, units.Length);
@@ -134,12 +134,12 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Equal(23, units.Select(item => item.QrCode).Distinct().Count());
         Assert.All(units, item => Assert.Equal($"KITRENTAL:{item.SerialNumber}", item.QrCode));
 
-        var summaries = await _client.GetFromJsonAsync<KitRental.Core.Application.PhysicalKits.PhysicalKitModelSummaryResponse[]>(
-            "/api/physical-kits/models", cancellationToken);
+        var summaries = (await _client.GetFromJsonAsync<PagedResponse<KitRental.Core.Application.PhysicalKits.PhysicalKitModelSummaryResponse>>(
+            "/api/physical-kits/models?pageSize=5000", cancellationToken))!.Items;
         var page = await _client.GetFromJsonAsync<KitRental.Core.Application.PhysicalKits.PhysicalKitUnitPageResponse>(
             $"/api/physical-kits/models/{model.Id}/units?filter=available&page=2&pageSize=10", cancellationToken);
-        var labels = await _client.GetFromJsonAsync<KitRental.Core.Application.PhysicalKits.PhysicalKitListItemResponse[]>(
-            $"/api/physical-kits/models/{model.Id}/labels?filter=all", cancellationToken);
+        var labels = (await _client.GetFromJsonAsync<PagedResponse<KitRental.Core.Application.PhysicalKits.PhysicalKitListItemResponse>>(
+            $"/api/physical-kits/models/{model.Id}/labels?filter=all&pageSize=5000", cancellationToken))!.Items;
 
         var summary = summaries!.Single(item => item.ProductModelId == model.Id);
         Assert.Equal(23, summary.Total);
@@ -148,15 +148,15 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Equal(2, page!.Page);
         Assert.Equal(3, page.TotalPages);
         Assert.Equal(10, page.Items.Count);
-        Assert.Equal(23, labels!.Length);
+        Assert.Equal(23, labels!.Count);
 
-        var additionalUnits = await PostAsync<ProductUnitResponse[]>("/api/product-units/bulk",
+        var additionalUnits = await PostAsync<ProductUnitResponse[]>("/api/product-unit-batches",
             new { ProductModelId = model.Id, Quantity = 201 }, cancellationToken);
         Assert.Equal(201, additionalUnits.Length);
     }
 
     [Fact]
-    public async Task CreatePhysicalKits_ConsumesRecipeQuantitiesAndRejectsInsufficientStockAtomically()
+    public async Task CreatePhysicalKitsConsumesRecipeQuantitiesAndRejectsInsufficientStockAtomically()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var shelfA = await PostAsync<StorageLocationResponse>("/api/storage-locations",
@@ -172,19 +172,19 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
             new RecordComponentStockRequest(component.Id, shelfA.Id, 4, "Üretim stoğu A"), cancellationToken);
         await PostAsync<StockMovementResponse>("/api/component-stock/receipts",
             new RecordComponentStockRequest(component.Id, shelfB.Id, 6, "Üretim stoğu B"), cancellationToken);
-        var kit = await PostAsync<KitCatalogResponse>("/api/kits",
+        var kit = await PostAsync<KitCatalogResponse>("/api/kit-models",
             new CreateKitRequest("Stok Tüketen Kit", $"KIT-{Guid.NewGuid():N}", null, null, 1,
                 [new BillOfMaterialsLineRequest(component.Id, 3)]), cancellationToken);
 
         var singleUnit = await PostAsync<ProductUnitResponse>("/api/product-units",
             new { ProductModelId = kit.Id }, cancellationToken);
-        await PostAsync<ProductUnitResponse[]>("/api/product-units/bulk",
+        await PostAsync<ProductUnitResponse[]>("/api/product-unit-batches",
             new { ProductModelId = kit.Id, Quantity = 2 }, cancellationToken);
 
-        var stocks = await _client.GetFromJsonAsync<ComponentStockResponse[]>(
-            $"/api/component-stock?componentId={component.Id}", cancellationToken);
-        var movements = await _client.GetFromJsonAsync<StockMovementResponse[]>(
-            $"/api/component-stock/movements?componentId={component.Id}", cancellationToken);
+        var stocks = (await _client.GetFromJsonAsync<PagedResponse<ComponentStockResponse>>(
+            $"/api/component-stock?componentId={component.Id}&pageSize=5000", cancellationToken))!.Items;
+        var movements = (await _client.GetFromJsonAsync<PagedResponse<StockMovementResponse>>(
+            $"/api/component-stock/movements?componentId={component.Id}&pageSize=5000", cancellationToken))!.Items;
         Assert.Equal(1, stocks!.Sum(item => item.Quantity));
         Assert.Equal(9, movements!.Where(item => item.Type == KitRental.Core.Domain.Warehouse.StockMovementType.Consumption)
             .Sum(item => item.Quantity));
@@ -193,19 +193,19 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
             new { ProductModelId = kit.Id }, cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, failed.StatusCode);
 
-        var units = await _client.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
-        var stocksAfterFailure = await _client.GetFromJsonAsync<ComponentStockResponse[]>(
-            $"/api/component-stock?componentId={component.Id}", cancellationToken);
+        var units = (await _client.GetFromJsonAsync<PagedResponse<ProductUnitResponse>>("/api/product-units?pageSize=5000", cancellationToken))!.Items;
+        var stocksAfterFailure = (await _client.GetFromJsonAsync<PagedResponse<ComponentStockResponse>>(
+            $"/api/component-stock?componentId={component.Id}&pageSize=5000", cancellationToken))!.Items;
         Assert.Equal(3, units!.Count(item => item.ProductModelId == kit.Id));
         Assert.Equal(1, stocksAfterFailure!.Sum(item => item.Quantity));
 
         var deleted = await _client.DeleteAsync($"/api/product-units/{singleUnit.Id}", cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.NoContent, deleted.StatusCode);
-        var stocksAfterDelete = await _client.GetFromJsonAsync<ComponentStockResponse[]>(
-            $"/api/component-stock?componentId={component.Id}", cancellationToken);
-        var movementsAfterDelete = await _client.GetFromJsonAsync<StockMovementResponse[]>(
-            $"/api/component-stock/movements?componentId={component.Id}", cancellationToken);
-        var unitsAfterDelete = await _client.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
+        var stocksAfterDelete = (await _client.GetFromJsonAsync<PagedResponse<ComponentStockResponse>>(
+            $"/api/component-stock?componentId={component.Id}&pageSize=5000", cancellationToken))!.Items;
+        var movementsAfterDelete = (await _client.GetFromJsonAsync<PagedResponse<StockMovementResponse>>(
+            $"/api/component-stock/movements?componentId={component.Id}&pageSize=5000", cancellationToken))!.Items;
+        var unitsAfterDelete = (await _client.GetFromJsonAsync<PagedResponse<ProductUnitResponse>>("/api/product-units?pageSize=5000", cancellationToken))!.Items;
         Assert.Equal(3, stocksAfterDelete!.Single(item => item.StorageLocationId == shelfA.Id).Quantity);
         Assert.Equal(1, stocksAfterDelete!.Single(item => item.StorageLocationId == shelfB.Id).Quantity);
         Assert.Equal(3, movementsAfterDelete!.Where(item =>
@@ -214,15 +214,15 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
-    public async Task BulkRentPhysicalKits_CreatesOneOrderAndActivatesEverySelectedKit()
+    public async Task BulkRentPhysicalKitsCreatesOneOrderAndActivatesEverySelectedKit()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var model = await PostAsync<ProductModelResponse>("/api/product-models",
             new CreateProductModelRequest("Toplu Kiralama Test Kiti", $"KIT-{Guid.NewGuid():N}"), cancellationToken);
-        var units = await PostAsync<ProductUnitResponse[]>("/api/product-units/bulk",
+        var units = await PostAsync<ProductUnitResponse[]>("/api/product-unit-batches",
             new { ProductModelId = model.Id, Quantity = 3 }, cancellationToken);
 
-        var rental = await PostAsync<BulkRentPhysicalKitsResponse>("/api/physical-kits/bulk-rent",
+        var rental = await PostAsync<BulkRentPhysicalKitsResponse>("/api/physical-kit-rental-batches",
             new BulkRentPhysicalKitsRequest(units.Select(item => item.Id).ToArray(), "TACEV Toplu Test",
                 $"bulk-{Guid.NewGuid():N}@example.com", "02165550000", "Bilim Sokak 1", "34000",
                 new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1)), cancellationToken);
@@ -232,7 +232,7 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Equal(3, rental.Kits.Select(item => item.AssignmentId).Distinct().Count());
         Assert.All(rental.Kits, item => Assert.Equal(KitRental.Core.Domain.Inventory.ProductUnitStatus.WithCustomer, item.Status));
 
-        var orders = await _client.GetFromJsonAsync<PortalOrderResponse[]>("/api/order-summaries", cancellationToken);
+        var orders = (await _client.GetFromJsonAsync<PagedResponse<PortalOrderResponse>>("/api/order-summaries?pageSize=5000", cancellationToken))!.Items;
         var order = orders!.Single(item => item.Id == rental.OrderId);
         Assert.Single(order.Lines);
         Assert.Equal(3, order.Lines.Single().Quantity);
@@ -250,7 +250,7 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
-    public async Task ComponentStockAndBom_CalculateBuildableKitAndTrackShelves()
+    public async Task ComponentStockAndBomCalculateBuildableKitAndTrackShelves()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var product = await PostAsync<ProductModelResponse>("/api/product-models",
@@ -282,10 +282,10 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
 
         var buildable = await _client.GetFromJsonAsync<BuildableKitResponse>(
             $"/api/manufacturing/buildable-kits/{product.Id}", cancellationToken);
-        var motorStocks = await _client.GetFromJsonAsync<ComponentStockResponse[]>(
-            $"/api/component-stock?componentId={motor.Id}", cancellationToken);
-        var lowStock = await _client.GetFromJsonAsync<ComponentResponse[]>("/api/components/low-stock", cancellationToken);
-        var suggestions = await _client.GetFromJsonAsync<ComponentSearchResponse[]>("/api/components/search?query=Motor", cancellationToken);
+        var motorStocks = (await _client.GetFromJsonAsync<PagedResponse<ComponentStockResponse>>(
+            $"/api/component-stock?componentId={motor.Id}&pageSize=5000", cancellationToken))!.Items;
+        var lowStock = (await _client.GetFromJsonAsync<PagedResponse<ComponentResponse>>("/api/components/low-stock?pageSize=5000", cancellationToken))!.Items;
+        var suggestions = await _client.GetFromJsonAsync<ComponentSearchResponse[]>("/api/component-suggestions?query=Motor", cancellationToken);
         var locator = await _client.GetFromJsonAsync<ComponentLocatorResponse>($"/api/components/{motor.Id}/locator", cancellationToken);
 
         Assert.Equal(2, transfer.Length);
@@ -327,7 +327,7 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
-    public async Task StorageLocations_CanBeManagedAndUsedAsNewComponentDefault()
+    public async Task StorageLocationsCanBeManagedAndUsedAsNewComponentDefault()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var location = await PostAsync<StorageLocationResponse>("/api/storage-locations",
@@ -354,8 +354,8 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
         var secondLocation = await PostAsync<StorageLocationResponse>("/api/storage-locations",
             new CreateStorageLocationRequest($"RAF-{Guid.NewGuid():N}", "İkinci Depo", "E", "01", "01", true),
             cancellationToken);
-        var locations = await _client.GetFromJsonAsync<StorageLocationResponse[]>(
-            "/api/storage-locations", cancellationToken);
+        var locations = (await _client.GetFromJsonAsync<PagedResponse<StorageLocationResponse>>(
+            "/api/storage-locations?pageSize=5000", cancellationToken))!.Items;
         Assert.False(locations!.Single(item => item.Id == location.Id).IsDefaultForNewComponents);
         Assert.True(locations!.Single(item => item.Id == secondLocation.Id).IsDefaultForNewComponents);
         var secondComponent = await PostAsync<ComponentResponse>("/api/components",
@@ -368,7 +368,7 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
         var deleteSecondResponse = await _client.DeleteAsync(
             $"/api/storage-locations/{secondLocation.Id}", cancellationToken);
         deleteSecondResponse.EnsureSuccessStatusCode();
-        var components = await _client.GetFromJsonAsync<ComponentResponse[]>("/api/components", cancellationToken);
+        var components = (await _client.GetFromJsonAsync<PagedResponse<ComponentResponse>>("/api/components?pageSize=5000", cancellationToken))!.Items;
         Assert.Null(components!.Single(item => item.Id == component.Id).DefaultStorageLocationId);
         Assert.Null(components!.Single(item => item.Id == secondComponent.Id).DefaultStorageLocationId);
 
@@ -378,7 +378,7 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
-    public async Task DeleteStorageLocation_WithStockHistory_IsRejected()
+    public async Task DeleteStorageLocationWithStockHistoryIsRejected()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var location = await PostAsync<StorageLocationResponse>("/api/storage-locations",

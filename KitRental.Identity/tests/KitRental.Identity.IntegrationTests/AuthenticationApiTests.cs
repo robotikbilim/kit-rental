@@ -13,7 +13,7 @@ public sealed class AuthenticationApiTests : IClassFixture<WebApplicationFactory
         _client = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Testing")).CreateClient();
 
     [Fact]
-    public async Task Login_ReturnsToken_ThatCanAccessCurrentUser()
+    public async Task LoginReturnsTokenThatCanAccessCurrentUser()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var login = await _client.PostAsJsonAsync(
@@ -28,7 +28,7 @@ public sealed class AuthenticationApiTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
-    public async Task CurrentUser_RejectsAnonymousRequest()
+    public async Task CurrentUserRejectsAnonymousRequest()
     {
         using var factory = new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder => builder.UseEnvironment("Testing"));
@@ -38,7 +38,7 @@ public sealed class AuthenticationApiTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
-    public async Task SystemAdmin_CanCreateAnotherSystemAdmin()
+    public async Task SystemAdminCanCreateAnotherSystemAdmin()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var login = await _client.PostAsJsonAsync(
@@ -61,7 +61,7 @@ public sealed class AuthenticationApiTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
-    public async Task InternalNotificationRecipients_RequiresKey_AndReturnsActiveAdminUsers()
+    public async Task InternalNotificationRecipientsRequiresKeyAndReturnsActiveAdminUsers()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var unauthorized = await _client.GetAsync(

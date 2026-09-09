@@ -25,7 +25,7 @@ public sealed class SupplyNeedApiTests : IClassFixture<WebApplicationFactory<Pro
     }
 
     [Fact]
-    public async Task RefreshRecommendation_SynchronizesLowStockWithoutDuplicateLines()
+    public async Task RefreshRecommendationSynchronizesLowStockWithoutDuplicateLines()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var component = await PostAsync<ComponentResponse>("/api/components",
@@ -35,14 +35,14 @@ public sealed class SupplyNeedApiTests : IClassFixture<WebApplicationFactory<Pro
             new CreateStorageLocationRequest($"LOW-{Guid.NewGuid():N}", "Test Depo", "A", "1", "1"),
             cancellationToken);
 
-        var refresh = await _client.PostAsJsonAsync("/api/supply-needs/refresh-recommendation",
+        var refresh = await _client.PostAsJsonAsync("/api/supply-need-recommendation-refreshes",
             new { }, cancellationToken);
         refresh.EnsureSuccessStatusCode();
-        refresh = await _client.PostAsJsonAsync("/api/supply-needs/refresh-recommendation",
+        refresh = await _client.PostAsJsonAsync("/api/supply-need-recommendation-refreshes",
             new { }, cancellationToken);
         refresh.EnsureSuccessStatusCode();
 
-        var lists = await _client.GetFromJsonAsync<SupplyNeedResponse[]>("/api/supply-needs", cancellationToken);
+        var lists = (await _client.GetFromJsonAsync<PagedResponse<SupplyNeedResponse>>("/api/supply-needs?pageSize=5000", cancellationToken))!.Items;
         var recommendation = lists!.Single(item => item.Status == SupplyNeedStatus.Recommended);
         var line = Assert.Single(recommendation.Lines, item => item.ComponentId == component.Id);
         Assert.Equal(25, line.Quantity);
@@ -50,7 +50,7 @@ public sealed class SupplyNeedApiTests : IClassFixture<WebApplicationFactory<Pro
         await PostAsync<StockMovementResponse>("/api/component-stock/receipts",
             new RecordComponentStockRequest(component.Id, location.Id, 25, "Minimum stok tamamlandı"),
             cancellationToken);
-        refresh = await _client.PostAsJsonAsync("/api/supply-needs/refresh-recommendation",
+        refresh = await _client.PostAsJsonAsync("/api/supply-need-recommendation-refreshes",
             new { }, cancellationToken);
         refresh.EnsureSuccessStatusCode();
         recommendation = await refresh.Content.ReadFromJsonAsync<SupplyNeedResponse>(cancellationToken);
@@ -59,25 +59,25 @@ public sealed class SupplyNeedApiTests : IClassFixture<WebApplicationFactory<Pro
         await PostAsync<StockMovementResponse>("/api/component-stock/consumptions",
             new RecordComponentStockRequest(component.Id, location.Id, 5, "Stok minimumun altına düştü"),
             cancellationToken);
-        refresh = await _client.PostAsJsonAsync("/api/supply-needs/refresh-recommendation",
+        refresh = await _client.PostAsJsonAsync("/api/supply-need-recommendation-refreshes",
             new { }, cancellationToken);
         refresh.EnsureSuccessStatusCode();
         recommendation = await refresh.Content.ReadFromJsonAsync<SupplyNeedResponse>(cancellationToken);
         Assert.Equal(5, Assert.Single(recommendation!.Lines, item => item.ComponentId == component.Id).Quantity);
 
-        var approval = await _client.PostAsJsonAsync($"/api/supply-needs/{recommendation.Id}/approve",
+        var approval = await _client.PostAsJsonAsync($"/api/supply-needs/{recommendation.Id}/approvals",
             new { }, cancellationToken);
         approval.EnsureSuccessStatusCode();
         var order = await approval.Content.ReadFromJsonAsync<SupplyNeedResponse>(cancellationToken);
         Assert.Equal(SupplyNeedStatus.Pending, order!.Status);
         Assert.NotEqual(recommendation.CreatedAt, order.CreatedAt);
 
-        lists = await _client.GetFromJsonAsync<SupplyNeedResponse[]>("/api/supply-needs", cancellationToken);
+        lists = (await _client.GetFromJsonAsync<PagedResponse<SupplyNeedResponse>>("/api/supply-needs?pageSize=5000", cancellationToken))!.Items;
         Assert.Single(lists!, item => item.Status == SupplyNeedStatus.Recommended);
     }
 
     [Fact]
-    public async Task SupplyNeed_CanBeCreatedUpdatedCompletedAndAddedToStock()
+    public async Task SupplyNeedCanBeCreatedUpdatedCompletedAndAddedToStock()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var component = await PostAsync<ComponentResponse>("/api/components",
@@ -100,18 +100,18 @@ public sealed class SupplyNeedApiTests : IClassFixture<WebApplicationFactory<Pro
         Assert.Equal(20, updated!.Lines.Single().Quantity);
         Assert.Equal(created.CreatedAt, updated.CreatedAt);
 
-        var statusResponse = await _client.PostAsJsonAsync($"/api/supply-needs/{created.Id}/complete",
+        var statusResponse = await _client.PostAsJsonAsync($"/api/supply-needs/{created.Id}/completions",
             new CompleteSupplyNeedRequest(location.Id, [new SupplyNeedLineRequest(component.Id, 18)]), cancellationToken);
         statusResponse.EnsureSuccessStatusCode();
         var supplied = await statusResponse.Content.ReadFromJsonAsync<SupplyNeedResponse>(cancellationToken);
         Assert.Equal(SupplyNeedStatus.Supplied, supplied!.Status);
         Assert.Equal(18, supplied.Lines.Single().SuppliedQuantity);
 
-        var stocks = await _client.GetFromJsonAsync<ComponentStockResponse[]>(
-            $"/api/component-stock?componentId={component.Id}&locationId={location.Id}", cancellationToken);
+        var stocks = (await _client.GetFromJsonAsync<PagedResponse<ComponentStockResponse>>(
+            $"/api/component-stock?componentId={component.Id}&locationId={location.Id}&pageSize=5000", cancellationToken))!.Items;
         Assert.Equal(18, stocks!.Single().Quantity);
 
-        var repeatedResponse = await _client.PostAsJsonAsync($"/api/supply-needs/{created.Id}/complete",
+        var repeatedResponse = await _client.PostAsJsonAsync($"/api/supply-needs/{created.Id}/completions",
             new CompleteSupplyNeedRequest(location.Id, [new SupplyNeedLineRequest(component.Id, 18)]), cancellationToken);
         Assert.Equal(HttpStatusCode.Conflict, repeatedResponse.StatusCode);
 

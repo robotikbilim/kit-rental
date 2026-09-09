@@ -1,0 +1,538 @@
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: https://localhost:61327
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:61328
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Local
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: D:\robotikbilimGitHub\robotikbilim\kit-rental\KitRental.Gateway\src\KitRental.ApiGateway
+info: System.Net.Http.HttpClient.identity.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59592/health
+info: System.Net.Http.HttpClient.identity.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59592/health
+info: System.Net.Http.HttpClient.identity.ClientHandler[101]
+      Received HTTP response headers after 42.0638ms - 200
+info: System.Net.Http.HttpClient.identity.LogicalHandler[101]
+      End processing HTTP request after 50.1356ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/health
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/health
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 10.2082ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 10.28ms - 200
+info: System.Net.Http.HttpClient.identity.LogicalHandler[100]
+      Start processing HTTP request POST https://localhost:59592/api/auth/login
+info: System.Net.Http.HttpClient.identity.ClientHandler[100]
+      Sending HTTP request POST https://localhost:59592/api/auth/login
+info: System.Net.Http.HttpClient.identity.ClientHandler[101]
+      Received HTTP response headers after 193.1984ms - 200
+info: System.Net.Http.HttpClient.identity.LogicalHandler[101]
+      End processing HTTP request after 193.376ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 2360.1679ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 2360.3167ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 364.5756ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 364.7261ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 165.1944ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 165.3319ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 107.4948ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 107.6117ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 127.0361ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 127.1891ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 125.2491ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 125.3688ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 113.3969ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 113.6744ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 165.2648ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 165.3728ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 110.8101ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 110.9574ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 103.7594ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 103.8595ms - 200
+info: System.Net.Http.HttpClient.identity.LogicalHandler[100]
+      Start processing HTTP request POST https://localhost:59592/api/auth/login
+info: System.Net.Http.HttpClient.identity.ClientHandler[100]
+      Sending HTTP request POST https://localhost:59592/api/auth/login
+info: System.Net.Http.HttpClient.identity.ClientHandler[101]
+      Received HTTP response headers after 33.9171ms - 200
+info: System.Net.Http.HttpClient.identity.LogicalHandler[101]
+      End processing HTTP request after 34.0357ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/dashboard
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/dashboard
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 247.0818ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 247.1999ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/order-summaries?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/order-summaries?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 38.3998ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 38.5175ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/product-models?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/product-models?*
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/inventory?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/inventory?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 21.0612ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 21.1687ms - 200
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 62.588ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 62.6738ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/dashboard
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/dashboard
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 41.8637ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 42.1225ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/faults?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/faults?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 34.0492ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 34.1272ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/supply-needs?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/supply-needs?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 129.9646ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 130.1022ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/product-models?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/product-models?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 5.4384ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 5.5258ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/product-models/253b19a8-7513-4d82-976f-49dabe72d48b
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/product-models/253b19a8-7513-4d82-976f-49dabe72d48b
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/product-models/253b19a8-7513-4d82-976f-49dabe72d48b/bom
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/product-models/253b19a8-7513-4d82-976f-49dabe72d48b/bom
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 25.7217ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 25.9384ms - 200
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 83.2027ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 83.2782ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customers?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customers?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 20.7458ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 20.8559ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customers/1b164a87-47ab-476a-b524-9ee6d1bc5c4b
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customers/1b164a87-47ab-476a-b524-9ee6d1bc5c4b
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 11.4179ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 11.6087ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customers?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customers?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 3.5123ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 3.5864ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/fault-guides?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/fault-guides?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 50.7317ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 50.943ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/audit-entries?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/audit-entries?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 75.2718ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 75.3662ms - 200
+info: System.Net.Http.HttpClient.identity.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59592/api/users?*
+info: System.Net.Http.HttpClient.identity.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59592/api/users?*
+info: System.Net.Http.HttpClient.identity.ClientHandler[101]
+      Received HTTP response headers after 66.831ms - 200
+info: System.Net.Http.HttpClient.identity.LogicalHandler[101]
+      End processing HTTP request after 67.0617ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/dashboard
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/dashboard
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 33.4113ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 33.5809ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/order-summaries?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/order-summaries?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 20.7135ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 20.8128ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/orders/1a8f44c1-221e-4ab3-8ae0-255b6c4e1b9f
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/orders/1a8f44c1-221e-4ab3-8ae0-255b6c4e1b9f
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 40.9073ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 41.0359ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/orders/1a8f44c1-221e-4ab3-8ae0-255b6c4e1b9f
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/orders/1a8f44c1-221e-4ab3-8ae0-255b6c4e1b9f
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 47.2809ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 47.3315ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customers/da80d6ba-8906-4e18-845d-1b8e2594ad54/rental-periods?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customers/da80d6ba-8906-4e18-845d-1b8e2594ad54/rental-periods?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 77.8817ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 77.9378ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/order-summaries?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/order-summaries?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 27.7078ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 27.7693ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/orders/d4490f57-1e0b-4da6-805f-163bcadd5cd4
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/orders/d4490f57-1e0b-4da6-805f-163bcadd5cd4
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 46.8086ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 47.0132ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/orders/d4490f57-1e0b-4da6-805f-163bcadd5cd4
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/orders/d4490f57-1e0b-4da6-805f-163bcadd5cd4
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 32.67ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 32.7129ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customers/da80d6ba-8906-4e18-845d-1b8e2594ad54/rental-periods?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customers/da80d6ba-8906-4e18-845d-1b8e2594ad54/rental-periods?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 41.6484ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 41.6951ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/supply-needs?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/supply-needs?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 11.0557ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 11.1146ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request POST https://localhost:59590/api/supply-need-recommendation-refreshes
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request POST https://localhost:59590/api/supply-need-recommendation-refreshes
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 152.4095ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 152.4626ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/supply-needs?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/supply-needs?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 3.7351ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 3.7727ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/storage-locations?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/storage-locations?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 41.775ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 41.812ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/manufacturing/buildable-kits?*
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/manufacturing/buildable-kits?*
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 62.7048ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 62.7831ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/dashboard
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/dashboard
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 53.5055ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 53.5743ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 112.3778ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 112.4253ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 77.9578ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 78.0107ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 75.0025ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 75.0527ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 75.7408ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 75.7853ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 92.2292ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 92.2786ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 90.7821ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 90.8286ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 81.7153ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 81.7544ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 84.4888ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 84.5445ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 104.2814ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 104.3937ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 93.7982ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 93.9014ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 83.7246ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 83.802ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 87.5406ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 87.6066ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 84.2669ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 84.3613ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 108.274ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 108.3326ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 84.3792ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 84.4311ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 100.872ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 100.9355ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 101.8062ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 101.8767ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 93.8627ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 93.9034ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 110.2665ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 110.311ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 131.8088ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 132.113ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[100]
+      Sending HTTP request GET https://localhost:59590/api/customer-portal
+info: System.Net.Http.HttpClient.core.ClientHandler[101]
+      Received HTTP response headers after 1235.7489ms - 200
+info: System.Net.Http.HttpClient.core.LogicalHandler[101]
+      End processing HTTP request after 1235.8427ms - 200

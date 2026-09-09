@@ -6,7 +6,7 @@ namespace KitRental.Core.UnitTests;
 public sealed class RentalAssignmentTests
 {
     [Fact]
-    public void Activate_ReservedAssignment_MarksItActive()
+    public void ActivateReservedAssignmentMarksItActive()
     {
         var assignment = CreateAssignment();
 
@@ -17,7 +17,7 @@ public sealed class RentalAssignmentTests
     }
 
     [Fact]
-    public void Complete_ActiveAssignment_ReleasesAvailabilityBlock()
+    public void CompleteActiveAssignmentReleasesAvailabilityBlock()
     {
         var assignment = CreateAssignment();
         assignment.Activate();
@@ -29,7 +29,7 @@ public sealed class RentalAssignmentTests
     }
 
     [Fact]
-    public void Complete_ReservedAssignment_IsRejected()
+    public void CompleteReservedAssignmentIsRejected()
     {
         var assignment = CreateAssignment();
 

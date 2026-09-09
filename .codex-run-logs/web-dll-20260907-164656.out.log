@@ -1,0 +1,178 @@
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: https://localhost:58314
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:58315
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Local
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: D:\robotikbilimGitHub\robotikbilim\kit-rental\KitRental.Web\src\KitRental.Web.Mvc
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 169.9122ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 180.2582ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 79.7775ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 79.9695ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 76.1072ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 76.2594ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 76.8117ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 76.9609ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 93.3459ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 93.4774ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 91.8243ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 92.0574ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 82.7595ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 82.8729ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 86.1187ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 86.2311ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 105.7053ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 105.8091ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 95.1983ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 95.3434ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 84.7486ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 84.9557ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 88.6346ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 88.7823ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 85.5692ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 85.6677ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 109.7557ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 109.8636ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 85.9604ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 86.0846ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 102.3011ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 102.4185ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 103.0016ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 103.2024ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 94.8205ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 94.9125ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 111.465ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 111.5499ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 132.9783ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 133.0815ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[100]
+      Start processing HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[100]
+      Sending HTTP request GET https://localhost:61327/core/api/customer-portal
+info: System.Net.Http.HttpClient.KitRentalApiClient.ClientHandler[101]
+      Received HTTP response headers after 1283.8797ms - 200
+info: System.Net.Http.HttpClient.KitRentalApiClient.LogicalHandler[101]
+      End processing HTTP request after 1284.458ms - 200

@@ -6,7 +6,7 @@ namespace KitRental.Core.UnitTests;
 public sealed class RentalPeriodTests
 {
     [Fact]
-    public void Overlaps_ReturnsTrue_WhenPeriodsShareAnyDay()
+    public void OverlapsReturnsTrueWhenPeriodsShareAnyDay()
     {
         var first = new RentalPeriod(new DateOnly(2026, 7, 10), new DateOnly(2026, 7, 15));
         var second = new RentalPeriod(new DateOnly(2026, 7, 15), new DateOnly(2026, 7, 20));
@@ -15,7 +15,7 @@ public sealed class RentalPeriodTests
     }
 
     [Fact]
-    public void Overlaps_ReturnsFalse_WhenPeriodsAreSeparate()
+    public void OverlapsReturnsFalseWhenPeriodsAreSeparate()
     {
         var first = new RentalPeriod(new DateOnly(2026, 7, 10), new DateOnly(2026, 7, 14));
         var second = new RentalPeriod(new DateOnly(2026, 7, 15), new DateOnly(2026, 7, 20));
@@ -24,7 +24,7 @@ public sealed class RentalPeriodTests
     }
 
     [Fact]
-    public void Constructor_RejectsEndDateBeforeStartDate()
+    public void ConstructorRejectsEndDateBeforeStartDate()
     {
         var exception = Assert.Throws<DomainException>(() =>
             new RentalPeriod(new DateOnly(2026, 7, 20), new DateOnly(2026, 7, 10)));

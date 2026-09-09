@@ -27,7 +27,7 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
     }
 
     [Fact]
-    public async Task FullRentalLifecycle_ReturnsUnitToAvailableOnlyAfterInspection()
+    public async Task FullRentalLifecycleReturnsUnitToAvailableOnlyAfterInspection()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var model = await PostAsync<ProductModelResponse>(
@@ -46,14 +46,14 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
             new CreateOrderRequest(customer.Id, model.Id, start, end,
                 [new CreateOrderStudentRequest("Teslim Alan", "5550001122")]),
             cancellationToken);
-        await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions", new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
+        await PostAsync<OrderResponse>($"/api/orders/{order.Id}/status-transitions", new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
         await CompleteStudentAddressesAsync(order.Id, "Bilim Sokak 1", cancellationToken);
         await PostAsync<OrderKitPreparationResponse>(
             $"/api/orders/{order.Id}/kits",
             new { lines = new[] { new { productModelId = model.Id, quantity = 1 } }, useAvailableKits = true },
             cancellationToken);
-        await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions", new OrderTransitionRequest(RentalOrderStatus.Preparing), cancellationToken);
-        await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions", new OrderTransitionRequest(RentalOrderStatus.ReadyToShip), cancellationToken);
+        await PostAsync<OrderResponse>($"/api/orders/{order.Id}/status-transitions", new OrderTransitionRequest(RentalOrderStatus.Preparing), cancellationToken);
+        await PostAsync<OrderResponse>($"/api/orders/{order.Id}/status-transitions", new OrderTransitionRequest(RentalOrderStatus.ReadyToShip), cancellationToken);
 
         var outbound = await PostAsync<ShipmentResponse>(
             "/api/shipments",
@@ -63,7 +63,7 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
             $"/api/shipments/{outbound.Id}/events",
             new ShipmentEventRequest(ShipmentStatus.Delivered, DateTimeOffset.UtcNow, "Bursa", "Müşteriye teslim edildi."),
             cancellationToken);
-        await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions", new OrderTransitionRequest(RentalOrderStatus.AwaitingReturn), cancellationToken);
+        await PostAsync<OrderResponse>($"/api/orders/{order.Id}/status-transitions", new OrderTransitionRequest(RentalOrderStatus.AwaitingReturn), cancellationToken);
 
         var inbound = await PostAsync<ShipmentResponse>(
             "/api/shipments",
@@ -78,7 +78,7 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
             new CompleteInspectionRequest(order.Id, unit.Id, [new InspectionItemRequest("Ana set", true, false, "Eksiksiz")], 0, ProductUnitStatus.Available),
             cancellationToken);
 
-        var units = await _client.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
+        var units = (await _client.GetFromJsonAsync<PagedResponse<ProductUnitResponse>>("/api/product-units?pageSize=5000", cancellationToken))!.Items;
         Assert.Equal(ProductUnitStatus.Available, units!.Single(item => item.Id == unit.Id).Status);
 
         var audit = await _client.GetFromJsonAsync<AuditResponse[]>("/api/audit", cancellationToken);
@@ -88,7 +88,7 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
     }
 
     [Fact]
-    public async Task OrderScreenFlow_AdvancesOrderAndAssignedUnitThroughDelivery()
+    public async Task OrderScreenFlowAdvancesOrderAndAssignedUnitThroughDelivery()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var model = await PostAsync<ProductModelResponse>(
@@ -120,7 +120,7 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
                 ]), cancellationToken);
         await CompleteStudentAddressesAsync(order.Id, "Test Sokak 1", cancellationToken);
 
-        order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions",
+        order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
         var prepared = await PostAsync<OrderKitPreparationResponse>($"/api/orders/{order.Id}/kits",
             new { lines = new[] { new { productModelId = model.Id, quantity = 2 } }, useAvailableKits = true },
@@ -129,24 +129,24 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
         Assert.Equal(1, prepared.ReusedCount);
         Assert.Contains(prepared.Kits, kit => kit.ProductUnitId == readyUnit.Id);
         Assert.All(prepared.Kits, kit => Assert.Equal(ProductUnitStatus.Reserved, kit.Status));
-        var componentStocks = await _client.GetFromJsonAsync<ComponentStockResponse[]>(
-            $"/api/component-stock?componentId={component.Id}", cancellationToken);
-        var componentMovements = await _client.GetFromJsonAsync<StockMovementResponse[]>(
-            $"/api/component-stock/movements?componentId={component.Id}", cancellationToken);
+        var componentStocks = (await _client.GetFromJsonAsync<PagedResponse<ComponentStockResponse>>(
+            $"/api/component-stock?componentId={component.Id}&pageSize=5000", cancellationToken))!.Items;
+        var componentMovements = (await _client.GetFromJsonAsync<PagedResponse<StockMovementResponse>>(
+            $"/api/component-stock/movements?componentId={component.Id}&pageSize=5000", cancellationToken))!.Items;
         Assert.Equal(1, componentStocks!.Single().Quantity);
         Assert.Equal(2, componentMovements!.Where(item =>
             item.Type == KitRental.Core.Domain.Warehouse.StockMovementType.Consumption).Sum(item => item.Quantity));
-        order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions",
+        order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Completed), cancellationToken);
         Assert.Equal(RentalOrderStatus.Completed, order.Status);
 
-        var units = await _client.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
+        var units = (await _client.GetFromJsonAsync<PagedResponse<ProductUnitResponse>>("/api/product-units?pageSize=5000", cancellationToken))!.Items;
         Assert.All(units!.Where(item => prepared.Kits.Any(kit => kit.ProductUnitId == item.Id)),
             item => Assert.Equal(ProductUnitStatus.WithCustomer, item.Status));
     }
 
     [Fact]
-    public async Task PurchaseOrder_UsesAvailableUnits_ProducesMissingUnits_AndMarksThemSold()
+    public async Task PurchaseOrderUsesAvailableUnitsProducesMissingUnitsAndMarksThemSold()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var model = await PostAsync<ProductModelResponse>("/api/product-models",
@@ -185,15 +185,15 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
         Assert.Equal(1, prepared.CreatedCount);
         Assert.Contains(prepared.Kits, item => item.ProductUnitId == readyUnit.Id);
 
-        order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/transitions",
+        order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Completed), cancellationToken);
         Assert.Equal(RentalOrderStatus.Completed, order.Status);
 
-        var units = await _client.GetFromJsonAsync<ProductUnitResponse[]>("/api/product-units", cancellationToken);
+        var units = (await _client.GetFromJsonAsync<PagedResponse<ProductUnitResponse>>("/api/product-units?pageSize=5000", cancellationToken))!.Items;
         Assert.All(units!.Where(item => prepared.Kits.Any(kit => kit.ProductUnitId == item.Id)),
             item => Assert.Equal(ProductUnitStatus.Sold, item.Status));
 
-        var detail = await _client.GetFromJsonAsync<OrderDetailResponse>($"/api/orders/{order.Id}/detail",
+        var detail = await _client.GetFromJsonAsync<OrderDetailResponse>($"/api/orders/{order.Id}",
             cancellationToken);
         Assert.Equal(OrderType.Purchase, detail!.Type);
         Assert.Equal(2, detail.Kits.Count);
@@ -201,7 +201,7 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
 
     private async Task CompleteStudentAddressesAsync(Guid orderId, string addressLine, CancellationToken cancellationToken)
     {
-        var detail = await _client.GetFromJsonAsync<OrderDetailResponse>($"/api/orders/{orderId}/detail",
+        var detail = await _client.GetFromJsonAsync<OrderDetailResponse>($"/api/orders/{orderId}",
             cancellationToken);
         foreach (var student in detail!.Students)
         {

@@ -13,14 +13,14 @@ public sealed class CustomerPortalController : CoreApiControllerBase
 {
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
     [HttpGet("customer-portal")]
-    public async Task<IActionResult> Get_CustomerPortal_8([FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetCustomerPortal([FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         return Ok(await service.GetOverviewAsync(GetRequiredCustomerId(), cancellationToken));
     }
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
     [HttpPost("customer-portal/faults")]
-    public async Task<IActionResult> Post_CustomerPortalFaults_9(PortalFaultRequest request, [FromServices] CustomerPortalService service, [FromServices] IEmailNotificationService notifications, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateCustomerPortalFault(PortalFaultRequest request, [FromServices] CustomerPortalService service, [FromServices] IEmailNotificationService notifications, CancellationToken cancellationToken)
     {
         var result = await service.OpenFaultAsync(new OpenPortalFaultCommand(GetRequiredCustomerId(),
                 request.AssignmentId, request.ReporterName, request.ReporterPhone, request.ReporterAddress,
@@ -32,8 +32,8 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     }
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
-    [HttpPost("customer-portal/orders/{orderId:guid}/confirm-delivery")]
-    public async Task<IActionResult> Post_CustomerPortalOrdersOrderIdGuidConfirmDelivery_10(Guid orderId, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    [HttpPost("customer-portal/orders/{orderId:guid}/delivery-confirmations")]
+    public async Task<IActionResult> CreateCustomerPortalOrderDeliveryConfirmation(Guid orderId, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         return Ok(await service.ConfirmOrderDeliveryAsync(new ConfirmPortalOrderDeliveryCommand(
                 GetRequiredCustomerId(), orderId, User.GetRequiredUserId()), cancellationToken));
@@ -41,14 +41,14 @@ public sealed class CustomerPortalController : CoreApiControllerBase
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
     [HttpGet("customer-portal/rental-periods")]
-    public async Task<IActionResult> Get_CustomerPortalRentalPeriods_11([FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetCustomerPortalRentalPeriods(int? page, int? pageSize, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
-        return Ok(await service.GetRentalCohortsAsync(GetRequiredCustomerId(), cancellationToken));
+        return Ok((await service.GetRentalCohortsAsync(GetRequiredCustomerId(), cancellationToken)).ToPagedResponse(page, pageSize));
     }
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
     [HttpPost("customer-portal/rental-periods")]
-    public async Task<IActionResult> Post_CustomerPortalRentalPeriods_12(RentalCohortRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateCustomerPortalRentalPeriod(RentalCohortRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         var result = await service.SaveRentalCohortAsync(new SaveRentalCohortCommand(null,
                 GetRequiredCustomerId(), request.Name, request.StartDate, request.EndDate,
@@ -58,7 +58,7 @@ public sealed class CustomerPortalController : CoreApiControllerBase
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
     [HttpPut("customer-portal/rental-periods/{periodId:guid}")]
-    public async Task<IActionResult> Put_CustomerPortalRentalPeriodsPeriodIdGuid_13(Guid periodId, RentalCohortRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> UpdateCustomerPortalRentalPeriod(Guid periodId, RentalCohortRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         return Ok(await service.SaveRentalCohortAsync(new SaveRentalCohortCommand(periodId,
                 GetRequiredCustomerId(), request.Name, request.StartDate, request.EndDate,
@@ -67,7 +67,7 @@ public sealed class CustomerPortalController : CoreApiControllerBase
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
     [HttpDelete("customer-portal/rental-periods/{periodId:guid}")]
-    public async Task<IActionResult> Delete_CustomerPortalRentalPeriodsPeriodIdGuid_14(Guid periodId, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> DeleteCustomerPortalRentalPeriod(Guid periodId, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         await service.DeleteRentalCohortAsync(new DeleteRentalCohortCommand(
                     GetRequiredCustomerId(), periodId, User.GetRequiredUserId()), cancellationToken);
@@ -76,7 +76,7 @@ public sealed class CustomerPortalController : CoreApiControllerBase
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
     [HttpPost("customer-portal/rental-periods/{periodId:guid}/students")]
-    public async Task<IActionResult> Post_CustomerPortalRentalPeriodsPeriodIdGuidStudents_15(Guid periodId, RentalCohortStudentRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateCustomerPortalRentalPeriodStudent(Guid periodId, RentalCohortStudentRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         var result = await service.SaveRentalCohortStudentAsync(new SaveRentalCohortStudentCommand(null,
                 GetRequiredCustomerId(), periodId, request.FullName, request.GuardianPhone, request.AddressLine ?? string.Empty,
@@ -86,7 +86,7 @@ public sealed class CustomerPortalController : CoreApiControllerBase
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
     [HttpPut("customer-portal/rental-periods/{periodId:guid}/students/{studentId:guid}")]
-    public async Task<IActionResult> Put_CustomerPortalRentalPeriodsPeriodIdGuidStudentsStudentIdGuid_16(Guid periodId, Guid studentId, RentalCohortStudentRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> UpdateCustomerPortalRentalPeriodStudent(Guid periodId, Guid studentId, RentalCohortStudentRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         return Ok(await service.SaveRentalCohortStudentAsync(new SaveRentalCohortStudentCommand(studentId,
                 GetRequiredCustomerId(), periodId, request.FullName, request.GuardianPhone, request.AddressLine ?? string.Empty,
@@ -95,7 +95,7 @@ public sealed class CustomerPortalController : CoreApiControllerBase
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
     [HttpDelete("customer-portal/rental-periods/{periodId:guid}/students/{studentId:guid}")]
-    public async Task<IActionResult> Delete_CustomerPortalRentalPeriodsPeriodIdGuidStudentsStudentIdGuid_17(Guid periodId, Guid studentId, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> DeleteCustomerPortalRentalPeriodStudent(Guid periodId, Guid studentId, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         await service.RemoveRentalCohortStudentAsync(GetRequiredCustomerId(), periodId, studentId,
                     User.GetRequiredUserId(), GetActorDisplayName(), cancellationToken);
@@ -103,8 +103,8 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     }
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
-    [HttpPost("customer-portal/rental-periods/{periodId:guid}/students/import")]
-    public async Task<IActionResult> Post_CustomerPortalRentalPeriodsPeriodIdGuidStudentsImport_18(Guid periodId, RentalCohortStudentImportRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    [HttpPost("customer-portal/rental-periods/{periodId:guid}/student-imports")]
+    public async Task<IActionResult> CreateCustomerPortalRentalPeriodStudentImport(Guid periodId, RentalCohortStudentImportRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         return Ok(await service.ImportRentalCohortStudentsAsync(GetRequiredCustomerId(), periodId,
                 request.Rows.Select(row => new ImportRentalCohortStudentCommand(row.FullName, row.GuardianPhone,
@@ -113,8 +113,8 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     }
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
-    [HttpPost("customer-portal/rental-periods/{periodId:guid}/students/{studentId:guid}/return")]
-    public async Task<IActionResult> Post_CustomerPortalRentalPeriodsPeriodIdGuidStudentsStudentIdGuidReturn_19(Guid periodId, Guid studentId, PortalStudentReturnRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    [HttpPost("customer-portal/rental-periods/{periodId:guid}/students/{studentId:guid}/returns")]
+    public async Task<IActionResult> CreateCustomerPortalRentalPeriodStudentReturn(Guid periodId, Guid studentId, PortalStudentReturnRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         var result = await service.CreatePortalStudentReturnAsync(new CreatePortalStudentReturnCommand(
                     GetRequiredCustomerId(), periodId, studentId, User.GetRequiredUserId(), GetActorDisplayName(),
@@ -124,8 +124,8 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     }
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
-    [HttpPost("customer-portal/rental-periods/{periodId:guid}/order")]
-    public async Task<IActionResult> Post_CustomerPortalRentalPeriodsPeriodIdGuidOrder_20(Guid periodId, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    [HttpPost("customer-portal/rental-periods/{periodId:guid}/orders")]
+    public async Task<IActionResult> CreateCustomerPortalRentalPeriodOrder(Guid periodId, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         var result = await service.CreateRentalCohortOrderAsync(new CreatePortalRentalCohortOrderCommand(
                     GetRequiredCustomerId(), periodId, User.GetRequiredUserId(), GetActorDisplayName()),
@@ -135,7 +135,7 @@ public sealed class CustomerPortalController : CoreApiControllerBase
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
     [HttpPost("customer-portal/returns")]
-    public async Task<IActionResult> Post_CustomerPortalReturns_21(PortalReturnRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateCustomerPortalReturn(PortalReturnRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         var result = await service.CreatePortalReturnAsync(new CreatePortalReturnCommand(
                 GetRequiredCustomerId(), request.AssignmentIds, User.GetRequiredUserId(), GetActorDisplayName()),
@@ -144,8 +144,8 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     }
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
-    [HttpPost("customer-portal/returns/{returnId:guid}/ship")]
-    public async Task<IActionResult> Post_CustomerPortalReturnsReturnIdGuidShip_22(Guid returnId, PortalReturnShipmentRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    [HttpPost("customer-portal/returns/{returnId:guid}/shipments")]
+    public async Task<IActionResult> CreateCustomerPortalReturnShipment(Guid returnId, PortalReturnShipmentRequest request, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         return Ok(await service.ShipPortalReturnAsync(new ShipPortalReturnCommand(GetRequiredCustomerId(),
                 returnId, request.Carrier, request.TrackingNumber, User.GetRequiredUserId(), GetActorDisplayName()),

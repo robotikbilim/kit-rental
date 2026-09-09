@@ -13,28 +13,28 @@ public sealed class PhysicalKitsController : CoreApiControllerBase
 {
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff")]
     [HttpGet("physical-kits/dashboard")]
-    public async Task<IActionResult> Get_PhysicalKitsDashboard_36([FromServices] PhysicalKitService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPhysicalKitDashboard([FromServices] PhysicalKitService service, CancellationToken cancellationToken)
     {
         return Ok(await service.GetDashboardAsync(cancellationToken));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff")]
     [HttpGet("physical-kits")]
-    public async Task<IActionResult> Get_PhysicalKits_37([FromServices] PhysicalKitService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPhysicalKits(int? page, int? pageSize, [FromServices] PhysicalKitService service, CancellationToken cancellationToken)
     {
-        return Ok(await service.GetListAsync(cancellationToken));
+        return Ok((await service.GetListAsync(cancellationToken)).ToPagedResponse(page, pageSize));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff")]
     [HttpGet("physical-kits/lookup")]
-    public async Task<IActionResult> Get_PhysicalKitsLookup_38(string identifier, [FromServices] PhysicalKitService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> LookupPhysicalKit(string identifier, [FromServices] PhysicalKitService service, CancellationToken cancellationToken)
     {
         return Ok(await service.LookupAsync(identifier, cancellationToken));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager")]
-    [HttpPost("physical-kits/bulk-rent")]
-    public async Task<IActionResult> Post_PhysicalKitsBulkRent_39(BulkRentPhysicalKitsRequest request, [FromServices] PhysicalKitService service, CancellationToken cancellationToken)
+    [HttpPost("physical-kit-rental-batches")]
+    public async Task<IActionResult> CreatePhysicalKitRentalBatch(BulkRentPhysicalKitsRequest request, [FromServices] PhysicalKitService service, CancellationToken cancellationToken)
     {
         return Created("/api/physical-kits", await service.RentManyAsync(new BulkRentPhysicalKitsCommand(
                 request.ProductUnitIds, request.CustomerName, request.Email, request.Phone, request.AddressLine,
@@ -44,14 +44,14 @@ public sealed class PhysicalKitsController : CoreApiControllerBase
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff")]
     [HttpGet("physical-kits/{id:guid}")]
-    public async Task<IActionResult> Get_PhysicalKitsIdGuid_40(Guid id, [FromServices] PhysicalKitService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPhysicalKit(Guid id, [FromServices] PhysicalKitService service, CancellationToken cancellationToken)
     {
         return Ok(await service.GetDetailAsync(id, cancellationToken));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager")]
-    [HttpPost("physical-kits/{id:guid}/rent")]
-    public async Task<IActionResult> Post_PhysicalKitsIdGuidRent_41(Guid id, RentPhysicalKitRequest request, [FromServices] PhysicalKitService service, CancellationToken cancellationToken)
+    [HttpPost("physical-kits/{id:guid}/rentals")]
+    public async Task<IActionResult> CreatePhysicalKitRental(Guid id, RentPhysicalKitRequest request, [FromServices] PhysicalKitService service, CancellationToken cancellationToken)
     {
         return Created($"/api/physical-kits/{id}", await service.RentAsync(new RentPhysicalKitCommand(id,
                 request.CustomerName, request.Email, request.Phone, request.AddressLine, request.PostalCode,
@@ -60,23 +60,23 @@ public sealed class PhysicalKitsController : CoreApiControllerBase
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff")]
     [HttpGet("physical-kits/models")]
-    public async Task<IActionResult> Get_PhysicalKitsModels_69([FromServices] PhysicalKitService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPhysicalKitModels(int? page, int? pageSize, [FromServices] PhysicalKitService service, CancellationToken cancellationToken)
     {
-        return Ok(await service.GetModelSummariesAsync(cancellationToken));
+        return Ok((await service.GetModelSummariesAsync(cancellationToken)).ToPagedResponse(page, pageSize));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff")]
     [HttpGet("physical-kits/models/{productModelId:guid}/units")]
-    public async Task<IActionResult> Get_PhysicalKitsModelsProductModelIdGuidUnits_70(Guid productModelId, string? filter, int? page, int? pageSize, [FromServices] PhysicalKitService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPhysicalKitModelUnits(Guid productModelId, string? filter, int? page, int? pageSize, [FromServices] PhysicalKitService service, CancellationToken cancellationToken)
     {
         return Ok(await service.GetModelUnitsAsync(productModelId, filter, page ?? 1, pageSize ?? 20, cancellationToken));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff")]
     [HttpGet("physical-kits/models/{productModelId:guid}/labels")]
-    public async Task<IActionResult> Get_PhysicalKitsModelsProductModelIdGuidLabels_71(Guid productModelId, string? filter, [FromServices] PhysicalKitService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPhysicalKitModelLabels(Guid productModelId, string? filter, int? page, int? pageSize, [FromServices] PhysicalKitService service, CancellationToken cancellationToken)
     {
-        return Ok(await service.GetModelUnitsForLabelsAsync(productModelId, filter, cancellationToken));
+        return Ok((await service.GetModelUnitsForLabelsAsync(productModelId, filter, cancellationToken)).ToPagedResponse(page, pageSize));
     }
 
 }

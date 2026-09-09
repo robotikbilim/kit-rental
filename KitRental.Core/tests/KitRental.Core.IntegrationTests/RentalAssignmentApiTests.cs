@@ -26,7 +26,7 @@ public sealed class RentalAssignmentApiTests : IClassFixture<WebApplicationFacto
     }
 
     [Fact]
-    public async Task CreateAssignment_RejectsOverlappingReservation()
+    public async Task CreateAssignmentRejectsOverlappingReservation()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var modelResponse = await _client.PostAsJsonAsync(
@@ -65,7 +65,7 @@ public sealed class RentalAssignmentApiTests : IClassFixture<WebApplicationFacto
         var order = await orderResponse.Content.ReadFromJsonAsync<OrderApiResponse>(cancellationToken);
 
         var approveResponse = await _client.PostAsJsonAsync(
-            $"/api/orders/{order!.Id}/transitions",
+            $"/api/orders/{order!.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Approved),
             cancellationToken);
         approveResponse.EnsureSuccessStatusCode();

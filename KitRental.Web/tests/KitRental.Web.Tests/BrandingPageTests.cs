@@ -20,7 +20,7 @@ public sealed class BrandingPageTests : IClassFixture<WebApplicationFactory<Prog
     [InlineData("atolye.et-edu.net", "Robotik Bilim", "brand-robotik-bilim", "RB Atölye")]
     [InlineData("tacev.et-edu.net", "TACEV", "brand-tacev", "TACEV Kit Portalı")]
     [InlineData("unknown.example", "Robotik Bilim", "brand-robotik-bilim", "RB Atölye")]
-    public async Task Login_page_uses_host_brand(
+    public async Task LoginPageUsesHostBrand(
         string host,
         string brandName,
         string themeClass,
@@ -41,7 +41,7 @@ public sealed class BrandingPageTests : IClassFixture<WebApplicationFactory<Prog
     }
 
     [Fact]
-    public void Authentication_cookie_is_host_only()
+    public void AuthenticationCookieIsHostOnly()
     {
         var options = _factory.Services
             .GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>()

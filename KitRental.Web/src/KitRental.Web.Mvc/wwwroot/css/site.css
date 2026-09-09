@@ -232,6 +232,27 @@ html{zoom:.9}body{font-size:14px}.container{max-width:1380px;padding-top:36px;pa
 .fault-guide-admin .toggle-field{align-self:end;min-height:38px;margin:0;padding:9px 12px;border:1px solid #dce7df;border-radius:10px;background:#f8fbf9;line-height:1.25}
 .fault-guide-admin .toggle-field input[type=checkbox]{width:16px;min-height:16px;height:16px;margin:0;accent-color:var(--green)}
 .fault-guide-admin .form-actions{grid-column:1/-1;margin-top:4px;padding-top:18px}
-@media(max-width:760px){.fault-guide-admin{padding:18px}.fault-guide-admin .fault-guide-form{grid-template-columns:1fr;gap:14px}.fault-guide-admin .field.wide{grid-column:auto}.fault-guide-admin .form-actions{display:grid;grid-template-columns:1fr;gap:8px}.fault-guide-admin .form-actions>*{width:100%}}
+@media(max-width:760px){.fault-guide-admin{padding:18px}.fault-guide-filter{align-items:stretch;flex-direction:column}.fault-guide-filter .primary-action{width:100%}.fault-guide-admin .fault-guide-form{grid-template-columns:1fr;gap:14px}.fault-guide-admin .field.wide{grid-column:auto}.fault-guide-admin .form-actions{display:grid;grid-template-columns:1fr;gap:8px}.fault-guide-admin .form-actions>*{width:100%}}
 .student-list-filters{grid-template-columns:minmax(240px,2fr) minmax(170px,1fr) minmax(160px,1fr) minmax(150px,.9fr)!important}
 @media(min-width:1101px){.app-authenticated .topbar{top:0;bottom:0;height:auto;min-height:calc(100vh / .9)}.app-authenticated .container{width:calc(100% - var(--sidebar-width))!important;max-width:none!important;margin-left:var(--sidebar-width)!important}.app-authenticated.sidebar-collapsed .container{width:100%!important;max-width:none!important;margin-left:0!important}.app-authenticated.sidebar-collapsed .topbar{pointer-events:none}.app-authenticated.sidebar-collapsed .sidebar-toggle{pointer-events:auto}}
+
+/* Xprinter XP-470B: 30x60 mm label stock (60 mm feed width x 30 mm height). */
+@media print{
+    @page{size:60mm 30mm;margin:0}
+    html,body{width:60mm!important;min-width:60mm!important;margin:0!important;padding:0!important;background:#fff!important;zoom:1!important}
+    .container{width:60mm!important;max-width:none!important;margin:0!important;padding:0!important}
+    .labels-page{width:60mm!important;max-width:none!important;margin:0!important;padding:0!important}
+    .labels-print-meta{display:none!important}
+    .label-grid{display:block!important;width:60mm!important;margin:0!important;padding:0!important}
+    .kit-label,.kit-label:has(.label-recipient){display:grid!important;box-sizing:border-box!important;width:60mm!important;height:30mm!important;min-height:30mm!important;margin:0!important;padding:2mm!important;grid-template-columns:22mm 1fr!important;gap:2mm!important;border:0!important;border-radius:0!important;overflow:hidden!important;break-after:page;page-break-after:always}
+    .kit-label:last-child{break-after:auto;page-break-after:auto}
+    .kit-label>img,.kit-label:has(.label-recipient)>img{width:22mm!important;height:22mm!important;align-self:center!important;justify-self:center!important}
+    .kit-label-copy{min-width:0!important;overflow:hidden!important;justify-content:center!important}
+    .kit-label-copy>span{font-size:4.4pt!important;line-height:1!important}
+    .kit-label-copy>strong{margin:.5mm 2mm .2mm 0!important;font-size:6.8pt!important;line-height:1.05!important;max-height:8mm!important;overflow:hidden!important}
+    .kit-label-copy>small{font-size:5pt!important;line-height:1!important}
+    .kit-label-copy code{margin-top:.7mm!important;font-size:5.1pt!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+    .kit-label-copy .qr-value{margin-top:.7mm!important;font-size:3.8pt!important;line-height:1!important}
+    .label-recipient{margin-top:.7mm!important;padding-top:.7mm!important;gap:.2mm!important}
+    .label-recipient small{font-size:3.6pt!important}.label-recipient strong{font-size:5pt!important;line-height:1!important;max-height:5mm!important;overflow:hidden!important}.label-recipient span{font-size:4.2pt!important;line-height:1!important}
+}

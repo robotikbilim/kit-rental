@@ -7,7 +7,7 @@ namespace KitRental.Core.UnitTests;
 public sealed class WorkshopDomainTests
 {
     [Fact]
-    public void ComponentStock_DoesNotAllowNegativeBalance()
+    public void ComponentStockDoesNotAllowNegativeBalance()
     {
         var stock = ComponentStock.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         stock.Apply(5);
@@ -19,7 +19,7 @@ public sealed class WorkshopDomainTests
     }
 
     [Fact]
-    public void BillOfMaterials_RejectsDuplicateComponentLines()
+    public void BillOfMaterialsRejectsDuplicateComponentLines()
     {
         var componentId = Guid.NewGuid();
 
@@ -33,7 +33,7 @@ public sealed class WorkshopDomainTests
     }
 
     [Fact]
-    public void StockMovement_DeterminesSignedQuantityFromMovementType()
+    public void StockMovementDeterminesSignedQuantityFromMovementType()
     {
         var receipt = CreateMovement(StockMovementType.Receipt, 10);
         var consumption = CreateMovement(StockMovementType.Consumption, 4);

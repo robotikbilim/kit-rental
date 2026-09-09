@@ -11,7 +11,7 @@ public sealed class SwaggerTests : IClassFixture<WebApplicationFactory<Program>>
         _client = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Testing")).CreateClient();
 
     [Fact]
-    public async Task SwaggerDocument_IsPubliclyAvailable()
+    public async Task SwaggerDocumentIsPubliclyAvailable()
     {
         var response = await _client.GetAsync("/swagger/v1/swagger.json", TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

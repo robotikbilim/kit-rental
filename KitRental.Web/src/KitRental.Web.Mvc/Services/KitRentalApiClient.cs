@@ -1,4 +1,4 @@
-﻿using KitRental.Web.Mvc.Models;
+using KitRental.Web.Mvc.Models;
 using Microsoft.AspNetCore.Authentication;
 using System.Net.Http.Headers;
 
@@ -20,11 +20,11 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
 
     public Task<ApiCommandResult<KitLocationGeocodingQueueResultViewModel>> UpdateKitLocationsAsync(
         CancellationToken cancellationToken) =>
-        PostAsync<KitLocationGeocodingQueueResultViewModel>("/core/api/dashboard/kit-locations/update", new { },
+        PostAsync<KitLocationGeocodingQueueResultViewModel>("/core/api/dashboard/kit-location-geocoding-jobs", new { },
             cancellationToken);
 
     public async Task<IReadOnlyCollection<ProductUnitViewModel>> GetProductUnitsAsync(CancellationToken cancellationToken) =>
-        await GetAsync<ProductUnitViewModel[]>("/core/api/product-units", cancellationToken) ?? [];
+        await GetPagedItemsAsync<ProductUnitViewModel>("/core/api/product-units?pageSize=5000", cancellationToken);
 
     public Task<InventoryPageViewModel?> GetInventoryAsync(InventoryFilterViewModel filter,
         CancellationToken cancellationToken)
@@ -50,14 +50,14 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     }
 
     public async Task<IReadOnlyCollection<PortalOrderViewModel>> GetOrdersAsync(CancellationToken cancellationToken) =>
-        await GetAsync<PortalOrderViewModel[]>("/core/api/order-summaries", cancellationToken) ?? [];
+        await GetPagedItemsAsync<PortalOrderViewModel>("/core/api/order-summaries?pageSize=5000", cancellationToken);
 
     public async Task<IReadOnlyCollection<OrderCustomerViewModel>> GetCustomersAsync(
         CancellationToken cancellationToken) =>
-        await GetAsync<OrderCustomerViewModel[]>("/core/api/customers", cancellationToken) ?? [];
+        await GetPagedItemsAsync<OrderCustomerViewModel>("/core/api/customers?pageSize=5000", cancellationToken);
 
     public async Task<IReadOnlyCollection<UserApiResponse>> GetUsersAsync(CancellationToken cancellationToken) =>
-        await GetAsync<UserApiResponse[]>("/identity/api/users", cancellationToken) ?? [];
+        await GetPagedItemsAsync<UserApiResponse>("/identity/api/users?pageSize=5000", cancellationToken);
 
     public Task<ApiCommandResult<UserApiResponse>> CreateAdminUserAsync(
         CreateAdminUserViewModel model, CancellationToken cancellationToken) =>
@@ -85,7 +85,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             parameters.Add($"occurredFrom={filter.OccurredFrom.Value:yyyy-MM-dd}T00:00:00%2B03:00");
         if (filter.OccurredTo.HasValue)
             parameters.Add($"occurredTo={filter.OccurredTo.Value.AddDays(1):yyyy-MM-dd}T00:00:00%2B03:00");
-        return GetAsync<AuditPageApiResponse>($"/core/api/audit/search?{string.Join('&', parameters)}", cancellationToken);
+        return GetAsync<AuditPageApiResponse>($"/core/api/audit-entries?{string.Join('&', parameters)}", cancellationToken);
     }
 
     public Task<ApiCommandResult<UserApiResponse>> CreateCustomerContactAccountAsync(
@@ -185,17 +185,17 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             parameters.Add($"openedFrom={filter.OpenedFrom.Value:yyyy-MM-dd}");
         if (filter.OpenedTo.HasValue)
             parameters.Add($"openedTo={filter.OpenedTo.Value:yyyy-MM-dd}");
-        return GetAsync<FaultPageViewModel>($"/core/api/faults/search?{string.Join('&', parameters)}", cancellationToken);
+        return GetAsync<FaultPageViewModel>($"/core/api/faults?{string.Join('&', parameters)}", cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<FaultGuideEntryViewModel>> GetFaultGuideEntriesAsync(
         CancellationToken cancellationToken) =>
-        await GetAsync<FaultGuideEntryViewModel[]>("/core/api/fault-guides", cancellationToken) ?? [];
+        await GetPagedItemsAsync<FaultGuideEntryViewModel>("/core/api/fault-guides?pageSize=5000", cancellationToken);
 
     public async Task<IReadOnlyCollection<FaultGuideEntryViewModel>> GetPublicFaultGuideEntriesAsync(
         string qrCode, CancellationToken cancellationToken) =>
-        await GetAsync<FaultGuideEntryViewModel[]>(
-            $"/core/api/public/fault-guides/{Uri.EscapeDataString(qrCode)}", cancellationToken) ?? [];
+        await GetPagedItemsAsync<FaultGuideEntryViewModel>(
+            $"/core/api/public/fault-guides/{Uri.EscapeDataString(qrCode)}?pageSize=5000", cancellationToken);
 
     public Task<ApiCommandResult<FaultGuideEntryViewModel>> CreateFaultGuideEntryAsync(
         FaultGuideEntryInputViewModel model, CancellationToken cancellationToken) =>
@@ -228,24 +228,24 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         string query,
         CancellationToken cancellationToken) =>
         await GetAsync<ComponentSuggestionViewModel[]>(
-            $"/core/api/components/search?query={Uri.EscapeDataString(query)}&limit=8", cancellationToken) ?? [];
+            $"/core/api/component-suggestions?query={Uri.EscapeDataString(query)}&limit=8", cancellationToken) ?? [];
 
     public Task<ComponentLocatorViewModel?> GetComponentLocatorAsync(Guid componentId, CancellationToken cancellationToken) =>
         GetAsync<ComponentLocatorViewModel>($"/core/api/components/{componentId}/locator", cancellationToken);
 
     public async Task<IReadOnlyCollection<ComponentCatalogViewModel>> GetComponentsAsync(CancellationToken cancellationToken) =>
-        await GetAsync<ComponentCatalogViewModel[]>("/core/api/components", cancellationToken) ?? [];
+        await GetPagedItemsAsync<ComponentCatalogViewModel>("/core/api/components?pageSize=5000", cancellationToken);
 
     public async Task<IReadOnlyCollection<SupplyNeedListViewModel>> GetSupplyNeedsAsync(
         CancellationToken cancellationToken) =>
-        await GetAsync<SupplyNeedListViewModel[]>("/core/api/supply-needs", cancellationToken) ?? [];
+        await GetPagedItemsAsync<SupplyNeedListViewModel>("/core/api/supply-needs?pageSize=5000", cancellationToken);
 
     public Task<SupplyNeedListViewModel?> GetSupplyNeedAsync(Guid id, CancellationToken cancellationToken) =>
         GetAsync<SupplyNeedListViewModel>($"/core/api/supply-needs/{id}", cancellationToken);
 
     public Task<ApiCommandResult<SupplyNeedListViewModel>> RefreshSupplyNeedRecommendationAsync(
         CancellationToken cancellationToken) => PostAsync<SupplyNeedListViewModel>(
-        "/core/api/supply-needs/refresh-recommendation", new { }, cancellationToken);
+        "/core/api/supply-need-recommendation-refreshes", new { }, cancellationToken);
 
     public Task<ApiCommandResult<SupplyNeedListViewModel>> CreateSupplyNeedAsync(SupplyNeedInputViewModel model,
         CancellationToken cancellationToken) => PostAsync<SupplyNeedListViewModel>("/core/api/supply-needs",
@@ -258,7 +258,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
 
     public Task<ApiCommandResult<SupplyNeedListViewModel>> CompleteSupplyNeedAsync(Guid id,
         CompleteSupplyNeedViewModel model, CancellationToken cancellationToken) =>
-        PostAsync<SupplyNeedListViewModel>($"/core/api/supply-needs/{id}/complete", new
+        PostAsync<SupplyNeedListViewModel>($"/core/api/supply-needs/{id}/completions", new
         {
             model.StorageLocationId,
             lines = model.Lines.Select(line => new { line.ComponentId, Quantity = line.SuppliedQuantity }).ToArray()
@@ -266,14 +266,14 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
 
     public Task<ApiCommandResult<SupplyNeedListViewModel>> ApproveSupplyNeedRecommendationAsync(Guid id,
         CancellationToken cancellationToken) => PostAsync<SupplyNeedListViewModel>(
-        $"/core/api/supply-needs/{id}/approve", new { }, cancellationToken);
+        $"/core/api/supply-needs/{id}/approvals", new { }, cancellationToken);
 
     public Task<ApiCommandResult<object>> DeleteSupplyNeedAsync(Guid id, CancellationToken cancellationToken) =>
         SendAsync<object>(HttpMethod.Delete, $"/core/api/supply-needs/{id}", null, cancellationToken);
 
     public async Task<IReadOnlyCollection<StorageLocationViewModel>> GetStorageLocationsAsync(
         CancellationToken cancellationToken) =>
-        await GetAsync<StorageLocationViewModel[]>("/core/api/storage-locations", cancellationToken) ?? [];
+        await GetPagedItemsAsync<StorageLocationViewModel>("/core/api/storage-locations?pageSize=5000", cancellationToken);
 
     public Task<ApiCommandResult<StorageLocationViewModel>> CreateStorageLocationAsync(
         StorageLocationInputViewModel model, CancellationToken cancellationToken) =>
@@ -287,7 +287,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         SendAsync<object>(HttpMethod.Delete, $"/core/api/storage-locations/{id}", null, cancellationToken);
 
     public async Task<IReadOnlyCollection<ProductModelCatalogViewModel>> GetProductModelsAsync(CancellationToken cancellationToken) =>
-        await GetAsync<ProductModelCatalogViewModel[]>("/core/api/product-models", cancellationToken) ?? [];
+        await GetPagedItemsAsync<ProductModelCatalogViewModel>("/core/api/product-models?pageSize=5000", cancellationToken);
 
     public Task<ProductModelCatalogViewModel?> GetProductModelAsync(Guid id, CancellationToken cancellationToken) =>
         GetAsync<ProductModelCatalogViewModel>($"/core/api/product-models/{id}", cancellationToken);
@@ -311,7 +311,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<ApiCommandResult<ProductModelCatalogViewModel>> CreateKitAsync(
         CreateKitViewModel model,
         CancellationToken cancellationToken) =>
-        PostAsync<ProductModelCatalogViewModel>("/core/api/kits", new
+        PostAsync<ProductModelCatalogViewModel>("/core/api/kit-models", new
         {
             model.Name,
             model.Sku,
@@ -335,7 +335,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
 
     public async Task<IReadOnlyCollection<PhysicalKitModelSummaryViewModel>> GetPhysicalKitModelSummariesAsync(
         CancellationToken cancellationToken) =>
-        await GetAsync<PhysicalKitModelSummaryViewModel[]>("/core/api/physical-kits/models", cancellationToken) ?? [];
+        await GetPagedItemsAsync<PhysicalKitModelSummaryViewModel>("/core/api/physical-kits/models?pageSize=5000", cancellationToken);
 
     public Task<PhysicalKitUnitPageViewModel?> GetPhysicalKitUnitsAsync(Guid productModelId, string filter, int page,
         int pageSize, CancellationToken cancellationToken) => GetAsync<PhysicalKitUnitPageViewModel>(
@@ -344,9 +344,9 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
 
     public async Task<IReadOnlyCollection<PhysicalKitListItemViewModel>> GetPhysicalKitLabelsAsync(Guid productModelId,
         string filter, CancellationToken cancellationToken) =>
-        await GetAsync<PhysicalKitListItemViewModel[]>(
-            $"/core/api/physical-kits/models/{productModelId}/labels?filter={Uri.EscapeDataString(filter)}",
-            cancellationToken) ?? [];
+        await GetPagedItemsAsync<PhysicalKitListItemViewModel>(
+            $"/core/api/physical-kits/models/{productModelId}/labels?filter={Uri.EscapeDataString(filter)}&pageSize=5000",
+            cancellationToken);
 
     public Task<PhysicalKitDetailViewModel?> GetPhysicalKitAsync(Guid id, CancellationToken cancellationToken) =>
         GetAsync<PhysicalKitDetailViewModel>($"/core/api/physical-kits/{id}", cancellationToken);
@@ -356,7 +356,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             cancellationToken);
 
     public Task<ApiCommandResult<ProductUnitViewModel[]>> CreatePhysicalKitsAsync(CreatePhysicalKitViewModel model,
-        CancellationToken cancellationToken) => PostAsync<ProductUnitViewModel[]>("/core/api/product-units/bulk",
+        CancellationToken cancellationToken) => PostAsync<ProductUnitViewModel[]>("/core/api/product-unit-batches",
             new { model.ProductModelId, model.Quantity }, cancellationToken);
 
     public Task<ApiCommandResult<ProductUnitViewModel>> UpdatePhysicalKitAsync(Guid id, EditPhysicalKitViewModel model,
@@ -366,11 +366,11 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
 
     public Task<ApiCommandResult<RentPhysicalKitResultViewModel>> RentPhysicalKitAsync(RentPhysicalKitViewModel model,
         CancellationToken cancellationToken) => PostAsync<RentPhysicalKitResultViewModel>(
-            $"/core/api/physical-kits/{model.ProductUnitId}/rent", model, cancellationToken);
+            $"/core/api/physical-kits/{model.ProductUnitId}/rentals", model, cancellationToken);
 
     public Task<ApiCommandResult<BulkRentPhysicalKitsResultViewModel>> BulkRentPhysicalKitsAsync(
         BulkRentPhysicalKitsViewModel model, CancellationToken cancellationToken) =>
-        PostAsync<BulkRentPhysicalKitsResultViewModel>("/core/api/physical-kits/bulk-rent", new
+        PostAsync<BulkRentPhysicalKitsResultViewModel>("/core/api/physical-kit-rental-batches", new
         {
             model.ProductUnitIds,
             model.CustomerName,
@@ -392,8 +392,8 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
 
     public async Task<IReadOnlyCollection<PortalRentalCohortViewModel>> GetRentalCohortsAsync(
         CancellationToken cancellationToken) =>
-        await GetAsync<PortalRentalCohortViewModel[]>("/core/api/customer-portal/rental-periods",
-            cancellationToken) ?? [];
+        await GetPagedItemsAsync<PortalRentalCohortViewModel>("/core/api/customer-portal/rental-periods?pageSize=5000",
+            cancellationToken);
 
     public Task<ApiCommandResult<PortalRentalCohortViewModel>> CreateRentalCohortAsync(
         RentalCohortInputViewModel model, CancellationToken cancellationToken) =>
@@ -402,8 +402,8 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
 
     public async Task<IReadOnlyCollection<PortalRentalCohortViewModel>> GetCustomerRentalCohortsAsync(Guid customerId,
         CancellationToken cancellationToken) =>
-        await GetAsync<PortalRentalCohortViewModel[]>($"/core/api/customers/{customerId}/rental-periods",
-            cancellationToken) ?? [];
+        await GetPagedItemsAsync<PortalRentalCohortViewModel>($"/core/api/customers/{customerId}/rental-periods?pageSize=5000",
+            cancellationToken);
 
     public Task<ApiCommandResult<PortalRentalCohortViewModel>> UpdateRentalCohortAsync(
         RentalCohortInputViewModel model, CancellationToken cancellationToken) =>
@@ -439,13 +439,13 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<ApiCommandResult<PortalRentalCohortViewModel>> ImportRentalCohortStudentsAsync(Guid cohortId,
         IReadOnlyCollection<object> rows, CancellationToken cancellationToken) =>
         PostAsync<PortalRentalCohortViewModel>(
-            $"/core/api/customer-portal/rental-periods/{cohortId}/students/import", new { rows },
+            $"/core/api/customer-portal/rental-periods/{cohortId}/student-imports", new { rows },
             cancellationToken);
 
     public Task<ApiCommandResult<PortalKitReturnViewModel>> CreateStudentReturnAsync(PortalStudentReturnFormViewModel model,
         CancellationToken cancellationToken) =>
         PostAsync<PortalKitReturnViewModel>(
-            $"/core/api/customer-portal/rental-periods/{model.CohortId}/students/{model.StudentId}/return",
+            $"/core/api/customer-portal/rental-periods/{model.CohortId}/students/{model.StudentId}/returns",
             new
             {
                 model.RequesterName,
@@ -457,7 +457,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
 
     public Task<ApiCommandResult<OrderViewModel>> CreateRentalCohortOrderAsync(Guid cohortId,
         CancellationToken cancellationToken) =>
-        PostAsync<OrderViewModel>($"/core/api/customer-portal/rental-periods/{cohortId}/order", new { },
+        PostAsync<OrderViewModel>($"/core/api/customer-portal/rental-periods/{cohortId}/orders", new { },
             cancellationToken);
 
     public Task<ApiCommandResult<FaultViewModel>> CreatePortalFaultAsync(PortalFaultRequestViewModel model,
@@ -545,18 +545,18 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
 
     public Task<ApiCommandResult<OrderViewModel>> ConfirmPortalOrderDeliveryAsync(Guid orderId,
         CancellationToken cancellationToken) =>
-        PostAsync<OrderViewModel>($"/core/api/customer-portal/orders/{orderId}/confirm-delivery", new { }, cancellationToken);
+        PostAsync<OrderViewModel>($"/core/api/customer-portal/orders/{orderId}/delivery-confirmations", new { }, cancellationToken);
 
     public Task<ApiCommandResult<PortalKitReturnViewModel>> ReceiveKitReturnAsync(Guid returnId,
         CancellationToken cancellationToken) => PostAsync<PortalKitReturnViewModel>(
-            $"/core/api/kit-returns/{returnId}/receive", new { }, cancellationToken);
+            $"/core/api/kit-returns/{returnId}/receipts", new { }, cancellationToken);
 
     public Task<ApiCommandResult<OrderViewModel>> UpdateOrderStatusAsync(Guid orderId, int target,
         CancellationToken cancellationToken) =>
-        PostAsync<OrderViewModel>($"/core/api/orders/{orderId}/transitions", new { target }, cancellationToken);
+        PostAsync<OrderViewModel>($"/core/api/orders/{orderId}/status-transitions", new { target }, cancellationToken);
 
     public Task<OrderDetailViewModel?> GetOrderDetailAsync(Guid orderId, CancellationToken cancellationToken) =>
-        GetAsync<OrderDetailViewModel>($"/core/api/orders/{orderId}/detail", cancellationToken);
+        GetAsync<OrderDetailViewModel>($"/core/api/orders/{orderId}", cancellationToken);
 
     public Task<ApiCommandResult<OrderKitPreparationViewModel>> CreateOrderKitsAsync(Guid orderId,
         IReadOnlyCollection<PortalRentalLineInputViewModel> lines,
@@ -571,15 +571,15 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         }, cancellationToken);
 
     public Task<ApiCommandResult<FaultViewModel>> ChangeFaultStatusAsync(Guid faultId, int status, string note,
-        CancellationToken cancellationToken) => PostAsync<FaultViewModel>($"/core/api/faults/{faultId}/status",
+        CancellationToken cancellationToken) => PostAsync<FaultViewModel>($"/core/api/faults/{faultId}/status-events",
             new { status, note }, cancellationToken);
 
     public async Task<IReadOnlyCollection<EmailDeliveryViewModel>> GetEmailDeliveriesAsync(
         CancellationToken cancellationToken) =>
-        await GetAsync<EmailDeliveryViewModel[]>("/core/api/email-deliveries", cancellationToken) ?? [];
+        await GetPagedItemsAsync<EmailDeliveryViewModel>("/core/api/email-deliveries?pageSize=500", cancellationToken);
 
     public async Task<IReadOnlyCollection<BuildableKitViewModel>> GetBuildableKitsAsync(CancellationToken cancellationToken) =>
-        await GetAsync<BuildableKitViewModel[]>("/core/api/manufacturing/buildable-kits", cancellationToken) ?? [];
+        await GetPagedItemsAsync<BuildableKitViewModel>("/core/api/manufacturing/buildable-kits?pageSize=5000", cancellationToken);
 
     private async Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
     {
@@ -594,6 +594,12 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
             return default;
         return await response.Content.ReadFromJsonAsync<T>(cancellationToken);
+    }
+
+    private async Task<IReadOnlyCollection<T>> GetPagedItemsAsync<T>(string path, CancellationToken cancellationToken)
+    {
+        var result = await GetAsync<PagedApiResponse<T>>(path, cancellationToken);
+        return result?.Items ?? [];
     }
 
     private Task<ApiCommandResult<T>> PostAsync<T>(string path, object body, CancellationToken cancellationToken) =>

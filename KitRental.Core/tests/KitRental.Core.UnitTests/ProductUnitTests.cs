@@ -6,7 +6,7 @@ namespace KitRental.Core.UnitTests;
 public sealed class ProductUnitTests
 {
     [Fact]
-    public void SerialNumber_ContainsNormalizedSetSkuAndCreationYear()
+    public void SerialNumberContainsNormalizedSetSkuAndCreationYear()
     {
         var serial = ProductUnitSerialNumber.Create(
             "robotik başlangıç / v2",
@@ -17,7 +17,7 @@ public sealed class ProductUnitTests
     }
 
     [Fact]
-    public void SerialNumber_UsesUniqueIdForDistinctPhysicalKits()
+    public void SerialNumberUsesUniqueIdForDistinctPhysicalKits()
     {
         var createdAt = new DateTimeOffset(2026, 7, 24, 10, 0, 0, TimeSpan.Zero);
 
@@ -35,7 +35,7 @@ public sealed class ProductUnitTests
     private static readonly DateTimeOffset Now = new(2026, 7, 13, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public void RentalLifecycle_RecordsEveryStatusTransition()
+    public void RentalLifecycleRecordsEveryStatusTransition()
     {
         var unit = CreateUnit();
 
@@ -54,7 +54,7 @@ public sealed class ProductUnitTests
     }
 
     [Fact]
-    public void Dispatch_RejectsInvalidStatusTransition()
+    public void DispatchRejectsInvalidStatusTransition()
     {
         var unit = CreateUnit();
 
@@ -64,7 +64,7 @@ public sealed class ProductUnitTests
     }
 
     [Fact]
-    public void CompleteInspection_OnlyAllowsInspectionOutcomes()
+    public void CompleteInspectionOnlyAllowsInspectionOutcomes()
     {
         var unit = CreateUnit();
         unit.Reserve(ActorId, Now);

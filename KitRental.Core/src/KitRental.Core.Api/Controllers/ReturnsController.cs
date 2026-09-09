@@ -11,8 +11,8 @@ namespace KitRental.Core.Api.Controllers;
 public sealed class ReturnsController : CoreApiControllerBase
 {
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff")]
-    [HttpPost("kit-returns/{returnId:guid}/receive")]
-    public async Task<IActionResult> Post_KitReturnsReturnIdGuidReceive_23(Guid returnId, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
+    [HttpPost("kit-returns/{returnId:guid}/receipts")]
+    public async Task<IActionResult> CreateKitReturnReceipt(Guid returnId, [FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
         return Ok(await service.ReceiveKitReturnAsync(returnId, User.GetRequiredUserId(), cancellationToken));
     }

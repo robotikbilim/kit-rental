@@ -6,7 +6,7 @@ namespace KitRental.Core.UnitTests;
 public sealed class RentalCohortStudentTests
 {
     [Fact]
-    public void AddStudent_AllowsEmptyAddress_ForPublicAddressCollection()
+    public void AddStudentAllowsEmptyAddressForPublicAddressCollection()
     {
         var cohort = CreateCohort();
 
@@ -17,7 +17,7 @@ public sealed class RentalCohortStudentTests
     }
 
     [Fact]
-    public void UpdateStudentAddressByToken_StoresAddressAndCoordinates()
+    public void UpdateStudentAddressByTokenStoresAddressAndCoordinates()
     {
         var cohort = CreateCohort();
         var student = cohort.AddStudent("Ayşe Yılmaz", "05320000000", string.Empty, Guid.NewGuid());
@@ -34,7 +34,7 @@ public sealed class RentalCohortStudentTests
     }
 
     [Fact]
-    public void UpdateStudentAddressByToken_AllowsAddressWithoutValidCoordinates()
+    public void UpdateStudentAddressByTokenAllowsAddressWithoutValidCoordinates()
     {
         var cohort = CreateCohort();
         var student = cohort.AddStudent("Ayşe Yılmaz", "05320000000", string.Empty, Guid.NewGuid());
@@ -50,7 +50,7 @@ public sealed class RentalCohortStudentTests
     }
 
     [Fact]
-    public void UpdateStudentAddressByToken_RejectsUnknownToken()
+    public void UpdateStudentAddressByTokenRejectsUnknownToken()
     {
         var cohort = CreateCohort();
 

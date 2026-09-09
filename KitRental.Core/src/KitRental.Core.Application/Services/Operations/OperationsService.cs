@@ -52,7 +52,7 @@ public sealed record SaveFaultGuideEntryCommand(Guid? Id, string Title, string P
 public sealed record InspectionItemCommand(string Name, bool IsPresent, bool IsDamaged, string Note);
 public sealed record CompleteInspectionCommand(Guid OrderId, Guid ProductUnitId, IReadOnlyCollection<InspectionItemCommand> Items, decimal DamageCharge, ProductUnitStatus Outcome, Guid ActorId);
 public sealed record FaultPageQuery(string? Query, FaultStatus? Status, FaultSeverity? Severity,
-    DateOnly? OpenedFrom, DateOnly? OpenedTo, int Page = 1, int PageSize = 20);
+    DateOnly? OpenedFrom, DateOnly? OpenedTo, int Page = 1, int PageSize = 20, Guid? CustomerId = null);
 public sealed record FaultListItemResponse(Guid Id, string Number, Guid CustomerId, string CustomerName,
     string ReporterName, string ReporterPhone, string ReporterAddress, string Category, FaultSeverity Severity, string Description,
     FaultStatus Status, DateTimeOffset OpenedAt, FaultApprovalStatus ApprovalStatus, FaultOrigin Origin);
@@ -1060,6 +1060,9 @@ public sealed class OperationsService(
         });
 
         items = items.Where(item => item.ApprovalStatus is FaultApprovalStatus.NotRequired or FaultApprovalStatus.Approved);
+
+        if (query.CustomerId.HasValue)
+            items = items.Where(item => item.CustomerId == query.CustomerId.Value);
 
         if (!string.IsNullOrWhiteSpace(query.Query))
         {

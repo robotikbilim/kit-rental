@@ -253,6 +253,8 @@ public sealed class EditRecipeViewModel
 public sealed record EditRecipePageViewModel(EditRecipeViewModel Form,
     IReadOnlyCollection<ComponentCatalogViewModel> Components, bool HasExistingRecipe);
 public sealed record ApiCommandResult<T>(bool IsSuccess, T? Data, string? Error);
+public sealed record PagedApiResponse<T>(int Page, int PageSize, int TotalCount, int TotalPages,
+    IReadOnlyCollection<T> Items);
 
 public sealed record PhysicalKitCurrentRentalViewModel(string CustomerName, DateOnly StartDate, DateOnly EndDate);
 public sealed record PhysicalKitListItemViewModel(Guid Id, Guid ProductModelId, string KitName, string KitSku,

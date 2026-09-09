@@ -2,7 +2,7 @@
 @{ ViewData["Title"] = "Kit Etiketleri"; }
 <div class="labels-page">
     <header class="labels-heading print-hidden">
-        <div><span class="eyebrow">OLUŞTURMA TAMAMLANDI</span><h1>@Model.Labels.Count fiziksel kit hazır</h1><p>Her kit için benzersiz seri numarası ve QR kod oluşturuldu. Etiketleri A4 sayfaya yazdırabilirsiniz.</p></div>
+        <div><span class="eyebrow">OLUŞTURMA TAMAMLANDI</span><h1>@Model.Labels.Count fiziksel kit hazır</h1><p>Her kit için benzersiz seri numarası ve QR kod oluşturuldu. XP-470B için 60×30 mm etiket çıktısı alın.</p></div>
         <div class="labels-actions"><a class="secondary-action" href="@(Model.BackUrl ?? Url.Action("Index"))">Fiziksel Kitlere Dön</a><button class="primary-action" type="button" onclick="window.print()">Etiketleri Yazdır</button></div>
     </header>
     <div class="labels-print-meta print-only"><strong>@Model.LabelHeading Fiziksel Kit Etiketleri</strong><span>@Model.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm") · @Model.Labels.Count adet</span></div>

@@ -89,6 +89,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(model => model.Sku).HasMaxLength(80).IsRequired();
         builder.Property(model => model.Description).HasMaxLength(2000);
         builder.Property(model => model.ImageUrl).HasMaxLength(1000);
+        builder.HasIndex(model => model.Name);
         builder.HasIndex(model => model.Sku).IsUnique();
         AddRowVersion(builder);
     }
@@ -101,6 +102,9 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(unit => unit.QrCode).HasMaxLength(200).IsRequired();
         builder.HasIndex(unit => unit.SerialNumber).IsUnique();
         builder.HasIndex(unit => unit.QrCode).IsUnique();
+        builder.HasIndex(unit => unit.ProductModelId);
+        builder.HasIndex(unit => unit.Status);
+        builder.HasIndex(unit => new { unit.ProductModelId, unit.Status });
         builder.HasOne<ProductModel>().WithMany().HasForeignKey(unit => unit.ProductModelId).OnDelete(DeleteBehavior.Restrict);
         builder.OwnsMany(unit => unit.History, events =>
         {
@@ -138,6 +142,8 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(customer => customer.Name).HasMaxLength(250).IsRequired();
         builder.Property(customer => customer.Email).HasMaxLength(320).IsRequired();
         builder.HasIndex(customer => customer.Email).IsUnique();
+        builder.HasIndex(customer => customer.Name);
+        builder.HasIndex(customer => customer.IsActive);
         builder.OwnsMany(customer => customer.Addresses, addresses =>
         {
             addresses.ToTable("CustomerAddresses");
@@ -173,6 +179,8 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(order => order.OrderNumber).HasMaxLength(50).IsRequired();
         builder.HasIndex(order => order.OrderNumber).IsUnique();
         builder.HasIndex(order => new { order.CustomerId, order.Status });
+        builder.HasIndex(order => new { order.Status, order.CreatedAt });
+        builder.HasIndex(order => new { order.CustomerId, order.CreatedAt });
         builder.Property(order => order.Period).HasConversion(RentalPeriodConverter()).HasMaxLength(21);
         builder.HasOne<Customer>().WithMany().HasForeignKey(order => order.CustomerId).OnDelete(DeleteBehavior.Restrict);
         builder.OwnsOne(order => order.DeliveryAddress, address =>
@@ -221,6 +229,9 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.HasKey(assignment => assignment.Id);
         builder.Property(assignment => assignment.Period).HasConversion(RentalPeriodConverter()).HasMaxLength(21);
         builder.HasIndex(assignment => new { assignment.ProductUnitId, assignment.Status });
+        builder.HasIndex(assignment => assignment.OrderLineId);
+        builder.HasIndex(assignment => new { assignment.CustomerId, assignment.Status });
+        builder.HasIndex(assignment => assignment.CreatedAt);
         builder.HasOne<ProductUnit>().WithMany().HasForeignKey(assignment => assignment.ProductUnitId).OnDelete(DeleteBehavior.Restrict);
         AddRowVersion(builder);
     }
@@ -231,6 +242,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.HasKey(item => item.Id);
         builder.Property(item => item.Name).HasMaxLength(200).IsRequired();
         builder.HasIndex(item => new { item.CustomerId, item.StartDate });
+        builder.HasIndex(item => new { item.CustomerId, item.CreatedAt });
         builder.HasOne<Customer>().WithMany().HasForeignKey(item => item.CustomerId).OnDelete(DeleteBehavior.Restrict);
         builder.OwnsMany(item => item.Students, students =>
         {
@@ -245,6 +257,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             students.HasIndex(item => item.PublicAddressToken).IsUnique();
             students.HasIndex(item => item.ProductModelId);
             students.HasIndex(item => item.AssignmentId);
+            students.HasIndex(item => item.OrderId);
             students.HasIndex(item => item.ProductUnitId);
             students.HasIndex(item => new { item.Latitude, item.Longitude });
             students.HasOne<ProductModel>().WithMany().HasForeignKey(item => item.ProductModelId)
@@ -289,6 +302,9 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(item => item.ContactPhone).HasMaxLength(40).IsRequired();
         builder.Property(item => item.AddressLine).HasMaxLength(1000).IsRequired();
         builder.HasIndex(item => new { item.ProductUnitId, item.OccurredAt });
+        builder.HasIndex(item => new { item.CustomerId, item.OccurredAt });
+        builder.HasIndex(item => new { item.AssignmentId, item.OccurredAt });
+        builder.HasIndex(item => new { item.Latitude, item.Longitude });
         builder.HasIndex(item => new { item.Source, item.SourceId });
         builder.HasOne<ProductUnit>().WithMany().HasForeignKey(item => item.ProductUnitId)
             .OnDelete(DeleteBehavior.Restrict);
@@ -314,6 +330,10 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(ticket => ticket.Origin).HasDefaultValue(FaultOrigin.Internal);
         builder.HasIndex(ticket => ticket.Number).IsUnique();
         builder.HasIndex(ticket => new { ticket.CustomerId, ticket.Status });
+        builder.HasIndex(ticket => ticket.ProductUnitId);
+        builder.HasIndex(ticket => new { ticket.Status, ticket.OpenedAt });
+        builder.HasIndex(ticket => new { ticket.Severity, ticket.OpenedAt });
+        builder.HasIndex(ticket => new { ticket.Origin, ticket.OpenedAt });
         builder.OwnsMany(ticket => ticket.History, history =>
         {
             history.ToTable("FaultStatusEvents");
@@ -347,6 +367,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.HasOne<ProductModel>().WithMany().HasForeignKey(entry => entry.ProductModelId)
             .OnDelete(DeleteBehavior.SetNull);
         builder.HasIndex(entry => new { entry.IsActive, entry.DisplayOrder });
+        builder.HasIndex(entry => new { entry.ProductModelId, entry.IsActive, entry.DisplayOrder });
         AddRowVersion(builder);
     }
 
@@ -378,6 +399,8 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(entry => entry.PreviousValue).HasMaxLength(4000);
         builder.Property(entry => entry.NewValue).HasMaxLength(4000);
         builder.HasIndex(entry => new { entry.EntityType, entry.EntityId, entry.OccurredAt });
+        builder.HasIndex(entry => entry.ActorId);
+        builder.HasIndex(entry => new { entry.Action, entry.OccurredAt });
     }
 
     private static void ConfigureComponent(EntityTypeBuilder<Component> builder)
@@ -389,6 +412,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(component => component.UnitOfMeasure).HasMaxLength(40).IsRequired();
         builder.Property(component => component.ImageUrl).HasMaxLength(1000);
         builder.Property(component => component.MinimumStock).HasPrecision(18, 3);
+        builder.HasIndex(component => component.Name);
         builder.HasIndex(component => component.Sku).IsUnique();
         builder.HasIndex(component => component.DefaultStorageLocationId);
         builder.HasOne<StorageLocation>().WithMany().HasForeignKey(component => component.DefaultStorageLocationId)
@@ -466,6 +490,8 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(x => x.ReturnReason).HasConversion<int>();
         builder.Property(x => x.DeliveryMethod).HasConversion<int>();
         builder.HasIndex(x => new { x.CustomerId, x.Status });
+        builder.HasIndex(x => new { x.Status, x.CreatedAt });
+        builder.HasIndex(x => x.CreatedAt);
         builder.HasIndex(x => x.TrackingNumber).IsUnique().HasFilter("[TrackingNumber] IS NOT NULL");
         builder.OwnsMany(x => x.Items, items =>
         {

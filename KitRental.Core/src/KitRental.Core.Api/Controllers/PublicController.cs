@@ -13,7 +13,7 @@ public sealed class PublicController : CoreApiControllerBase
 {
     [AllowAnonymous]
     [HttpPost("public/form-access/{qrCode}")]
-    public async Task<IActionResult> Post_publicFormAccessQrCode(string qrCode,
+    public async Task<IActionResult> CreatePublicFormAccess(string qrCode,
         [FromServices] PublicFormAccessService accessService, CancellationToken cancellationToken)
     {
         return Ok(await accessService.CreateAsync(qrCode, cancellationToken));
@@ -21,7 +21,7 @@ public sealed class PublicController : CoreApiControllerBase
 
     [AllowAnonymous]
     [HttpGet("public/faults/kit/{token}")]
-    public async Task<IActionResult> Get_publicFaultsKitQrCode_0(string token,
+    public async Task<IActionResult> GetPublicFaultKit(string token,
         [FromServices] PublicFormAccessService accessService, [FromServices] OperationsService service,
         CancellationToken cancellationToken)
     {
@@ -31,7 +31,7 @@ public sealed class PublicController : CoreApiControllerBase
 
     [Authorize]
     [HttpGet("public/faults/kit-by-qr/{qrCode}")]
-    public async Task<IActionResult> Get_publicFaultsKitByQrCode(string qrCode,
+    public async Task<IActionResult> GetPublicFaultKitByQrCode(string qrCode,
         [FromServices] OperationsService service, CancellationToken cancellationToken)
     {
         return Ok(await service.GetPublicFaultKitAsync(qrCode, cancellationToken));
@@ -39,7 +39,7 @@ public sealed class PublicController : CoreApiControllerBase
 
     [AllowAnonymous]
     [HttpGet("public/deliveries/context/{token}")]
-    public async Task<IActionResult> Get_publicDeliveriesContextQrCode_1(string token,
+    public async Task<IActionResult> GetPublicDeliveryContext(string token,
         [FromServices] PublicFormAccessService accessService, [FromServices] OperationsService service,
         CancellationToken cancellationToken)
     {
@@ -49,7 +49,7 @@ public sealed class PublicController : CoreApiControllerBase
 
     [AllowAnonymous]
     [HttpGet("public/faults/context/{token}")]
-    public async Task<IActionResult> Get_publicFaultsContextQrCode_2(string token,
+    public async Task<IActionResult> GetPublicFaultContext(string token,
         [FromServices] PublicFormAccessService accessService, [FromServices] OperationsService service,
         CancellationToken cancellationToken)
     {
@@ -59,7 +59,7 @@ public sealed class PublicController : CoreApiControllerBase
 
     [AllowAnonymous]
     [HttpGet("public/returns/context/{token}")]
-    public async Task<IActionResult> Get_publicReturnsContextQrCode(string token,
+    public async Task<IActionResult> GetPublicReturnContext(string token,
         [FromServices] PublicFormAccessService accessService, [FromServices] CustomerPortalService service,
         CancellationToken cancellationToken)
     {
@@ -69,7 +69,7 @@ public sealed class PublicController : CoreApiControllerBase
 
     [AllowAnonymous]
     [HttpPost("public/faults")]
-    public async Task<IActionResult> Post_publicFaults_3(PublicFaultRequest request,
+    public async Task<IActionResult> CreatePublicFault(PublicFaultRequest request,
         [FromServices] PublicFormAccessService accessService, [FromServices] OperationsService service,
         [FromServices] IEmailNotificationService notifications, CancellationToken cancellationToken)
     {
@@ -89,7 +89,7 @@ public sealed class PublicController : CoreApiControllerBase
 
     [AllowAnonymous]
     [HttpPost("public/returns")]
-    public async Task<IActionResult> Post_publicReturns_4(PublicKitReturnRequest request,
+    public async Task<IActionResult> CreatePublicReturn(PublicKitReturnRequest request,
         [FromServices] PublicFormAccessService accessService, [FromServices] CustomerPortalService service,
         CancellationToken cancellationToken)
     {
@@ -103,7 +103,7 @@ public sealed class PublicController : CoreApiControllerBase
 
     [AllowAnonymous]
     [HttpPost("public/deliveries")]
-    public async Task<IActionResult> Post_publicDeliveries_5(PublicKitDeliveryRequest request,
+    public async Task<IActionResult> CreatePublicDelivery(PublicKitDeliveryRequest request,
         [FromServices] PublicFormAccessService accessService, [FromServices] OperationsService service,
         CancellationToken cancellationToken)
     {
@@ -116,7 +116,7 @@ public sealed class PublicController : CoreApiControllerBase
 
     [AllowAnonymous]
     [HttpGet("public/student-addresses/{token}")]
-    public async Task<IActionResult> Get_publicStudentAddressesToken(string token,
+    public async Task<IActionResult> GetPublicStudentAddress(string token,
         [FromServices] OperationsService service, CancellationToken cancellationToken)
     {
         return Ok(await service.GetPublicStudentAddressContextAsync(token, cancellationToken));
@@ -124,7 +124,7 @@ public sealed class PublicController : CoreApiControllerBase
 
     [AllowAnonymous]
     [HttpPost("public/student-addresses/{token}")]
-    public async Task<IActionResult> Post_publicStudentAddressesToken(string token,
+    public async Task<IActionResult> SavePublicStudentAddress(string token,
         PublicStudentAddressRequest request, [FromServices] OperationsService service,
         CancellationToken cancellationToken)
     {
@@ -135,19 +135,19 @@ public sealed class PublicController : CoreApiControllerBase
 
     [AllowAnonymous]
     [HttpGet("public/fault-guides")]
-    public async Task<IActionResult> Get_publicFaultGuides_6([FromServices] OperationsService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPublicFaultGuides(int? page, int? pageSize, [FromServices] OperationsService service, CancellationToken cancellationToken)
     {
-        return Ok(await service.GetFaultGuideEntriesAsync(true, cancellationToken));
+        return Ok((await service.GetFaultGuideEntriesAsync(true, cancellationToken)).ToPagedResponse(page, pageSize));
     }
 
     [AllowAnonymous]
     [HttpGet("public/fault-guides/{token}")]
-    public async Task<IActionResult> Get_publicFaultGuidesQrCode_7(string token,
+    public async Task<IActionResult> GetPublicFaultGuidesByToken(string token, int? page, int? pageSize,
         [FromServices] PublicFormAccessService accessService, [FromServices] OperationsService service,
         CancellationToken cancellationToken)
     {
         var unit = await accessService.ResolveProductUnitAsync(token, cancellationToken);
-        return Ok(await service.GetPublicFaultGuideEntriesAsync(unit.QrCode, cancellationToken));
+        return Ok((await service.GetPublicFaultGuideEntriesAsync(unit.QrCode, cancellationToken)).ToPagedResponse(page, pageSize));
     }
 
 }
