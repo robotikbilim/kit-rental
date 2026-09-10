@@ -77,10 +77,10 @@ public sealed class PublicController : CoreApiControllerBase
         var result = request.FaultId.HasValue
                 ? await service.UpdatePublicFaultAsync(request.FaultId.Value, unit.QrCode, request.ReporterName,
                     request.ReporterPhone, request.ReporterAddress, request.Description, request.Latitude,
-                    request.Longitude, cancellationToken)
+                    request.Longitude, request.AttachmentUrl, cancellationToken)
                 : await service.OpenPublicFaultAsync(new OpenPublicFaultCommand(
                     unit.QrCode, request.ReporterName, request.ReporterPhone, request.ReporterAddress,
-                    request.Description, request.Latitude, request.Longitude),
+                    request.Description, request.Latitude, request.Longitude, request.AttachmentUrl),
                     cancellationToken);
         await notifications.NotifyAdminsOfFaultAsync(result, "QR üzerinden yeni arıza kaydı oluşturuldu",
             cancellationToken);

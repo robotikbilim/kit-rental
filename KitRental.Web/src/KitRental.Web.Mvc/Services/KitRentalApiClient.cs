@@ -502,7 +502,8 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.ReporterAddress,
             model.Description,
             model.Latitude,
-            model.Longitude
+            model.Longitude,
+            model.AttachmentUrl
         }, cancellationToken);
 
     public Task<ApiCommandResult<PortalKitReturnViewModel>> CreatePublicReturnAsync(PublicReturnFormViewModel model,

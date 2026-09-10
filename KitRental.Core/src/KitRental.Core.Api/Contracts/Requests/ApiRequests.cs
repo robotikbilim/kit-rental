@@ -65,7 +65,7 @@ public sealed record PortalFaultRequest(Guid AssignmentId, string ReporterName, 
     string ReporterAddress, string Description);
 public sealed record PublicFaultRequest(Guid? FaultId, string Token, string ReporterName, string ReporterPhone,
     string ReporterAddress, string Description,
-    double? Latitude = null, double? Longitude = null);
+    double? Latitude = null, double? Longitude = null, string? AttachmentUrl = null);
 public sealed record PublicKitReturnRequest(string Token, string RequesterName,
     string RequesterPhone, string ReturnAddress,
     double? Latitude, double? Longitude, KitReturnReason? ReturnReason = null,

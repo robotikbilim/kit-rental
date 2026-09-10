@@ -327,6 +327,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(ticket => ticket.ReporterName).HasMaxLength(160).IsRequired();
         builder.Property(ticket => ticket.ReporterPhone).HasMaxLength(40).IsRequired();
         builder.Property(ticket => ticket.ReporterAddress).HasMaxLength(1000).IsRequired();
+        builder.Property(ticket => ticket.AttachmentUrl).HasMaxLength(500);
         builder.Property(ticket => ticket.Origin).HasDefaultValue(FaultOrigin.Internal);
         builder.HasIndex(ticket => ticket.Number).IsUnique();
         builder.HasIndex(ticket => new { ticket.CustomerId, ticket.Status });

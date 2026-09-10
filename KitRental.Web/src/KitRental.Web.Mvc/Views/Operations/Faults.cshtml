@@ -56,7 +56,14 @@ else
             <td><strong>@item.Number</strong><small class="block-muted">@item.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small></td>
             <td><span class="fault-stage status-@item.Origin">@OriginName(item.Origin)</span></td>
             <td><strong>@item.ReporterName</strong><a class="fault-phone" href="tel:@item.ReporterPhone">@item.ReporterPhone</a><small class="block-muted">@item.ReporterAddress</small><small class="block-muted">@item.CustomerName</small></td>
-            <td><span class="fault-category">@item.Category</span><p>@item.Description</p></td>
+            <td><span class="fault-category">@item.Category</span><p>@item.Description</p>
+                @if (!string.IsNullOrWhiteSpace(item.AttachmentUrl))
+                {
+                    var attachmentUrl = item.AttachmentUrl!;
+                    var isVideo = new[] { ".mp4", ".webm", ".mov" }.Any(extension => attachmentUrl.EndsWith(extension, StringComparison.OrdinalIgnoreCase));
+                    <a href="@attachmentUrl" target="_blank" rel="noopener" class="table-action">@(isVideo ? "Videoyu aç" : "Fotoğrafı aç")</a>
+                }
+            </td>
             <td><span class="fault-severity severity-@item.Severity">@SeverityName(item.Severity)</span></td>
             <td><span class="fault-stage status-@item.Status">@StatusName(item.Status)</span></td>
             <td>

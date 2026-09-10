@@ -14,7 +14,8 @@ public sealed class FaultTicket
     private FaultTicket() { }
     private FaultTicket(Guid id, string number, Guid customerId, Guid orderId, Guid assignmentId, Guid productUnitId,
         string category, FaultSeverity severity, string description, DateTimeOffset openedAt, string reporterName,
-        string reporterPhone, string reporterAddress, double? latitude, double? longitude, FaultOrigin origin)
+        string reporterPhone, string reporterAddress, double? latitude, double? longitude, FaultOrigin origin,
+        string? attachmentUrl)
     {
         Id = id; Number = number; CustomerId = customerId; OrderId = orderId; AssignmentId = assignmentId; ProductUnitId = productUnitId;
         Category = category; Severity = severity; Description = description; OpenedAt = openedAt; Status = FaultStatus.Open;
@@ -22,6 +23,7 @@ public sealed class FaultTicket
         Latitude = latitude; Longitude = longitude;
         ApprovalStatus = FaultApprovalStatus.NotRequired;
         Origin = origin;
+        AttachmentUrl = attachmentUrl?.Trim();
     }
 
     public Guid Id { get; private set; }
@@ -40,6 +42,7 @@ public sealed class FaultTicket
     public double? Longitude { get; private set; }
     public FaultApprovalStatus ApprovalStatus { get; private set; }
     public FaultOrigin Origin { get; private set; } = FaultOrigin.Internal;
+    public string? AttachmentUrl { get; private set; }
     public DateTimeOffset? ApprovedAt { get; private set; }
     public FaultStatus Status { get; private set; }
     public DateTimeOffset OpenedAt { get; private set; }
@@ -48,14 +51,15 @@ public sealed class FaultTicket
     public static FaultTicket Open(Guid id, string number, Guid customerId, Guid orderId, Guid assignmentId,
         Guid productUnitId, string category, FaultSeverity severity, string description, DateTimeOffset openedAt,
         string? reporterName = null, string? reporterPhone = null, string? reporterAddress = null,
-        double? latitude = null, double? longitude = null, FaultOrigin origin = FaultOrigin.Internal)
+        double? latitude = null, double? longitude = null, FaultOrigin origin = FaultOrigin.Internal,
+        string? attachmentUrl = null)
     {
         if (new[] { id, customerId, orderId, assignmentId, productUnitId }.Any(value => value == Guid.Empty) || string.IsNullOrWhiteSpace(description))
             throw new DomainException("fault.required_fields", "Arıza için müşteri, sipariş, atama, ürün ve açıklama zorunludur.");
         return new FaultTicket(id, number, customerId, orderId, assignmentId, productUnitId, category.Trim(),
             severity, description.Trim(), openedAt, reporterName?.Trim() ?? string.Empty,
             TurkishPhoneNumber.NormalizeOptional(reporterPhone, "Bildiren telefon numarası"), reporterAddress?.Trim() ?? string.Empty,
-            latitude, longitude, origin);
+            latitude, longitude, origin, attachmentUrl);
     }
 
     public void ChangeStatus(FaultStatus next, Guid actorId, DateTimeOffset now, string note)
@@ -67,7 +71,7 @@ public sealed class FaultTicket
         _history.Add(new FaultStatusEvent(Guid.NewGuid(), previous, next, now, actorId, note.Trim()));
     }
     public void UpdatePublicDetails(string category, string description, string reporterName,
-        string reporterPhone, string reporterAddress, double? latitude, double? longitude)
+        string reporterPhone, string reporterAddress, double? latitude, double? longitude, string? attachmentUrl = null)
     {
         if (string.IsNullOrWhiteSpace(category) || string.IsNullOrWhiteSpace(description) ||
             string.IsNullOrWhiteSpace(reporterName) || string.IsNullOrWhiteSpace(reporterPhone) ||
@@ -81,5 +85,6 @@ public sealed class FaultTicket
         ReporterAddress = reporterAddress.Trim();
         Latitude = latitude;
         Longitude = longitude;
+        AttachmentUrl = attachmentUrl?.Trim();
     }
 }

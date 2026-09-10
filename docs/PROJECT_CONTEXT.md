@@ -127,6 +127,7 @@ Faults:
 - `FaultTicket.Origin` distinguishes internal, public QR form, and customer-portal fault records. Customer-portal fault creation uses reporter name, phone, free-text address, and description fields, and operations fault lists show the source column.
 - Customer-portal fault forms prefill reporter/address fields from the linked student's delivery form when present, then fall back to the student list address and finally the customer address.
 - Fault notification emails are queued in-process by Core API through `EmailNotificationQueue` / `EmailNotificationWorker`; public QR and customer-portal fault save flows enqueue the admin email and return without waiting for SMTP delivery.
+- Public QR fault records optionally store one validated photo or short video attachment URL (`FaultTicket.AttachmentUrl`). MVC accepts JPG/PNG/WEBP or MP4/WEBM/MOV files up to 25 MB under `wwwroot/uploads/faults`; operations fault rows expose the attachment link. Migration `20260910100000_AddFaultAttachmentUrl` adds the nullable column.
 
 Physical kit detail history:
 
@@ -420,6 +421,7 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 
 ## Recent UI Behavior
 
+- Public fault troubleshooting actions use equal-width buttons with a clear gap; they switch to equal-width stacked touch targets on narrow screens.
 - Operations `FaultGuide` requires selecting a kit before listing guides, filters entries by `ProductModelId`, and uses a shared popup for creating and editing the selected kit's guide entries. The MVC route accepts `productModelId` as the filter query parameter.
 
 ## Development Checklist

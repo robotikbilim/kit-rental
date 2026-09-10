@@ -108,7 +108,7 @@ public sealed record PeriodViewModel(DateOnly StartDate, DateOnly EndDate);
 public sealed record OrderLineViewModel(Guid Id, Guid ProductModelId, int Quantity);
 public sealed record FaultViewModel(Guid Id, string Number, Guid CustomerId, string CustomerName,
     string ReporterName, string ReporterPhone, string ReporterAddress, string Category, int Severity, string Description, int Status,
-    DateTimeOffset OpenedAt, int ApprovalStatus = 0, int Origin = 1);
+    DateTimeOffset OpenedAt, int ApprovalStatus = 0, int Origin = 1, string? AttachmentUrl = null);
 public sealed record FaultPageViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultViewModel> Items);
 public sealed record FaultGuideEntryViewModel(Guid Id, string Title, string Problem, string Solution,
@@ -546,10 +546,13 @@ public sealed class PublicFaultFormViewModel
     [Display(Name = "Boylam")] public double? Longitude { get; set; }
     [Required, StringLength(4000, MinimumLength = 10), Display(Name = "Ariza nedeni")]
     public string Description { get; set; } = string.Empty;
+    [Display(Name = "Fotoğraf veya kısa video")]
+    public IFormFile? Attachment { get; set; }
+    public string? AttachmentUrl { get; set; }
 }
 public sealed record PublicFaultContextViewModel(Guid? FaultId, string? ReporterName, string? ReporterPhone,
     string? ReporterAddress, string? Category, string? Description,
-    double? Latitude, double? Longitude);
+    double? Latitude, double? Longitude, string? AttachmentUrl = null);
 public sealed class PublicReturnFormViewModel : IValidatableObject
 {
     [Required] public string QrCode { get; set; } = string.Empty;

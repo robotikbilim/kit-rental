@@ -31,16 +31,16 @@ public sealed record AddShipmentEventCommand(Guid ShipmentId, ShipmentStatus Sta
 public sealed record OpenFaultCommand(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId,
     string Category, FaultSeverity Severity, string Description, Guid ActorId, string? ReporterName = null,
     string? ReporterPhone = null, string? ReporterAddress = null, double? Latitude = null, double? Longitude = null,
-    FaultOrigin Origin = FaultOrigin.Internal);
+    FaultOrigin Origin = FaultOrigin.Internal, string? AttachmentUrl = null);
 public sealed record PublicFaultKitResponse(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
 public sealed record PublicKitDeliveryContextResponse(string? RecipientName, string? RecipientPhone,
     string? AddressLine, double? Latitude, double? Longitude);
 public sealed record PublicFaultContextResponse(Guid? FaultId, string? ReporterName, string? ReporterPhone,
     string? ReporterAddress, string? Description,
-    double? Latitude, double? Longitude);
+    double? Latitude, double? Longitude, string? AttachmentUrl = null);
 public sealed record OpenPublicFaultCommand(string QrCode, string ReporterName, string ReporterPhone,
     string ReporterAddress, string Description,
-    double? Latitude, double? Longitude);
+    double? Latitude, double? Longitude, string? AttachmentUrl = null);
 public sealed record CreatePublicKitDeliveryCommand(string QrCode, string RecipientName,
     string RecipientPhone, string AddressLine,
     double? Latitude, double? Longitude);
@@ -55,7 +55,8 @@ public sealed record FaultPageQuery(string? Query, FaultStatus? Status, FaultSev
     DateOnly? OpenedFrom, DateOnly? OpenedTo, int Page = 1, int PageSize = 20, Guid? CustomerId = null);
 public sealed record FaultListItemResponse(Guid Id, string Number, Guid CustomerId, string CustomerName,
     string ReporterName, string ReporterPhone, string ReporterAddress, string Category, FaultSeverity Severity, string Description,
-    FaultStatus Status, DateTimeOffset OpenedAt, FaultApprovalStatus ApprovalStatus, FaultOrigin Origin);
+    FaultStatus Status, DateTimeOffset OpenedAt, FaultApprovalStatus ApprovalStatus, FaultOrigin Origin,
+    string? AttachmentUrl = null);
 public sealed record FaultPageResponse(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultListItemResponse> Items);
 public sealed record OrderKitResponse(Guid ProductUnitId, Guid AssignmentId, Guid ProductModelId,
@@ -793,7 +794,7 @@ public sealed class OperationsService(
             Guid.NewGuid(), $"FLT-{now:yyyyMMdd}-{Guid.NewGuid():N}"[..21], command.CustomerId, command.OrderId,
             command.AssignmentId, command.ProductUnitId, command.Category, command.Severity, command.Description, now,
             command.ReporterName, command.ReporterPhone, command.ReporterAddress, command.Latitude, command.Longitude,
-            command.Origin);
+            command.Origin, command.AttachmentUrl);
         await repository.AddFaultTicketAsync(ticket, cancellationToken);
         await AddActivityAsync(command.ProductUnitId, command.AssignmentId, command.OrderId, null, command.ActorId,
             command.ReporterName ?? command.ActorId.ToString(), "Arıza kaydı oluşturuldu",
@@ -846,14 +847,14 @@ public sealed class OperationsService(
             .ThenByDescending(item => item.Id)
             .FirstOrDefault();
         return ticket is null
-            ? new PublicFaultContextResponse(null, null, null, null, null, null, null)
+            ? new PublicFaultContextResponse(null, null, null, null, null, null, null, null)
             : new PublicFaultContextResponse(ticket.Id, ticket.ReporterName, ticket.ReporterPhone,
-                ticket.ReporterAddress, ticket.Description, ticket.Latitude, ticket.Longitude);
+                ticket.ReporterAddress, ticket.Description, ticket.Latitude, ticket.Longitude, ticket.AttachmentUrl);
     }
 
     public async Task<FaultTicket> UpdatePublicFaultAsync(Guid faultId, string qrCode, string reporterName,
         string reporterPhone, string reporterAddress, string description,
-        double? latitude, double? longitude,
+        double? latitude, double? longitude, string? attachmentUrl,
         CancellationToken cancellationToken)
     {
         var unit = (await repository.GetProductUnitsAsync(cancellationToken))
@@ -865,7 +866,7 @@ public sealed class OperationsService(
             throw new ConflictException("fault.edit_not_allowed", "Bu arıza kaydı güncellenemez.");
         ticket.UpdatePublicDetails(ticket.Category, description, reporterName, reporterPhone, reporterAddress,
             CoordinatesAreValid(latitude, longitude) ? latitude : null,
-            CoordinatesAreValid(latitude, longitude) ? longitude : null);
+            CoordinatesAreValid(latitude, longitude) ? longitude : null, attachmentUrl);
         var now = timeProvider.GetTurkeyNow();
         await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id, ticket.AssignmentId,
             ticket.OrderId, ticket.CustomerId, KitLocationEventSource.FaultUpdate, ticket.Id, reporterName,
@@ -892,7 +893,7 @@ public sealed class OperationsService(
             existing.UpdatePublicDetails("Son kullanıcı bildirimi", command.Description, command.ReporterName,
                 command.ReporterPhone, command.ReporterAddress,
                 CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Latitude : null,
-                CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null);
+                CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null, command.AttachmentUrl);
             var now = timeProvider.GetTurkeyNow();
             await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id,
                 existing.AssignmentId, existing.OrderId, existing.CustomerId, KitLocationEventSource.FaultUpdate,
@@ -915,9 +916,10 @@ public sealed class OperationsService(
         var ticket = await OpenFaultAsync(new OpenFaultCommand(assignment.CustomerId, order.Id, assignment.Id, unit.Id,
             "Son kullanici bildirimi", FaultSeverity.Medium, command.Description,
             PublicActorId, command.ReporterName, command.ReporterPhone,
-            command.ReporterAddress,
-            CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Latitude : null,
-            CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null, FaultOrigin.PublicForm),
+                command.ReporterAddress,
+                CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Latitude : null,
+            CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null, FaultOrigin.PublicForm,
+            command.AttachmentUrl),
             cancellationToken);
         await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id, assignment.Id,
             order.Id, assignment.CustomerId, KitLocationEventSource.FaultReport, ticket.Id, command.ReporterName,
@@ -1056,7 +1058,8 @@ public sealed class OperationsService(
                 ?? "-";
             return new FaultListItemResponse(ticket.Id, ticket.Number, ticket.CustomerId,
                 customer?.Name ?? "Müşteri", reporterName, reporterPhone, reporterAddress, ticket.Category, ticket.Severity,
-                ticket.Description, ticket.Status, ticket.OpenedAt, ticket.ApprovalStatus, ticket.Origin);
+                ticket.Description, ticket.Status, ticket.OpenedAt, ticket.ApprovalStatus, ticket.Origin,
+                ticket.AttachmentUrl);
         });
 
         items = items.Where(item => item.ApprovalStatus is FaultApprovalStatus.NotRequired or FaultApprovalStatus.Approved);

@@ -7,7 +7,7 @@ namespace KitRental.Web.Mvc.Controllers;
 
 [AllowAnonymous]
 [Route("ariza")]
-public sealed class PublicFaultController(KitRentalApiClient apiClient) : Controller
+public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHostEnvironment environment) : Controller
 {
     [HttpGet("{qrCode}")]
     public async Task<IActionResult> Index(string qrCode, CancellationToken cancellationToken)
@@ -63,6 +63,7 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
             District = parsedAddress.District,
             ReporterAddress = parsedAddress.AddressLine,
             Description = faultContext?.Description ?? string.Empty,
+            AttachmentUrl = faultContext?.AttachmentUrl,
             Latitude = faultContext?.Latitude ?? deliveryContext?.Latitude,
             Longitude = faultContext?.Longitude ?? deliveryContext?.Longitude
         });
@@ -80,6 +81,7 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
         model.KitName = kit.KitName;
         model.SerialNumber = kit.SerialNumber;
         model.FaultId = faultContext?.FaultId;
+        model.AttachmentUrl = faultContext?.AttachmentUrl;
         if (string.IsNullOrWhiteSpace(model.City))
             ModelState.AddModelError(nameof(model.City), "Lütfen il seçin.");
         if (string.IsNullOrWhiteSpace(model.District))
@@ -91,15 +93,51 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient) : Contro
             ModelState.AddModelError(nameof(model.ReporterAddress), "Adres en fazla 1000 karakter olabilir.");
             return View(model);
         }
+        if (model.Attachment is { Length: > 0 } attachment)
+        {
+            const long maxLength = 25 * 1024 * 1024;
+            var allowedTypes = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["image/jpeg"] = [".jpg", ".jpeg"], ["image/png"] = [".png"], ["image/webp"] = [".webp"],
+                ["video/mp4"] = [".mp4"], ["video/webm"] = [".webm"], ["video/quicktime"] = [".mov"]
+            };
+            if (attachment.Length > maxLength || !allowedTypes.TryGetValue(attachment.ContentType, out var extensions))
+            {
+                ModelState.AddModelError(nameof(model.Attachment), "Yalnızca JPG, PNG, WEBP fotoğraf veya MP4, WEBM, MOV video yükleyebilirsiniz (en fazla 25 MB).");
+                return View(model);
+            }
+            var extension = Path.GetExtension(attachment.FileName);
+            if (!extensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+            {
+                ModelState.AddModelError(nameof(model.Attachment), "Dosya uzantısı, seçilen medya türüyle eşleşmiyor.");
+                return View(model);
+            }
+            var uploadDirectory = Path.Combine(environment.WebRootPath, "uploads", "faults");
+            Directory.CreateDirectory(uploadDirectory);
+            var fileName = $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
+            var filePath = Path.Combine(uploadDirectory, fileName);
+            await using (var stream = System.IO.File.Create(filePath))
+                await attachment.CopyToAsync(stream, cancellationToken);
+            model.AttachmentUrl = $"/uploads/faults/{fileName}";
+        }
         var result = await apiClient.CreatePublicFaultAsync(model, cancellationToken);
         if (!result.IsSuccess)
         {
+            DeleteUploadedAttachment(model.AttachmentUrl);
             ModelState.AddModelError(string.Empty, result.Error ?? "Ariza kaydi olusturulamadi.");
             return View(model);
         }
         ViewData["SuccessTitle"] = "Ariza kaydi olusturuldu";
         ViewData["SuccessMessage"] = "Ariza kaydiniz teknik ekibin ekranina acik kayit olarak dustu.";
         return View("Success", new PublicKitActionViewModel(model.QrCode, model.KitName, model.SerialNumber, token));
+    }
+
+    private void DeleteUploadedAttachment(string? attachmentUrl)
+    {
+        if (string.IsNullOrWhiteSpace(attachmentUrl)) return;
+        var fileName = Path.GetFileName(attachmentUrl);
+        if (fileName != attachmentUrl && fileName.EndsWith(Path.GetExtension(attachmentUrl), StringComparison.OrdinalIgnoreCase))
+            System.IO.File.Delete(Path.Combine(environment.WebRootPath, "uploads", "faults", fileName));
     }
 
     private static (string City, string District, string AddressLine) ParseStoredAddress(string? addressLine)
