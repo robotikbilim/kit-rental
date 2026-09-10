@@ -536,6 +536,10 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             if (unit.Status == ProductUnitStatus.WithCustomer)
                 unit.StartReturn(actorId, now);
             unit.ReceiveReturnToAvailable(actorId, now);
+            await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id,
+                item.AssignmentId, item.OrderId, request.CustomerId, KitLocationEventSource.ReturnRequest,
+                request.Id, "Robotik Bilim Atölye", string.Empty, "Robotik Bilim Atölye", null, null, now, actorId),
+                cancellationToken);
             var assignment = await repository.GetRentalAssignmentAsync(item.AssignmentId, cancellationToken);
             if (assignment?.Status == RentalAssignmentStatus.Active) assignment.Complete();
             var cohort = customerCohorts.FirstOrDefault(candidate =>

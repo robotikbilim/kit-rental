@@ -557,6 +557,11 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
             $"/api/physical-kits/{prepared.Kits.Single().ProductUnitId}", cancellationToken);
+        var receivedLocation = Assert.Single(detail!.DeliveryHistory);
+        Assert.Equal("Robotik Bilim Atölye", receivedLocation.RecipientName);
+        Assert.Equal("Robotik Bilim Atölye", receivedLocation.AddressLine);
+        Assert.Null(receivedLocation.Latitude);
+        Assert.Null(receivedLocation.Longitude);
         Assert.Contains(detail!.ActivityHistory, item =>
             item.Description.Contains("kit ilişkisi geçmiş kayıt olarak korundu", StringComparison.OrdinalIgnoreCase));
     }

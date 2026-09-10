@@ -140,6 +140,7 @@ Returns:
 
 - Main domain: `KitReturnRequest`, `ReturnInspection`.
 - Public QR return request inserts a kit location event.
+- Admin receipt/acceptance of a kit return inserts a latest `KitLocationEvent` for each returned kit with address and contact name `Robotik Bilim Atölye`; latitude and longitude are null.
 - Return receipt/inspection changes kit and assignment status.
 
 Shipments:
