@@ -421,6 +421,8 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 
 ## Recent UI Behavior
 
+- Customer portal rental-period student Excel exports include an `Atanan Fiziksel Kit QR Linki` column containing the assigned kit's public QR target URL when a physical kit is assigned.
+- Customer portal rental-period student lists show only the assigned physical kit serial number in the assigned-kit column, and the serial number links to the customer portal kit detail page.
 - Public fault troubleshooting actions use equal-width buttons with a clear gap; they switch to equal-width stacked touch targets on narrow screens.
 - Operations `FaultGuide` requires selecting a kit before listing guides, filters entries by `ProductModelId`, and uses a shared popup for creating and editing the selected kit's guide entries. The MVC route accepts `productModelId` as the filter query parameter.
 

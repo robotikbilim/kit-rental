@@ -210,6 +210,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         sheet.Cell(1, 4).Value = "Adres Durumu";
         sheet.Cell(1, 5).Value = "Adres";
         sheet.Cell(1, 6).Value = "Public Link";
+        sheet.Cell(1, 7).Value = "Atanan Fiziksel Kit QR Linki";
         sheet.Row(1).Style.Font.Bold = true;
         var rowIndex = 2;
         foreach (var student in cohort.Students.OrderBy(item => item.FullName))
@@ -222,6 +223,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
                 : "Tamamlandı";
             sheet.Cell(rowIndex, 5).Value = student.AddressLine;
             sheet.Cell(rowIndex, 6).Value = BuildStudentAddressUrl(student.PublicAddressToken);
+            sheet.Cell(rowIndex, 7).Value = BuildPhysicalKitQrUrl(student.QrCode);
             rowIndex++;
         }
         sheet.Columns().AdjustToContents();
@@ -258,6 +260,11 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
 
     private string BuildStudentAddressUrl(string token) =>
         Url.Action("Index", "PublicStudentAddress", new { token }, Request.Scheme) ?? string.Empty;
+
+    private string BuildPhysicalKitQrUrl(string? qrCode) =>
+        string.IsNullOrWhiteSpace(qrCode)
+            ? string.Empty
+            : Url.Action("Index", "PublicFault", new { qrCode }, Request.Scheme) ?? string.Empty;
 
     private static string SafeFileName(string value)
     {
