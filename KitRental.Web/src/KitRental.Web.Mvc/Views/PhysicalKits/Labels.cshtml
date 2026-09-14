@@ -24,7 +24,6 @@
                     @if (!string.IsNullOrWhiteSpace(label.RecipientName) || !string.IsNullOrWhiteSpace(label.RecipientPhone))
                     {
                         <div class="label-recipient">
-                            <small>ÖĞRENCİ</small>
                             @if (!string.IsNullOrWhiteSpace(label.RecipientName)) { <strong>@label.RecipientName</strong> }
                             @if (!string.IsNullOrWhiteSpace(label.RecipientPhone)) { <span>@label.RecipientPhone</span> }
                         </div>
