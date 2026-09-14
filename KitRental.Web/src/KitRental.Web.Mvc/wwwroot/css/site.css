@@ -248,11 +248,11 @@ html{zoom:.9}body{font-size:14px}.container{max-width:1380px;padding-top:36px;pa
     .kit-label:last-child{break-after:auto;page-break-after:auto}
     .kit-label>img,.kit-label:has(.label-recipient)>img{width:22mm!important;height:22mm!important;align-self:center!important;justify-self:center!important}
     .kit-label-copy{min-width:0!important;overflow:hidden!important;justify-content:center!important}
-    .kit-label-copy>span{font-size:4.4pt!important;line-height:1!important}
-    .kit-label-copy>strong{margin:.5mm 2mm .2mm 0!important;font-size:6.8pt!important;line-height:1.05!important;max-height:8mm!important;overflow:hidden!important}
-    .kit-label-copy>small{font-size:5pt!important;line-height:1!important}
-    .kit-label-copy code{margin-top:.7mm!important;font-size:5.1pt!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
-    .kit-label-copy .qr-value{margin-top:.7mm!important;font-size:3.8pt!important;line-height:1!important}
+    .kit-label-copy>span{font-size:5.4pt!important;line-height:1!important}
+    .kit-label-copy>strong{margin:.5mm 2mm .2mm 0!important;font-size:8.4pt!important;line-height:1.05!important;max-height:8mm!important;overflow:hidden!important}
+    .kit-label-copy>small{font-size:6.2pt!important;line-height:1!important}
+    .kit-label-copy code{margin-top:.7mm!important;font-size:6.2pt!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+    .kit-label-copy .qr-value{margin-top:.7mm!important;font-size:4.9pt!important;line-height:1!important}
     .label-recipient{margin-top:.7mm!important;padding-top:.7mm!important;gap:.2mm!important}
-    .label-recipient small{font-size:3.6pt!important}.label-recipient strong{font-size:5pt!important;line-height:1!important;max-height:5mm!important;overflow:hidden!important}.label-recipient span{font-size:4.2pt!important;line-height:1!important}
+    .label-recipient small{font-size:4.6pt!important}.label-recipient strong{font-size:6.3pt!important;line-height:1!important;max-height:5mm!important;overflow:hidden!important}.label-recipient span{font-size:5.2pt!important;line-height:1!important}
 }
