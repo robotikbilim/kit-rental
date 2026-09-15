@@ -155,6 +155,20 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
                 student.AddressLine, BuildStudentAddressUrl(student.PublicAddressToken))).ToArray());
     }
 
+    [HttpGet]
+    public async Task<IActionResult> ExportKargonomi(Guid id, CancellationToken cancellationToken)
+    {
+        var order = await apiClient.GetOrderDetailAsync(id, cancellationToken);
+        if (order is null) return NotFound();
+
+        return ExportKargonomiWorkbook(order.OrderNumber, order.Students.Where(student => student.HasAddress).Select(student =>
+        {
+            var (city, district) = ParseStudentAddressRegion(student.AddressLine);
+            return new KargonomiExportRow(student.FullName, student.AddressLine, city, district,
+                student.GuardianPhone, string.IsNullOrWhiteSpace(student.ProductName) ? "Eğitim kiti" : student.ProductName);
+        }).ToArray());
+    }
+
     [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]
     public async Task<IActionResult> CreateOrder(CancellationToken cancellationToken)
     {
@@ -439,6 +453,58 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             $"{SafeFileName(orderNumber)}-ogrenci-adresleri.xlsx");
     }
 
+    private FileContentResult ExportKargonomiWorkbook(string orderNumber,
+        IReadOnlyCollection<KargonomiExportRow> students)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.AddWorksheet("Kargonomi");
+        var headers = new[]
+        {
+            "Gönderici Ad Soyad*", "Gönderici Adres*", "Gönderici İl*", "Gönderici İlçe*",
+            "Gönderici Mahalle*", "Gönderici Cep Telefonu*", "Gönderici Eposta Adresi*",
+            "Gönderici Vergi Dairesi*", "Gönderici Vergi No/TC Kimlik No*", "Alıcı Ad Soyad*",
+            "Alıcı Adres*", "Alıcı İl*", "Alıcı İlçe*", "Alıcı Mahalle", "Alıcı Cep Telefonu*",
+            "Alıcı Eposta Adresi*", "Sipariş Tutarı", "1.Paket Desi/Ağırlık*", "2.Paket Desi/Ağırlık",
+            "3.Paket Desi/Ağırlık", "4.Paket Desi/Ağırlık", "5.Paket Desi/Ağırlık", "İçerik", "Mail"
+        };
+        for (var column = 0; column < headers.Length; column++)
+            sheet.Cell(1, column + 1).Value = headers[column];
+        sheet.Row(1).Style.Font.Bold = true;
+
+        var rowIndex = 2;
+        foreach (var student in students)
+        {
+            var values = new object?[]
+            {
+                "Robotik Bilim", "ESKİ LONDRA ASFALTI CADDESİ YTÜ TEKNOPARK C1 106", "İSTANBUL",
+                "ESENLER", "ÇİFTEHAVUZLAR", "5536589698", "hasan@robotikbilim.com.tr", "BAŞAKŞEHİR",
+                "7721701834", student.FullName, student.AddressLine, student.City, student.District, null,
+                student.Phone, "admin@robotikbilim.com.tr", null, 2, null, null, null, null, student.Content, null
+            };
+            for (var column = 0; column < values.Length; column++)
+                sheet.Cell(rowIndex, column + 1).Value = values[column]?.ToString() ?? string.Empty;
+            rowIndex++;
+        }
+
+        sheet.Columns().AdjustToContents();
+        using var output = new MemoryStream();
+        workbook.SaveAs(output);
+        return File(output.ToArray(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"{SafeFileName(orderNumber)}-kargonomi.xlsx");
+    }
+
+    private static (string City, string District) ParseStudentAddressRegion(string? addressLine)
+    {
+        if (string.IsNullOrWhiteSpace(addressLine)) return (string.Empty, string.Empty);
+        var separatorIndex = addressLine.IndexOf(" - ", StringComparison.Ordinal);
+        if (separatorIndex <= 0) return (string.Empty, string.Empty);
+        var region = addressLine[..separatorIndex];
+        var slashIndex = region.IndexOf('/', StringComparison.Ordinal);
+        if (slashIndex <= 0 || slashIndex == region.Length - 1) return (string.Empty, string.Empty);
+        return (region[..slashIndex].Trim(), region[(slashIndex + 1)..].Trim());
+    }
+
     private static string SafeFileName(string value)
     {
         var invalidChars = Path.GetInvalidFileNameChars();
@@ -449,4 +515,7 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
 
     private sealed record StudentAddressExportRow(string FullName, string Phone, string ProductName,
         bool HasAddress, string AddressLine, string PublicLink);
+
+    private sealed record KargonomiExportRow(string FullName, string AddressLine, string City,
+        string District, string Phone, string Content);
 }

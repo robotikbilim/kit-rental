@@ -19,7 +19,18 @@
     if (addressState is not ("completed" or "pending")) addressState = string.Empty;
     var deliveryState = Context.Request.Query["deliveryState"].ToString().Trim().ToLowerInvariant();
     if (deliveryState is not ("delivered" or "pending")) deliveryState = string.Empty;
+    var studentQuery = Context.Request.Query["studentQuery"].ToString().Trim();
     IEnumerable<OrderDetailStudentViewModel> filteredStudents = Model.Students;
+    if (!string.IsNullOrWhiteSpace(studentQuery))
+    {
+        filteredStudents = filteredStudents.Where(student =>
+            student.FullName.Contains(studentQuery, StringComparison.CurrentCultureIgnoreCase) ||
+            student.GuardianPhone.Contains(studentQuery, StringComparison.CurrentCultureIgnoreCase) ||
+            student.AddressLine.Contains(studentQuery, StringComparison.CurrentCultureIgnoreCase) ||
+            student.ProductName.Contains(studentQuery, StringComparison.CurrentCultureIgnoreCase) ||
+            student.ProductSku.Contains(studentQuery, StringComparison.CurrentCultureIgnoreCase) ||
+            student.AssignedKitSerialNumber.Contains(studentQuery, StringComparison.CurrentCultureIgnoreCase));
+    }
     if (addressState == "completed") filteredStudents = filteredStudents.Where(student => !string.IsNullOrWhiteSpace(student.AddressLine));
     if (addressState == "pending") filteredStudents = filteredStudents.Where(student => string.IsNullOrWhiteSpace(student.AddressLine));
     if (deliveryState == "delivered") filteredStudents = filteredStudents.Where(student => student.IsDelivered);
@@ -67,9 +78,11 @@
 @if (!isPurchase && Model.Students.Count > 0)
 {
         <section class="detail-section" id="student-addresses">
-        <div class="section-heading"><div><span class="eyebrow">ÖĞRENCİ LİSTESİ</span></div><div class="heading-actions"><a class="secondary-action" asp-action="ExportOrderStudents" asp-route-id="@Model.Id">Excel Olarak İndir</a><a class="primary-action" asp-controller="PhysicalKits" asp-action="OrderLabels" asp-route-orderId="@Model.Id">QR Etiketlerini Yazdır</a></div></div>
+        <div class="section-heading"><div><span class="eyebrow">ÖĞRENCİ LİSTESİ</span></div><div class="heading-actions"><a class="secondary-action" asp-action="ExportOrderStudents" asp-route-id="@Model.Id">Excel Olarak İndir</a><a class="secondary-action" asp-action="ExportKargonomi" asp-route-id="@Model.Id">Kargonomi</a><a class="primary-action" asp-controller="PhysicalKits" asp-action="OrderLabels" asp-route-orderId="@Model.Id">QR Etiketlerini Yazdır</a></div></div>
         <form method="get" class="portal-kit-filters student-list-filters" data-auto-filter="true">
             <input type="hidden" name="id" value="@Model.Id" />
+            <input type="hidden" name="studentPage" value="1" />
+            <label><span>Öğrenci ara</span><input type="search" name="studentQuery" value="@studentQuery" placeholder="Ad, telefon, adres veya kit" autocomplete="off" /></label>
             <label><span>Adres Durumu</span><select name="addressState"><option value="">Tümü</option><option value="completed" selected="@(addressState == "completed")">Adres Girilmiş</option><option value="pending" selected="@(addressState == "pending")">Adres Bekleniyor</option></select></label>
             <label><span>Teslim Durumu</span><select name="deliveryState"><option value="">Tümü</option><option value="delivered" selected="@(deliveryState == "delivered")">Teslim Edildi</option><option value="pending" selected="@(deliveryState == "pending")">Teslim Bekleniyor</option></select></label>
         </form>
@@ -154,9 +167,9 @@
             @if (studentTotalPages > 1)
             {
                 <nav class="pagination" aria-label="Öğrenci adresleri sayfaları">
-                    @if (studentPage > 1) { <a asp-action="OrderDetails" asp-route-id="@Model.Id" asp-route-studentPage="@(studentPage - 1)" asp-route-addressState="@addressState" asp-route-deliveryState="@deliveryState" asp-fragment="student-addresses">←</a> }
-                    @foreach (var pageNumber in PaginationPages(studentPage, studentTotalPages)) { <a class="@(pageNumber == studentPage ? "active" : null)" aria-current="@(pageNumber == studentPage ? "page" : null)" asp-action="OrderDetails" asp-route-id="@Model.Id" asp-route-studentPage="@pageNumber" asp-route-addressState="@addressState" asp-route-deliveryState="@deliveryState" asp-fragment="student-addresses">@pageNumber</a> }
-                    @if (studentPage < studentTotalPages) { <a asp-action="OrderDetails" asp-route-id="@Model.Id" asp-route-studentPage="@(studentPage + 1)" asp-route-addressState="@addressState" asp-route-deliveryState="@deliveryState" asp-fragment="student-addresses">→</a> }
+                    @if (studentPage > 1) { <a asp-action="OrderDetails" asp-route-id="@Model.Id" asp-route-studentPage="@(studentPage - 1)" asp-route-studentQuery="@studentQuery" asp-route-addressState="@addressState" asp-route-deliveryState="@deliveryState" asp-fragment="student-addresses">←</a> }
+                    @foreach (var pageNumber in PaginationPages(studentPage, studentTotalPages)) { <a class="@(pageNumber == studentPage ? "active" : null)" aria-current="@(pageNumber == studentPage ? "page" : null)" asp-action="OrderDetails" asp-route-id="@Model.Id" asp-route-studentPage="@pageNumber" asp-route-studentQuery="@studentQuery" asp-route-addressState="@addressState" asp-route-deliveryState="@deliveryState" asp-fragment="student-addresses">@pageNumber</a> }
+                    @if (studentPage < studentTotalPages) { <a asp-action="OrderDetails" asp-route-id="@Model.Id" asp-route-studentPage="@(studentPage + 1)" asp-route-studentQuery="@studentQuery" asp-route-addressState="@addressState" asp-route-deliveryState="@deliveryState" asp-fragment="student-addresses">→</a> }
                 </nav>
             }
         </footer>
