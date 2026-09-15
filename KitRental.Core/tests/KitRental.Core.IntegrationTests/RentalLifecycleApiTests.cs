@@ -136,6 +136,7 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
         Assert.Equal(1, componentStocks!.Single().Quantity);
         Assert.Equal(2, componentMovements!.Where(item =>
             item.Type == KitRental.Core.Domain.Warehouse.StockMovementType.Consumption).Sum(item => item.Quantity));
+        await ConfirmStudentDeliveriesAsync(order.Id, cancellationToken);
         order = await PostAsync<OrderResponse>($"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Completed), cancellationToken);
         Assert.Equal(RentalOrderStatus.Completed, order.Status);
@@ -143,6 +144,17 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
         var units = (await _client.GetFromJsonAsync<PagedResponse<ProductUnitResponse>>("/api/product-units?pageSize=5000", cancellationToken))!.Items;
         Assert.All(units!.Where(item => prepared.Kits.Any(kit => kit.ProductUnitId == item.Id)),
             item => Assert.Equal(ProductUnitStatus.WithCustomer, item.Status));
+    }
+
+    private async Task ConfirmStudentDeliveriesAsync(Guid orderId, CancellationToken cancellationToken)
+    {
+        var detail = await _client.GetFromJsonAsync<OrderDetailResponse>($"/api/orders/{orderId}", cancellationToken);
+        foreach (var student in detail!.Students)
+        {
+            var response = await _client.PostAsJsonAsync(
+                $"/api/orders/{orderId}/students/{student.Id}/delivery-confirmations", new { }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+        }
     }
 
     [Fact]

@@ -12,6 +12,7 @@
     var requestedCount = Model.Lines.Sum(line => line.Quantity);
     var allKitsCreated = Model.Kits.Count == requestedCount;
     var hasIncompleteStudentAddresses = Model.Students.Count > 0 && Model.Students.Any(student => string.IsNullOrWhiteSpace(student.AddressLine));
+    var hasIncompleteStudentDeliveries = Model.Students.Count > 0 && Model.Students.Any(student => !student.IsDelivered);
     var canManage = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager");
     const int orderDetailPageSize = 10;
     var addressState = Context.Request.Query["addressState"].ToString().Trim().ToLowerInvariant();
@@ -202,8 +203,8 @@
 else if (canManage && (Model.Status is 3 or 4 or 5 or 6 or 7) && allKitsCreated)
 {
     <div class="order-detail-next">
-        <p>@(hasIncompleteStudentAddresses ? "Siparişi tamamlamak için siparişteki tüm öğrencilerin kitleri teslim edilmiş olmalıdır." : isPurchase ? "Tüm fiziksel kitler rezerve edildi; tamamlandığında kitler satıldı durumuna alınır." : "Tüm fiziksel kitler oluşturuldu ve öğrencilere teslim edildi; kit konumları güncellendi.")</p>
-        @if (hasIncompleteStudentAddresses)
+        <p>@(hasIncompleteStudentDeliveries ? "Siparişi tamamlamak için siparişteki tüm öğrencilerin kitleri teslim edilmiş olmalıdır." : isPurchase ? "Tüm fiziksel kitler rezerve edildi; tamamlandığında kitler satıldı durumuna alınır." : "Tüm fiziksel kitler oluşturuldu ve öğrencilere teslim edildi; kit konumları güncellendi.")</p>
+        @if (hasIncompleteStudentDeliveries)
         {
             <button class="primary-action" type="button" data-inline-error="Teslim edilmemiş öğrenci kitleri var, önce teslim durumlarını güncelleyin.">Siparişi Tamamla →</button>
         }

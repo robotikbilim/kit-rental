@@ -690,6 +690,7 @@ public sealed class OperationsService(
         var now = timeProvider.GetTurkeyNow();
         var previous = order.Status;
         var assignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
+        var deliveryEvents = await repository.GetKitLocationEventsAsync(cancellationToken);
         var allocatedUnitIds = order.Type == OrderType.Rental
             ? assignments.Select(item => item.ProductUnitId).ToArray()
             : order.ProductUnits.Select(item => item.ProductUnitId).ToArray();
@@ -733,7 +734,7 @@ public sealed class OperationsService(
                 break;
             case RentalOrderStatus.Delivered:
                 var deliveredOrderStudents = await GetOrderStudentsForCompletionAsync(order, cancellationToken);
-                EnsureOrderStudentsReadyForCompletion(deliveredOrderStudents);
+                EnsureOrderStudentsReadyForCompletion(deliveredOrderStudents, deliveryEvents);
                 order.ConfirmDelivery(actorId, now);
                 foreach (var unitId in allocatedUnitIds)
                 {
@@ -753,7 +754,7 @@ public sealed class OperationsService(
                 break;
             case RentalOrderStatus.Completed:
                 var orderStudents = await GetOrderStudentsForCompletionAsync(order, cancellationToken);
-                EnsureOrderStudentsReadyForCompletion(orderStudents);
+                EnsureOrderStudentsReadyForCompletion(orderStudents, deliveryEvents);
                 foreach (var unitId in allocatedUnitIds)
                 {
                     var unit = await repository.GetProductUnitAsync(unitId, cancellationToken);
@@ -1408,7 +1409,8 @@ public sealed class OperationsService(
             .ToArray() ?? [];
     }
 
-    private static void EnsureOrderStudentsReadyForCompletion(IReadOnlyCollection<RentalCohortStudent> students)
+    private static void EnsureOrderStudentsReadyForCompletion(IReadOnlyCollection<RentalCohortStudent> students,
+        IReadOnlyCollection<KitLocationEvent> deliveryEvents)
     {
         if (students.Any(student => !student.HasAddress))
             throw new ConflictException("order.student_addresses_incomplete",
@@ -1417,6 +1419,10 @@ public sealed class OperationsService(
             !student.AssignmentId.HasValue || !student.ProductUnitId.HasValue))
             throw new ConflictException("order.student_kits_incomplete",
                 "Siparişi tamamlamak için siparişteki tüm öğrencilere fiziksel kit atanmış olmalıdır.");
+        if (students.Any(student => !deliveryEvents.Any(item => item.OrderId == student.OrderId &&
+            item.AssignmentId == student.AssignmentId && item.Source == KitLocationEventSource.DeliveryReceipt)))
+            throw new ConflictException("order.student_deliveries_incomplete",
+                "Siparişi tamamlamak için siparişteki tüm öğrencilerin kitleri teslim edilmiş olmalıdır.");
     }
 
     private async Task AddStudentKitLocationEventsForCompletionAsync(RentalOrder order,

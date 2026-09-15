@@ -87,6 +87,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             new OrderTransitionRequest(RentalOrderStatus.Preparing), cancellationToken);
         await PostAsync<OrderResponse>(admin, $"/api/orders/{deliveryOrder.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.OutboundInTransit), cancellationToken);
+        await ConfirmStudentDeliveriesAsync(admin, deliveryOrder.Id, cancellationToken);
 
         var otherCustomer = CreateClient(new TokenUser(Guid.NewGuid(), "other@portal.test", "CustomerUser", Guid.NewGuid()));
         var forbiddenConfirmation = await otherCustomer.PostAsJsonAsync(
@@ -137,6 +138,18 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             var response = await client.PostAsJsonAsync(
                 $"/api/public/student-addresses/{student.PublicAddressToken}",
                 new PublicStudentAddressRequest(addressLine), cancellationToken);
+            response.EnsureSuccessStatusCode();
+        }
+    }
+
+    private static async Task ConfirmStudentDeliveriesAsync(HttpClient client, Guid orderId,
+        CancellationToken cancellationToken)
+    {
+        var detail = await client.GetFromJsonAsync<OrderDetailResponse>($"/api/orders/{orderId}", cancellationToken);
+        foreach (var student in detail!.Students)
+        {
+            var response = await client.PostAsJsonAsync(
+                $"/api/orders/{orderId}/students/{student.Id}/delivery-confirmations", new { }, cancellationToken);
             response.EnsureSuccessStatusCode();
         }
     }
@@ -306,10 +319,12 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             cancellationToken);
         addressResponse.EnsureSuccessStatusCode();
 
+        await ConfirmStudentDeliveriesAsync(admin, order.Id, cancellationToken);
+
         detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
             $"/api/physical-kits/{unit.Id}", cancellationToken);
-        Assert.NotEqual("Adres Bekleyen Öğrenci", detail!.CurrentLocation?.RecipientName);
-        Assert.DoesNotContain(detail.DeliveryHistory, item => item.RecipientName == "Adres Bekleyen Öğrenci");
+        Assert.Equal("Adres Bekleyen Öğrenci", detail!.CurrentLocation?.RecipientName);
+        Assert.Contains(detail.DeliveryHistory, item => item.RecipientName == "Adres Bekleyen Öğrenci");
 
         var completedOrder = await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Completed), cancellationToken);
@@ -521,6 +536,8 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var blockedDelete = await portal.DeleteAsync(
             $"/api/customer-portal/rental-periods/{cohort.Id}/students/{student.Id}", cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, blockedDelete.StatusCode);
+
+        await ConfirmStudentDeliveriesAsync(admin, order.Id, cancellationToken);
 
         await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Completed), cancellationToken);
