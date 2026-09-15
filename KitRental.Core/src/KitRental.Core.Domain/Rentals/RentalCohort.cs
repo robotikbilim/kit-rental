@@ -73,10 +73,8 @@ public sealed class RentalCohort
     public void RemoveStudent(Guid studentId)
     {
         var student = GetStudent(studentId);
-        if (student.HasKitAssignment)
-            student.UnassignAndAnonymize();
-        else
-            _students.Remove(student);
+        if (student.HasKitAssignment) student.UnlinkKit();
+        _students.Remove(student);
     }
 
     public void LinkStudentToKit(Guid studentId, Guid orderId, Guid assignmentId, Guid productUnitId)

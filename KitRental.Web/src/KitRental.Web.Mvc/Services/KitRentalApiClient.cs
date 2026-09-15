@@ -559,6 +559,20 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<OrderDetailViewModel?> GetOrderDetailAsync(Guid orderId, CancellationToken cancellationToken) =>
         GetAsync<OrderDetailViewModel>($"/core/api/orders/{orderId}", cancellationToken);
 
+    public Task<ApiCommandResult<object>> DeleteOrderStudentAsync(Guid orderId, Guid studentId,
+        CancellationToken cancellationToken) =>
+        SendAsync<object>(HttpMethod.Delete, $"/core/api/orders/{orderId}/students/{studentId}", null, cancellationToken);
+
+    public Task<ApiCommandResult<OrderDetailViewModel>> ConfirmStudentDeliveryAsync(Guid orderId, Guid studentId,
+        CancellationToken cancellationToken) =>
+        PostAsync<OrderDetailViewModel>($"/core/api/orders/{orderId}/students/{studentId}/delivery-confirmations",
+            new { }, cancellationToken);
+
+    public Task<ApiCommandResult<OrderDetailViewModel>> ConfirmStudentDeliveriesAsync(Guid orderId,
+        IReadOnlyCollection<Guid> studentIds, CancellationToken cancellationToken) =>
+        PostAsync<OrderDetailViewModel>($"/core/api/orders/{orderId}/students/delivery-confirmations",
+            new { studentIds }, cancellationToken);
+
     public Task<ApiCommandResult<OrderKitPreparationViewModel>> CreateOrderKitsAsync(Guid orderId,
         IReadOnlyCollection<PortalRentalLineInputViewModel> lines,
         bool useAvailableKits,

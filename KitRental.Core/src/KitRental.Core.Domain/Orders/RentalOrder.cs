@@ -130,6 +130,18 @@ public sealed class RentalOrder
             _lines.Add(new RentalOrderLine(Guid.NewGuid(), line.ProductModelId, line.Quantity));
     }
 
+    public void RemoveOneKitRequirement(Guid productModelId)
+    {
+        if (Status != RentalOrderStatus.Approved)
+            throw new DomainException("order.lines_not_editable", "Yalnızca onaylanmış ve hazırlığı başlamamış siparişin kit adedi azaltılabilir.");
+        var index = _lines.FindIndex(line => line.ProductModelId == productModelId);
+        if (index < 0)
+            throw new DomainException("order.line_not_found", "Öğrencinin eğitim kiti sipariş satırında bulunamadı.");
+        var line = _lines[index];
+        if (line.Quantity == 1) _lines.RemoveAt(index);
+        else _lines[index] = line with { Quantity = line.Quantity - 1 };
+    }
+
     public void AddProductUnit(Guid orderLineId, Guid productUnitId)
     {
         if (Type != OrderType.Purchase || Status != RentalOrderStatus.Approved)

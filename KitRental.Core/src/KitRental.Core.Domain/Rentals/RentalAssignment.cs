@@ -76,4 +76,11 @@ public sealed class RentalAssignment
             throw new DomainException("rental_assignment.invalid_status_transition", "Yalnızca aktif kiralama tamamlanabilir.");
         Status = RentalAssignmentStatus.Completed;
     }
+
+    public void Cancel()
+    {
+        if (Status != RentalAssignmentStatus.Reserved)
+            throw new DomainException("rental_assignment.invalid_cancellation", "Yalnızca rezerve kiralama ataması iptal edilebilir.");
+        Status = RentalAssignmentStatus.Cancelled;
+    }
 }

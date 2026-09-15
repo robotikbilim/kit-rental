@@ -112,6 +112,38 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         return model is null ? NotFound() : View(model);
     }
 
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> DeleteOrderStudent(Guid id, Guid studentId, CancellationToken cancellationToken)
+    {
+        var result = await apiClient.DeleteOrderStudentAsync(id, studentId, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "Öğrenci ve sipariş içindeki fiziksel kit bağlantısı silindi."
+            : result.Error ?? "Öğrenci silinemedi.";
+        return RedirectToAction(nameof(OrderDetails), new { id });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> ConfirmStudentDelivery(Guid id, Guid studentId,
+        CancellationToken cancellationToken)
+    {
+        var result = await apiClient.ConfirmStudentDeliveryAsync(id, studentId, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "Öğrenciye teslim edildi olarak işaretlendi; kit konumu güncellendi."
+            : result.Error ?? "Öğrenci teslimi işaretlenemedi.";
+        return RedirectToAction(nameof(OrderDetails), new { id });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> ConfirmStudentDeliveries(Guid id, Guid[] studentIds,
+        CancellationToken cancellationToken)
+    {
+        var result = await apiClient.ConfirmStudentDeliveriesAsync(id, studentIds, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? $"{studentIds.Length} öğrenci teslim edildi olarak işaretlendi; kit konumları güncellendi."
+            : result.Error ?? "Öğrenciler teslim edildi olarak işaretlenemedi.";
+        return RedirectToAction(nameof(OrderDetails), new { id });
+    }
+
     [HttpGet]
     public async Task<IActionResult> ExportOrderStudents(Guid id, CancellationToken cancellationToken)
     {

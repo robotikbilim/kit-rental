@@ -151,6 +151,31 @@ public sealed class OperationsController : CoreApiControllerBase
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager")]
+    [HttpDelete("orders/{orderId:guid}/students/{studentId:guid}")]
+    public async Task<IActionResult> RemoveStudentFromOrder(Guid orderId, Guid studentId,
+        [FromServices] OperationsService service, CancellationToken cancellationToken)
+    {
+        await service.RemoveStudentFromOrderAsync(orderId, studentId, User.GetRequiredUserId(), cancellationToken);
+        return NoContent();
+    }
+
+    [Authorize(Roles = "SystemAdmin,OperationsManager")]
+    [HttpPost("orders/{orderId:guid}/students/{studentId:guid}/delivery-confirmations")]
+    public async Task<IActionResult> ConfirmStudentDelivery(Guid orderId, Guid studentId,
+        [FromServices] OperationsService service, CancellationToken cancellationToken)
+    {
+        return Ok(await service.ConfirmStudentDeliveryAsync(orderId, studentId, User.GetRequiredUserId(), cancellationToken));
+    }
+
+    [Authorize(Roles = "SystemAdmin,OperationsManager")]
+    [HttpPost("orders/{orderId:guid}/students/delivery-confirmations")]
+    public async Task<IActionResult> ConfirmStudentDeliveries(Guid orderId, BulkStudentDeliveryConfirmationRequest request,
+        [FromServices] OperationsService service, CancellationToken cancellationToken)
+    {
+        return Ok(await service.ConfirmStudentDeliveriesAsync(orderId, request.StudentIds, User.GetRequiredUserId(), cancellationToken));
+    }
+
+    [Authorize(Roles = "SystemAdmin,OperationsManager")]
     [HttpPost("rental-assignments")]
     public async Task<IActionResult> CreateRentalAssignment(CreateRentalAssignmentRequest request, [FromServices] RentalAssignmentService service, CancellationToken cancellationToken)
     {

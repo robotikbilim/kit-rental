@@ -622,7 +622,8 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         foreach (var order in await repository.GetOrdersAsync(customerId, cancellationToken))
         {
             var assignedKitCount = order.Type == OrderType.Rental
-                ? (await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken)).Count
+                ? (await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken))
+                    .Count(assignment => assignment.Status != RentalAssignmentStatus.Cancelled)
                 : order.ProductUnits.Count;
             result.Add(new PortalOrderResponse(order.Id, order.OrderNumber, order.CustomerId,
                 customers.TryGetValue(order.CustomerId, out var customer) ? customer.Name : "Müşteri",

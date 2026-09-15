@@ -77,3 +77,4 @@ public sealed record PortalReturnShipmentRequest(string Carrier, string Tracking
 public sealed record PublicKitDeliveryRequest(string Token, string RecipientName,
     string RecipientPhone, string AddressLine, double? Latitude = null, double? Longitude = null);
 public sealed record PublicStudentAddressRequest(string AddressLine, double? Latitude = null, double? Longitude = null);
+public sealed record BulkStudentDeliveryConfirmationRequest(IReadOnlyCollection<Guid> StudentIds);

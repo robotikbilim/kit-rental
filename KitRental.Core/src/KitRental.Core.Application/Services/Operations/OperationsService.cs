@@ -70,7 +70,9 @@ public sealed record OrderDetailKitResponse(Guid Id, Guid OrderLineId, Guid Prod
     string ProductSku, string SerialNumber, string QrCode, ProductUnitStatus Status);
 public sealed record OrderDetailStudentResponse(Guid Id, string FullName, string GuardianPhone, string AddressLine,
     bool HasAddress, string PublicAddressToken, DateTimeOffset? AddressSubmittedAt, Guid ProductModelId = default,
-    string ProductName = "", string ProductSku = "");
+    string ProductName = "", string ProductSku = "", bool IsDelivered = false, bool HasKitAssignment = false,
+    string AssignedKitSerialNumber = "", string AssignedKitQrCode = "", ProductUnitStatus? AssignedKitStatus = null,
+    Guid? AssignedKitId = null);
 public sealed record OrderDetailResponse(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName, OrderType Type,
     RentalOrderStatus Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt, Guid? RentalCohortId,
     IReadOnlyCollection<OrderDetailLineResponse> Lines, IReadOnlyCollection<OrderDetailKitResponse> Kits,
@@ -330,8 +332,13 @@ public sealed class OperationsService(
         var customer = await repository.GetCustomerAsync(order.CustomerId, cancellationToken);
         var models = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(item => item.Id);
         var assignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
+        var deliveredAssignmentIds = (await repository.GetKitLocationEventsAsync(cancellationToken))
+            .Where(item => item.OrderId == order.Id && item.Source == KitLocationEventSource.DeliveryReceipt && item.AssignmentId.HasValue)
+            .Select(item => item.AssignmentId!.Value)
+            .ToHashSet();
         var assignedUnits = order.Type == OrderType.Rental
-            ? assignments.Select(item => new { item.OrderLineId, item.ProductUnitId }).ToArray()
+            ? assignments.Where(item => item.Status != RentalAssignmentStatus.Cancelled)
+                .Select(item => new { item.OrderLineId, item.ProductUnitId }).ToArray()
             : order.ProductUnits.Select(item => new { item.OrderLineId, item.ProductUnitId }).ToArray();
         var assignmentCounts = assignedUnits.GroupBy(item => item.OrderLineId)
             .ToDictionary(group => group.Key, group => group.Count());
@@ -358,12 +365,103 @@ public sealed class OperationsService(
                 models.TryGetValue(student.ProductModelId, out var productModel);
                 return new OrderDetailStudentResponse(student.Id, student.FullName, student.GuardianPhone,
                     student.AddressLine, student.HasAddress, student.PublicAddressToken, student.AddressSubmittedAt,
-                    student.ProductModelId, productModel?.Name ?? "Eğitim kiti", productModel?.Sku ?? "-");
+                    student.ProductModelId, productModel?.Name ?? "Eğitim kiti", productModel?.Sku ?? "-",
+                    student.AssignmentId is { } assignmentId && deliveredAssignmentIds.Contains(assignmentId),
+                    student.HasKitAssignment,
+                    student.ProductUnitId is { } unitId ? kits.FirstOrDefault(item => item.Id == unitId)?.SerialNumber ?? "" : "",
+                    student.ProductUnitId is { } qrUnitId ? kits.FirstOrDefault(item => item.Id == qrUnitId)?.QrCode ?? "" : "",
+                    student.ProductUnitId is { } statusUnitId ? kits.FirstOrDefault(item => item.Id == statusUnitId)?.Status : null,
+                    student.ProductUnitId);
             })
             .ToArray() ?? [];
         return new OrderDetailResponse(order.Id, order.OrderNumber, order.CustomerId, customer?.Name ?? "Müşteri", order.Type,
             order.Status, order.Period?.StartDate, order.Period?.EndDate, order.CreatedAt, cohort?.Id, lines,
             kits.OrderBy(item => item.ProductName).ThenBy(item => item.SerialNumber).ToArray(), students);
+    }
+
+    public async Task RemoveStudentFromOrderAsync(Guid orderId, Guid studentId, Guid actorId,
+        CancellationToken cancellationToken)
+    {
+        var order = await repository.GetOrderAsync(orderId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
+        if (order.Type != OrderType.Rental)
+            throw new ConflictException("order.student_remove_not_allowed", "Öğrenci yalnızca kiralama siparişinden silinebilir.");
+        var cohort = (await repository.GetRentalCohortsAsync(order.CustomerId, cancellationToken))
+            .FirstOrDefault(item => item.Students.Any(student => student.Id == studentId && student.OrderId == orderId));
+        var student = cohort?.Students.FirstOrDefault(item => item.Id == studentId && !item.IsDeleted && item.OrderId == orderId)
+            ?? throw new ResourceNotFoundException("Sipariş öğrencisi bulunamadı.");
+        var studentName = student.FullName;
+        var now = timeProvider.GetTurkeyNow();
+        if (student.AssignmentId is { } assignmentId && student.ProductUnitId is { } productUnitId)
+        {
+            var assignment = await repository.GetRentalAssignmentAsync(assignmentId, cancellationToken)
+                ?? throw new ResourceNotFoundException("Öğrenci kit ataması bulunamadı.");
+            var unit = await repository.GetProductUnitAsync(productUnitId, cancellationToken)
+                ?? throw new ResourceNotFoundException("Öğrenciye atanmış fiziksel kit bulunamadı.");
+            if (assignment.Status != RentalAssignmentStatus.Reserved || unit.Status != ProductUnitStatus.Reserved)
+                throw new ConflictException("order.student_remove_locked", "Hazırlığı başlayan veya teslim edilen öğrenciler siparişten silinemez.");
+            assignment.Cancel();
+            unit.ReleaseReservation(actorId, now);
+            await AddActivityAsync(unit.Id, assignment.Id, order.Id, student.Id, actorId, actorId.ToString(),
+                "Kit siparişten çıkarıldı", $"{studentName} öğrencisi silinirken kit siparişten çıkarıldı.", cancellationToken, now);
+        }
+        order.RemoveOneKitRequirement(student.ProductModelId);
+        cohort!.RemoveStudent(studentId);
+        await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId, nameof(RentalCohort), cohort.Id,
+            "StudentRemovedFromOrder", studentName, order.OrderNumber, timeProvider.GetTurkeyNow()), cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<OrderDetailResponse> ConfirmStudentDeliveryAsync(Guid orderId, Guid studentId, Guid actorId,
+        CancellationToken cancellationToken)
+    {
+        return await ConfirmStudentDeliveriesAsync(orderId, [studentId], actorId, cancellationToken);
+    }
+
+    public async Task<OrderDetailResponse> ConfirmStudentDeliveriesAsync(Guid orderId,
+        IReadOnlyCollection<Guid> studentIds, Guid actorId, CancellationToken cancellationToken)
+    {
+        var order = await repository.GetOrderAsync(orderId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
+        if (order.Type != OrderType.Rental)
+            throw new ConflictException("order.student_delivery_not_allowed", "Öğrenci teslimi yalnızca kiralama siparişlerinde yapılabilir.");
+        var selectedStudentIds = studentIds.Where(id => id != Guid.Empty).Distinct().ToArray();
+        if (selectedStudentIds.Length == 0)
+            throw new ConflictException("order.students_required", "Teslim için en az bir öğrenci seçmelisiniz.");
+
+        var cohort = (await repository.GetRentalCohortsAsync(order.CustomerId, cancellationToken))
+            .FirstOrDefault(item => item.Students.Any(student => selectedStudentIds.Contains(student.Id) && student.OrderId == orderId));
+        var selectedStudents = cohort?.Students
+            .Where(item => selectedStudentIds.Contains(item.Id) && !item.IsDeleted && item.OrderId == orderId)
+            .ToArray() ?? [];
+        if (selectedStudents.Length != selectedStudentIds.Length)
+            throw new ResourceNotFoundException("Sipariş öğrencilerinden biri veya birkaçı bulunamadı.");
+
+        var deliveredAssignmentIds = (await repository.GetKitLocationEventsAsync(cancellationToken))
+            .Where(item => item.OrderId == orderId && item.Source == KitLocationEventSource.DeliveryReceipt && item.AssignmentId.HasValue)
+            .Select(item => item.AssignmentId!.Value)
+            .ToHashSet();
+        var now = timeProvider.GetTurkeyNow();
+        foreach (var student in selectedStudents)
+        {
+            if (!student.HasAddress)
+                throw new ConflictException("order.student_address_incomplete", "Teslim işaretlemek için seçilen öğrencilerin adresi girilmiş olmalıdır.");
+            if (!student.AssignmentId.HasValue || !student.ProductUnitId.HasValue)
+                throw new ConflictException("order.student_kit_incomplete", "Teslim işaretlemek için seçilen öğrencilere fiziksel kit atanmış olmalıdır.");
+            if (student.AssignmentId is { } assignmentId && deliveredAssignmentIds.Contains(assignmentId)) continue;
+
+            await AddStudentKitLocationEventAsync(student, student.ProductUnitId.Value, student.AssignmentId.Value,
+                order.Id, order.CustomerId, actorId, now, cancellationToken);
+            await AddActivityAsync(student.ProductUnitId.Value, student.AssignmentId.Value, order.Id, student.Id,
+                actorId, actorId.ToString(), "Öğrenciye teslim edildi",
+                $"Kit {student.FullName} öğrencisine teslim edildi ve adresi kit konumuna işlendi.", cancellationToken, now);
+            deliveredAssignmentIds.Add(student.AssignmentId.Value);
+        }
+
+        await AuditAsync(actorId, nameof(RentalCohortStudent), selectedStudentIds[0], "StudentDeliveryConfirmed",
+            null, $"{selectedStudentIds.Length} öğrenci", cancellationToken);
+
+        return await GetOrderDetailAsync(orderId, cancellationToken);
     }
 
     public async Task<PublicStudentAddressContextResponse> GetPublicStudentAddressContextAsync(string token,
@@ -1314,7 +1412,7 @@ public sealed class OperationsService(
     {
         if (students.Any(student => !student.HasAddress))
             throw new ConflictException("order.student_addresses_incomplete",
-                "Siparişi tamamlamak için siparişteki tüm öğrencilerin adres bilgileri girilmiş olmalıdır.");
+                "Siparişi tamamlamak için siparişteki tüm öğrencilerin kitleri teslim edilmiş olmalıdır.");
         if (students.Any(student => !student.HasKitAssignment ||
             !student.AssignmentId.HasValue || !student.ProductUnitId.HasValue))
             throw new ConflictException("order.student_kits_incomplete",
@@ -1325,8 +1423,13 @@ public sealed class OperationsService(
         IReadOnlyCollection<RentalCohortStudent> students, Guid actorId, DateTimeOffset occurredAt,
         CancellationToken cancellationToken)
     {
+        var deliveredAssignmentIds = (await repository.GetKitLocationEventsAsync(cancellationToken))
+            .Where(item => item.OrderId == order.Id && item.Source == KitLocationEventSource.DeliveryReceipt && item.AssignmentId.HasValue)
+            .Select(item => item.AssignmentId!.Value)
+            .ToHashSet();
         foreach (var student in students)
         {
+            if (student.AssignmentId is { } assignmentId && deliveredAssignmentIds.Contains(assignmentId)) continue;
             await AddStudentKitLocationEventAsync(student, student.ProductUnitId!.Value,
                 student.AssignmentId!.Value, order.Id, order.CustomerId, actorId, occurredAt,
                 cancellationToken);
@@ -1340,7 +1443,7 @@ public sealed class OperationsService(
     private Task AddStudentKitLocationEventAsync(RentalCohortStudent student, Guid productUnitId, Guid assignmentId,
         Guid orderId, Guid customerId, Guid actorId, DateTimeOffset occurredAt, CancellationToken cancellationToken) =>
         repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), productUnitId, assignmentId,
-            orderId, customerId, KitLocationEventSource.DeliveryReceipt, null, student.FullName,
+            orderId, customerId, KitLocationEventSource.DeliveryReceipt, student.Id, student.FullName,
             student.GuardianPhone, student.AddressLine, student.Latitude, student.Longitude, occurredAt, actorId),
             cancellationToken);
 }

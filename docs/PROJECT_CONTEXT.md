@@ -114,7 +114,7 @@ Rentals:
 - Admin and customer student/address tables keep address and public-link cells empty when there is no value; filled cells expose full values through compact popup buttons and copyable public links. Global MVC table/form styling loads at 90% zoom by default, keeps table rows, filters, dropdowns, and action buttons compact, and preserves full-height/responsive desktop sidebar behavior when the sidebar is collapsed.
 - TACEV rental period student create/edit forms and Excel import collect student full name and guardian phone without requiring address. Separate regional student fields are no longer stored.
 - TACEV rental period student updates are handled from an in-page modal opened by compact icon-only row actions; delete, return-request, and fault actions also use compact color-coded Lucide icon buttons.
-- Removing an already assigned student anonymizes the student row and hides it from the active student list, while the kit and rental assignment remain rented/reserved and appear as unassigned cohort kits.
+- Removing an already assigned student from the admin order removes the student from the cohort and its kit association from the order's combined student/kit view; the physical unit remains managed by inventory history.
 - Customer-portal student kit returns open a prefilled return form instead of creating the request immediately; the form uses the delivery-form recipient/address when present, otherwise the student record, requires a return reason, and does not ask for map coordinates.
 - When an admin accepts a kit return, the TACEV student row keeps its assigned kit serial/QR as historical context; completed-return rows disable customer fault and return-request actions.
 - `ProductUnitActivity` stores chronological kit operation logs with action, description, timestamp, actor id, and actor display-name snapshot.
@@ -422,6 +422,21 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Migration `20260907150000_AddListPaginationIndexes` adds indexes for frequently filtered/listed fields across customers, product models/units, rental orders/cohorts/assignments, kit locations, faults, fault guides, kit returns, components, and audit entries.
 
 ## Recent UI Behavior
+
+- Admin order detail student address status is derived directly from the displayed address text; any student with a non-empty address is marked `✓ Tamamlandı`.
+- Admin order detail student rows with an address and assigned kit expose a `Teslim Edildi` action. Confirming delivery writes a `DeliveryReceipt` kit-location event using the student's address and optional coordinates; the event is also used to show delivery completion and place the kit on the map.
+- Admin order detail student list supports independent `Adres Durumu` and `Teslim Durumu` filters; filtered results retain their state while paging.
+- Admin order detail student rows support page-level multi-selection and bulk `Teslim Edildi` confirmation; only students with an address and assigned kit can be selected.
+- Admin order detail bulk delivery also offers selecting all eligible students matching the active filters across every page, so users do not need to select page by page.
+- Admin order detail now presents students and their assigned physical kits in one table; admin users can delete a student before preparation starts, which removes the student and kit assignment from the order and releases the reserved physical kit back to available inventory.
+- Admin order detail uses a compact `Kite Git` action in the physical-kit column without repeating the serial number or QR text below it.
+- Admin order detail shows only `Teslim Edildi` / `Teslim Edilmedi` in the delivery-status column; the `Teslim Et` action is placed beside `Sil` at the end of the row.
+- Admin order detail places `QR Etiketlerini Yazdır` beside `Excel Olarak İndir` above the combined student/kit table.
+- Admin order detail combined-list heading is shown only as `ÖĞRENCİ LİSTESİ`, without a secondary title or description.
+- Admin order detail no longer shows a per-row `Teslim Et` action; delivery confirmation remains available through bulk selection.
+- Admin order detail combined student table uses a narrow checkbox column and a wider student-name column.
+- Admin order summaries recalculate requested and assigned kit counts after an approved-order student/kit removal, excluding cancelled rental assignments.
+- Admin order completion message uses the requested wording that all student kits must be delivered; the existing address validation remains unchanged.
 
 - Customer portal rental-period student Excel exports include an `Atanan Fiziksel Kit QR Linki` column containing the assigned kit's public QR target URL when a physical kit is assigned.
 - Customer portal rental-period student lists show only the assigned physical kit serial number in the assigned-kit column, and the serial number links to the customer portal kit detail page.

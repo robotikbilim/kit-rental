@@ -496,7 +496,9 @@ public sealed record OrderDetailKitViewModel(Guid Id, Guid OrderLineId, Guid Pro
     string ProductSku, string SerialNumber, string QrCode, int Status);
 public sealed record OrderDetailStudentViewModel(Guid Id, string FullName, string GuardianPhone, string AddressLine,
     bool HasAddress, string PublicAddressToken, DateTimeOffset? AddressSubmittedAt, Guid ProductModelId = default,
-    string ProductName = "", string ProductSku = "");
+    string ProductName = "", string ProductSku = "", bool IsDelivered = false, bool HasKitAssignment = false,
+    string AssignedKitSerialNumber = "", string AssignedKitQrCode = "", int? AssignedKitStatus = null,
+    Guid? AssignedKitId = null);
 public sealed record OrderDetailViewModel(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName,
     int Type, int Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt, Guid? RentalCohortId,
     IReadOnlyCollection<OrderDetailLineViewModel> Lines, IReadOnlyCollection<OrderDetailKitViewModel> Kits,
