@@ -139,6 +139,9 @@ public sealed class FaultFilterViewModel
     public int PageSize { get; set; } = 20;
 }
 public sealed record FaultScreenViewModel(FaultPageViewModel Result, FaultFilterViewModel Filter);
+public sealed record FaultKargonomiShipmentViewModel(Guid Id, Guid FaultTicketId, int Direction,
+    int? ExternalShipmentId, string RecipientName, string RecipientAddress, string? TrackingNumber,
+    string Carrier, string StatusLabel, int State, string? LastError, DateTimeOffset UpdatedAt);
 public sealed record ComponentSuggestionViewModel(Guid Id, string Name, string Sku, string? ImageUrl, decimal TotalStock, string UnitOfMeasure);
 public sealed record ComponentLocationViewModel(Guid StorageLocationId, string LocationCode, string Warehouse, string Aisle, string Rack, string Shelf, decimal Quantity);
 public sealed record ComponentLocatorViewModel(

@@ -198,6 +198,19 @@ public sealed class OperationsController : CoreApiControllerBase
         [FromServices] KargonomiShippingService service, CancellationToken cancellationToken) =>
         Ok(await service.StartForOrderAsync(orderId, [studentId], cancellationToken));
 
+    [Authorize(Roles = "SystemAdmin,OperationsManager,ServiceTechnician")]
+    [HttpPost("faults/{faultTicketId:guid}/kargonomi-shipments")]
+    public async Task<IActionResult> StartFaultKargonomiShipment(Guid faultTicketId, FaultKargonomiShipmentStartRequest request,
+        [FromServices] KargonomiShippingService service, CancellationToken cancellationToken) =>
+        Ok(await service.StartForFaultAsync(faultTicketId, request.Direction, request.RecipientName,
+            request.RecipientPhone, request.RecipientAddress, cancellationToken));
+
+    [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
+    [HttpGet("faults/{faultTicketId:guid}/kargonomi-shipments")]
+    public async Task<IActionResult> GetFaultKargonomiShipments(Guid faultTicketId,
+        [FromServices] KargonomiShippingService service, CancellationToken cancellationToken) =>
+        Ok(await service.GetForFaultAsync(faultTicketId, cancellationToken));
+
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
     [HttpGet("orders/{orderId:guid}/kargonomi/shipments")]
     public async Task<IActionResult> GetKargonomiShipments(Guid orderId,

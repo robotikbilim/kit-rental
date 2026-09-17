@@ -515,11 +515,22 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager,ServiceTechnician")]
-    public async Task<IActionResult> UpdateFault(Guid id, int status, string note, CancellationToken cancellationToken)
+    public async Task<IActionResult> UpdateFault(Guid id, int status, string? note, CancellationToken cancellationToken)
     {
         var result = await apiClient.ChangeFaultStatusAsync(id, status, note, cancellationToken);
         TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
             ? "Arıza süreci güncellendi; müşteri portalına yansıtıldı." : result.Error;
+        return RedirectToAction(nameof(Faults));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager,ServiceTechnician")]
+    public async Task<IActionResult> StartFaultKargonomiShipment(Guid id, int direction, string recipientName,
+        string recipientPhone, string recipientAddress, CancellationToken cancellationToken)
+    {
+        var result = await apiClient.StartFaultKargonomiShipmentAsync(id, direction, recipientName,
+            recipientPhone, recipientAddress, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "Arıza Kargonomi gönderisi başlatıldı." : result.Error;
         return RedirectToAction(nameof(Faults));
     }
 

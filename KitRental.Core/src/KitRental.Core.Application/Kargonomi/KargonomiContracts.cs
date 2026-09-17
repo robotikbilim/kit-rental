@@ -1,4 +1,5 @@
 using KitRental.Core.Domain.Logistics;
+using KitRental.Core.Domain.Support;
 
 namespace KitRental.Core.Application.Kargonomi;
 
@@ -64,6 +65,11 @@ public sealed record KargonomiShipmentBatchResponse(
     IReadOnlyCollection<KargonomiShipmentAttemptResponse> Items,
     int SucceededCount,
     int FailedCount);
+
+public sealed record FaultKargonomiShipmentResponse(Guid Id, Guid FaultTicketId,
+    FaultKargonomiShipmentDirection Direction, int? ExternalShipmentId, string RecipientName,
+    string RecipientAddress, string? TrackingNumber, string Carrier, string StatusLabel,
+    KargonomiShipmentState State, string? LastError, DateTimeOffset UpdatedAt);
 
 public sealed record KargonomiShipmentListItemResponse(
     Guid Id, Guid OrderId, string OrderNumber, Guid StudentId, string StudentName,

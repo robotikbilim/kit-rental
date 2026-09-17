@@ -3,14 +3,11 @@
     ViewData["Title"] = "Arızalar";
     string StatusName(int value) => value switch
     {
-        1 => "Açık",
-        2 => "İnceleniyor",
-        3 => "Müşteri bilgisi bekleniyor",
-        4 => "Kit bekleniyor",
-        5 => "Onarım Aşamasında",
-        6 => "Kargoya Verildi",
-        7 => "Problem Çözüldü",
-        8 => "Tamamlandı",
+        1 => "Kayıt geldi", 2 => "İnceleniyor", 3 => "Müşteri bilgisi bekleniyor",
+        4 => "Kit bekleniyor", 5 => "Onarım aşamasında", 6 => "Eski kargo süreci",
+        7 => "Eski çözüldü", 8 => "Tamamlandı", 9 => "Kabul edildi", 10 => "Reddedildi",
+        11 => "Uzaktan destekle çözüldü", 12 => "Kargo bekliyor", 13 => "Atölyeye kargolandı",
+        14 => "Atölyeye geldi", 15 => "Arıza giderildi",
         _ => "İşlemde"
     };
     string SeverityName(int value) => value switch
@@ -35,7 +32,7 @@
 
 <form method="get" class="fault-filter-form" data-auto-filter="true">
     <div class="field fault-search"><label for="Query">Kayıt, kişi, telefon veya neden</label><input id="Query" name="Query" value="@Model.Filter.Query" placeholder="Hızlı ara..." /></div>
-    <div class="field"><label for="Status">Durum</label><select id="Status" name="Status"><option value="">Tüm durumlar</option>@foreach (var status in new[] { 1, 2, 5, 7, 6, 8, 3, 4 }) { <option value="@status" selected="@(Model.Filter.Status == status)">@StatusName(status)</option> }</select></div>
+    <div class="field"><label for="Status">Durum</label><select id="Status" name="Status"><option value="">Tüm durumlar</option>@foreach (var status in new[] { 1, 2, 9, 10, 11, 12, 13, 14, 15, 8, 3, 4, 5, 6, 7 }) { <option value="@status" selected="@(Model.Filter.Status == status)">@StatusName(status)</option> }</select></div>
     <div class="field"><label for="Severity">Önem</label><select id="Severity" name="Severity"><option value="">Tüm önem seviyeleri</option>@for (var severity = 1; severity <= 4; severity++) { <option value="@severity" selected="@(Model.Filter.Severity == severity)">@SeverityName(severity)</option> }</select></div>
     <div class="field"><label for="OpenedFrom">Başlangıç</label><input id="OpenedFrom" name="OpenedFrom" type="date" value="@Model.Filter.OpenedFrom?.ToString("yyyy-MM-dd")" /></div>
     <div class="field"><label for="OpenedTo">Bitiş</label><input id="OpenedTo" name="OpenedTo" type="date" value="@Model.Filter.OpenedTo?.ToString("yyyy-MM-dd")" /></div>
@@ -49,7 +46,7 @@
 }
 else
 {
-    <div class="table-scroll"><table class="fault-table js-datatable" data-datatable-server="true"><thead><tr><th>Kayıt</th><th>Kaynak</th><th>Bildiren kişi</th><th>Arıza nedeni</th><th>Önem</th><th>Durum</th><th>Süreç güncelle</th></tr></thead><tbody>
+    <div class="table-scroll"><table class="fault-table js-datatable" data-datatable-server="true"><thead><tr><th>Kayıt</th><th>Kaynak</th><th>Bildiren kişi</th><th>Arıza nedeni</th><th>Önem</th><th>Durum</th><th>Aksiyon</th></tr></thead><tbody>
     @foreach (var item in Model.Result.Items)
     {
         <tr>
@@ -67,19 +64,31 @@ else
             <td><span class="fault-severity severity-@item.Severity">@SeverityName(item.Severity)</span></td>
             <td><span class="fault-stage status-@item.Status">@StatusName(item.Status)</span></td>
             <td>
-                @if (canUpdateFaults && item.Status != 8)
+                @if (canUpdateFaults && item.Status is not (8 or 10))
                 {
                     <form class="fault-update-form" asp-action="UpdateFault" asp-route-id="@item.Id" method="post">
-                        <select name="status" aria-label="Yeni arıza durumu">
-                            <option value="2">İnceleniyor</option>
-                            <option value="5">Onarım Aşamasında</option>
-                            <option value="7">Problem Çözüldü</option>
-                            <option value="6">Kargoya Verildi</option>
-                            <option value="8">Tamamlandı</option>
+                        <select name="status" aria-label="Arıza aksiyonu">
+                            <option value="2">İncelemeye al</option><option value="9">Arızayı kabul et</option>
+                            <option value="10">Arızayı reddet</option><option value="11">Uzaktan destekle çözüldü</option>
+                            <option value="12">Kargo bekliyor</option><option value="13">Atölyeye kargolandı</option>
+                            <option value="14">Atölyeye geldi</option><option value="15">Arıza giderildi</option>
+                            <option value="8">Kargo teslim edildi / kapat</option>
                         </select>
-                        <input name="note" required placeholder="Müşterinin göreceği süreç notu" />
+                        <input name="note" placeholder="Süreç notu (isteğe bağlı)" />
                         <button class="table-action" type="submit">Güncelle</button>
                     </form>
+                    @if (item.Status is 12 or 15)
+                    {
+                        <details class="fault-shipment-action"><summary class="table-action">@(item.Status == 12 ? "Atölyeye Kargola" : "Müşteriye Kargola")</summary>
+                            <form asp-action="StartFaultKargonomiShipment" asp-route-id="@item.Id" method="post">
+                                <input type="hidden" name="direction" value="@(item.Status == 12 ? 1 : 2)" />
+                                <input name="recipientName" required value="@(item.Status == 15 ? item.ReporterName : "Robotik Bilim Atölye")" placeholder="Alıcı adı" />
+                                <input name="recipientPhone" required value="@(item.Status == 15 ? item.ReporterPhone : "")" placeholder="Alıcı telefonu" />
+                                <textarea name="recipientAddress" required placeholder="Alıcı adresi">@(item.Status == 15 ? item.ReporterAddress : "")</textarea>
+                                <button class="table-action" type="submit">Kargoyu Başlat</button>
+                            </form>
+                        </details>
+                    }
                 }
             </td>
         </tr>

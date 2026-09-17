@@ -24,7 +24,7 @@ Main user surfaces:
 - `KitRental.Core.Api`: MVC API controllers grouped by public, customer portal, returns, inventory, physical kits, workshop, supply, manufacturing, operations, support, and reporting domains; also owns DI, auth policies, problem details, and health checks.
 - `KitRental.Identity.Api`: MVC API controllers for authentication, users, and internal notification-recipient access.
 - `KitRental.Gateway`: lightweight HttpClient reverse proxy for Identity and Core.
-- `KitRental.Web`: server-rendered ASP.NET Core MVC UI and API client.
+- `KitRental.Web`: server-rendered ASP.NET Core MVC UI and API client. The former standalone `KitRental.Web.React` project was removed; MVC is the only application UI.
 
 ## Code Standards
 
@@ -122,6 +122,8 @@ Rentals:
 Faults:
 
 - Main domain: `FaultTicket`, `FaultStatusEvent`.
+- New fault records follow an explicit workflow: `Open` (kayıt geldi) -> `Investigating` -> `Accepted` or `Rejected`; accepted records move to `RemoteResolved` or `AwaitingWorkshopShipment` -> `WorkshopShipmentInTransit` -> `WorkshopReceived` -> `Repaired` -> `CustomerShipmentInTransit` -> `Closed` after customer delivery. The transition service validates each step, records the customer-visible note in `FaultStatusEvents`, and the customer portal exposes every step including rejected records.
+- Legacy fault status enum values 1-8 are retained for existing data; new workflow states use values 9-16 to avoid renumbering persisted records. The operations UI now presents action-oriented labels for the new lifecycle.
 - Public QR fault flow can create a new fault or update an existing open fault.
 - Fault updates preserve history and now also insert a new kit location event.
 - `FaultTicket.Origin` distinguishes internal, public QR form, and customer-portal fault records. Customer-portal fault creation uses reporter name, phone, free-text address, and description fields, and operations fault lists show the source column.
@@ -152,6 +154,8 @@ Shipments:
 - Delivery status is displayed and recorded but does not automatically change the order's existing delivery/return confirmation flow.
 - Operations UI: order detail shows student and Kargonomi shipment information in one combined table; `/Operations/KargonomiShipments` provides filtering, counts, refresh, retry, order navigation, and barcode/detail actions.
 - Kargonomi credentials, webhook secret, warehouse, and sender configuration are read from the `Kargonomi` configuration section and must be supplied through environment variables, user secrets, or deployment secrets; tracked appsettings keeps secrets empty.
+- Fault logistics use owned `FaultKargonomiShipment` records under each `FaultTicket`, with separate `ToWorkshop` and `ToCustomer` directions, recipient snapshot, external Kargonomi id/tracking state, and status history. `POST /api/faults/{faultTicketId}/kargonomi-shipments` creates the real Kargonomi shipment through the configured Aras quote; the existing signed webhook routes updates to either rental or fault shipments.
+- Admin arıza listesinde `Atölyeye Kargola` / `Müşteriye Kargola` aksiyonları doğrudan fault Kargonomi endpoint’ine bağlıdır. Müşteri dönüşünde arıza bildirimindeki alıcı bilgileri varsayılan gelir; atölye gönderiminde alıcı alanları düzenlenebilir. Arıza durum notu opsiyoneldir; boş bırakılırsa sistem durum adına göre müşteri görünür bir not üretir.
 
 Workshop and manufacturing:
 

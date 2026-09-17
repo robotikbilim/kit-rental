@@ -3,7 +3,14 @@ using KitRental.SharedKernel;
 namespace KitRental.Core.Domain.Support;
 
 public enum FaultSeverity { Low = 1, Medium = 2, High = 3, Critical = 4 }
-public enum FaultStatus { Open = 1, Investigating = 2, WaitingForCustomer = 3, AwaitingReturn = 4, InService = 5, ReplacementInTransit = 6, Resolved = 7, Closed = 8 }
+// Values 1-8 are retained for existing records. New records use the explicit repair workflow below.
+public enum FaultStatus
+{
+    Open = 1, Investigating = 2, WaitingForCustomer = 3, AwaitingReturn = 4, InService = 5,
+    ReplacementInTransit = 6, Resolved = 7, Closed = 8,
+    Accepted = 9, Rejected = 10, RemoteResolved = 11, AwaitingWorkshopShipment = 12,
+    WorkshopShipmentInTransit = 13, WorkshopReceived = 14, Repaired = 15, CustomerShipmentInTransit = 16
+}
 public enum FaultApprovalStatus { NotRequired = 0, PendingCustomerApproval = 1, Approved = 2, Rejected = 3 }
 public enum FaultOrigin { Internal = 1, PublicForm = 2, CustomerPortal = 3 }
 public sealed record FaultStatusEvent(Guid Id, FaultStatus Previous, FaultStatus Current, DateTimeOffset OccurredAt, Guid ActorId, string Note);
@@ -11,6 +18,7 @@ public sealed record FaultStatusEvent(Guid Id, FaultStatus Previous, FaultStatus
 public sealed class FaultTicket
 {
     private readonly List<FaultStatusEvent> _history = [];
+    private readonly List<FaultKargonomiShipment> _kargonomiShipments = [];
     private FaultTicket() { }
     private FaultTicket(Guid id, string number, Guid customerId, Guid orderId, Guid assignmentId, Guid productUnitId,
         string category, FaultSeverity severity, string description, DateTimeOffset openedAt, string reporterName,
@@ -47,6 +55,15 @@ public sealed class FaultTicket
     public FaultStatus Status { get; private set; }
     public DateTimeOffset OpenedAt { get; private set; }
     public IReadOnlyCollection<FaultStatusEvent> History => _history.AsReadOnly();
+    public IReadOnlyCollection<FaultKargonomiShipment> KargonomiShipments => _kargonomiShipments.AsReadOnly();
+
+    public FaultKargonomiShipment CreateKargonomiShipment(FaultKargonomiShipmentDirection direction,
+        string recipientName, string recipientPhone, string recipientAddress, DateTimeOffset now)
+    {
+        var shipment = FaultKargonomiShipment.Create(Guid.NewGuid(), Id, direction, recipientName, recipientPhone, recipientAddress, now);
+        _kargonomiShipments.Add(shipment);
+        return shipment;
+    }
 
     public static FaultTicket Open(Guid id, string number, Guid customerId, Guid orderId, Guid assignmentId,
         Guid productUnitId, string category, FaultSeverity severity, string description, DateTimeOffset openedAt,
@@ -69,6 +86,66 @@ public sealed class FaultTicket
         var previous = Status;
         Status = next;
         _history.Add(new FaultStatusEvent(Guid.NewGuid(), previous, next, now, actorId, note.Trim()));
+    }
+
+    public void MarkInvestigating(Guid actorId, DateTimeOffset now, string note) =>
+        MoveTo(FaultStatus.Investigating, actorId, now, note, FaultStatus.Open);
+
+    public void Accept(Guid actorId, DateTimeOffset now, string note)
+    {
+        EnsureStatus(FaultStatus.Investigating);
+        EnsureChangeInputs(actorId, note);
+        ApprovalStatus = FaultApprovalStatus.Approved;
+        ApprovedAt = now;
+        MoveTo(FaultStatus.Accepted, actorId, now, note, FaultStatus.Investigating);
+    }
+
+    public void Reject(Guid actorId, DateTimeOffset now, string note)
+    {
+        EnsureStatus(FaultStatus.Investigating);
+        EnsureChangeInputs(actorId, note);
+        ApprovalStatus = FaultApprovalStatus.Rejected;
+        MoveTo(FaultStatus.Rejected, actorId, now, note, FaultStatus.Investigating);
+    }
+
+    public void ResolveRemotely(Guid actorId, DateTimeOffset now, string note) =>
+        MoveTo(FaultStatus.RemoteResolved, actorId, now, note, FaultStatus.Accepted);
+
+    public void AwaitWorkshopShipment(Guid actorId, DateTimeOffset now, string note) =>
+        MoveTo(FaultStatus.AwaitingWorkshopShipment, actorId, now, note, FaultStatus.Accepted);
+
+    public void MarkWorkshopShipmentInTransit(Guid actorId, DateTimeOffset now, string note) =>
+        MoveTo(FaultStatus.WorkshopShipmentInTransit, actorId, now, note, FaultStatus.AwaitingWorkshopShipment);
+
+    public void MarkWorkshopReceived(Guid actorId, DateTimeOffset now, string note) =>
+        MoveTo(FaultStatus.WorkshopReceived, actorId, now, note, FaultStatus.WorkshopShipmentInTransit);
+
+    public void MarkRepaired(Guid actorId, DateTimeOffset now, string note) =>
+        MoveTo(FaultStatus.Repaired, actorId, now, note, FaultStatus.WorkshopReceived);
+
+    public void MarkCustomerShipmentInTransit(Guid actorId, DateTimeOffset now, string note) =>
+        MoveTo(FaultStatus.CustomerShipmentInTransit, actorId, now, note, FaultStatus.Repaired);
+
+    public void Close(Guid actorId, DateTimeOffset now, string note) =>
+        MoveTo(FaultStatus.Closed, actorId, now, note, FaultStatus.Repaired, FaultStatus.RemoteResolved, FaultStatus.CustomerShipmentInTransit);
+
+    private void MoveTo(FaultStatus next, Guid actorId, DateTimeOffset now, string note, params FaultStatus[] allowed)
+    {
+        if (!allowed.Contains(Status))
+            throw new DomainException("fault.invalid_workflow_transition", "Arıza bu aşamadan seçilen işleme geçirilemez.");
+        ChangeStatus(next, actorId, now, note);
+    }
+
+    private void EnsureStatus(FaultStatus expected)
+    {
+        if (Status != expected)
+            throw new DomainException("fault.invalid_workflow_transition", "Arıza bu aşamadan onaylanamaz.");
+    }
+
+    private static void EnsureChangeInputs(Guid actorId, string note)
+    {
+        if (actorId == Guid.Empty || string.IsNullOrWhiteSpace(note))
+            throw new DomainException("fault.invalid_status_change", "Arıza durumu değişikliği için aktör ve not zorunludur.");
     }
     public void UpdatePublicDetails(string category, string description, string reporterName,
         string reporterPhone, string reporterAddress, double? latitude, double? longitude, string? attachmentUrl = null)

@@ -360,6 +360,36 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             history.Property(item => item.Note).HasMaxLength(2000).IsRequired();
         });
         builder.Navigation(ticket => ticket.History).HasField("_history").UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.OwnsMany(ticket => ticket.KargonomiShipments, shipment =>
+        {
+            shipment.ToTable("FaultKargonomiShipments");
+            shipment.WithOwner().HasForeignKey("FaultTicketId");
+            shipment.HasKey(item => item.Id);
+            shipment.Property(item => item.Id).ValueGeneratedNever();
+            shipment.Property(item => item.RecipientName).HasMaxLength(160).IsRequired();
+            shipment.Property(item => item.RecipientPhone).HasMaxLength(40).IsRequired();
+            shipment.Property(item => item.RecipientAddress).HasMaxLength(1000).IsRequired();
+            shipment.Property(item => item.Carrier).HasMaxLength(120).IsRequired();
+            shipment.Property(item => item.StatusLabel).HasMaxLength(160).IsRequired();
+            shipment.Property(item => item.ExternalStatus).HasMaxLength(80);
+            shipment.Property(item => item.TrackingNumber).HasMaxLength(160);
+            shipment.Property(item => item.LastError).HasMaxLength(2000);
+            shipment.HasIndex(item => item.ExternalShipmentId).IsUnique().HasFilter("[ExternalShipmentId] IS NOT NULL");
+            shipment.HasIndex(item => new { item.FaultTicketId, item.Direction });
+            shipment.OwnsMany(item => item.Events, events =>
+            {
+                events.ToTable("FaultKargonomiShipmentEvents");
+                events.WithOwner().HasForeignKey("FaultKargonomiShipmentId");
+                events.HasKey(item => item.Id);
+                events.Property(item => item.Id).ValueGeneratedNever();
+                events.Property(item => item.ExternalStatus).HasMaxLength(80).IsRequired();
+                events.Property(item => item.StatusLabel).HasMaxLength(160).IsRequired();
+                events.Property(item => item.TrackingNumber).HasMaxLength(160);
+                events.Property(item => item.Description).HasMaxLength(1000);
+            });
+            shipment.Navigation(item => item.Events).HasField("_events").UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+        builder.Navigation(ticket => ticket.KargonomiShipments).HasField("_kargonomiShipments").UsePropertyAccessMode(PropertyAccessMode.Field);
         AddRowVersion(builder);
     }
 

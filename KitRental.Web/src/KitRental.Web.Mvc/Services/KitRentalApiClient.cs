@@ -605,9 +605,15 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             studentIds
         }, cancellationToken);
 
-    public Task<ApiCommandResult<FaultViewModel>> ChangeFaultStatusAsync(Guid faultId, int status, string note,
+    public Task<ApiCommandResult<FaultViewModel>> ChangeFaultStatusAsync(Guid faultId, int status, string? note,
         CancellationToken cancellationToken) => PostAsync<FaultViewModel>($"/core/api/faults/{faultId}/status-events",
             new { status, note }, cancellationToken);
+
+    public Task<ApiCommandResult<FaultKargonomiShipmentViewModel>> StartFaultKargonomiShipmentAsync(Guid faultId,
+        int direction, string recipientName, string recipientPhone, string recipientAddress,
+        CancellationToken cancellationToken) => PostAsync<FaultKargonomiShipmentViewModel>(
+            $"/core/api/faults/{faultId}/kargonomi-shipments",
+            new { direction, recipientName, recipientPhone, recipientAddress }, cancellationToken);
 
     public async Task<IReadOnlyCollection<EmailDeliveryViewModel>> GetEmailDeliveriesAsync(
         CancellationToken cancellationToken) =>

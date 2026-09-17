@@ -337,7 +337,7 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
 
     private async Task<HashSet<Guid>> GetFaultyUnitIdsAsync(CancellationToken cancellationToken) =>
         (await repository.GetFaultTicketsAsync(null, cancellationToken))
-            .Where(ticket => ticket.Status is not (FaultStatus.Resolved or FaultStatus.Closed))
+            .Where(ticket => ticket.Status is not (FaultStatus.Resolved or FaultStatus.RemoteResolved or FaultStatus.Rejected or FaultStatus.Closed))
             .Select(ticket => ticket.ProductUnitId).ToHashSet();
 
     private static bool IsFaulty(ProductUnit unit, IReadOnlySet<Guid> faultyUnitIds) =>

@@ -96,7 +96,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 if (unit is null || !modelLookup.TryGetValue(unit.ProductModelId, out var model))
                     continue;
                 var openFaults = customerFaults.Count(ticket =>
-                    ticket.ProductUnitId == unit.Id && ticket.Status is not (FaultStatus.Resolved or FaultStatus.Closed));
+                    ticket.ProductUnitId == unit.Id && ticket.Status is not (FaultStatus.Resolved or FaultStatus.RemoteResolved or FaultStatus.Rejected or FaultStatus.Closed));
                 var linkedStudent = studentsByAssignmentId.TryGetValue(assignment.Id, out var studentByAssignment)
                     ? studentByAssignment
                     : studentsByProductUnitId.TryGetValue(unit.Id, out var studentByUnit)
@@ -155,8 +155,8 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             assignedStudentKitCount,
             unassignedKitCount,
             orders.Count(item => item.Status == RentalOrderStatus.PendingApproval),
-            faults.Count(item => item.Status is not (FaultStatus.Resolved or FaultStatus.Closed)),
-            faults.Count(item => item.Status is FaultStatus.Resolved or FaultStatus.Closed),
+            faults.Count(item => item.Status is not (FaultStatus.Resolved or FaultStatus.RemoteResolved or FaultStatus.Rejected or FaultStatus.Closed)),
+            faults.Count(item => item.Status is FaultStatus.Resolved or FaultStatus.RemoteResolved or FaultStatus.Rejected or FaultStatus.Closed),
             expiredRentalKitCount,
             returnProcessStartedAssignmentIds.Count,
             returnedAssignmentIds.Count,

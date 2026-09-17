@@ -481,7 +481,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         if (portal is null) return Forbid();
 
         var normalizedQuery = query?.Trim() ?? string.Empty;
-        var normalizedStatus = status is >= 1 and <= 8 ? status : null;
+        var normalizedStatus = status is >= 1 and <= 15 ? status : null;
         var normalizedState = state is "open" or "completed" ? state : "all";
         var allFaults = portal.Faults
             .OrderByDescending(item => item.OpenedAt)
@@ -501,9 +501,9 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         if (normalizedStatus.HasValue)
             filteredFaults = filteredFaults.Where(item => item.Status == normalizedStatus.Value);
         if (normalizedState == "open")
-            filteredFaults = filteredFaults.Where(item => item.Status is not (7 or 8));
+            filteredFaults = filteredFaults.Where(item => item.Status is not (8 or 10));
         if (normalizedState == "completed")
-            filteredFaults = filteredFaults.Where(item => item.Status is 7 or 8);
+            filteredFaults = filteredFaults.Where(item => item.Status is 8 or 10);
 
         var filtered = filteredFaults.ToArray();
         return View(new PortalFaultsPageViewModel(portal.CustomerName, normalizedQuery, normalizedStatus,
@@ -578,7 +578,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         var today = KitRental.SharedKernel.TurkeyTime.Today();
         var faultLookup = portal.Faults
             .GroupBy(item => item.ProductUnitId)
-            .ToDictionary(group => group.Key, group => group.Count(item => item.Status is not (7 or 8)));
+            .ToDictionary(group => group.Key, group => group.Count(item => item.Status is not (8 or 10)));
         var returnLookup = portal.Returns
             .SelectMany(request => request.Items.Select(item => new
             {

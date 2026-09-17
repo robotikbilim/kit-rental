@@ -436,7 +436,7 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         lock (_gate)
             return Task.FromResult(_faultTickets.Values
                 .Where(ticket => ticket.ProductUnitId == productUnitId &&
-                    ticket.Status is not (FaultStatus.Resolved or FaultStatus.Closed))
+                    ticket.Status is not (FaultStatus.Resolved or FaultStatus.RemoteResolved or FaultStatus.Rejected or FaultStatus.Closed))
                 .OrderByDescending(ticket => ticket.OpenedAt)
                 .FirstOrDefault());
     }

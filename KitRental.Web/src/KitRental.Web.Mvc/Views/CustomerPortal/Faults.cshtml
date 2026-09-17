@@ -5,14 +5,11 @@
 @functions {
     string StatusName(int value) => value switch
     {
-        1 => "Kayit acildi",
-        2 => "Inceleniyor",
-        3 => "Bilgi bekleniyor",
-        4 => "Kit bekleniyor",
-        5 => "Serviste",
-        6 => "Geri gonderiliyor",
-        7 => "Cozuldu",
-        8 => "Tamamlandi",
+        1 => "Kayıt açıldı", 2 => "İnceleniyor", 3 => "Bilgi bekleniyor",
+        4 => "Kit bekleniyor", 5 => "Eski servis süreci", 6 => "Eski kargo süreci",
+        7 => "Eski çözüldü", 8 => "Tamamlandı", 9 => "Kabul edildi", 10 => "Reddedildi",
+        11 => "Uzaktan destekle çözüldü", 12 => "Kargo bekliyor", 13 => "Atölyeye kargolandı",
+        14 => "Atölyeye geldi", 15 => "Arıza giderildi",
         _ => "Islemde"
     };
     string OriginName(int value) => value switch

@@ -54,7 +54,9 @@ public sealed record CreatePurchaseOrderRequest(Guid CustomerId, Guid AddressId,
     IReadOnlyCollection<OrderLineRequest> Lines);
 public sealed record CreateRentalAssignmentRequest(Guid OrderLineId, Guid CustomerId, Guid ProductUnitId, DateOnly StartDate, DateOnly EndDate);
 public sealed record OpenFaultRequest(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId, string Category, FaultSeverity Severity, string Description);
-public sealed record FaultStatusRequest(FaultStatus Status, string Note);
+public sealed record FaultStatusRequest(FaultStatus Status, string? Note);
+public sealed record FaultKargonomiShipmentStartRequest(FaultKargonomiShipmentDirection Direction,
+    string RecipientName, string RecipientPhone, string RecipientAddress);
 public sealed record FaultGuideEntryRequest(string Title, string Problem, string Solution, int DisplayOrder,
     bool IsActive = true, Guid? ProductModelId = null);
 public sealed record InspectionItemRequest(string Name, bool IsPresent, bool IsDamaged, string Note);

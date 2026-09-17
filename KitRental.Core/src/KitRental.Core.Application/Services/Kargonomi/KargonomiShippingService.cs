@@ -2,6 +2,8 @@ using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Application.Common;
 using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Orders;
+using KitRental.Core.Domain.Support;
+using KitRental.SharedKernel;
 
 namespace KitRental.Core.Application.Kargonomi;
 
@@ -10,6 +12,71 @@ public sealed class KargonomiShippingService(
     IKargonomiClient client,
     TimeProvider timeProvider)
 {
+    private static readonly Guid SystemActorId = new("00000000-0000-0000-0000-000000000002");
+
+    public async Task<FaultKargonomiShipmentResponse> StartForFaultAsync(Guid faultTicketId,
+        FaultKargonomiShipmentDirection direction, string recipientName, string recipientPhone,
+        string recipientAddress, CancellationToken cancellationToken)
+    {
+        var ticket = await repository.GetFaultTicketAsync(faultTicketId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
+        var existing = ticket.KargonomiShipments.SingleOrDefault(item => item.Direction == direction && item.State != KargonomiShipmentState.Failed);
+        if (existing is not null) return MapFault(existing);
+        var shipment = ticket.CreateKargonomiShipment(direction, recipientName, recipientPhone, recipientAddress, timeProvider.GetUtcNow());
+        try
+        {
+            var location = await client.ResolveLocationAsync(recipientAddress, cancellationToken);
+            var created = await client.CreateShipmentAsync(new KargonomiCreateShipmentRequest(
+                recipientName, recipientPhone, recipientAddress, location.StateId, location.CityId,
+                $"Arıza kiti {ticket.Number}", ticket.Number, 1), cancellationToken);
+            var quotes = await client.GetPriceQuotesAsync(created.Id, cancellationToken);
+            var aras = quotes.FirstOrDefault(item => item.Slug.Equals("aras", StringComparison.OrdinalIgnoreCase) || item.Name.Contains("Aras", StringComparison.OrdinalIgnoreCase));
+            if (aras is null) throw new ConflictException("kargonomi.aras_quote_missing", "Aras Kargo için uygun fiyat teklifi bulunamadı.");
+            var confirmed = await client.ConfirmShippingPriceAsync(created.Id, aras.Id, cancellationToken);
+            shipment.MarkCreated(confirmed.Id, confirmed.Status, confirmed.StatusLabel ?? "Hazır", confirmed.TrackingNumber, timeProvider.GetUtcNow());
+            if (direction == FaultKargonomiShipmentDirection.ToWorkshop)
+                ticket.MarkWorkshopShipmentInTransit(SystemActorId, timeProvider.GetTurkeyNow(), "Kargonomi ile atölyeye gönderildi.");
+            else
+                ticket.MarkCustomerShipmentInTransit(SystemActorId, timeProvider.GetTurkeyNow(), "Kargonomi ile müşteriye geri gönderildi.");
+            await repository.SaveChangesAsync(cancellationToken);
+            return MapFault(shipment);
+        }
+        catch (Exception exception) when (exception is ConflictException or HttpRequestException or TaskCanceledException)
+        {
+            shipment.MarkFailed(exception.Message, timeProvider.GetUtcNow());
+            await repository.SaveChangesAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task<IReadOnlyCollection<FaultKargonomiShipmentResponse>> GetForFaultAsync(Guid faultTicketId, CancellationToken cancellationToken)
+    {
+        var ticket = await repository.GetFaultTicketAsync(faultTicketId, cancellationToken) ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
+        return ticket.KargonomiShipments.Select(MapFault).ToArray();
+    }
+
+    public async Task ApplyFaultWebhookAsync(int externalShipmentId, string? status, string? statusLabel,
+        string? trackingNumber, string? description, CancellationToken cancellationToken)
+    {
+        var ticket = (await repository.GetFaultTicketsAsync(null, cancellationToken))
+            .FirstOrDefault(item => item.KargonomiShipments.Any(shipment => shipment.ExternalShipmentId == externalShipmentId))
+            ?? throw new ResourceNotFoundException("Arıza Kargonomi gönderisi eşleşmedi.");
+        var shipment = ticket.KargonomiShipments.First(item => item.ExternalShipmentId == externalShipmentId);
+        shipment.ApplyUpdate(status, statusLabel, trackingNumber, timeProvider.GetUtcNow(), description);
+        if (shipment.State == KargonomiShipmentState.Delivered)
+        {
+            if (shipment.Direction == FaultKargonomiShipmentDirection.ToWorkshop && ticket.Status == FaultStatus.WorkshopShipmentInTransit)
+                ticket.MarkWorkshopReceived(SystemActorId, timeProvider.GetTurkeyNow(), "Atölye kargosu teslim edildi.");
+            else if (shipment.Direction == FaultKargonomiShipmentDirection.ToCustomer && ticket.Status == FaultStatus.CustomerShipmentInTransit)
+                ticket.Close(SystemActorId, timeProvider.GetTurkeyNow(), "Onarılan kit müşteriye teslim edildi.");
+        }
+        await repository.SaveChangesAsync(cancellationToken);
+    }
+
+    private static FaultKargonomiShipmentResponse MapFault(FaultKargonomiShipment shipment) =>
+        new(shipment.Id, shipment.FaultTicketId, shipment.Direction, shipment.ExternalShipmentId, shipment.RecipientName,
+            shipment.RecipientAddress, shipment.TrackingNumber, shipment.Carrier, shipment.StatusLabel, shipment.State,
+            shipment.LastError, shipment.UpdatedAt);
     public async Task<KargonomiShipmentBatchResponse> StartForOrderAsync(Guid orderId,
         IReadOnlyCollection<Guid>? studentIds, CancellationToken cancellationToken)
     {
@@ -126,8 +193,12 @@ public sealed class KargonomiShippingService(
     public async Task ApplyWebhookAsync(int externalShipmentId, string? status, string? statusLabel,
         string? trackingNumber, string? description, CancellationToken cancellationToken)
     {
-        var shipment = await repository.GetKargonomiShipmentByExternalIdAsync(externalShipmentId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Kargonomi gönderisi eşleşmedi.");
+        var shipment = await repository.GetKargonomiShipmentByExternalIdAsync(externalShipmentId, cancellationToken);
+        if (shipment is null)
+        {
+            await ApplyFaultWebhookAsync(externalShipmentId, status, statusLabel, trackingNumber, description, cancellationToken);
+            return;
+        }
         shipment.ApplyUpdate(status, statusLabel, trackingNumber, timeProvider.GetUtcNow(), description);
         await repository.SaveChangesAsync(cancellationToken);
     }

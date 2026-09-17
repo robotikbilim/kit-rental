@@ -3,7 +3,7 @@ using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddKitRentalObservability();
-// The standalone React UI uses bearer tokens, never cross-origin cookies.
+// The MVC UI uses the gateway with server-side authentication.
 // An explicit origin list can be configured without changing either application.
 builder.Services.AddCors(options => options.AddPolicy("StandaloneUi", policy =>
 {

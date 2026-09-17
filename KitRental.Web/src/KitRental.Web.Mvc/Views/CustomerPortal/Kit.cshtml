@@ -10,7 +10,7 @@
 @{
     ViewData["Title"] = Model.Kit.KitName;
     string UnitStatus(int value) => value switch { 1 => "Hazır", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimat yolunda", 5 => "Kullanımınızda", 6 => "Geri gönderiliyor", 7 => "Kontrolde", 8 => "Serviste", _ => "İşlemde" };
-    string FaultStatus(int value) => value switch { 1 => "Kayıt açıldı", 2 => "İnceleniyor", 3 => "Bilgi bekleniyor", 4 => "Gönderim bekleniyor", 5 => "Serviste", 6 => "Geri gönderiliyor", 7 => "Çözüldü", 8 => "Tamamlandı", _ => "İşlemde" };
+    string FaultStatus(int value) => value switch { 1 => "Kayıt açıldı", 2 => "İnceleniyor", 3 => "Bilgi bekleniyor", 4 => "Kit bekleniyor", 5 => "Eski servis süreci", 6 => "Eski kargo süreci", 7 => "Eski çözüldü", 8 => "Tamamlandı", 9 => "Kabul edildi", 10 => "Reddedildi", 11 => "Uzaktan destekle çözüldü", 12 => "Kargo bekliyor", 13 => "Atölyeye kargolandı", 14 => "Atölyeye geldi", 15 => "Arıza giderildi", _ => "İşlemde" };
 }
 <a class="back-link" asp-action="Index">← Kitlerime dön</a>
 <section class="portal-kit-detail-hero">

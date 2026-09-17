@@ -905,7 +905,7 @@ public sealed class OperationsService(
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
         var ticket = await repository.GetFaultTicketAsync(faultId, cancellationToken)
             ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
-        if (ticket.ProductUnitId != unit.Id || ticket.Status is FaultStatus.Resolved or FaultStatus.Closed)
+        if (ticket.ProductUnitId != unit.Id || ticket.Status is FaultStatus.Resolved or FaultStatus.RemoteResolved or FaultStatus.Rejected or FaultStatus.Closed)
             throw new ConflictException("fault.edit_not_allowed", "Bu arıza kaydı güncellenemez.");
         ticket.UpdatePublicDetails(ticket.Category, description, reporterName, reporterPhone, reporterAddress,
             CoordinatesAreValid(latitude, longitude) ? latitude : null,
@@ -1105,8 +1105,6 @@ public sealed class OperationsService(
                 ticket.AttachmentUrl);
         });
 
-        items = items.Where(item => item.ApprovalStatus is FaultApprovalStatus.NotRequired or FaultApprovalStatus.Approved);
-
         if (query.CustomerId.HasValue)
             items = items.Where(item => item.CustomerId == query.CustomerId.Value);
 
@@ -1140,12 +1138,33 @@ public sealed class OperationsService(
             ordered.Skip((page - 1) * pageSize).Take(pageSize).ToArray());
     }
 
-    public async Task<FaultTicket> ChangeFaultStatusAsync(Guid ticketId, FaultStatus status, Guid actorId, string note, CancellationToken cancellationToken)
+    public async Task<FaultTicket> ChangeFaultStatusAsync(Guid ticketId, FaultStatus status, Guid actorId, string? note, CancellationToken cancellationToken)
     {
         var ticket = await repository.GetFaultTicketAsync(ticketId, cancellationToken)
             ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
         var previous = ticket.Status;
-        ticket.ChangeStatus(status, actorId, timeProvider.GetTurkeyNow(), note);
+        note = string.IsNullOrWhiteSpace(note) ? status switch
+        {
+            FaultStatus.Investigating => "Arıza incelemeye alındı.", FaultStatus.Accepted => "Arıza kabul edildi.",
+            FaultStatus.Rejected => "Arıza reddedildi.", FaultStatus.RemoteResolved => "Uzaktan destekle çözüldü.",
+            FaultStatus.AwaitingWorkshopShipment => "Atölye kargosu bekleniyor.", FaultStatus.WorkshopShipmentInTransit => "Kit atölyeye kargolandı.",
+            FaultStatus.WorkshopReceived => "Kit atölyeye ulaştı.", FaultStatus.Repaired => "Arıza giderildi.",
+            FaultStatus.Closed => "Kargo teslim edildi, arıza kapatıldı.", _ => "Arıza süreci güncellendi."
+        } : note.Trim();
+        var now = timeProvider.GetTurkeyNow();
+        switch (status)
+        {
+            case FaultStatus.Investigating: ticket.MarkInvestigating(actorId, now, note); break;
+            case FaultStatus.Accepted: ticket.Accept(actorId, now, note); break;
+            case FaultStatus.Rejected: ticket.Reject(actorId, now, note); break;
+            case FaultStatus.RemoteResolved: ticket.ResolveRemotely(actorId, now, note); break;
+            case FaultStatus.AwaitingWorkshopShipment: ticket.AwaitWorkshopShipment(actorId, now, note); break;
+            case FaultStatus.WorkshopShipmentInTransit: ticket.MarkWorkshopShipmentInTransit(actorId, now, note); break;
+            case FaultStatus.WorkshopReceived: ticket.MarkWorkshopReceived(actorId, now, note); break;
+            case FaultStatus.Repaired: ticket.MarkRepaired(actorId, now, note); break;
+            case FaultStatus.Closed: ticket.Close(actorId, now, note); break;
+            default: throw new ConflictException("fault.unsupported_transition", "Bu arıza süreci adımı artık kullanılamıyor.");
+        }
         await AddActivityAsync(ticket.ProductUnitId, ticket.AssignmentId, ticket.OrderId, null, actorId,
             actorId.ToString(), "Arıza durumu güncellendi", note, cancellationToken);
         await AuditAsync(actorId, nameof(FaultTicket), ticket.Id, "StatusChanged", previous.ToString(), ticket.Status.ToString(), cancellationToken);
@@ -1201,11 +1220,11 @@ public sealed class OperationsService(
             }
         }
         var openFaultUnitIds = faults
-            .Where(ticket => ticket.Status is not (FaultStatus.Resolved or FaultStatus.Closed))
+            .Where(ticket => ticket.Status is not (FaultStatus.Resolved or FaultStatus.RemoteResolved or FaultStatus.Rejected or FaultStatus.Closed))
             .Select(ticket => ticket.ProductUnitId)
             .ToHashSet();
         var repairedUnitIds = faults
-            .Where(ticket => ticket.Status is FaultStatus.Resolved or FaultStatus.Closed)
+            .Where(ticket => ticket.Status is FaultStatus.Resolved or FaultStatus.RemoteResolved or FaultStatus.Repaired or FaultStatus.Closed)
             .Select(ticket => ticket.ProductUnitId)
             .ToHashSet();
         var faultyUnitIds = units
