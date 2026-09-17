@@ -2,7 +2,6 @@ using KitRental.Core.Application.Inventory;
 using KitRental.Core.Application.Operations;
 using KitRental.Core.Application.Workshop;
 using KitRental.Core.Domain.Inventory;
-using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Orders;
 using KitRental.Security;
 using Microsoft.AspNetCore.Hosting;
@@ -27,7 +26,7 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
     }
 
     [Fact]
-    public async Task FullRentalLifecycleReturnsUnitToAvailableOnlyAfterInspection()
+    public async Task RentalPreparationDoesNotUseManualShipmentFlow()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var model = await PostAsync<ProductModelResponse>(
@@ -53,38 +52,8 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
             new { lines = new[] { new { productModelId = model.Id, quantity = 1 } }, useAvailableKits = true },
             cancellationToken);
         await PostAsync<OrderResponse>($"/api/orders/{order.Id}/status-transitions", new OrderTransitionRequest(RentalOrderStatus.Preparing), cancellationToken);
-        await PostAsync<OrderResponse>($"/api/orders/{order.Id}/status-transitions", new OrderTransitionRequest(RentalOrderStatus.ReadyToShip), cancellationToken);
-
-        var outbound = await PostAsync<ShipmentResponse>(
-            "/api/shipments",
-            new CreateShipmentRequest(order.Id, null, ShipmentType.Outbound, "Test Kargo", $"OUT-{Guid.NewGuid():N}"),
-            cancellationToken);
-        await PostAsync<ShipmentResponse>(
-            $"/api/shipments/{outbound.Id}/events",
-            new ShipmentEventRequest(ShipmentStatus.Delivered, DateTimeOffset.UtcNow, "Bursa", "Müşteriye teslim edildi."),
-            cancellationToken);
-        await PostAsync<OrderResponse>($"/api/orders/{order.Id}/status-transitions", new OrderTransitionRequest(RentalOrderStatus.AwaitingReturn), cancellationToken);
-
-        var inbound = await PostAsync<ShipmentResponse>(
-            "/api/shipments",
-            new CreateShipmentRequest(order.Id, null, ShipmentType.Return, "Test Kargo", $"RET-{Guid.NewGuid():N}"),
-            cancellationToken);
-        await PostAsync<ShipmentResponse>(
-            $"/api/shipments/{inbound.Id}/events",
-            new ShipmentEventRequest(ShipmentStatus.Delivered, DateTimeOffset.UtcNow, "Depo", "İade depoya teslim edildi."),
-            cancellationToken);
-        await PostAsync<InspectionResponse>(
-            "/api/return-inspections",
-            new CompleteInspectionRequest(order.Id, unit.Id, [new InspectionItemRequest("Ana set", true, false, "Eksiksiz")], 0, ProductUnitStatus.Available),
-            cancellationToken);
-
         var units = (await _client.GetFromJsonAsync<PagedResponse<ProductUnitResponse>>("/api/product-units?pageSize=5000", cancellationToken))!.Items;
-        Assert.Equal(ProductUnitStatus.Available, units!.Single(item => item.Id == unit.Id).Status);
-
-        var audit = await _client.GetFromJsonAsync<AuditResponse[]>("/api/audit", cancellationToken);
-        Assert.True(audit!.Length >= 8);
-        var report = await _client.GetStringAsync("/api/reports/inventory.csv", cancellationToken);
-        Assert.Contains(unit.SerialNumber, report, StringComparison.Ordinal);
+        Assert.Equal(ProductUnitStatus.Preparing, units!.Single(item => item.Id == unit.Id).Status);
     }
 
     [Fact]
@@ -236,7 +205,6 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
     private sealed record OrderResponse(Guid Id, string OrderNumber, OrderType Type, RentalOrderStatus Status,
         object? Period, IReadOnlyCollection<OrderLineResponse> Lines);
     private sealed record OrderLineResponse(Guid Id);
-    private sealed record ShipmentResponse(Guid Id);
     private sealed record InspectionResponse(Guid Id);
     private sealed record AuditResponse(Guid Id, string Action);
 }

@@ -3,21 +3,11 @@
     ViewData["Title"] = Model.Cohort.Name;
     var studentsLocked = Model.Cohort.IsApproved;
     var openCreateStudentDialog = !ViewData.ModelState.IsValid && !Model.StudentForm.Id.HasValue;
-    IEnumerable<int?> PaginationPages(int currentPage, int totalPages)
-    {
-        var pages = new SortedSet<int> { 1, totalPages };
-        for (var pageNumber = currentPage - 2; pageNumber <= currentPage + 2; pageNumber++)
-        {
-            if (pageNumber >= 1 && pageNumber <= totalPages) pages.Add(pageNumber);
-        }
-        int? previous = null;
-        foreach (var pageNumber in pages)
-        {
-            if (previous.HasValue && pageNumber - previous.Value > 1) yield return null;
-            yield return pageNumber;
-            previous = pageNumber;
-        }
-    }
+    var shipmentsByStudentId = (Model.Cohort.KargonomiShipments ?? [])
+        .GroupBy(shipment => shipment.StudentId)
+        .ToDictionary(group => group.Key, group => group.OrderByDescending(shipment => shipment.UpdatedAt).First());
+    var hasDeletableStudents = Model.Cohort.Students.Any(student =>
+        !student.ProductUnitId.HasValue && !student.AssignmentId.HasValue && !shipmentsByStudentId.ContainsKey(student.Id));
 }
 <a class="back-link" asp-action="RentalPeriods">← Siparişlere Dön</a>
 @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
@@ -40,7 +30,7 @@
     </div>
     @if (studentsLocked)
     {
-        <div class="info-banner">Bu sipariş admin tarafından onaylandığı için kilitlendi. Bu siparişle ilgili öğrenci ekleme, düzenleme veya silme yapılamaz.</div>
+        <div class="info-banner">Bu sipariş admin tarafından onaylandığı için öğrenci ekleme ve düzenleme kilitlendi. Henüz fiziksel kit atanmamış öğrenciler silinebilir.</div>
     }
 </section>
 
@@ -104,124 +94,145 @@
         </form>
     </dialog>
 }
-<section class="portal-section">
-    <div class="section-heading"><div><span class="eyebrow">LİSTE</span><h2>Öğrenciler Ve Atanmış Kitler</h2></div><b>@Model.TotalCount / @Model.Cohort.Students.Count öğrenci</b></div>
-    <form method="get" class="portal-kit-filters student-list-filters" data-auto-filter="true">
-        <input type="hidden" name="page" value="@Model.Page" />
-        <label class="portal-kit-search">
-            <span>Öğrenci Ara</span>
-            <input type="search" name="studentQuery" value="@Model.StudentQuery" placeholder="Öğrenci, telefon, adres, kit veya QR" />
-        </label>
-        <label>
-            <span>Eğitim Kiti</span>
-            <select name="productModelId">
-                <option value="">Tüm Eğitim Kitleri</option>
-                @foreach (var kit in Model.ProductModels.OrderBy(item => item.Name))
-                {
-                    <option value="@kit.Id" selected="@(Model.ProductModelId == kit.Id)">@kit.Name (@kit.Sku)</option>
-                }
-            </select>
-        </label>
-        <label>
-            <span>Atama Durumu</span>
-            <select name="assignmentState">
-                <option value="" selected="@(string.IsNullOrWhiteSpace(Model.AssignmentState))">Tümü</option>
-                <option value="assigned" selected="@(Model.AssignmentState == "assigned")">Kit Atanmış</option>
-                <option value="unassigned" selected="@(Model.AssignmentState == "unassigned")">Kit Atanmamış</option>
-                <option value="delivered" selected="@(Model.AssignmentState == "delivered")">Teslim Formu Var</option>
-                <option value="returning" selected="@(Model.AssignmentState == "returning")">İade Sürecinde</option>
-            </select>
-        </label>
-        <label>
-            <span>Adres Durumu</span>
-            <select name="addressState">
-                <option value="" selected="@(string.IsNullOrWhiteSpace(Model.AddressState))">Tümü</option>
-                <option value="completed" selected="@(Model.AddressState == "completed")">Adres Girilmiş</option>
-                <option value="pending" selected="@(Model.AddressState == "pending")">Adres Bekleniyor</option>
-            </select>
-        </label>
-    </form>
+<section class="portal-section" id="student-addresses">
+    <div class="section-heading"><div><span class="eyebrow">ÖĞRENCİ VE KARGO LİSTESİ</span><h2>Öğrenciler Ve Gönderi Durumları</h2></div><b>@Model.Cohort.Students.Count öğrenci</b></div>
+    @if (hasDeletableStudents)
+    {
+        <form id="customer-bulk-student-delete-form"
+              asp-action="DeleteRentalPeriodStudents"
+              method="post"
+              hidden
+              data-confirm="Seçilen öğrenciler listeden silinsin mi?"
+              data-datatable-bulk-label="Sil"
+              data-datatable-bulk-class="dt-bulk-delete"
+              data-datatable-selection-attribute="canDelete"
+              data-datatable-bulk-disabled-title="Fiziksel kit atanmış veya kargo süreci başlatılmış kayıtlar silinemez.">
+            <input type="hidden" name="cohortId" value="@Model.Cohort.Id" />
+        </form>
+    }
     @if (Model.Cohort.Students.Count == 0)
     {
         <div class="empty">Bu dönemde henüz öğrenci yok.</div>
     }
-    else if (Model.TotalCount == 0)
-    {
-        <div class="empty">Filtrelerle eşleşen öğrenci bulunamadı.</div>
-    }
     else
     {
         <div class="table-scroll">
-            <table class="order-kits-table">
-                <thead><tr><th>Öğrenci</th><th>Veli telefonu</th><th>Kit</th><th>Adres Durumu</th><th>Adres</th><th>Adres Linki</th><th>Atanan fiziksel kit</th><th></th></tr></thead>
+            <table class="order-kits-table student-order-table js-datatable"
+                   data-datatable-responsive="false"
+                   data-datatable-page-length="10"
+                   data-datatable-column-filters="true"
+                   data-datatable-select="@(hasDeletableStudents ? "multi" : "false")"
+                   data-datatable-select-all-pages="true"
+                   data-datatable-bulk-actions="@(hasDeletableStudents ? "customer-bulk-student-delete-form" : string.Empty)"
+                   data-datatable-bulk-input="studentIds">
+                <thead>
+                    <tr><th><span class="visually-hidden">Seç</span></th><th>Öğrenci</th><th>Telefon</th><th>Fiziksel Kit</th><th>Kargo Durumu</th><th>Takip No</th><th>Adres</th><th>Adres Linki</th><th>İşlem</th></tr>
+                    <tr class="column-filter-row" data-dt-order="disable">
+                        <th></th>
+                        <th><input type="search" data-column-filter aria-label="Öğrenci sütununu filtrele" placeholder="Öğrenci filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter aria-label="Telefon sütununu filtrele" placeholder="Telefon filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter aria-label="Fiziksel kit sütununu filtrele" placeholder="Kit filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter aria-label="Kargo durumu sütununu filtrele" placeholder="Durum filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter aria-label="Takip numarası sütununu filtrele" placeholder="Takip no filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter aria-label="Adres sütununu filtrele" placeholder="Adres filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter aria-label="Adres linki sütununu filtrele" placeholder="Adres linki filtrele" autocomplete="off" /></th>
+                        <th></th>
+                    </tr>
+                </thead>
                 <tbody>
                 @foreach (var student in Model.Students)
                 {
                     var addressUrl = Url.Action("Index", "PublicStudentAddress", new { token = student.PublicAddressToken }, Context.Request.Scheme) ?? string.Empty;
-                    <tr>
+                    shipmentsByStudentId.TryGetValue(student.Id, out var shipment);
+                    var canDelete = !student.ProductUnitId.HasValue && !student.AssignmentId.HasValue && shipment is null;
+                    <tr data-select-value="@student.Id" data-can-delete="@canDelete.ToString().ToLowerInvariant()">
+                        <td></td>
                         <td>
-                            <strong>@student.FullName</strong>
+                            <strong class="student-name-truncate" title="@student.FullName">@student.FullName</strong>
                             @if (student.HasDeliveryForm)
                             {
                                 <small class="block-muted">Teslim: @student.DeliveredTo - @student.DeliveryPhone</small>
-                                @if (student.DeliveredAt.HasValue)
-                                {
-                                    <small class="block-muted">@student.DeliveredAt.Value.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>
-                                }
                             }
                         </td>
                         <td>@student.GuardianPhone</td>
-                        <td>@student.ProductModelName <small class="block-muted">@student.ProductModelSku</small></td>
-                        <td>@if (string.IsNullOrWhiteSpace(student.AddressLine)) { <span class="line-pending">Bekleniyor</span> } else { <span class="line-complete">Tamamlandı</span> }</td>
+                        <td>
+                            @if (student.ProductUnitId.HasValue)
+                            {
+                                <a class="student-kit-serial-truncate" title="@student.SerialNumber" asp-action="Kit" asp-route-id="@student.ProductUnitId.Value">@student.SerialNumber</a>
+                            }
+                            else
+                            {
+                                <span class="line-pending">Atanmadı</span>
+                            }
+                        </td>
+                        <td>
+                            @if (shipment is null)
+                            {
+                                <span class="line-pending">Başlatılmadı</span>
+                            }
+                            else if (shipment.State == 6)
+                            {
+                                <span class="line-pending">Hata</span>
+                            }
+                            else
+                            {
+                                <span class="line-complete">@shipment.StatusLabel</span>
+                            }
+                            @if (shipment is not null)
+                            {
+                                <small class="block-muted">@shipment.Carrier · @shipment.UpdatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(shipment?.LastError))
+                            {
+                                <small class="block-muted" title="@shipment.LastError">@shipment.LastError</small>
+                            }
+                        </td>
+                        <td>@(shipment?.TrackingNumber ?? "-")</td>
                         <td>
                             @if (!string.IsNullOrWhiteSpace(student.AddressLine))
                             {
-                                <div class="table-actions-compact">
-                                    <button class="row-link" type="button" data-fulltext-modal data-title="@($"{student.FullName} adresi")" data-text="@student.AddressLine">Göster</button>
-                                </div>
+                                <span class="student-address-truncate" title="@student.AddressLine">@student.AddressLine</span>
                             }
                         </td>
                         <td>
                             @if (!string.IsNullOrWhiteSpace(addressUrl))
                             {
-                                <div class="table-actions-compact">
-                                    <button class="row-link" type="button" data-fulltext-modal data-title="@($"{student.FullName} public adres linki")" data-text="@addressUrl">Göster</button>
-                                </div>
+                                <a class="student-public-link-truncate" href="@addressUrl" target="_blank" rel="noopener" title="@addressUrl">@addressUrl</a>
                             }
                         </td>
                         <td>
-                            @if (student.ProductUnitId.HasValue)
-                            {
-                                <a class="row-link" asp-action="Kit" asp-route-id="@student.ProductUnitId.Value">
-                                    <code class="unit-serial">@student.SerialNumber</code>
-                                </a>
-                            }
-                            else
-                            {
-                                <span>Henüz atanmadı</span>
-                            }
-                        </td>
-                        <td>
-                            <div class="student-row-actions" aria-label="Öğrenci işlemleri">
-                            @if (!studentsLocked)
-                            {
-                                <button class="icon-action icon-action-edit" type="button" title="Öğrenciyi Güncelle" aria-label="@($"{student.FullName} öğrencisini güncelle")"
-                                    data-student-edit
-                                    data-student-id="@student.Id"
-                                    data-student-name="@student.FullName"
-                                    data-student-phone="@student.GuardianPhone"
-                                    data-student-address="@student.AddressLine"
-                                    data-student-product="@student.ProductModelId">
-                                    <i data-lucide="pencil"></i><span class="visually-hidden">Güncelle</span>
-                                </button>
-                                <form asp-action="DeleteRentalPeriodStudent" method="post" class="inline-form">
-                                    <input type="hidden" name="cohortId" value="@Model.Cohort.Id" />
-                                    <input type="hidden" name="studentId" value="@student.Id" />
-                                    <button class="icon-action icon-action-delete" type="submit" title="Öğrenciyi Sil" aria-label="@($"{student.FullName} öğrencisini sil")">
-                                        <i data-lucide="trash-2"></i><span class="visually-hidden">Sil</span>
+                            <div class="student-row-actions student-shipment-actions" aria-label="Öğrenci işlemleri">
+                                @if (!studentsLocked)
+                                {
+                                    <button class="icon-action icon-action-edit" type="button" title="Öğrenciyi Güncelle" aria-label="@($"{student.FullName} öğrencisini güncelle")"
+                                        data-student-edit
+                                        data-student-id="@student.Id"
+                                        data-student-name="@student.FullName"
+                                        data-student-phone="@student.GuardianPhone"
+                                        data-student-address="@student.AddressLine"
+                                        data-student-product="@student.ProductModelId">
+                                        <i data-lucide="pencil"></i><span class="visually-hidden">Güncelle</span>
                                     </button>
-                                </form>
-                            }
+                                }
+                                @if (canDelete)
+                                {
+                                    <form asp-action="DeleteRentalPeriodStudent" method="post" class="inline-form">
+                                        <input type="hidden" name="cohortId" value="@Model.Cohort.Id" />
+                                        <input type="hidden" name="studentId" value="@student.Id" />
+                                        <button class="icon-action icon-action-delete" type="submit" title="Öğrenciyi Sil" aria-label="@($"{student.FullName} öğrencisini sil")" data-confirm="@($"{student.FullName} öğrencisi listeden silinsin mi?")">
+                                            <i data-lucide="trash-2"></i><span class="visually-hidden">Sil</span>
+                                        </button>
+                                    </form>
+                                }
+                                else if (student.ProductUnitId.HasValue || student.AssignmentId.HasValue || shipment is not null)
+                                {
+                                    var deleteDisabledTitle = student.ProductUnitId.HasValue || student.AssignmentId.HasValue
+                                        ? "Fiziksel kit atanmış kayıt silinemez."
+                                        : "Kargo süreci başlatılan kayıt silinemez.";
+                                    <button class="icon-action icon-action-delete" type="button" disabled aria-disabled="true" title="@deleteDisabledTitle" aria-label="@($"{student.FullName} öğrencisi silinemez")">
+                                        <i data-lucide="trash-2"></i><span class="visually-hidden">Silinemez</span>
+                                    </button>
+                                }
                                 @if (student.AssignmentId.HasValue)
                                 {
                                     @if (student.HasCompletedReturn)
@@ -256,27 +267,6 @@
                 </tbody>
             </table>
         </div>
-        <footer class="pagination-shell portal-kit-pagination">
-            <span>@Model.FirstItem-@Model.LastItem / @Model.TotalCount kayıt</span>
-            @if (Model.TotalPages > 1)
-            {
-                <nav class="pagination" aria-label="Öğrenci listesi sayfaları">
-                    <a class="@(Model.Page == 1 ? "disabled" : null)" aria-disabled="@(Model.Page == 1 ? "true" : null)" aria-label="Önceki sayfa" asp-action="RentalPeriod" asp-route-id="@Model.Cohort.Id" asp-route-studentQuery="@Model.StudentQuery" asp-route-productModelId="@Model.ProductModelId" asp-route-assignmentState="@Model.AssignmentState" asp-route-addressState="@Model.AddressState" asp-route-page="@(Model.Page - 1)">&lsaquo;</a>
-                    @foreach (var paginationPage in PaginationPages(Model.Page, Model.TotalPages))
-                    {
-                        if (paginationPage.HasValue)
-                        {
-                            <a class="@(paginationPage == Model.Page ? "active" : null)" aria-current="@(paginationPage == Model.Page ? "page" : null)" asp-action="RentalPeriod" asp-route-id="@Model.Cohort.Id" asp-route-studentQuery="@Model.StudentQuery" asp-route-productModelId="@Model.ProductModelId" asp-route-assignmentState="@Model.AssignmentState" asp-route-addressState="@Model.AddressState" asp-route-page="@paginationPage">@paginationPage</a>
-                        }
-                        else
-                        {
-                            <span class="pagination-ellipsis" aria-hidden="true">...</span>
-                        }
-                    }
-                    <a class="@(Model.Page == Model.TotalPages ? "disabled" : null)" aria-disabled="@(Model.Page == Model.TotalPages ? "true" : null)" aria-label="Sonraki sayfa" asp-action="RentalPeriod" asp-route-id="@Model.Cohort.Id" asp-route-studentQuery="@Model.StudentQuery" asp-route-productModelId="@Model.ProductModelId" asp-route-assignmentState="@Model.AssignmentState" asp-route-addressState="@Model.AddressState" asp-route-page="@(Model.Page + 1)">&rsaquo;</a>
-                </nav>
-            }
-        </footer>
     }
 </section>
 
@@ -285,7 +275,7 @@
     <section class="portal-section">
         <div class="section-heading"><div><span class="eyebrow">ATANMAMIŞ</span><h2>Öğrenciye teslim edilmemiş kitler</h2></div><b>@Model.Cohort.UnassignedKits.Count kit</b></div>
         <div class="table-scroll">
-            <table class="order-kits-table">
+            <table class="order-kits-table js-datatable" data-datatable-page-length="10">
                 <thead><tr><th>Kit</th><th>Seri numarası</th><th>QR</th></tr></thead>
                 <tbody>
                 @foreach (var kit in Model.Cohort.UnassignedKits)

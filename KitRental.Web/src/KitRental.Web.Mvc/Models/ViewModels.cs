@@ -365,11 +365,14 @@ public sealed record PortalRentalCohortStudentViewModel(Guid Id, string FullName
     string PublicAddressToken = "", DateTimeOffset? AddressSubmittedAt = null);
 public sealed record PortalUnassignedCohortKitViewModel(Guid ProductUnitId, Guid AssignmentId, Guid OrderId,
     Guid ProductModelId, string ProductModelName, string ProductModelSku, string SerialNumber, string QrCode);
+public sealed record PortalKargonomiShipmentViewModel(Guid Id, Guid OrderId, Guid StudentId, string Carrier,
+    string? TrackingNumber, string StatusLabel, int State, string? LastError, DateTimeOffset UpdatedAt);
 public sealed record PortalRentalCohortViewModel(Guid Id, Guid CustomerId, string Name, DateOnly StartDate,
     DateOnly EndDate, DateTimeOffset CreatedAt, Guid? OrderId, int StudentCount, int AssignedKitCount,
     IReadOnlyCollection<PortalRentalCohortStudentViewModel> Students,
     IReadOnlyCollection<PortalUnassignedCohortKitViewModel> UnassignedKits,
-    string? OrderNumber = null, int? OrderStatus = null, bool IsApproved = false);
+    string? OrderNumber = null, int? OrderStatus = null, bool IsApproved = false,
+    IReadOnlyCollection<PortalKargonomiShipmentViewModel>? KargonomiShipments = null);
 public sealed record PortalKitViewModel(Guid ProductUnitId, Guid AssignmentId, Guid OrderId, string OrderNumber,
     string KitName, string KitSku, string? ImageUrl, string SerialNumber, string QrCode, int UnitStatus, int AssignmentStatus,
     DateOnly StartDate, DateOnly EndDate, int OpenFaultCount, bool HasDeliveryForm,
@@ -502,7 +505,23 @@ public sealed record OrderDetailStudentViewModel(Guid Id, string FullName, strin
 public sealed record OrderDetailViewModel(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName,
     int Type, int Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt, Guid? RentalCohortId,
     IReadOnlyCollection<OrderDetailLineViewModel> Lines, IReadOnlyCollection<OrderDetailKitViewModel> Kits,
-    IReadOnlyCollection<OrderDetailStudentViewModel> Students);
+    IReadOnlyCollection<OrderDetailStudentViewModel> Students,
+    IReadOnlyCollection<KargonomiShipmentViewModel> KargonomiShipments);
+
+public sealed record KargonomiShipmentEventViewModel(string ExternalStatus, string StatusLabel, int State,
+    string? TrackingNumber, DateTimeOffset OccurredAt, string? Description);
+public sealed record KargonomiShipmentViewModel(Guid Id, Guid OrderId, Guid StudentId, int? ExternalShipmentId,
+    string StudentName, string Address, string Carrier, string? TrackingNumber, string? ExternalStatus,
+    string StatusLabel, int State, string? LastError, DateTimeOffset UpdatedAt,
+    IReadOnlyCollection<KargonomiShipmentEventViewModel> Events);
+public sealed record KargonomiBarcodeViewModel(string Base64);
+public sealed record KargonomiShipmentAttemptViewModel(Guid StudentId, string StudentName, bool Succeeded,
+    string Message, KargonomiShipmentViewModel? Shipment);
+public sealed record KargonomiShipmentBatchViewModel(IReadOnlyCollection<KargonomiShipmentAttemptViewModel> Items,
+    int SucceededCount, int FailedCount);
+public sealed record KargonomiShipmentListItemViewModel(Guid Id, Guid OrderId, string OrderNumber, Guid StudentId,
+    string StudentName, string? TrackingNumber, string Carrier, string StatusLabel, int State, string? LastError,
+    DateTimeOffset UpdatedAt);
 public sealed class PrepareOrderKitsViewModel
 {
     public Guid OrderId { get; set; }
@@ -515,12 +534,9 @@ public sealed class PrepareOrderKitsViewModel
     public IReadOnlyCollection<PortalRentalCohortViewModel> RentalCohorts { get; set; } = [];
 }
 public sealed record PortalFaultStatusViewModel(int Previous, int Current, DateTimeOffset OccurredAt, string Note);
-public sealed record PortalShipmentEventViewModel(int Status, DateTimeOffset OccurredAt, string Location, string Description);
-public sealed record PortalShipmentViewModel(int Type, string Carrier, string TrackingNumber, int Status,
-    IReadOnlyCollection<PortalShipmentEventViewModel> Events);
 public sealed record PortalFaultViewModel(Guid Id, string Number, Guid ProductUnitId, string KitName, string SerialNumber,
     string Category, int Severity, string Description, int Status, DateTimeOffset OpenedAt,
-    IReadOnlyCollection<PortalFaultStatusViewModel> History, IReadOnlyCollection<PortalShipmentViewModel> Shipments,
+    IReadOnlyCollection<PortalFaultStatusViewModel> History,
     string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "", int ApprovalStatus = 0,
     int Origin = 1);
 public sealed record PublicFaultKitViewModel(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);

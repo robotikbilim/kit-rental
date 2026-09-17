@@ -29,7 +29,7 @@
         </div>
         <details class="capacity-details" open="@(kit.BuildableQuantity == 0 ? "open" : null)">
             <summary>Komponent hesabını göster <span>@kit.Components.Count kalem</span></summary>
-            <div class="table-scroll"><table class="capacity-table"><thead><tr><th>Komponent</th><th>1 kit için</th><th>Mevcut stok</th><th>Desteklediği kit</th><th>Sonraki kit için eksik</th></tr></thead><tbody>
+            <div class="table-scroll"><table class="capacity-table js-datatable" data-datatable-page-length="10"><thead><tr><th>Komponent</th><th>1 kit için</th><th>Mevcut stok</th><th>Desteklediği kit</th><th>Sonraki kit için eksik</th></tr></thead><tbody>
             @foreach (var component in kit.Components.OrderBy(item => item.SupportsKitCount))
             {
                 <tr class="@(component.IsBottleneck ? "bottleneck-row" : null)">

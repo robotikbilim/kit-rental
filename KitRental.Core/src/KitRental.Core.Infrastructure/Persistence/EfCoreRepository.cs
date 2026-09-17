@@ -206,22 +206,30 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
         return Task.CompletedTask;
     }
 
-    public async Task AddShipmentAsync(Shipment shipment, CancellationToken cancellationToken)
+    public async Task AddKargonomiShipmentAsync(KargonomiShipment shipment, CancellationToken cancellationToken)
     {
-        if (await dbContext.Shipments.AnyAsync(
-                existing => existing.TrackingNumber == shipment.TrackingNumber,
-                cancellationToken))
-            throw new InvalidOperationException("Kargo takip numarası benzersiz olmalıdır.");
-        await dbContext.Shipments.AddAsync(shipment, cancellationToken);
+        if (await dbContext.KargonomiShipments.AnyAsync(item => item.OrderId == shipment.OrderId && item.StudentId == shipment.StudentId, cancellationToken))
+            throw new InvalidOperationException("Öğrenci için zaten Kargonomi gönderisi bulunmaktadır.");
+        await dbContext.KargonomiShipments.AddAsync(shipment, cancellationToken);
     }
 
-    public Task<Shipment?> GetShipmentAsync(Guid id, CancellationToken cancellationToken) =>
-        dbContext.Shipments.Include(shipment => shipment.Events).SingleOrDefaultAsync(shipment => shipment.Id == id, cancellationToken);
+    public Task<KargonomiShipment?> GetKargonomiShipmentAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.KargonomiShipments.Include(item => item.Events).SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
 
-    public async Task<IReadOnlyCollection<Shipment>> GetShipmentsAsync(Guid orderId, CancellationToken cancellationToken) =>
-        await dbContext.Shipments.Include(shipment => shipment.Events)
-            .Where(shipment => shipment.OrderId == orderId)
-            .ToArrayAsync(cancellationToken);
+    public Task<KargonomiShipment?> GetKargonomiShipmentAsync(Guid orderId, Guid studentId, CancellationToken cancellationToken) =>
+        dbContext.KargonomiShipments.Include(item => item.Events)
+            .SingleOrDefaultAsync(item => item.OrderId == orderId && item.StudentId == studentId, cancellationToken);
+
+    public Task<KargonomiShipment?> GetKargonomiShipmentByExternalIdAsync(int externalShipmentId, CancellationToken cancellationToken) =>
+        dbContext.KargonomiShipments.Include(item => item.Events)
+            .SingleOrDefaultAsync(item => item.ExternalShipmentId == externalShipmentId, cancellationToken);
+
+    public async Task<IReadOnlyCollection<KargonomiShipment>> GetKargonomiShipmentsAsync(Guid? orderId, CancellationToken cancellationToken)
+    {
+        var query = dbContext.KargonomiShipments.Include(item => item.Events).AsQueryable();
+        if (orderId.HasValue) query = query.Where(item => item.OrderId == orderId.Value);
+        return await query.OrderByDescending(item => item.UpdatedAt).ToArrayAsync(cancellationToken);
+    }
 
     public Task AddKitLocationEventAsync(KitLocationEvent locationEvent, CancellationToken cancellationToken) =>
         dbContext.KitLocationEvents.AddAsync(locationEvent, cancellationToken).AsTask();
@@ -553,6 +561,7 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
 
     private IQueryable<RentalOrder> OrdersQuery() =>
         dbContext.RentalOrders
+            .AsSplitQuery()
             .Include(order => order.DeliveryAddress)
             .Include(order => order.Lines)
             .Include(order => order.ProductUnits)

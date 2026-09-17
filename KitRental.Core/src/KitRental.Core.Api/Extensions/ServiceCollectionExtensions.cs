@@ -7,6 +7,8 @@ using KitRental.Core.Application.Procurement;
 using KitRental.Core.Application.Rentals;
 using KitRental.Core.Application.Reporting;
 using KitRental.Core.Application.Workshop;
+using KitRental.Core.Application.Kargonomi;
+using KitRental.Core.Api.Services;
 using KitRental.Core.Infrastructure.Persistence;
 
 namespace KitRental.Core.Api.Extensions;
@@ -39,6 +41,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PhysicalKitService>();
         services.AddScoped<CustomerPortalService>();
         services.AddScoped<SupplyNeedService>();
+        services.AddScoped<KargonomiShippingService>();
         services.AddSingleton<IEmailNotificationQueue, EmailNotificationQueue>();
         services.AddHostedService<EmailNotificationWorker>();
         services.AddScoped<EmailNotificationDispatcher>();
@@ -53,6 +56,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient("gemini", client =>
             client.BaseAddress = new Uri(configuration["Gemini:BaseUrl"]
                 ?? "https://generativelanguage.googleapis.com"));
+        services.AddHttpClient<KargonomiClient>();
 
         return services;
     }

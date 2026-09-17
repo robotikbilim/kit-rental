@@ -1,0 +1,25 @@
+@model IReadOnlyCollection<KargonomiShipmentListItemViewModel>
+@{
+    ViewData["Title"] = "Kargonomi Kargoları";
+    var stateLabel = (int state) => state switch { 1 => "Başlatılmadı", 2 => "Taslak", 3 => "Hazır", 4 => "Taşıma halinde", 5 => "Teslim edildi", 6 => "Hata", 7 => "İptal", _ => "Bilinmiyor" };
+}
+<div class="page-heading"><div><span class="eyebrow">OPERASYON</span><h1>Kargonomi Kargoları</h1><p>@Model.Count öğrenci gönderisi</p></div></div>
+<section class="detail-section">
+    <div class="table-scroll">
+        <table class="order-kits-table js-datatable">
+            <thead><tr><th>Sipariş</th><th>Öğrenci</th><th>Taşıyıcı</th><th>Takip No</th><th>Durum</th><th>Güncelleme</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var shipment in Model)
+            {
+                <tr>
+                    <td><a class="row-link" asp-action="OrderDetails" asp-route-id="@shipment.OrderId">@shipment.OrderNumber</a></td>
+                    <td>@shipment.StudentName</td><td>@shipment.Carrier</td><td>@(shipment.TrackingNumber ?? "-")</td>
+                    <td><span class="@(shipment.State == 6 ? "line-pending" : "line-complete")">@stateLabel(shipment.State)</span>@if (!string.IsNullOrWhiteSpace(shipment.LastError)) { <small>@shipment.LastError</small> }</td>
+                    <td>@shipment.UpdatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</td>
+                    <td><a class="row-link" asp-action="OrderDetails" asp-route-id="@shipment.OrderId" asp-fragment="kargonomi-shipments">Detay</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>

@@ -4,7 +4,7 @@ This file is the first-stop project memory for future agent work. Before scannin
 
 ## Product Purpose
 
-KitRental is a .NET 10 kit rental management system for robotics education kits. It tracks catalog models, serial-numbered physical kits, customers, rental orders, assignments, shipments, public QR flows, faults, returns, stock, warehouse components, BOMs, audits, and dashboards.
+KitRental is a .NET 10 kit rental management system for robotics education kits. It tracks catalog models, serial-numbered physical kits, customers, rental orders, assignments, Kargonomi student shipments, public QR flows, faults, returns, stock, warehouse components, BOMs, audits, and dashboards.
 
 Main user surfaces:
 
@@ -97,12 +97,12 @@ Rentals:
 - Public student address collection treats coordinates as optional: an open address is sufficient, and missing/invalid map coordinates are ignored instead of blocking save. The MVC form also offers city/district dropdowns from `wwwroot/js/turkey-address-dropdowns.js`; selected city/district are folded into the saved free-text address rather than stored in separate schema columns.
 - Admin order detail and customer portal order-period detail can export the order student/address-link list as Excel, including student full name, phone, kit, address status, address, and public link. Admin order detail also exposes a `Kargonomi` export beside the standard Excel export; it includes only students with a completed address, uses the fixed sender values from the supplied Kargonomi template, maps student name/address/phone and parses the stored `City / District - Address` prefix when present, repeats `admin@robotikbilim.com.tr` in receiver e-mail and `2` in the first package desi/weight for every row, and leaves neighborhood, order amount, later package desi/weight, and `Mail` cells blank while retaining all template headers.
 - Admin kit preparation for order-linked student cohorts can continue even when some student addresses are still missing.
-- Admin order details use a shortened order flow: approve the incoming order, create/reserve kits, then complete the order directly. The previous admin "prepare for shipment" and "mark shipped" actions are no longer shown; completion requires every order student to have an address, writes each assigned student's address to `KitLocationEvents`, moves reserved rental kits to customer/rented state, and moves purchase kits to sold state without requiring shipment statuses.
+- Admin order details use a shortened order flow: approve the incoming order, create/reserve kits for selected students from the combined DataTable, then complete the order directly. The previous admin "prepare for shipment" and "mark shipped" actions are no longer shown; completion requires every order student to have an address, writes each assigned student's address to `KitLocationEvents`, moves reserved rental kits to customer/rented state, and moves purchase kits to sold state without requiring shipment statuses.
 - Admin kit preparation assigns physical kits to order-linked students but no longer writes student address location events at reservation time; student kit location is written when the order is completed.
 - If a student address is edited from the public address form after the order is already completed, the kit's latest location history is updated from that new address.
 - In the customer portal, rental cohorts are presented as `Siparişler`: the former customer `Orders` page redirects to `RentalPeriods`, and the list shows each cohort's linked order number plus approved/unapproved state. The detail action opens the cohort's student list.
 - In the customer portal `Siparişler` list, delivered/active/completed linked orders (`Delivered`, `RentalActive`, `Completed`) display the detail label `Tamamlandı`.
-- Rental cohort responses include `IsApproved`; once the linked order reaches `Approved` or any later non-cancelled/non-rejected status, the customer portal treats the student list/order as locked only for student-list mutations. Student add/update/import/delete and order-period plan edits are hidden in MVC and rejected by the application service/API, while linked-kit fault reporting and return request flows remain available.
+- Rental cohort responses include `IsApproved`; once the linked order reaches `Approved` or any later non-cancelled/non-rejected status, the customer portal locks student add/update/import and order-period plan edits, while linked-kit fault reporting and return request flows remain available. Student deletion is governed separately: approval alone does not block deletion, but a student with a physical-kit assignment or Kargonomi shipment cannot be deleted.
 - Admin approval and kit preparation for orders linked to TACEV rental cohorts do not geocode student addresses; the student free-text address is used as entered.
 - Admin order kit preparation can select a customer's rental cohort. When selected, kit quantities are calculated from unassigned cohort students, and reserved/created kits are linked to the matching students.
 - When admin kit preparation assigns a rental cohort student to a kit, the generated `KitLocationEvent` uses the student's free-text address and does not copy separate student regional fields or coordinates.
@@ -111,7 +111,7 @@ Rentals:
 - Order-scoped QR label printing keeps the physical kit serial number and QR code unchanged, but includes the currently assigned cohort student's name and guardian phone when a kit is linked to a TACEV order; student address is intentionally not printed on the label. Printed labels use the ordering customer's name as the label heading and the "Arıza bildirimi veya iade için okutun" instruction; non-order label printing falls back to `Robotik Bilim`. Print CSS pins the A4 layout to fixed-width label cards instead of allowing mobile rules to collapse labels to a single column.
 - TACEV rental period student rows include assigned kit serial/QR plus delivery-form summary fields when the kit has been delivered or auto-filled from the student list.
 - TACEV rental period student rows show address status and address in separate columns; rows created for public address collection show that the address is still pending, and the single-line student filter bar includes address-status filtering.
-- Admin and customer student/address tables keep address and public-link cells empty when there is no value; filled cells expose full values through compact popup buttons and copyable public links. Global MVC table/form styling loads at 90% zoom by default, keeps table rows, filters, dropdowns, and action buttons compact, and preserves full-height/responsive desktop sidebar behavior when the sidebar is collapsed.
+- Admin and customer order-detail student tables keep address and public-link cells empty when there is no value. Both surfaces render the real address and public URL inline, truncate overflow to one line, and open the public URL in a new tab. Global MVC table/form styling loads at 80% zoom on desktop and 100% on narrow mobile screens, keeps table rows, filters, dropdowns, and action buttons compact, and preserves full-height/responsive desktop sidebar behavior when the sidebar is collapsed.
 - TACEV rental period student create/edit forms and Excel import collect student full name and guardian phone without requiring address. Separate regional student fields are no longer stored.
 - TACEV rental period student updates are handled from an in-page modal opened by compact icon-only row actions; delete, return-request, and fault actions also use compact color-coded Lucide icon buttons.
 - Removing an already assigned student from the admin order removes the student from the cohort and its kit association from the order's combined student/kit view; the physical unit remains managed by inventory history.
@@ -145,8 +145,13 @@ Returns:
 
 Shipments:
 
-- Main domain: `Shipment`, `ShipmentEvent`.
-- Shipment delivered events can advance order and kit statuses.
+- The former generic manual `Shipment` / `ShipmentEvent` domain, repository methods, API routes, MVC screens, and database tables are removed.
+- Main outbound shipping domain: `KargonomiShipment` with owned `KargonomiShipmentEvent` history, keyed uniquely by `OrderId + StudentId`.
+- `KargonomiShippingService` creates one Kargonomi shipment per addressed student, resolves the stored `City / District - Address` text, selects and confirms the fixed Aras Kargo quote, and stores external IDs/status/errors per student.
+- Kargonomi statuses can be updated through `POST /api/kargonomi/webhooks/shipment-updated` or the authenticated refresh operation. The webhook validates the raw request body against the configured secret using the `X-Webhook-Signature` HMAC-SHA256 header, parses the documented nested `shipment` payload, and ignores duplicate events.
+- Delivery status is displayed and recorded but does not automatically change the order's existing delivery/return confirmation flow.
+- Operations UI: order detail shows student and Kargonomi shipment information in one combined table; `/Operations/KargonomiShipments` provides filtering, counts, refresh, retry, order navigation, and barcode/detail actions.
+- Kargonomi credentials, webhook secret, warehouse, and sender configuration are read from the `Kargonomi` configuration section and must be supplied through environment variables, user secrets, or deployment secrets; tracked appsettings keeps secrets empty.
 
 Workshop and manufacturing:
 
@@ -203,6 +208,7 @@ Migration status:
 - `20260820162000_AddFaultTicketOrigin` adds `FaultTickets.Origin` with default `Internal`.
 - `20260820222749_AddPublicFormAccessTokens` adds `PublicFormAccessTokens` for 24-hour hashed public form access tokens.
 - `20260907120000_AddStudentAddressCollectionTokens` adds `RentalCohortStudents.PublicAddressToken` and `AddressSubmittedAt` for order-specific public student address collection.
+- `20260917134029_ReplaceManualShipmentWithKargonomi` drops `Shipments` and `ShipmentEvents`, creates `KargonomiShipments` and `KargonomiShipmentEvents`, and adds the student/order and external shipment indexes.
 
 ## Public QR Flows
 
@@ -232,6 +238,13 @@ Core API routes:
 - `POST /api/customer-portal/returns`
 - `POST /api/customer-portal/returns/{returnId}/ship`
 - `GET /api/customers/{customerId}/rental-periods`
+- `POST /api/orders/{orderId}/kargonomi/shipments`
+- `POST /api/orders/{orderId}/kargonomi/shipments/{studentId}`
+- `GET /api/orders/{orderId}/kargonomi/shipments`
+- `GET /api/kargonomi/shipments`
+- `POST /api/kargonomi/shipments/{id}/refresh`
+- `GET /api/kargonomi/shipments/{id}/barcode`
+- `POST /api/kargonomi/webhooks/shipment-updated` (secret header required)
 
 Web API client:
 
@@ -255,6 +268,11 @@ Global MVC UI behavior:
 - MVC confirmation prompts use SweetAlert2 through `data-confirm` on forms or submit buttons; avoid inline `onsubmit`/`onclick` browser `confirm(...)` dialogs.
 - Phone number inputs use a global Turkey mask in `site.js` and the MVC `[TurkishPhone]` validation attribute. Backend domain methods normalize accepted numbers with `KitRental.SharedKernel.TurkishPhoneNumber` using `libphonenumber-csharp`, storing Turkey national format.
 - User-facing button/action labels should use title case in Turkish, with each word's first letter capitalized.
+- Shared MVC layout loads Bootstrap 5.3, jQuery 3.7, DataTables 2 with Bootstrap styling, Responsive, Buttons, Select, and JSZip from CDN before the versioned local site assets.
+- Every MVC table is explicitly marked with `js-datatable`. `wwwroot/js/site.js` also enhances unmarked tables inside `main` for compatibility with already-running precompiled Razor views, and dynamically loads missing DataTables dependencies when an older compiled layout does not yet include them.
+- DataTables provide Turkish search, sorting, responsive rows, a styled working column-visibility menu, client-side paging, and opt-in multi-row checkbox selection. Client-paged tables expose page size through a `Gösterilecek Satır` dropdown button styled like the `Sütunlar` button, with 10, 25, 50, 100, and all-row choices; the old inline `kayıt göster` selector is not rendered. The generic DataTables toolbar no longer includes clipboard copy, Excel export, or print buttons; feature-specific export actions remain available on their existing page-level buttons. Tables marked `data-datatable-server="true"` or paired with a `.pagination-shell` keep their existing server-side pagination and use DataTables only for the current page's search, sorting, visibility, and selection controls.
+- DataTables table and toolbar styling is centralized in `wwwroot/css/site.css`; action/empty header columns are non-sortable, exports omit action columns, and mobile layouts use responsive detail rows instead of forcing wide horizontal tables.
+- MVC server pagination links and DataTables-generated pagination links/buttons share one global `site.css` style based on the admin order student-list pagination: single-layer 36 px bordered buttons, green active state, muted disabled state, consistent hover/focus behavior, and horizontally scrollable mobile layout. Bootstrap DataTables pagination styles only the inner `.page-link`; its outer `.page-item.dt-paging-button` remains an unstyled layout wrapper to prevent nested-square buttons.
 
 Map markers depend on latitude/longitude where present. Address text still appears in marker details.
 
@@ -334,7 +352,7 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Customer portal `Siparişler` list has a top `Yeni sipariş oluştur` button that opens a popup rental period form, where the customer can type a new period name or choose a previous period name and enter the valid rental date range; saving returns to the list with the popup closed.
 - Customer portal `Siparişler` rows open the related student-list screen. On that screen, unlocked/unapproved periods expose popup actions for single student creation and Excel bulk upload; the Excel template download link and whole-list education kit dropdown live inside the Excel upload popup, and imported rows continue through the preview screen before saving.
 - Customer portal order-period creation now suggests previously used period names from existing rental cohorts and still accepts a brand-new period name in the same field.
-- Approved customer portal order periods lock only student-list mutations. MVC hides create/import/edit/delete actions on the student-list screen and the customer-portal API rejects matching mutation attempts, but fault reporting and return request actions stay available for linked active kits.
+- Approved customer portal order periods lock create/import/edit actions but still allow deleting students who have no physical-kit assignment and no Kargonomi shipment. The customer API enforces assignment/shipment eligibility independently of approval, removes one matching kit requirement throughout the approved order lifecycle when an eligible student is deleted, and rejects deletion once a kit is assigned or shipment exists. Disabled trash actions explain the blocking reason; fault reporting and return request actions stay available for linked active kits.
 - Customer portal student list actions now use Lucide icons and an edit modal instead of navigating to a prefilled edit page.
 - Student removal after assignment anonymizes student details while preserving the rented kit/assignment as an unassigned period kit.
 - Physical kit details now show chronological operation history rows for kit creation, reservation, student assignment/removal, faults, deliveries, returns, and inspections.
@@ -400,9 +418,9 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Public student address forms require city and district selection before saving; invalid or incomplete coordinates are discarded. City/district dropdown selections are prepended to the saved address text without reintroducing separate location columns, and reopening the same public form parses that saved prefix back into the city/district dropdowns while leaving the remaining open address in the textarea. On the public address form, `Konumumu Bul` reverse-geocoding also auto-selects the matching city and district dropdown values when Nominatim returns recognizable Turkey address fields.
 - Admin order details show order-linked students, address completion status, entered addresses, and copyable public address links.
 - Customer portal order-period details also show each student's public address link and include an Excel export for the student address/link list; admin order detail has the same Excel export.
-- Admin order detail and customer portal order-period student tables show public address links through the shared `Göster` text-preview popup only; the popup's copy action is used instead of a separate row-level copy button.
+- Admin order detail and customer portal order-period student tables show the real address and public address URL directly in truncated cells; address URLs open in a new tab and no `Göster` popup button is used on these two tables.
 - Customer portal order-period student tables display address status and address in separate columns, with an `Adres Durumu` filter for completed vs pending public addresses.
-- MVC tables and filter/form panels are globally compacted for the admin and customer portals. Student address and public-link columns render a one-line truncated preview in the row and open the full value in the shared text-preview popup, so long values do not change table row height or width.
+- MVC tables and filter/form panels are globally compacted for the admin and customer portals. Student address and public-link columns render a one-line truncated preview in the row with the full value exposed by the native title tooltip, so long values do not change table row height or width.
 - Admin kit preparation for order-linked student cohorts no longer waits for all public student addresses. Students without addresses can still receive a physical kit assignment, but order completion is blocked until all student addresses are present; completion writes the student addresses into kit location history.
 - Added migration `20260907120000_AddStudentAddressCollectionTokens` for student public address token and submission timestamp columns.
 - Customer portal student create/edit and Excel import now allow orders to be sent for approval with only student full name and guardian phone; address fields are left empty until public address collection is completed.
@@ -413,7 +431,7 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - QR label print text uses enlarged, bold print-specific font sizes for barcode-printer readability on the fixed 60×30 mm label; internal spacing is minimized, the fixed student caption is omitted, and the scan instruction stays on one line.
 - Customer portal order-period student rows no longer repeat assigned kit serial/QR under the student name; the same values remain in the assigned physical kit column as a link to the portal kit detail page, while delivery summary lines starting with `Teslim:` still display under the student name.
 - On admin order details, the `Siparişi Tamamla` control remains clickable when student addresses are missing, but it shows the popup warning `Eksik adres bilgisi olan kayıtlar var, önce adresleri doldurun.` instead of submitting the completion transition. Once every student has an address, the normal completion form is shown.
-- Admin order detail paginates the student address table and the order-linked physical kit table independently with `studentPage` and `kitPage` query parameters, showing 10 rows per card and preserving the other card's current page while navigating.
+- Admin order detail loads the complete combined student/kit/shipment list into DataTables and uses client-side pagination with 10 rows per page.
 - Admin dashboard now exposes `Kit Konumlarını Güncelle` for `SystemAdmin` and `OperationsManager`. It calls Core API `POST /api/dashboard/kit-location-geocoding-jobs`, which queues all address-filled `KitLocationEvents` missing latitude/longitude for the Core API background worker instead of geocoding synchronously during the MVC request.
 - Data migration `20260907143000_SeedRedKitFaultGuides` replaces red-kit fault-guide seed rows with active kit-specific troubleshooting entries for DHT11, LDR, PIR, Ultrasonik Sensör, POT, Buton, RGB LED, LED, LED / PWM, Buzzer, and LCD. The migration resolves the red-kit product model by SKU/name/image URL and removes matching legacy general seed titles before inserting the new list.
 - Core/Identity list-style GET endpoints now return a standard paged JSON envelope with `Page`, `PageSize`, `TotalCount`, `TotalPages`, and `Items`; MVC API client unwraps `Items` for existing dropdown, export, label, and list screens while sending explicit `pageSize` for whole-list support data.
@@ -423,27 +441,41 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 
 ## Recent UI Behavior
 
-- Admin order detail student address status is derived directly from the displayed address text; any student with a non-empty address is marked `✓ Tamamlandı`.
-- Admin order detail student rows with an address and assigned kit expose a `Teslim Edildi` action. Confirming delivery writes a `DeliveryReceipt` kit-location event using the student's address and optional coordinates; the event is also used to show delivery completion and place the kit on the map.
-- Admin order detail student list supports independent `Adres Durumu` and `Teslim Durumu` filters; filtered results retain their state while paging.
-- Admin order detail student rows support page-level multi-selection and bulk `Teslim Edildi` confirmation; only students with an address and assigned kit can be selected.
-- Admin order detail bulk delivery also offers selecting all eligible students matching the active filters across every page, so users do not need to select page by page.
+- The customer portal `RentalPeriods`, `Kits`, and `Returns` DataTable wrappers have no outer border or frame; the common table and cell styling remains unchanged.
+- The customer portal `Faults` table now follows the same client-side DataTables standard and no-frame wrapper as the other customer lists, including header filters, sorting, page-length and column-visibility menus, shared pagination, and compact icon-based detail actions.
+- Every row in the customer portal `Kits` table now shows the fault-record action; it is active for assigned, non-returned kits and visibly disabled with an explanatory tooltip for unassigned or returned kits.
+
+- Customer portal \`RentalPeriods\`, \`Kits\`, and \`Returns\` list tables use the same client-side DataTables standard as the admin order detail: complete list data, compact no-horizontal-scroll layout, per-column filters in the header's top filter row, sortable columns, \`Gösterilecek Satır\` page-length menu, \`Sütunlar\` visibility menu, shared pagination styling, and icon-based row actions. Their former server-side filter forms and standalone pagination controls are no longer rendered.
+
+- Admin order detail derives address completion from the address text for filtering, selection, and shipment eligibility, but the combined student table no longer displays a separate `Adres Durumu` column.
+- Admin order detail no longer exposes a DataTables bulk `Teslim Edildi` action. Delivery confirmation endpoints remain available for existing workflows, but the combined table's bulk actions are `Sil` and `Kargoya Ver`.
+- Admin order detail no longer has a separate filter form above the combined table. DataTables provides a dedicated text filter in a second header row directly below every data-column title, plus sortable column headers, global search, a `Gösterilecek Satır` page-size dropdown button, and client-side pagination across the complete student list.
+- Admin order detail uses DataTables Select checkboxes for single or multiple row selection and shows a live selected-row count in the table toolbar. Selection checkboxes are fixed-size square controls centered vertically and horizontally in their cells; checked and indeterminate states use a soft site-brand green fill and mark instead of the browser/Bootstrap blue style. Selected rows use a soft tint derived from the active site-brand color, dark readable text, subtle brand-color separators, and a leading accent instead of DataTables' default dark-blue selection; the tint automatically follows the standard or TACEV theme. The header checkbox selects the current page, while `Tüm Sayfalardakileri Seç` selects every row matching the active filters across all client-side pages and then changes to `Tüm Seçimleri Kaldır`. The selection controls, selected-row count, and conditional bulk `Sil` / `Kargoya Ver` actions occupy their own toolbar row below the independent `Gösterilecek Satır` / `Sütunlar` row. Bulk action buttons stay hidden until at least one row is selected; deletion applies to every selected student. Bulk shipping is enabled only when every selected row has a completed address and can start a shipment; one ineligible selected row disables the whole `Kargoya Ver` action, while failed shipments remain retryable.
 - Admin order detail now presents students and their assigned physical kits in one table; admin users can delete a student before preparation starts, which removes the student and kit assignment from the order and releases the reserved physical kit back to available inventory.
-- Admin order detail uses a compact `Kite Git` action in the physical-kit column without repeating the serial number or QR text below it.
-- Admin order detail shows only `Teslim Edildi` / `Teslim Edilmedi` in the delivery-status column; the `Teslim Et` action is placed beside `Sil` at the end of the row.
-- Admin order detail places `Kargonomi` and `QR Etiketlerini Yazdır` beside `Excel Olarak İndir` above the combined student/kit table. `Kargonomi` downloads an XLSX file with the 24 supplied template columns. The combined student list also has a live search box for student name, phone, address, product, SKU, or assigned kit serial, and the query is preserved across pagination and status filters.
+- Admin order detail shows the assigned physical kit serial number as a one-line truncated link in the physical-kit column; selecting the serial opens that kit's detail page.
+- Admin order detail combined student table no longer displays a dedicated delivery-status column; delivery state remains part of the order-completion workflow but does not control table selection or expose a bulk-delivery action.
+- Admin order detail places `Kargonomi` and `QR Etiketlerini Yazdır` beside `Excel Olarak İndir` above the combined student/kit/shipment table. `Kargonomi` downloads an XLSX file with the 24 supplied template columns. The table shows shipment status, carrier/update time, tracking number, the student's real address text, public URL under the `Adres Linki` heading, and assigned kit serial; long values are truncated to one line with the full value available from the native title tooltip. Public URLs open in a new tab, and kit serial links open the physical-kit detail page. Its action column uses accessible icon-only trash and truck buttons for `Sil` and `Kargoya Ver`. `Kargoya Ver` is enabled only when the address is complete and no successful shipment exists; missing-address and already-started rows show a visibly muted, disabled truck icon, while failed shipments can be retried through the active button. Global and per-column DataTables search cover the values rendered in the student, phone, assigned kit, shipment status, tracking number, address, and address-link columns.
 - Admin order detail combined-list heading is shown only as `ÖĞRENCİ LİSTESİ`, without a secondary title or description.
-- Admin order detail no longer shows a per-row `Teslim Et` action; delivery confirmation remains available through bulk selection.
+- Admin order detail no longer shows a per-row or bulk `Teslim Et` action.
 - Admin order detail combined student table uses a narrow checkbox column and a wider student-name column.
+- Admin order detail combined student table uses fixed compact percentage widths, zero minimum cell widths, and truncated content so every column remains within the available screen width without a horizontal scrollbar or DataTables responsive child rows.
+- Admin order detail's approved-order `Kit Oluştur` action is a DataTables bulk action. It is shown only when at least one rental student has no physical-kit assignment, accepts one or more selected student rows, creates/reuses and reserves only those students' kits, and preserves the order's remaining requested quantities for later selections. Rows already assigned a kit cannot be used for this action.
 - Admin order summaries recalculate requested and assigned kit counts after an approved-order student/kit removal, excluding cancelled rental assignments.
 - Admin order completion message uses the requested wording that all student kits must be delivered; the existing address validation remains unchanged.
 
 - Customer portal rental-period student Excel exports include an `Atanan Fiziksel Kit QR Linki` column containing the assigned kit's public QR target URL when a physical kit is assigned.
-- Customer portal rental-period student lists show only the assigned physical kit serial number in the assigned-kit column, and the serial number links to the customer portal kit detail page.
+- Customer portal rental-period detail now mirrors the admin combined student table: one client-side DataTable contains checkbox selection, per-column filters, sorting, page-size and column-visibility menus, client paging, student/phone, linked physical-kit serial, Kargonomi status and tracking number, inline truncated address and `Adres Linki`, and row actions. Customers can monitor shipment status but cannot start shipments. Bulk delete remains available after admin approval whenever at least one student has neither a physical-kit assignment nor shipment; if any selected row is not deletable the bulk action is disabled. Assigned/shipment-started rows expose a disabled trash icon and are rejected by the customer API if deletion is attempted.
 - Public fault troubleshooting actions use equal-width buttons with a clear gap; they switch to equal-width stacked touch targets on narrow screens.
 - Operations `FaultGuide` requires selecting a kit before listing guides, filters entries by `ProductModelId`, and uses a shared popup for creating and editing the selected kit's guide entries. The MVC route accepts `productModelId` as the filter query parameter.
 
 ## Development Checklist
+
+## Performance and Database Notes (2026-09-17)
+
+- The relational domain foreign keys are represented with `Guid` values. No string-valued relational foreign key was found; audit/polymorphic fields such as `AuditEntries.EntityId` and `KitLocationEvents.SourceId` remain string identifiers by design and must not be converted without a domain-specific migration.
+- Added supporting indexes for assignment/order activity lookups, order-linked student filtering, order/assignment fault filtering, order-scoped kit-location history, return-inspection and stock-movement lookups, and owned collection foreign keys.
+- Order aggregate reads now use EF Core split queries because the aggregate includes multiple collection navigations (`Lines`, `ProductUnits`, and `History`); this prevents cartesian row multiplication in SQL result sets.
+- The repository still contains several intentionally broad list methods that materialize complete collections before API-level paging. These are documented follow-up hotspots: orders, customers, fault tickets, stock movements, kit-location events, rental cohorts, and Kargonomi shipments. They should be converted to server-side projection/paging in a separate compatibility-focused change.
 
 Before changing code:
 

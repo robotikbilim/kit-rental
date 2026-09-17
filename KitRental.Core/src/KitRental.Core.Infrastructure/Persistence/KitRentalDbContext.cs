@@ -26,7 +26,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
     public DbSet<RentalOrder> RentalOrders => Set<RentalOrder>();
     public DbSet<RentalAssignment> RentalAssignments => Set<RentalAssignment>();
     public DbSet<RentalCohort> RentalCohorts => Set<RentalCohort>();
-    public DbSet<Shipment> Shipments => Set<Shipment>();
+    public DbSet<KargonomiShipment> KargonomiShipments => Set<KargonomiShipment>();
     public DbSet<KitLocationEvent> KitLocationEvents => Set<KitLocationEvent>();
     public DbSet<FaultTicket> FaultTickets => Set<FaultTicket>();
     public DbSet<PublicFormAccessToken> PublicFormAccessTokens => Set<PublicFormAccessToken>();
@@ -51,7 +51,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         ConfigureOrder(modelBuilder.Entity<RentalOrder>());
         ConfigureAssignment(modelBuilder.Entity<RentalAssignment>());
         ConfigureRentalCohort(modelBuilder.Entity<RentalCohort>());
-        ConfigureShipment(modelBuilder.Entity<Shipment>());
+        ConfigureKargonomiShipment(modelBuilder.Entity<KargonomiShipment>());
         ConfigureKitLocationEvent(modelBuilder.Entity<KitLocationEvent>());
         ConfigureFaultTicket(modelBuilder.Entity<FaultTicket>());
         ConfigurePublicFormAccessToken(modelBuilder.Entity<PublicFormAccessToken>());
@@ -127,6 +127,8 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(item => item.Action).HasMaxLength(120).IsRequired();
         builder.Property(item => item.Description).HasMaxLength(1000).IsRequired();
         builder.HasIndex(item => new { item.ProductUnitId, item.OccurredAt });
+        builder.HasIndex(item => new { item.AssignmentId, item.OccurredAt });
+        builder.HasIndex(item => new { item.OrderId, item.OccurredAt });
         builder.HasOne<ProductUnit>().WithMany().HasForeignKey(item => item.ProductUnitId)
             .OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<RentalAssignment>().WithMany().HasForeignKey(item => item.AssignmentId)
@@ -196,6 +198,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             lines.WithOwner().HasForeignKey("RentalOrderId");
             lines.HasKey(line => line.Id);
             lines.Property(line => line.Id).ValueGeneratedNever();
+            lines.HasIndex(line => line.ProductModelId);
             lines.HasOne<ProductModel>().WithMany().HasForeignKey(line => line.ProductModelId).OnDelete(DeleteBehavior.Restrict);
         });
         builder.Navigation(order => order.Lines).HasField("_lines").UsePropertyAccessMode(PropertyAccessMode.Field);
@@ -206,6 +209,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             allocations.HasKey(item => item.Id);
             allocations.Property(item => item.Id).ValueGeneratedNever();
             allocations.HasIndex(item => item.ProductUnitId).IsUnique();
+            allocations.HasIndex("RentalOrderId");
             allocations.HasOne<ProductUnit>().WithMany().HasForeignKey(item => item.ProductUnitId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
@@ -218,6 +222,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             history.HasKey(item => item.Id);
             history.Property(item => item.Id).ValueGeneratedNever();
             history.Property(item => item.Reason).HasMaxLength(500).IsRequired();
+            history.HasIndex("RentalOrderId");
         });
         builder.Navigation(order => order.History).HasField("_history").UsePropertyAccessMode(PropertyAccessMode.Field);
         AddRowVersion(builder);
@@ -259,6 +264,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             students.HasIndex(item => item.AssignmentId);
             students.HasIndex(item => item.OrderId);
             students.HasIndex(item => item.ProductUnitId);
+            students.HasIndex(item => new { item.OrderId, item.IsDeleted });
             students.HasIndex(item => new { item.Latitude, item.Longitude });
             students.HasOne<ProductModel>().WithMany().HasForeignKey(item => item.ProductModelId)
                 .OnDelete(DeleteBehavior.Restrict);
@@ -273,25 +279,32 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         AddRowVersion(builder);
     }
 
-    private static void ConfigureShipment(EntityTypeBuilder<Shipment> builder)
+    private static void ConfigureKargonomiShipment(EntityTypeBuilder<KargonomiShipment> builder)
     {
-        builder.ToTable("Shipments");
-        builder.HasKey(shipment => shipment.Id);
-        builder.Property(shipment => shipment.Carrier).HasMaxLength(120).IsRequired();
-        builder.Property(shipment => shipment.TrackingNumber).HasMaxLength(160).IsRequired();
-        builder.HasIndex(shipment => shipment.TrackingNumber).IsUnique();
-        builder.HasIndex(shipment => shipment.OrderId);
-        builder.OwnsMany(shipment => shipment.Events, events =>
+        builder.ToTable("KargonomiShipments");
+        builder.HasKey(item => item.Id);
+        builder.Property(item => item.Carrier).HasMaxLength(120).IsRequired();
+        builder.Property(item => item.StatusLabel).HasMaxLength(160).IsRequired();
+        builder.Property(item => item.ExternalStatus).HasMaxLength(80);
+        builder.Property(item => item.TrackingNumber).HasMaxLength(160);
+        builder.Property(item => item.LastError).HasMaxLength(2000);
+        builder.Property(item => item.BarcodeBase64).HasColumnType("nvarchar(max)");
+        builder.HasIndex(item => new { item.OrderId, item.StudentId }).IsUnique();
+        builder.HasIndex(item => item.ExternalShipmentId).IsUnique().HasFilter("[ExternalShipmentId] IS NOT NULL");
+        builder.HasIndex(item => item.State);
+        builder.OwnsMany(item => item.Events, events =>
         {
-            events.ToTable("ShipmentEvents");
-            events.WithOwner().HasForeignKey("ShipmentId");
-            events.HasKey(item => item.Id);
-            events.Property(item => item.Id).ValueGeneratedNever();
-            events.Property(item => item.Location).HasMaxLength(200);
-            events.Property(item => item.Description).HasMaxLength(1000).IsRequired();
+            events.ToTable("KargonomiShipmentEvents");
+            events.WithOwner().HasForeignKey("KargonomiShipmentId");
+            events.HasKey(eventItem => eventItem.Id);
+            events.Property(eventItem => eventItem.Id).ValueGeneratedNever();
+            events.Property(eventItem => eventItem.ExternalStatus).HasMaxLength(80).IsRequired();
+            events.Property(eventItem => eventItem.StatusLabel).HasMaxLength(160).IsRequired();
+            events.Property(eventItem => eventItem.TrackingNumber).HasMaxLength(160);
+            events.Property(eventItem => eventItem.Description).HasMaxLength(1000);
+            events.HasIndex(eventItem => new { eventItem.OccurredAt, eventItem.ExternalStatus });
         });
-        builder.Navigation(shipment => shipment.Events).HasField("_events").UsePropertyAccessMode(PropertyAccessMode.Field);
-        AddRowVersion(builder);
+        builder.Navigation(item => item.Events).HasField("_events").UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 
     private static void ConfigureKitLocationEvent(EntityTypeBuilder<KitLocationEvent> builder)
@@ -304,6 +317,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.HasIndex(item => new { item.ProductUnitId, item.OccurredAt });
         builder.HasIndex(item => new { item.CustomerId, item.OccurredAt });
         builder.HasIndex(item => new { item.AssignmentId, item.OccurredAt });
+        builder.HasIndex(item => new { item.OrderId, item.OccurredAt });
         builder.HasIndex(item => new { item.Latitude, item.Longitude });
         builder.HasIndex(item => new { item.Source, item.SourceId });
         builder.HasOne<ProductUnit>().WithMany().HasForeignKey(item => item.ProductUnitId)
@@ -332,6 +346,8 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.HasIndex(ticket => ticket.Number).IsUnique();
         builder.HasIndex(ticket => new { ticket.CustomerId, ticket.Status });
         builder.HasIndex(ticket => ticket.ProductUnitId);
+        builder.HasIndex(ticket => new { ticket.OrderId, ticket.Status });
+        builder.HasIndex(ticket => new { ticket.AssignmentId, ticket.Status });
         builder.HasIndex(ticket => new { ticket.Status, ticket.OpenedAt });
         builder.HasIndex(ticket => new { ticket.Severity, ticket.OpenedAt });
         builder.HasIndex(ticket => new { ticket.Origin, ticket.OpenedAt });
@@ -378,12 +394,14 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.HasKey(inspection => inspection.Id);
         builder.Property(inspection => inspection.DamageCharge).HasPrecision(18, 2);
         builder.HasIndex(inspection => new { inspection.OrderId, inspection.ProductUnitId });
+        builder.HasIndex(inspection => inspection.ProductUnitId);
         builder.OwnsMany(inspection => inspection.Items, items =>
         {
             items.ToTable("InspectionItems");
             items.WithOwner().HasForeignKey("ReturnInspectionId");
             items.HasKey(item => item.Id);
             items.Property(item => item.Id).ValueGeneratedNever();
+            items.HasIndex("ReturnInspectionId");
             items.Property(item => item.Name).HasMaxLength(200).IsRequired();
             items.Property(item => item.Note).HasMaxLength(1000);
         });
@@ -453,8 +471,9 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(movement => movement.Reference).HasMaxLength(500).IsRequired();
         builder.Ignore(movement => movement.SignedQuantity);
         builder.HasIndex(movement => new { movement.ComponentId, movement.OccurredAt });
+        builder.HasIndex(movement => new { movement.StorageLocationId, movement.OccurredAt });
         builder.HasIndex(movement => movement.TransferId);
-        builder.HasIndex(movement => movement.ProductUnitId);
+        builder.HasIndex(movement => new { movement.ProductUnitId, movement.OccurredAt });
         builder.HasOne<Component>().WithMany().HasForeignKey(movement => movement.ComponentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<StorageLocation>().WithMany().HasForeignKey(movement => movement.StorageLocationId).OnDelete(DeleteBehavior.Restrict);
     }

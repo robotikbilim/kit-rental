@@ -49,7 +49,7 @@
 }
 else
 {
-    <div class="table-scroll"><table class="fault-table"><thead><tr><th>Kayıt</th><th>Kaynak</th><th>Bildiren kişi</th><th>Arıza nedeni</th><th>Önem</th><th>Durum</th><th>Süreç güncelle</th></tr></thead><tbody>
+    <div class="table-scroll"><table class="fault-table js-datatable" data-datatable-server="true"><thead><tr><th>Kayıt</th><th>Kaynak</th><th>Bildiren kişi</th><th>Arıza nedeni</th><th>Önem</th><th>Durum</th><th>Süreç güncelle</th></tr></thead><tbody>
     @foreach (var item in Model.Result.Items)
     {
         <tr>

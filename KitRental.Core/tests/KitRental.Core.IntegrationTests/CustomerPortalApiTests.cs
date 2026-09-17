@@ -476,7 +476,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
-    public async Task CustomerRentalCohortLocksApprovedStudentListAndUnlinksStudentKitAfterReturnReceived()
+    public async Task CustomerRentalCohortLocksApprovedEditsButAllowsUnassignedStudentDeletionAndUnlinksReturnedKit()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin-cohort@test.local", "SystemAdmin", null));
@@ -503,11 +503,21 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             cancellationToken);
         await portal.DeleteAsync($"/api/customer-portal/rental-periods/{cohort.Id}/students/{editableStudent.Id}",
             cancellationToken);
+        var approvedUnassignedStudent = await PostAsync<PortalRentalCohortStudentResponse>(portal,
+            $"/api/customer-portal/rental-periods/{cohort.Id}/students",
+            new RentalCohortStudentRequest("Zeynep Yılmaz", "05320000002", "Test Mahallesi 3", model.Id),
+            cancellationToken);
         await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
+        var approvedUnassignedDelete = await portal.DeleteAsync(
+            $"/api/customer-portal/rental-periods/{cohort.Id}/students/{approvedUnassignedStudent.Id}",
+            cancellationToken);
+        Assert.Equal(System.Net.HttpStatusCode.NoContent, approvedUnassignedDelete.StatusCode);
         var orderDetail = await admin.GetFromJsonAsync<OrderDetailResponse>(
             $"/api/orders/{order.Id}", cancellationToken);
         Assert.Equal(cohort.Id, orderDetail!.RentalCohortId);
+        Assert.DoesNotContain(orderDetail.Students, item => item.Id == approvedUnassignedStudent.Id);
+        Assert.Equal(1, orderDetail.Lines.Sum(item => item.Quantity));
 
         var prepared = await PostAsync<OrderKitPreparationResponse>(admin, $"/api/orders/{order.Id}/kits",
             new { lines = Array.Empty<OrderLineRequest>(), useAvailableKits = true },

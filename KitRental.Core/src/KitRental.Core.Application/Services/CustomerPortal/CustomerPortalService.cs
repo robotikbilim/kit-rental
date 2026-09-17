@@ -310,25 +310,31 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         Guid actorId, string actorDisplayName, CancellationToken cancellationToken)
     {
         var cohort = await GetOwnedCohortAsync(customerId, cohortId, cancellationToken);
-        await EnsureCohortStudentsEditableAsync(cohort, cancellationToken);
         var student = cohort.Students.SingleOrDefault(item => item.Id == studentId && !item.IsDeleted)
             ?? throw new ResourceNotFoundException("Öğrenci bulunamadı.");
+        if (student.ProductUnitId.HasValue || student.AssignmentId.HasValue)
+            throw new ConflictException("rental_cohort.student_kit_assigned",
+                "Fiziksel kit atanmış öğrenci silinemez.");
+        if (student.OrderId.HasValue &&
+            await repository.GetKargonomiShipmentAsync(student.OrderId.Value, student.Id, cancellationToken) is not null)
+            throw new ConflictException("rental_cohort.shipment_started",
+                "Kargo süreci başlatılan öğrenci silinemez.");
         var studentName = student.FullName;
-        var unitId = student.ProductUnitId;
-        var assignmentId = student.AssignmentId;
-        var orderId = student.OrderId;
         var linkedOrder = await GetSingleLinkedOrderAsync(cohort, cancellationToken);
         cohort.RemoveStudent(studentId);
-        var customer = await repository.GetCustomerAsync(customerId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Müşteri hesabı bulunamadı.");
-        await SyncLinkedUnapprovedOrderAfterStudentChangeAsync(customer, cohort, actorId, cancellationToken,
-            linkedOrder);
-        if (unitId.HasValue)
-            await AddActivityAsync(unitId.Value, assignmentId, orderId, studentId, actorId, actorDisplayName,
-                "Öğrenci ataması kaldırıldı", $"{studentName} öğrencisi kit üzerinden kaldırıldı.",
-                cancellationToken);
+        if (linkedOrder is not null && IsApprovedOrderStatus(linkedOrder.Status))
+        {
+            linkedOrder.RemoveOneKitRequirement(student.ProductModelId);
+        }
+        else
+        {
+            var customer = await repository.GetCustomerAsync(customerId, cancellationToken)
+                ?? throw new ResourceNotFoundException("Müşteri hesabı bulunamadı.");
+            await SyncLinkedUnapprovedOrderAfterStudentChangeAsync(customer, cohort, actorId, cancellationToken,
+                linkedOrder);
+        }
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId, nameof(RentalCohort),
-            cohort.Id, "StudentRemoved", studentName, unitId?.ToString(), TurkeyTime.Now()), cancellationToken);
+            cohort.Id, "StudentRemoved", studentName, null, TurkeyTime.Now()), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
     }
 
@@ -695,18 +701,10 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
 
     private async Task EnsureCohortStudentsEditableAsync(RentalCohort cohort, CancellationToken cancellationToken)
     {
-        var linkedOrderIds = cohort.Students
-            .Where(item => !item.IsDeleted && item.OrderId.HasValue)
-            .Select(item => item.OrderId!.Value)
-            .Distinct()
-            .ToArray();
-        foreach (var orderId in linkedOrderIds)
-        {
-            var order = await repository.GetOrderAsync(orderId, cancellationToken);
-            if (order is not null && IsApprovedOrderStatus(order.Status))
-                throw new ConflictException("rental_cohort.students_locked",
-                    "Onaylanmış kiralama dönemlerinde öğrenci ekleme, güncelleme veya silme yapılamaz.");
-        }
+        var linkedOrder = await GetSingleLinkedOrderAsync(cohort, cancellationToken);
+        if (linkedOrder is not null && IsApprovedOrderStatus(linkedOrder.Status))
+            throw new ConflictException("rental_cohort.students_locked",
+                "Onaylanmış kiralama dönemlerinde öğrenci ekleme veya güncelleme yapılamaz.");
     }
 
     private async Task EnsureCohortPlanEditableAsync(RentalCohort cohort, CancellationToken cancellationToken)
@@ -772,17 +770,30 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
     private async Task<RentalOrder?> GetSingleLinkedOrderAsync(RentalCohort cohort,
         CancellationToken cancellationToken)
     {
-        var linkedOrderIds = cohort.Students
+        var activeOrderIds = cohort.Students
             .Where(item => !item.IsDeleted && item.OrderId.HasValue)
             .Select(item => item.OrderId!.Value)
             .Distinct()
             .ToArray();
-        if (linkedOrderIds.Length == 0) return null;
-        if (linkedOrderIds.Length > 1)
+        if (activeOrderIds.Length > 1)
             throw new ConflictException("rental_cohort.multiple_orders",
                 "Bu sipariş dönemi birden fazla siparişe bağlı olduğu için düzenlenemez.");
-        return await repository.GetOrderAsync(linkedOrderIds[0], cancellationToken)
-            ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
+        if (activeOrderIds.Length == 1)
+            return await repository.GetOrderAsync(activeOrderIds[0], cancellationToken)
+                ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
+
+        RentalOrder? latestExistingOrder = null;
+        foreach (var historicalOrderId in cohort.Students
+                     .Where(item => item.OrderId.HasValue)
+                     .Select(item => item.OrderId!.Value)
+                     .Distinct())
+        {
+            var historicalOrder = await repository.GetOrderAsync(historicalOrderId, cancellationToken);
+            if (historicalOrder is not null &&
+                (latestExistingOrder is null || historicalOrder.CreatedAt > latestExistingOrder.CreatedAt))
+                latestExistingOrder = historicalOrder;
+        }
+        return latestExistingOrder;
     }
 
     private async Task<IReadOnlyCollection<PortalRentalCohortResponse>> MapRentalCohortsAsync(Guid customerId,
@@ -848,19 +859,22 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 deleted.OrderId ?? Guid.Empty, unit.ProductModelId, model?.Name ?? "Eğitim kiti", model?.Sku ?? "-",
                 unit.SerialNumber, unit.QrCode));
         }
-        var linkedOrderIds = cohort.Students.Where(item => !item.IsDeleted && item.OrderId.HasValue)
-            .Select(item => item.OrderId!.Value)
-            .Distinct()
-            .ToArray();
-        var linkedOrder = linkedOrderIds.Length == 1
-            ? await repository.GetOrderAsync(linkedOrderIds[0], cancellationToken)
-            : null;
+        var linkedOrder = await GetSingleLinkedOrderAsync(cohort, cancellationToken);
+        IReadOnlyCollection<PortalKargonomiShipmentResponse> shipments = [];
+        if (linkedOrder is not null)
+        {
+            shipments = (await repository.GetKargonomiShipmentsAsync(linkedOrder.Id, cancellationToken))
+                .Select(item => new PortalKargonomiShipmentResponse(item.Id, item.OrderId, item.StudentId,
+                    item.Carrier, item.TrackingNumber, item.StatusLabel, item.State, item.LastError, item.UpdatedAt))
+                .OrderByDescending(item => item.UpdatedAt)
+                .ToArray();
+        }
         return new PortalRentalCohortResponse(cohort.Id, cohort.CustomerId, cohort.Name, cohort.StartDate,
-            cohort.EndDate, cohort.CreatedAt, linkedOrderIds.Length == 1 ? linkedOrderIds[0] : null,
+            cohort.EndDate, cohort.CreatedAt, linkedOrder?.Id,
             students.Count, students.Count(item => item.ProductUnitId.HasValue),
             students.OrderBy(item => item.FullName).ToArray(),
             unassigned.OrderBy(item => item.SerialNumber).ToArray(), linkedOrder?.OrderNumber, linkedOrder?.Status,
-            linkedOrder is not null && IsApprovedOrderStatus(linkedOrder.Status));
+            linkedOrder is not null && IsApprovedOrderStatus(linkedOrder.Status), shipments);
     }
 
     private static bool IsApprovedOrderStatus(RentalOrderStatus status) =>
@@ -902,15 +916,10 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             var unit = await repository.GetProductUnitAsync(ticket.ProductUnitId, cancellationToken);
             var modelName = unit is not null && models.TryGetValue(unit.ProductModelId, out var model)
                 ? model.Name : "Eğitim kiti";
-            var shipments = (await repository.GetShipmentsAsync(ticket.OrderId, cancellationToken))
-                .Where(item => item.FaultTicketId == ticket.Id)
-                .Select(item => new PortalShipmentResponse(item.Type, item.Carrier, item.TrackingNumber, item.Status,
-                    item.Events.OrderBy(evt => evt.OccurredAt).Select(evt => new PortalShipmentEventResponse(evt.Status,
-                        evt.OccurredAt, evt.Location, evt.Description)).ToArray())).ToArray();
             result.Add(new PortalFaultResponse(ticket.Id, ticket.Number, ticket.ProductUnitId, modelName,
                 unit?.SerialNumber ?? "-", ticket.Category, ticket.Severity, ticket.Description, ticket.Status,
                 ticket.OpenedAt, ticket.History.OrderBy(item => item.OccurredAt).Select(item =>
-                    new PortalFaultStatusResponse(item.Previous, item.Current, item.OccurredAt, item.Note)).ToArray(), shipments,
+                    new PortalFaultStatusResponse(item.Previous, item.Current, item.OccurredAt, item.Note)).ToArray(),
                 ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress, ticket.ApprovalStatus,
                 ticket.Origin));
         }

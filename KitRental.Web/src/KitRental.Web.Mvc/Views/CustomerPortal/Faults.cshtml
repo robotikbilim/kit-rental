@@ -22,20 +22,6 @@
         _ => "Operasyon"
     };
 
-    IEnumerable<int?> PaginationPages(int currentPage, int totalPages)
-    {
-        var pages = new SortedSet<int> { 1, totalPages };
-        for (var page = Math.Max(1, currentPage - 2); page <= Math.Min(totalPages, currentPage + 2); page++)
-            pages.Add(page);
-
-        int? previous = null;
-        foreach (var page in pages)
-        {
-            if (previous.HasValue && page - previous.Value > 1) yield return null;
-            yield return page;
-            previous = page;
-        }
-    }
 }
 
 <div class="portal-heading portal-kits-heading">
@@ -48,40 +34,6 @@
 </div>
 
 <section class="portal-kit-list-shell">
-    <form class="portal-kit-filters" asp-action="Faults" method="get" data-auto-filter="true">
-        <label class="portal-kit-search">
-            <span>Ariza ara</span>
-            <input type="search" name="query" value="@Model.Query" placeholder="Kayit no, kit, seri no veya aciklama" />
-        </label>
-        <label>
-            <span>Durum grubu</span>
-            <select name="state">
-                <option value="all" selected="@(Model.State == "all")">Tumu</option>
-                <option value="open" selected="@(Model.State == "open")">Acik arizalar</option>
-                <option value="completed" selected="@(Model.State == "completed")">Tamamlananlar</option>
-            </select>
-        </label>
-        <label>
-            <span>Durum</span>
-            <select name="status">
-                <option value="">Tum durumlar</option>
-                @for (var status = 1; status <= 8; status++)
-                {
-                    <option value="@status" selected="@(Model.Status == status)">@StatusName(status)</option>
-                }
-            </select>
-        </label>
-        <label>
-            <span>Sayfa boyutu</span>
-            <select name="pageSize">
-                @foreach (var size in new[] { 10, 25, 50 })
-                {
-                    <option value="@size" selected="@(Model.PageSize == size)">@size kayit</option>
-                }
-            </select>
-        </label>
-    </form>
-
     <div class="portal-kit-result-heading" aria-live="polite">
         <div><strong>@Model.TotalCount</strong> ariza kaydi bulundu</div>
         @if (Model.TotalCount != Model.TotalFaultCount)
@@ -92,9 +44,19 @@
 
     @if (Model.Faults.Count > 0)
     {
-        <div class="table-scroll portal-kit-table-wrap">
-            <table class="portal-kit-table">
-                <thead><tr><th>Kayit</th><th>Kaynak</th><th>Kit</th><th>Bildirim</th><th>Durum</th><th><span class="visually-hidden">Islemler</span></th></tr></thead>
+        <div class="table-scroll portal-kit-table-wrap portal-table-no-frame">
+            <table class="portal-kit-table js-datatable" data-datatable-responsive="false" data-datatable-page-length="10" data-datatable-column-filters="true">
+                <thead>
+                    <tr><th>Kayıt</th><th>Kaynak</th><th>Kit</th><th>Bildirim</th><th>Durum</th><th><span class="visually-hidden">İşlemler</span></th></tr>
+                    <tr class="column-filter-row" data-dt-order="disable">
+                        <th><input type="search" data-column-filter placeholder="Kayıt filtrele" aria-label="Kayıt sütununu filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter placeholder="Kaynak filtrele" aria-label="Kaynak sütununu filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter placeholder="Kit filtrele" aria-label="Kit sütununu filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter placeholder="Bildirim filtrele" aria-label="Bildirim sütununu filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter placeholder="Durum filtrele" aria-label="Durum sütununu filtrele" autocomplete="off" /></th>
+                        <th></th>
+                    </tr>
+                </thead>
                 <tbody>
                 @foreach (var fault in Model.Faults)
                 {
@@ -104,33 +66,16 @@
                         <td data-mobile-label="Kit"><strong>@fault.KitName</strong><small class="block-muted">@fault.SerialNumber</small></td>
                         <td data-mobile-label="Bildirim"><span class="fault-category">@fault.Category</span><p>@fault.Description</p></td>
                         <td data-mobile-label="Durum"><span class="fault-stage status-@fault.Status">@StatusName(fault.Status)</span></td>
-                        <td data-mobile-label="Islemler"><a class="row-link" asp-action="Fault" asp-route-id="@fault.Id">Detay</a></td>
+                        <td data-mobile-label="İşlemler">
+                            <a class="icon-action icon-action-list" asp-action="Fault" asp-route-id="@fault.Id" title="Arıza Detayı" aria-label="Arıza detayını aç">
+                                <i data-lucide="list"></i><span class="visually-hidden">Detay</span>
+                            </a>
+                        </td>
                     </tr>
                 }
                 </tbody>
             </table>
         </div>
-        <footer class="pagination-shell portal-kit-pagination">
-            <span>@Model.FirstItem-@Model.LastItem / @Model.TotalCount kayit</span>
-            @if (Model.TotalPages > 1)
-            {
-                <nav class="pagination" aria-label="Ariza kayitlari sayfalari">
-                    <a class="@(Model.Page == 1 ? "disabled" : null)" aria-disabled="@(Model.Page == 1 ? "true" : null)" aria-label="Onceki sayfa" asp-action="Faults" asp-route-query="@Model.Query" asp-route-status="@Model.Status" asp-route-state="@Model.State" asp-route-pageSize="@Model.PageSize" asp-route-page="@(Model.Page - 1)">&lsaquo;</a>
-                    @foreach (var paginationPage in PaginationPages(Model.Page, Model.TotalPages))
-                    {
-                        if (paginationPage.HasValue)
-                        {
-                            <a class="@(paginationPage == Model.Page ? "active" : null)" aria-current="@(paginationPage == Model.Page ? "page" : null)" asp-action="Faults" asp-route-query="@Model.Query" asp-route-status="@Model.Status" asp-route-state="@Model.State" asp-route-pageSize="@Model.PageSize" asp-route-page="@paginationPage">@paginationPage</a>
-                        }
-                        else
-                        {
-                            <span class="pagination-ellipsis" aria-hidden="true">...</span>
-                        }
-                    }
-                    <a class="@(Model.Page == Model.TotalPages ? "disabled" : null)" aria-disabled="@(Model.Page == Model.TotalPages ? "true" : null)" aria-label="Sonraki sayfa" asp-action="Faults" asp-route-query="@Model.Query" asp-route-status="@Model.Status" asp-route-state="@Model.State" asp-route-pageSize="@Model.PageSize" asp-route-page="@(Model.Page + 1)">&rsaquo;</a>
-                </nav>
-            }
-        </footer>
     }
     else
     {

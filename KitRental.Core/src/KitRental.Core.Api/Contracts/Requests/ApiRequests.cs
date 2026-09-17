@@ -43,7 +43,7 @@ public sealed record CreateOrderRequest(Guid CustomerId, Guid ProductModelId, Da
     IReadOnlyCollection<CreateOrderStudentRequest> Students);
 public sealed record OrderTransitionRequest(RentalOrderStatus Target);
 public sealed record CreateOrderKitsRequest(IReadOnlyCollection<OrderLineRequest> Lines, bool UseAvailableKits = false,
-    Guid? RentalCohortId = null);
+    Guid? RentalCohortId = null, IReadOnlyCollection<Guid>? StudentIds = null);
 public sealed record RentalCohortRequest(string Name, DateOnly StartDate, DateOnly EndDate);
 public sealed record RentalCohortStudentRequest(string FullName, string GuardianPhone, string? AddressLine,
     Guid ProductModelId);
@@ -53,8 +53,6 @@ public sealed record RentalCohortStudentImportRequest(IReadOnlyCollection<Rental
 public sealed record CreatePurchaseOrderRequest(Guid CustomerId, Guid AddressId,
     IReadOnlyCollection<OrderLineRequest> Lines);
 public sealed record CreateRentalAssignmentRequest(Guid OrderLineId, Guid CustomerId, Guid ProductUnitId, DateOnly StartDate, DateOnly EndDate);
-public sealed record CreateShipmentRequest(Guid OrderId, Guid? FaultTicketId, ShipmentType Type, string Carrier, string TrackingNumber);
-public sealed record ShipmentEventRequest(ShipmentStatus Status, DateTimeOffset OccurredAt, string Location, string Description);
 public sealed record OpenFaultRequest(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId, string Category, FaultSeverity Severity, string Description);
 public sealed record FaultStatusRequest(FaultStatus Status, string Note);
 public sealed record FaultGuideEntryRequest(string Title, string Problem, string Solution, int DisplayOrder,

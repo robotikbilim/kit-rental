@@ -4,6 +4,7 @@ using KitRental.Core.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace KitRental.Core.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(KitRentalDbContext))]
-    partial class KitRentalDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260917134029_ReplaceManualShipmentWithKargonomi")]
+    partial class ReplaceManualShipmentWithKargonomi
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -226,9 +229,9 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AssignmentId", "OccurredAt");
+                    b.HasIndex("AssignmentId");
 
-                    b.HasIndex("OrderId", "OccurredAt");
+                    b.HasIndex("OrderId");
 
                     b.HasIndex("ProductUnitId", "OccurredAt");
 
@@ -356,13 +359,13 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OrderId");
+
                     b.HasIndex("AssignmentId", "OccurredAt");
 
                     b.HasIndex("CustomerId", "OccurredAt");
 
                     b.HasIndex("Latitude", "Longitude");
-
-                    b.HasIndex("OrderId", "OccurredAt");
 
                     b.HasIndex("ProductUnitId", "OccurredAt");
 
@@ -708,8 +711,6 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProductUnitId");
-
                     b.HasIndex("OrderId", "ProductUnitId");
 
                     b.ToTable("ReturnInspections", (string)null);
@@ -855,11 +856,7 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProductUnitId");
 
-                    b.HasIndex("AssignmentId", "Status");
-
                     b.HasIndex("CustomerId", "Status");
-
-                    b.HasIndex("OrderId", "Status");
 
                     b.HasIndex("Origin", "OpenedAt");
 
@@ -1024,13 +1021,13 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ProductUnitId");
+
+                    b.HasIndex("StorageLocationId");
+
                     b.HasIndex("TransferId");
 
                     b.HasIndex("ComponentId", "OccurredAt");
-
-                    b.HasIndex("ProductUnitId", "OccurredAt");
-
-                    b.HasIndex("StorageLocationId", "OccurredAt");
 
                     b.ToTable("StockMovements", (string)null);
                 });
@@ -1631,8 +1628,6 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                             b1.HasIndex("RentalCohortId");
 
                             b1.HasIndex("Latitude", "Longitude");
-
-                            b1.HasIndex("OrderId", "IsDeleted");
 
                             b1.ToTable("RentalCohortStudents", (string)null);
 

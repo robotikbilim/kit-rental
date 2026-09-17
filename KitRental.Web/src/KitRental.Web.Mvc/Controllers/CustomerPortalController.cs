@@ -90,21 +90,14 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             _ => filtered
         };
 
-        const int pageSize = 20;
         var filteredList = filtered
             .OrderByDescending(item => item.CreatedAt)
             .ThenBy(item => item.Name)
             .ToArray();
         var totalCount = filteredList.Length;
-        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
-        var currentPage = Math.Clamp(page, 1, totalPages);
-        var pageItems = filteredList
-            .Skip((currentPage - 1) * pageSize)
-            .Take(pageSize)
-            .ToArray();
 
-        return new RentalCohortsPageViewModel(portal.CustomerName, pageItems, form, periodNameOptions,
-            normalizedPeriodName, normalizedApprovalStatus, currentPage, pageSize, totalCount);
+        return new RentalCohortsPageViewModel(portal.CustomerName, filteredList, form, periodNameOptions,
+            normalizedPeriodName, normalizedApprovalStatus, 1, Math.Max(10, totalCount), totalCount);
     }
 
     private static string? NormalizeRentalPeriodApprovalStatus(string? approvalStatus)
@@ -142,56 +135,12 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
                 AddressLine = edit.AddressLine,
                 ProductModelId = edit.ProductModelId
             };
-        var normalizedQuery = string.IsNullOrWhiteSpace(studentQuery) ? null : studentQuery.Trim();
-        var normalizedAssignmentState = NormalizeStudentAssignmentState(assignmentState);
-        var normalizedAddressState = NormalizeStudentAddressState(addressState);
-        var filtered = cohort.Students.AsEnumerable();
-        if (!string.IsNullOrWhiteSpace(normalizedQuery))
-        {
-            filtered = filtered.Where(student =>
-                student.FullName.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ||
-                student.GuardianPhone.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ||
-                student.AddressLine.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ||
-                student.ProductModelName.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ||
-                student.ProductModelSku.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ||
-                (student.SerialNumber?.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ?? false) ||
-                (student.QrCode?.Contains(normalizedQuery, StringComparison.CurrentCultureIgnoreCase) ?? false));
-        }
-        if (productModelId.HasValue)
-        {
-            filtered = filtered.Where(student => student.ProductModelId == productModelId.Value);
-        }
-        filtered = normalizedAssignmentState switch
-        {
-            "assigned" => filtered.Where(student => student.ProductUnitId.HasValue),
-            "unassigned" => filtered.Where(student => !student.ProductUnitId.HasValue),
-            "returning" => filtered.Where(student => student.HasActiveReturn),
-            "delivered" => filtered.Where(student => student.HasDeliveryForm),
-            _ => filtered
-        };
-        filtered = normalizedAddressState switch
-        {
-            "completed" => filtered.Where(student => !string.IsNullOrWhiteSpace(student.AddressLine)),
-            "pending" => filtered.Where(student => string.IsNullOrWhiteSpace(student.AddressLine)),
-            _ => filtered
-        };
-
-        const int pageSize = 20;
-        var filteredStudents = filtered
+        var allStudents = cohort.Students
             .OrderBy(student => student.FullName)
             .ThenBy(student => student.GuardianPhone)
             .ToArray();
-        var totalCount = filteredStudents.Length;
-        var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
-        var currentPage = Math.Clamp(page, 1, totalPages);
-        var pageStudents = filteredStudents
-            .Skip((currentPage - 1) * pageSize)
-            .Take(pageSize)
-            .ToArray();
-
-        return View(new RentalCohortDetailPageViewModel(cohort, form, portal.ProductModels, pageStudents,
-            normalizedQuery, productModelId, normalizedAssignmentState, normalizedAddressState, currentPage, pageSize,
-            totalCount));
+        return View(new RentalCohortDetailPageViewModel(cohort, form, portal.ProductModels, allStudents,
+            null, null, null, null, 1, Math.Max(1, allStudents.Length), allStudents.Length));
     }
 
     [HttpGet]
@@ -302,6 +251,37 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
             ? "Öğrenci listeden kaldırıldı."
             : result.Error ?? "Öğrenci kaldırılamadı.";
+        return RedirectToAction(nameof(RentalPeriod), new { id = cohortId });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteRentalPeriodStudents(Guid cohortId, Guid[]? studentIds,
+        CancellationToken cancellationToken)
+    {
+        var uniqueStudentIds = (studentIds ?? []).Where(studentId => studentId != Guid.Empty).Distinct().ToArray();
+        if (uniqueStudentIds.Length == 0)
+        {
+            TempData["Error"] = "Silmek için en az bir öğrenci seçin.";
+            return RedirectToAction(nameof(RentalPeriod), new { id = cohortId });
+        }
+
+        var deletedCount = 0;
+        string? firstError = null;
+        foreach (var studentId in uniqueStudentIds)
+        {
+            var result = await apiClient.DeleteRentalCohortStudentAsync(cohortId, studentId, cancellationToken);
+            if (result.IsSuccess)
+                deletedCount++;
+            else
+                firstError ??= result.Error;
+        }
+
+        var failedCount = uniqueStudentIds.Length - deletedCount;
+        if (failedCount == 0)
+            TempData["Success"] = $"{deletedCount} öğrenci listeden kaldırıldı.";
+        else
+            TempData["Error"] = $"{deletedCount} öğrenci silindi, {failedCount} öğrenci silinemedi. {firstError ?? "İşlem tamamlanamadı."}";
+
         return RedirectToAction(nameof(RentalPeriod), new { id = cohortId });
     }
 
@@ -503,7 +483,6 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         var normalizedQuery = query?.Trim() ?? string.Empty;
         var normalizedStatus = status is >= 1 and <= 8 ? status : null;
         var normalizedState = state is "open" or "completed" ? state : "all";
-        var normalizedPageSize = pageSize is 10 or 25 or 50 ? pageSize : 10;
         var allFaults = portal.Faults
             .OrderByDescending(item => item.OpenedAt)
             .ThenBy(item => item.Number)
@@ -527,15 +506,8 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             filteredFaults = filteredFaults.Where(item => item.Status is 7 or 8);
 
         var filtered = filteredFaults.ToArray();
-        var totalPages = Math.Max(1, (int)Math.Ceiling(filtered.Length / (double)normalizedPageSize));
-        var normalizedPage = Math.Clamp(page, 1, totalPages);
-        var pagedFaults = filtered
-            .Skip((normalizedPage - 1) * normalizedPageSize)
-            .Take(normalizedPageSize)
-            .ToArray();
-
         return View(new PortalFaultsPageViewModel(portal.CustomerName, normalizedQuery, normalizedStatus,
-            normalizedState, normalizedPage, normalizedPageSize, filtered.Length, allFaults.Length, pagedFaults));
+            normalizedState, 1, Math.Max(10, filtered.Length), filtered.Length, allFaults.Length, filtered));
     }
 
     [HttpGet]
@@ -588,16 +560,9 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         };
 
         var filtered = filteredKits.ToArray();
-        var totalPages = Math.Max(1, (int)Math.Ceiling(filtered.Length / (double)normalizedPageSize));
-        var normalizedPage = Math.Clamp(page, 1, totalPages);
-        var pagedKits = filtered
-            .Skip((normalizedPage - 1) * normalizedPageSize)
-            .Take(normalizedPageSize)
-            .ToArray();
-
         return View(new PortalKitsPageViewModel(portal.CustomerName, normalizedQuery, normalizedStatus, hasFault,
             deliveryFormMissing, normalizedAssignmentState,
-            normalizedPage, normalizedPageSize, filtered.Length, allKits.Length, pagedKits));
+            1, Math.Max(10, filtered.Length), filtered.Length, allKits.Length, filtered.ToArray()));
     }
 
     [HttpGet]
@@ -677,18 +642,12 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             .ThenBy(item => item.KitName)
             .ToArray();
 
-        var totalPages = Math.Max(1, (int)Math.Ceiling(allReturns.Length / (double)normalizedPageSize));
-        var normalizedPage = Math.Clamp(page, 1, totalPages);
-        var pagedReturns = allReturns
-            .Skip((normalizedPage - 1) * normalizedPageSize)
-            .Take(normalizedPageSize)
-            .ToArray();
-        var firstItem = allReturns.Length == 0 ? 0 : (normalizedPage - 1) * normalizedPageSize + 1;
-        var lastItem = allReturns.Length == 0 ? 0 : Math.Min(normalizedPage * normalizedPageSize, allReturns.Length);
+        var firstItem = allReturns.Length == 0 ? 0 : 1;
+        var lastItem = allReturns.Length;
 
         return View(new PortalReturnsPageViewModel(portal.CustomerName, normalizedQuery, normalizedState,
-            normalizedPage, normalizedPageSize, allReturns.Length, portal.Kits.Count, totalPages, firstItem, lastItem,
-            pagedReturns));
+            1, Math.Max(10, allReturns.Length), allReturns.Length, portal.Kits.Count, 1, firstItem, lastItem,
+            allReturns));
     }
 
     [HttpGet]

@@ -3,6 +3,313 @@
         window.lucide.createIcons({ attrs: { 'aria-hidden': 'true' } });
     }
 
+    const ensureStylesheet = (id, href) => {
+        if (document.getElementById(id) || document.querySelector(`link[href="${href}"]`)) return;
+        const link = document.createElement('link');
+        link.id = id;
+        link.rel = 'stylesheet';
+        link.href = href;
+        document.head.append(link);
+    };
+
+    const ensureScript = (id, src, ready, alwaysLoad = false) => {
+        if (!alwaysLoad && ready()) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+            const existing = document.getElementById(id) || document.querySelector(`script[src="${src}"]`);
+            if (existing && (alwaysLoad || ready())) {
+                resolve();
+                return;
+            }
+            const script = document.createElement('script');
+            const completed = () => (alwaysLoad || ready()) ? resolve() : reject(new Error(`${src} yüklendi ancak beklenen API bulunamadı.`));
+            script.addEventListener('load', completed, { once: true });
+            script.addEventListener('error', () => reject(new Error(`${src} yüklenemedi.`)), { once: true });
+            script.id = existing ? `${id}-retry` : id;
+            script.src = src;
+            document.head.append(script);
+        });
+    };
+
+    const ensureDataTableAssets = async () => {
+        ensureStylesheet('bootstrap-fallback-css', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css');
+        ensureStylesheet('datatable-bootstrap-fallback-css', 'https://cdn.datatables.net/2.1.8/css/dataTables.bootstrap5.min.css');
+        ensureStylesheet('datatable-responsive-fallback-css', 'https://cdn.datatables.net/responsive/3.0.3/css/responsive.bootstrap5.min.css');
+        ensureStylesheet('datatable-buttons-fallback-css', 'https://cdn.datatables.net/buttons/3.1.2/css/buttons.bootstrap5.min.css');
+        ensureStylesheet('datatable-select-fallback-css', 'https://cdn.datatables.net/select/2.1.0/css/select.bootstrap5.min.css');
+
+        await ensureScript('jquery-fallback', 'https://code.jquery.com/jquery-3.7.1.min.js', () => Boolean(window.jQuery));
+        await ensureScript('datatable-core-fallback', 'https://cdn.datatables.net/2.1.8/js/dataTables.min.js', () => Boolean(window.DataTable));
+        await ensureScript('datatable-bootstrap-fallback', 'https://cdn.datatables.net/2.1.8/js/dataTables.bootstrap5.min.js', () => true, true);
+        await ensureScript('datatable-responsive-fallback', 'https://cdn.datatables.net/responsive/3.0.3/js/dataTables.responsive.min.js', () => Boolean(window.DataTable?.Responsive));
+        await ensureScript('datatable-responsive-bootstrap-fallback', 'https://cdn.datatables.net/responsive/3.0.3/js/responsive.bootstrap5.min.js', () => true, true);
+        await ensureScript('datatable-buttons-fallback', 'https://cdn.datatables.net/buttons/3.1.2/js/dataTables.buttons.min.js', () => Boolean(window.DataTable?.Buttons));
+        await ensureScript('datatable-buttons-bootstrap-fallback', 'https://cdn.datatables.net/buttons/3.1.2/js/buttons.bootstrap5.min.js', () => true, true);
+        await ensureScript('datatable-buttons-colvis-fallback', 'https://cdn.datatables.net/buttons/3.1.2/js/buttons.colVis.min.js', () => Boolean(window.DataTable?.ext?.buttons?.colvis));
+        await ensureScript('datatable-select-fallback', 'https://cdn.datatables.net/select/2.1.0/js/dataTables.select.min.js', () => Boolean(window.DataTable?.render?.select));
+        await ensureScript('datatable-select-bootstrap-fallback', 'https://cdn.datatables.net/select/2.1.0/js/select.bootstrap5.min.js', () => true, true);
+    };
+
+    const setupDataTables = () => {
+        const tables = [...document.querySelectorAll('table.js-datatable, main table:not([data-datatable="false"])')];
+        if (!tables.length) return;
+
+        if (!window.DataTable) {
+            document.body.classList.add('datatable-load-failed');
+            console.error('DataTables yüklenemedi. CDN bağlantısını kontrol edin.');
+            return;
+        }
+
+        const turkish = {
+            aria: {
+                sortAscending: ': artan sıralamak için etkinleştirin',
+                sortDescending: ': azalan sıralamak için etkinleştirin'
+            },
+            buttons: {
+                colvis: 'Sütunlar',
+                pageLength: {
+                    _: 'Gösterilecek Satır',
+                    '-1': 'Gösterilecek Satır'
+                }
+            },
+            emptyTable: 'Gösterilecek kayıt bulunamadı',
+            info: '_TOTAL_ kayıttan _START_–_END_ arası gösteriliyor',
+            infoEmpty: 'Kayıt yok',
+            infoFiltered: '(_MAX_ kayıt içinden filtrelendi)',
+            loadingRecords: 'Yükleniyor…',
+            processing: 'İşleniyor…',
+            search: '',
+            searchPlaceholder: 'Tabloda ara…',
+            select: {
+                aria: {
+                    headerCheckbox: 'Bu sayfadaki tüm öğrencileri seç',
+                    rowCheckbox: 'Öğrenciyi seç'
+                },
+                rows: { _: '%d öğrenci seçildi', 0: 'Öğrenci seçilmedi', 1: '1 öğrenci seçildi' }
+            },
+            zeroRecords: 'Aramanızla eşleşen kayıt bulunamadı',
+            paginate: { first: 'İlk', last: 'Son', next: 'Sonraki', previous: 'Önceki' }
+        };
+
+        tables.forEach((table, tableIndex) => {
+            if (table.dataset.dataTableReady === 'true' || !table.tHead || !table.tBodies.length) return;
+
+            const tableRegion = table.closest('.table-scroll,.table-wrap,.unit-table-wrap,.portal-kit-table-wrap')?.parentElement;
+            const serverPaged = table.dataset.datatableServer === 'true' || Boolean(tableRegion?.querySelector(':scope > .pagination-shell'));
+            const responsive = table.dataset.datatableResponsive !== 'false';
+            const multiSelect = table.dataset.datatableSelect === 'multi' && Boolean(window.DataTable?.render?.select);
+            const selectAllPages = multiSelect && !serverPaged && table.dataset.datatableSelectAllPages === 'true';
+            const bulkActionIds = (table.dataset.datatableBulkActions || table.dataset.datatableBulkForm || '')
+                .split(',')
+                .map((id) => id.trim())
+                .filter(Boolean);
+            const bulkActions = multiSelect ? bulkActionIds
+                .map((id, index) => {
+                    const form = document.getElementById(id);
+                    return form ? {
+                        form,
+                        index,
+                        label: form.dataset.datatableBulkLabel || table.dataset.datatableBulkLabel || 'Seçilenlere Uygula',
+                        className: form.dataset.datatableBulkClass || '',
+                        selectionAttribute: form.dataset.datatableSelectionAttribute || '',
+                        disabledTitle: form.dataset.datatableBulkDisabledTitle || ''
+                    } : null;
+                })
+                .filter(Boolean) : [];
+            const headers = [...table.tHead.rows[0].cells];
+            const actionColumns = headers
+                .map((header, index) => ({ header, index }))
+                .filter(({ header }) => {
+                    const text = header.textContent.trim();
+                    return /aksiyon|işlem|seç/i.test(text) || !text;
+                })
+                .map(({ index }) => index);
+            const configurableColumns = headers
+                .map((header, index) => ({ header, index }))
+                .filter(({ index }) => !actionColumns.includes(index))
+                .map(({ index }) => index);
+
+            if (!table.id) table.id = `data-table-${tableIndex + 1}`;
+            table.classList.add('table', 'table-striped', 'table-hover', 'align-middle', 'w-100');
+            table.dataset.dataTableReady = 'true';
+
+            const utilityButtons = window.DataTable.Buttons ? [
+                {
+                    extend: 'colvis',
+                    text: '<span aria-hidden="true">☷</span> Sütunlar',
+                    titleAttr: 'Görünecek sütunları seçin',
+                    className: 'btn-sm dt-column-visibility',
+                    columns: configurableColumns,
+                    columnText: (_dataTable, index) => headers[index]?.textContent.trim() || `Sütun ${index + 1}`
+                }
+            ] : [];
+            const selectionButtons = [];
+            if (bulkActions.length && window.DataTable.Buttons) {
+                selectionButtons.push(...bulkActions.map((bulkAction) => ({
+                    text: bulkAction.label,
+                    className: `btn-sm dt-bulk-action dt-bulk-action-${bulkAction.index} d-none ${bulkAction.className}`.trim(),
+                    enabled: false,
+                    action: (_event, dataTable) => {
+                        const selectedRows = dataTable.rows({ selected: true }).nodes().toArray();
+                        const applicableRows = bulkAction.selectionAttribute
+                            ? selectedRows.filter((row) => row.dataset[bulkAction.selectionAttribute] === 'true')
+                            : selectedRows;
+                        if (bulkAction.selectionAttribute && applicableRows.length !== selectedRows.length) return;
+                        const selectedValues = applicableRows.map((row) => row.dataset.selectValue).filter(Boolean);
+                        if (!selectedValues.length) return;
+
+                        bulkAction.form.querySelectorAll('[data-datatable-selection]').forEach((input) => input.remove());
+                        selectedValues.forEach((value) => {
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = table.dataset.datatableBulkInput || 'ids';
+                            input.value = value;
+                            input.dataset.datatableSelection = 'true';
+                            bulkAction.form.append(input);
+                        });
+                        bulkAction.form.requestSubmit();
+                    }
+                })));
+            }
+            if (selectAllPages && window.DataTable.Buttons) {
+                selectionButtons.unshift({
+                    text: 'Tüm Sayfalardakileri Seç',
+                    className: 'btn-sm dt-select-all-pages',
+                    action: (_event, dataTable) => {
+                        const filteredRows = dataTable.rows({ search: 'applied', page: 'all' });
+                        const filteredCount = filteredRows.count();
+                        const selectedFilteredCount = dataTable.rows({ search: 'applied', page: 'all', selected: true }).count();
+                        if (filteredCount > 0 && selectedFilteredCount === filteredCount)
+                            filteredRows.deselect();
+                        else
+                            filteredRows.select();
+                    }
+                });
+            }
+            if (!serverPaged && window.DataTable.Buttons) {
+                utilityButtons.unshift({
+                    extend: 'pageLength',
+                    titleAttr: 'Sayfa başına gösterilecek satır sayısını seçin',
+                    className: 'btn-sm dt-page-length'
+                });
+            }
+
+            const columnDefs = actionColumns.map((targets) => ({ targets, orderable: false, searchable: false }));
+            if (multiSelect) {
+                columnDefs.unshift({
+                    targets: 0,
+                    orderable: false,
+                    searchable: false,
+                    render: window.DataTable.render.select()
+                });
+            }
+
+            try {
+                const dataTable = new DataTable(table, {
+                    language: turkish,
+                    responsive: responsive ? { details: { type: 'inline', target: 'tr' } } : false,
+                    select: multiSelect ? {
+                        style: 'multi',
+                        selector: 'td:first-child',
+                        headerCheckbox: 'select-page'
+                    } : false,
+                    autoWidth: false,
+                    deferRender: true,
+                    stateSave: !serverPaged,
+                    pageLength: Number(table.dataset.datatablePageLength || 25),
+                    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Tümü']],
+                    paging: !serverPaged,
+                    info: !serverPaged,
+                    lengthChange: !serverPaged,
+                    order: [],
+                    layout: selectionButtons.length ? {
+                        top2Start: utilityButtons.length ? { buttons: utilityButtons } : null,
+                        top2End: 'search',
+                        topStart: { buttons: { name: 'selection', buttons: selectionButtons } },
+                        topEnd: null,
+                        bottomStart: serverPaged ? null : 'info',
+                        bottomEnd: serverPaged ? null : 'paging'
+                    } : {
+                        topStart: utilityButtons.length ? { buttons: utilityButtons } : null,
+                        topEnd: 'search',
+                        bottomStart: serverPaged ? null : 'info',
+                        bottomEnd: serverPaged ? null : 'paging'
+                    },
+                    columnDefs
+                });
+                if (multiSelect) {
+                    const selectionCount = document.createElement('span');
+                    selectionCount.className = 'datatable-selection-count d-none';
+                    selectionCount.setAttribute('role', 'status');
+                    selectionCount.setAttribute('aria-live', 'polite');
+                    const selectionToolbar = dataTable.table().container()
+                        .querySelector('.dt-select-all-pages, .dt-bulk-action')
+                        ?.closest('.dt-buttons');
+                    selectionToolbar?.append(selectionCount);
+
+                    const updateSelectionUi = () => {
+                        const selectedRows = dataTable.rows({ selected: true }).nodes().toArray();
+                        const selectedCount = selectedRows.length;
+                        selectionCount.textContent = `${selectedCount} satır seçildi`;
+                        selectionCount.classList.toggle('d-none', selectedCount === 0);
+
+                        if (window.DataTable.Buttons) {
+                            bulkActions.forEach((bulkAction) => {
+                                const applicableCount = bulkAction.selectionAttribute
+                                    ? selectedRows.filter((row) => row.dataset[bulkAction.selectionAttribute] === 'true').length
+                                    : selectedCount;
+                                const allSelectedRowsAreApplicable = selectedCount > 0 && applicableCount === selectedCount;
+                                const button = dataTable.button(`.dt-bulk-action-${bulkAction.index}`);
+                                button.enable(allSelectedRowsAreApplicable);
+                                const buttonNode = button.node();
+                                const buttonElement = buttonNode?.jquery ? buttonNode[0] : buttonNode;
+                                buttonElement?.classList?.toggle('d-none', selectedCount === 0);
+                                if (buttonElement && bulkAction.disabledTitle) {
+                                    const showDisabledTitle = selectedCount > 0 && !allSelectedRowsAreApplicable;
+                                    buttonElement.title = showDisabledTitle ? bulkAction.disabledTitle : '';
+                                }
+                            });
+
+                            if (selectAllPages) {
+                                const filteredCount = dataTable.rows({ search: 'applied', page: 'all' }).count();
+                                const selectedFilteredCount = dataTable.rows({ search: 'applied', page: 'all', selected: true }).count();
+                                const selectAllButton = dataTable.button('.dt-select-all-pages');
+                                selectAllButton.enable(filteredCount > 0);
+                                selectAllButton.text(filteredCount > 0 && selectedFilteredCount === filteredCount
+                                    ? 'Tüm Seçimleri Kaldır'
+                                    : 'Tüm Sayfalardakileri Seç');
+                            }
+                        }
+                    };
+                    dataTable.on('select deselect draw', updateSelectionUi);
+                    updateSelectionUi();
+                }
+                if (table.dataset.datatableColumnFilters === 'true') {
+                    table.querySelectorAll('thead .column-filter-row [data-column-filter]').forEach((filter) => {
+                        const columnIndex = filter.closest('th')?.cellIndex;
+                        if (columnIndex === undefined) return;
+
+                        filter.value = dataTable.column(columnIndex).search();
+                        filter.addEventListener('input', () => {
+                            const column = dataTable.column(columnIndex);
+                            if (column.search() !== filter.value) column.search(filter.value).draw();
+                        });
+                    });
+                }
+            } catch (error) {
+                table.dataset.dataTableReady = 'false';
+                table.classList.add('datatable-error');
+                console.error(`DataTable başlatılamadı: ${table.id}`, error);
+            }
+        });
+    };
+
+    ensureDataTableAssets()
+        .then(setupDataTables)
+        .catch((error) => {
+            document.body.classList.add('datatable-load-failed');
+            console.error('DataTables dosyaları yüklenemedi.', error);
+        });
+
     const popupRegion = document.getElementById('popup-notifications');
     const notificationSources = [
         '.success-banner',

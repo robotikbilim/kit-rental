@@ -34,7 +34,7 @@
 }
 else
 {
-    <div class="table-scroll"><table class="orders-table"><thead><tr><th>Sipariş</th><th>Tür</th><th>Müşteri</th><th>Talep edilen kitler</th><th>Fiziksel kit</th><th>Dönem</th><th>Durum</th><th>Aksiyon</th></tr></thead><tbody>
+    <div class="table-scroll"><table class="orders-table js-datatable"><thead><tr><th>Sipariş</th><th>Tür</th><th>Müşteri</th><th>Talep edilen kitler</th><th>Fiziksel kit</th><th>Dönem</th><th>Durum</th><th>Aksiyon</th></tr></thead><tbody>
     @foreach (var item in Model)
     {
         var requestedKitCount = item.Lines.Sum(line => line.Quantity);

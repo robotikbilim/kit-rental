@@ -8,5 +8,4 @@
     <article class="done"><i></i><div><strong>Kayıt açıldı</strong><span>Arıza bildiriminiz servis ekibine iletildi.</span><small>@Model.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small></div></article>
     @foreach (var evt in Model.History) { <article class="done"><i></i><div><strong>@StatusName(evt.Current)</strong><span>@evt.Note</span><small>@evt.OccurredAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small></div></article> }
 </div></section>
-@if (Model.Shipments.Count > 0) { <section class="detail-section"><span class="eyebrow">KARGO</span><h2>Gönderim ve geri teslimat</h2><div class="shipment-grid">@foreach (var shipment in Model.Shipments) { <article><span>@(shipment.Type is 2 or 4 ? "Servise gönderim" : "Size geri gönderim")</span><h3>@shipment.Carrier</h3><strong>@shipment.TrackingNumber</strong><p>@(shipment.Status == 3 ? "Teslim edildi" : shipment.Status == 2 ? "Taşımada" : "Gönderi oluşturuldu")</p>@foreach (var evt in shipment.Events) { <small>@evt.OccurredAt.ToTurkeyTimeString("dd.MM HH:mm") · @evt.Location — @evt.Description</small> }</article> }</div></section> }
 

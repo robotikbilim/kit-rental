@@ -18,11 +18,15 @@ public sealed record PortalRentalCohortStudentResponse(Guid Id, string FullName,
     string PublicAddressToken = "", DateTimeOffset? AddressSubmittedAt = null);
 public sealed record PortalUnassignedCohortKitResponse(Guid ProductUnitId, Guid AssignmentId, Guid OrderId,
     Guid ProductModelId, string ProductModelName, string ProductModelSku, string SerialNumber, string QrCode);
+public sealed record PortalKargonomiShipmentResponse(Guid Id, Guid OrderId, Guid StudentId, string Carrier,
+    string? TrackingNumber, string StatusLabel, KargonomiShipmentState State, string? LastError,
+    DateTimeOffset UpdatedAt);
 public sealed record PortalRentalCohortResponse(Guid Id, Guid CustomerId, string Name, DateOnly StartDate,
     DateOnly EndDate, DateTimeOffset CreatedAt, Guid? OrderId, int StudentCount, int AssignedKitCount,
     IReadOnlyCollection<PortalRentalCohortStudentResponse> Students,
     IReadOnlyCollection<PortalUnassignedCohortKitResponse> UnassignedKits,
-    string? OrderNumber = null, RentalOrderStatus? OrderStatus = null, bool IsApproved = false);
+    string? OrderNumber = null, RentalOrderStatus? OrderStatus = null, bool IsApproved = false,
+    IReadOnlyCollection<PortalKargonomiShipmentResponse>? KargonomiShipments = null);
 public sealed record PortalKitResponse(Guid ProductUnitId, Guid AssignmentId, Guid OrderId, string OrderNumber,
     string KitName, string KitSku, string? ImageUrl, string SerialNumber, string QrCode, ProductUnitStatus UnitStatus,
     RentalAssignmentStatus AssignmentStatus, DateOnly StartDate, DateOnly EndDate, int OpenFaultCount,
@@ -34,12 +38,9 @@ public sealed record PortalOrderResponse(Guid Id, string OrderNumber, Guid Custo
     OrderType Type, RentalOrderStatus Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt,
     IReadOnlyCollection<PortalOrderLineResponse> Lines, int AssignedKitCount = 0);
 public sealed record PortalFaultStatusResponse(FaultStatus Previous, FaultStatus Current, DateTimeOffset OccurredAt, string Note);
-public sealed record PortalShipmentEventResponse(ShipmentStatus Status, DateTimeOffset OccurredAt, string Location, string Description);
-public sealed record PortalShipmentResponse(ShipmentType Type, string Carrier, string TrackingNumber, ShipmentStatus Status,
-    IReadOnlyCollection<PortalShipmentEventResponse> Events);
 public sealed record PortalFaultResponse(Guid Id, string Number, Guid ProductUnitId, string KitName, string SerialNumber,
     string Category, FaultSeverity Severity, string Description, FaultStatus Status, DateTimeOffset OpenedAt,
-    IReadOnlyCollection<PortalFaultStatusResponse> History, IReadOnlyCollection<PortalShipmentResponse> Shipments,
+    IReadOnlyCollection<PortalFaultStatusResponse> History,
     string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "",
     FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired, FaultOrigin Origin = FaultOrigin.Internal);
 public sealed record CustomerPortalResponse(string CustomerName, string CustomerEmail, int TotalRentedKitCount,

@@ -1,12 +1,4 @@
 @model OrderDetailViewModel
-@functions {
-    static IReadOnlyCollection<int> PaginationPages(int currentPage, int totalPages)
-    {
-        var start = Math.Max(1, currentPage - 2);
-        var end = Math.Min(totalPages, currentPage + 2);
-        return Enumerable.Range(start, end - start + 1).ToArray();
-    }
-}
 @{
     ViewData["Title"] = $"Sipariş {Model.OrderNumber}";
     var requestedCount = Model.Lines.Sum(line => line.Quantity);
@@ -14,38 +6,13 @@
     var hasIncompleteStudentAddresses = Model.Students.Count > 0 && Model.Students.Any(student => string.IsNullOrWhiteSpace(student.AddressLine));
     var hasIncompleteStudentDeliveries = Model.Students.Count > 0 && Model.Students.Any(student => !student.IsDelivered);
     var canManage = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager");
-    const int orderDetailPageSize = 10;
-    var addressState = Context.Request.Query["addressState"].ToString().Trim().ToLowerInvariant();
-    if (addressState is not ("completed" or "pending")) addressState = string.Empty;
-    var deliveryState = Context.Request.Query["deliveryState"].ToString().Trim().ToLowerInvariant();
-    if (deliveryState is not ("delivered" or "pending")) deliveryState = string.Empty;
-    var studentQuery = Context.Request.Query["studentQuery"].ToString().Trim();
-    IEnumerable<OrderDetailStudentViewModel> filteredStudents = Model.Students;
-    if (!string.IsNullOrWhiteSpace(studentQuery))
-    {
-        filteredStudents = filteredStudents.Where(student =>
-            student.FullName.Contains(studentQuery, StringComparison.CurrentCultureIgnoreCase) ||
-            student.GuardianPhone.Contains(studentQuery, StringComparison.CurrentCultureIgnoreCase) ||
-            student.AddressLine.Contains(studentQuery, StringComparison.CurrentCultureIgnoreCase) ||
-            student.ProductName.Contains(studentQuery, StringComparison.CurrentCultureIgnoreCase) ||
-            student.ProductSku.Contains(studentQuery, StringComparison.CurrentCultureIgnoreCase) ||
-            student.AssignedKitSerialNumber.Contains(studentQuery, StringComparison.CurrentCultureIgnoreCase));
-    }
-    if (addressState == "completed") filteredStudents = filteredStudents.Where(student => !string.IsNullOrWhiteSpace(student.AddressLine));
-    if (addressState == "pending") filteredStudents = filteredStudents.Where(student => string.IsNullOrWhiteSpace(student.AddressLine));
-    if (deliveryState == "delivered") filteredStudents = filteredStudents.Where(student => student.IsDelivered);
-    if (deliveryState == "pending") filteredStudents = filteredStudents.Where(student => !student.IsDelivered);
-    var filteredStudentList = filteredStudents.ToArray();
-    int ReadPositivePage(string key) =>
-        int.TryParse(Context.Request.Query[key].ToString(), out var value) && value > 0 ? value : 1;
-    var studentTotalCount = filteredStudentList.Length;
-    var studentTotalPages = Math.Max(1, (int)Math.Ceiling(studentTotalCount / (double)orderDetailPageSize));
-    var studentPage = Math.Min(ReadPositivePage("studentPage"), studentTotalPages);
-    var studentFirstItem = studentTotalCount == 0 ? 0 : (studentPage - 1) * orderDetailPageSize + 1;
-    var studentLastItem = Math.Min(studentPage * orderDetailPageSize, studentTotalCount);
-    var pagedStudents = filteredStudentList.Skip((studentPage - 1) * orderDetailPageSize).Take(orderDetailPageSize).ToArray();
-    string OrderStatus(int status) => status switch { 2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Hazırlanıyor", 5 => "Kargoya hazır", 6 => "Kargoya verildi", 13 => "Tamamlandı", _ => "İşlemde" };
     var isPurchase = Model.Type == 2;
+    var shipmentsByStudentId = Model.KargonomiShipments
+        .GroupBy(shipment => shipment.StudentId)
+        .ToDictionary(group => group.Key, group => group.OrderByDescending(shipment => shipment.UpdatedAt).First());
+    var hasKitCreatableStudents = !isPurchase && canManage && Model.Status == 3 &&
+        Model.Students.Any(student => !student.HasKitAssignment);
+    string OrderStatus(int status) => status switch { 2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Hazırlanıyor", 5 => "Kargoya hazır", 6 => "Kargoya verildi", 13 => "Tamamlandı", _ => "İşlemde" };
 }
 <div class="order-detail-heading">
     <div><a class="back-link" asp-action="Orders">← Siparişlere dön</a><span class="eyebrow">@(isPurchase ? "SATIN ALMA" : "KİRALAMA") · @Model.OrderNumber</span><h1>@Model.CustomerName</h1><p>@(isPurchase ? "Satın alma siparişi" : $"{Model.StartDate:dd.MM.yyyy} — {Model.EndDate:dd.MM.yyyy}")</p></div>
@@ -55,7 +22,7 @@
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 
 <section class="detail-section order-request-lines">
-    <div class="section-heading"><div><span class="eyebrow">TALEP LİSTESİ</span><h2>İstenen kitler ve manuel oluşturma</h2><p>@(isPurchase ? "Hazır kitler önce ayrılır; eksik miktar bileşen stoktan üretilir." : "Ürün ve adetleri düzenleyin; siparişin fiziksel kitleri rezerve edilir.")</p></div>@if (canManage && Model.Status == 3 && Model.Kits.Count == 0) { <a class="primary-action" asp-action="PrepareOrderKits" asp-route-id="@Model.Id">Kitleri Oluştur Ve Rezerve Et →</a> }</div>
+    <div class="section-heading"><div><span class="eyebrow">TALEP LİSTESİ</span><h2>İstenen kitler ve manuel oluşturma</h2><p>@(isPurchase ? "Hazır kitler önce ayrılır; eksik miktar bileşen stoktan üretilir." : "Fiziksel kitler öğrenci listesindeki seçimlerden oluşturulur ve rezerve edilir.")</p></div></div>
     <div class="order-line-cards">
     @foreach (var line in Model.Lines)
     {
@@ -78,55 +45,79 @@
 @if (!isPurchase && Model.Students.Count > 0)
 {
         <section class="detail-section" id="student-addresses">
-        <div class="section-heading"><div><span class="eyebrow">ÖĞRENCİ LİSTESİ</span></div><div class="heading-actions"><a class="secondary-action" asp-action="ExportOrderStudents" asp-route-id="@Model.Id">Excel Olarak İndir</a><a class="secondary-action" asp-action="ExportKargonomi" asp-route-id="@Model.Id">Kargonomi</a><a class="primary-action" asp-controller="PhysicalKits" asp-action="OrderLabels" asp-route-orderId="@Model.Id">QR Etiketlerini Yazdır</a></div></div>
-        <form method="get" class="portal-kit-filters student-list-filters" data-auto-filter="true">
-            <input type="hidden" name="id" value="@Model.Id" />
-            <input type="hidden" name="studentPage" value="1" />
-            <label><span>Öğrenci ara</span><input type="search" name="studentQuery" value="@studentQuery" placeholder="Ad, telefon, adres veya kit" autocomplete="off" /></label>
-            <label><span>Adres Durumu</span><select name="addressState"><option value="">Tümü</option><option value="completed" selected="@(addressState == "completed")">Adres Girilmiş</option><option value="pending" selected="@(addressState == "pending")">Adres Bekleniyor</option></select></label>
-            <label><span>Teslim Durumu</span><select name="deliveryState"><option value="">Tümü</option><option value="delivered" selected="@(deliveryState == "delivered")">Teslim Edildi</option><option value="pending" selected="@(deliveryState == "pending")">Teslim Bekleniyor</option></select></label>
-        </form>
-        <form id="bulk-student-delivery-form" asp-action="ConfirmStudentDeliveries" asp-route-id="@Model.Id" method="post">
-            <div class="bulk-selection-bar">
-                <label><input id="select-all-students" type="checkbox" aria-label="Bu sayfadaki tüm öğrencileri seç" /> Bu sayfadaki tümünü seç</label>
-                @foreach (var student in filteredStudentList.Where(student => !student.IsDelivered && !string.IsNullOrWhiteSpace(student.AddressLine) && student.HasKitAssignment))
-                {
-                    <input class="filtered-student-selection" type="hidden" name="studentIds" value="@student.Id" disabled />
-                }
-                @if (filteredStudentList.Any(student => !student.IsDelivered && !string.IsNullOrWhiteSpace(student.AddressLine) && student.HasKitAssignment))
-                {
-                    <button class="bulk-select-filtered" id="select-all-filtered-students" type="button">Filtreye uyan tüm uygun öğrencileri seç</button>
-                }
-                <button class="primary-action" id="bulk-student-delivery-button" type="submit" disabled data-confirm="Seçilen öğrenciler teslim edildi olarak işaretlensin mi?">Seçilenleri Teslim Edildi İşaretle</button>
-            </div>
-        </form>
+        <div class="section-heading"><div><span class="eyebrow">ÖĞRENCİ VE KARGO LİSTESİ</span><h2>Öğrenciler ve gönderi durumları</h2></div><div class="heading-actions"><a class="secondary-action" asp-action="ExportOrderStudents" asp-route-id="@Model.Id">Excel Olarak İndir</a><a class="secondary-action" asp-action="ExportKargonomi" asp-route-id="@Model.Id">Kargonomi</a><a class="primary-action" asp-controller="PhysicalKits" asp-action="OrderLabels" asp-route-orderId="@Model.Id">QR Etiketlerini Yazdır</a></div></div>
+        @if (canManage)
+        {
+            <form id="bulk-student-delete-form"
+                  asp-action="DeleteOrderStudents"
+                  asp-route-id="@Model.Id"
+                  method="post"
+                  hidden
+                  data-confirm="Seçilen öğrenciler ve sipariş içindeki fiziksel kit bağlantıları silinsin mi?"
+                  data-datatable-bulk-label="Sil"
+                  data-datatable-bulk-class="dt-bulk-delete"></form>
+            <form id="bulk-student-shipping-form"
+                  asp-action="StartKargonomiShipments"
+                  asp-route-id="@Model.Id"
+                  method="post"
+                  hidden
+                  data-confirm="Seçilen uygun öğrencilerin kargo gönderileri başlatılsın mı?"
+                  data-datatable-bulk-label="Kargoya Ver"
+                  data-datatable-bulk-class="dt-bulk-shipping"
+                  data-datatable-selection-attribute="canShip"
+                  data-datatable-bulk-disabled-title="Seçilen kayıtların tamamında adres bulunmalı ve kargo işlemi başlatılabilir durumda olmalıdır."></form>
+            @if (hasKitCreatableStudents)
+            {
+                <form id="bulk-student-kit-form"
+                      asp-action="CreateSelectedOrderKits"
+                      asp-route-id="@Model.Id"
+                      method="post"
+                      hidden
+                      data-confirm="Seçilen öğrenciler için fiziksel kit oluşturulup rezerve edilsin mi?"
+                      data-datatable-bulk-label="Kit Oluştur"
+                      data-datatable-bulk-class="dt-bulk-kit"
+                      data-datatable-selection-attribute="canCreateKit"
+                      data-datatable-bulk-disabled-title="Sadece henüz fiziksel kit atanmamış öğrenciler seçilebilir."></form>
+            }
+        }
         <div class="table-scroll">
-            <table class="order-kits-table student-order-table">
-                <thead><tr><th><span class="visually-hidden">Seç</span></th><th>Öğrenci</th><th>Telefon</th><th>Adres Durumu</th><th>Teslim Durumu</th><th>Fiziksel Kit</th><th>Adres</th><th>Public Link</th><th></th></tr></thead>
+            <table class="order-kits-table student-order-table js-datatable"
+                   data-datatable-responsive="false"
+                   data-datatable-page-length="10"
+                   data-datatable-column-filters="true"
+                   data-datatable-select="@(canManage ? "multi" : "false")"
+                   data-datatable-select-all-pages="true"
+                   data-datatable-bulk-actions="bulk-student-delete-form,bulk-student-shipping-form,bulk-student-kit-form"
+                   data-datatable-bulk-input="studentIds">
+                <thead>
+                    <tr><th><span class="visually-hidden">Seç</span></th><th>Öğrenci</th><th>Telefon</th><th>Fiziksel Kit</th><th>Kargo Durumu</th><th>Takip No</th><th>Adres</th><th>Adres Linki</th><th>İşlem</th></tr>
+                    <tr class="column-filter-row" data-dt-order="disable">
+                        <th></th>
+                        <th><input type="search" data-column-filter aria-label="Öğrenci sütununu filtrele" placeholder="Öğrenci filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter aria-label="Telefon sütununu filtrele" placeholder="Telefon filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter aria-label="Fiziksel kit sütununu filtrele" placeholder="Kit filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter aria-label="Kargo durumu sütununu filtrele" placeholder="Durum filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter aria-label="Takip numarası sütununu filtrele" placeholder="Takip no filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter aria-label="Adres sütununu filtrele" placeholder="Adres filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter aria-label="Adres linki sütununu filtrele" placeholder="Adres linki filtrele" autocomplete="off" /></th>
+                        <th></th>
+                    </tr>
+                </thead>
                 <tbody>
-                @foreach (var student in pagedStudents)
+                @foreach (var student in Model.Students)
                 {
                     var addressUrl = Url.Action("Index", "PublicStudentAddress", new { token = student.PublicAddressToken }, Context.Request.Scheme) ?? string.Empty;
                     var hasAddress = !string.IsNullOrWhiteSpace(student.AddressLine);
-                    <tr>
-                        <td><input class="student-selection" form="bulk-student-delivery-form" type="checkbox" name="studentIds" value="@student.Id" aria-label="@student.FullName öğrencisini seç" @(student.IsDelivered || !hasAddress || !student.HasKitAssignment ? "disabled" : null) /></td>
-                        <td><strong>@student.FullName</strong></td>
+                    shipmentsByStudentId.TryGetValue(student.Id, out var shipment);
+                    var canStartShipment = canManage && hasAddress && (shipment is null || shipment.State == 6);
+                    <tr data-select-value="@student.Id" data-can-ship="@canStartShipment.ToString().ToLowerInvariant()" data-can-create-kit="@((Model.Status == 3 && !student.HasKitAssignment).ToString().ToLowerInvariant())">
+                        <td></td>
+                        <td><strong class="student-name-truncate" title="@student.FullName">@student.FullName</strong></td>
                         <td>@student.GuardianPhone</td>
-                        <td>@if (hasAddress) { <span class="line-complete">✓ Tamamlandı</span> } else { <span class="line-pending">Bekleniyor</span> }</td>
-                        <td>
-                            @if (student.IsDelivered)
-                            {
-                                <span class="line-complete">✓ Teslim Edildi</span>
-                            }
-                            else
-                            {
-                                <span class="line-pending">Teslim Edilmedi</span>
-                            }
-                        </td>
                         <td>
                             @if (!string.IsNullOrWhiteSpace(student.AssignedKitSerialNumber))
                             {
-                                <a class="row-link" asp-controller="PhysicalKits" asp-action="Details" asp-route-id="@student.AssignedKitId">Kite Git</a>
+                                <a class="student-kit-serial-truncate" title="@student.AssignedKitSerialNumber" asp-controller="PhysicalKits" asp-action="Details" asp-route-id="@student.AssignedKitId">@student.AssignedKitSerialNumber</a>
                             }
                             else
                             {
@@ -134,27 +125,68 @@
                             }
                         </td>
                         <td>
+                            @if (shipment is null)
+                            {
+                                <span class="line-pending">Başlatılmadı</span>
+                            }
+                            else if (shipment.State == 6)
+                            {
+                                <span class="line-pending">Hata</span>
+                            }
+                            else
+                            {
+                                <span class="line-complete">@shipment.StatusLabel</span>
+                            }
+                            @if (shipment is not null)
+                            {
+                                <small class="block-muted">@shipment.Carrier · @shipment.UpdatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(shipment?.LastError))
+                            {
+                                <small class="block-muted" title="@shipment.LastError">@shipment.LastError</small>
+                            }
+                        </td>
+                        <td>@(shipment?.TrackingNumber ?? "-")</td>
+                        <td>
                             @if (hasAddress)
                             {
-                                <div class="table-actions-compact">
-                                    <button class="row-link" type="button" data-fulltext-modal data-title="@($"{student.FullName} adresi")" data-text="@student.AddressLine">Göster</button>
-                                </div>
+                                <span class="student-address-truncate" title="@student.AddressLine">@student.AddressLine</span>
                             }
                         </td>
                         <td>
                             @if (!string.IsNullOrWhiteSpace(addressUrl))
                             {
-                                <div class="table-actions-compact">
-                                    <button class="row-link" type="button" data-fulltext-modal data-title="@($"{student.FullName} public adres linki")" data-text="@addressUrl">Göster</button>
-                                </div>
+                                <a class="student-public-link-truncate" href="@addressUrl" target="_blank" rel="noopener" title="@addressUrl">@addressUrl</a>
                             }
                         </td>
                         <td>
                             @if (canManage)
                             {
-                                <form asp-action="DeleteOrderStudent" asp-route-id="@Model.Id" asp-route-studentId="@student.Id" method="post">
-                                    <button class="row-link row-link-danger" type="submit" data-confirm="@($"{student.FullName} öğrencisi ve bağlı fiziksel kiti siparişten silinsin mi?")">Sil</button>
-                                </form>
+                                <div class="table-actions-compact student-shipment-actions">
+                                    <form asp-action="DeleteOrderStudent" asp-route-id="@Model.Id" asp-route-studentId="@student.Id" method="post">
+                                        <button class="icon-action icon-action-delete" type="submit" title="Öğrenciyi Sil" aria-label="@($"{student.FullName} öğrencisini sil")" data-confirm="@($"{student.FullName} öğrencisi ve bağlı fiziksel kiti siparişten silinsin mi?")">
+                                            <i data-lucide="trash-2"></i><span class="visually-hidden">Sil</span>
+                                        </button>
+                                    </form>
+                                    @if (canStartShipment)
+                                    {
+                                        <form asp-action="StartKargonomiShipments" asp-route-id="@Model.Id" method="post">
+                                            <input type="hidden" name="studentIds" value="@student.Id" />
+                                            <button class="icon-action icon-action-shipping" type="submit" title="Kargoya Ver" aria-label="@($"{student.FullName} öğrencisini kargoya ver")" data-confirm="@($"{student.FullName} öğrencisinin kargo gönderisi başlatılsın mı?")">
+                                                <i data-lucide="truck"></i><span class="visually-hidden">Kargoya Ver</span>
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        var shipmentActionTitle = !hasAddress
+                                            ? "Öğrenci adresi tamamlanmadan kargoya verilemez."
+                                            : "Bu öğrenci için kargo gönderisi zaten başlatıldı.";
+                                        <button class="icon-action icon-action-shipping" type="button" disabled aria-disabled="true" title="@shipmentActionTitle" aria-label="@($"{student.FullName} öğrencisini kargoya ver")">
+                                            <i data-lucide="truck"></i><span class="visually-hidden">Kargoya Ver</span>
+                                        </button>
+                                    }
+                                </div>
                             }
                         </td>
                     </tr>
@@ -162,50 +194,6 @@
                 </tbody>
             </table>
         </div>
-        <footer class="pagination-shell">
-            <span>@studentFirstItem–@studentLastItem / @studentTotalCount öğrenci</span>
-            @if (studentTotalPages > 1)
-            {
-                <nav class="pagination" aria-label="Öğrenci adresleri sayfaları">
-                    @if (studentPage > 1) { <a asp-action="OrderDetails" asp-route-id="@Model.Id" asp-route-studentPage="@(studentPage - 1)" asp-route-studentQuery="@studentQuery" asp-route-addressState="@addressState" asp-route-deliveryState="@deliveryState" asp-fragment="student-addresses">←</a> }
-                    @foreach (var pageNumber in PaginationPages(studentPage, studentTotalPages)) { <a class="@(pageNumber == studentPage ? "active" : null)" aria-current="@(pageNumber == studentPage ? "page" : null)" asp-action="OrderDetails" asp-route-id="@Model.Id" asp-route-studentPage="@pageNumber" asp-route-studentQuery="@studentQuery" asp-route-addressState="@addressState" asp-route-deliveryState="@deliveryState" asp-fragment="student-addresses">@pageNumber</a> }
-                    @if (studentPage < studentTotalPages) { <a asp-action="OrderDetails" asp-route-id="@Model.Id" asp-route-studentPage="@(studentPage + 1)" asp-route-studentQuery="@studentQuery" asp-route-addressState="@addressState" asp-route-deliveryState="@deliveryState" asp-fragment="student-addresses">→</a> }
-                </nav>
-            }
-        </footer>
-        <script>
-            (() => {
-                const selectAll = document.querySelector('#select-all-students');
-                const boxes = [...document.querySelectorAll('.student-selection')];
-                const filteredBoxes = [...document.querySelectorAll('.filtered-student-selection')];
-                const selectAllFiltered = document.querySelector('#select-all-filtered-students');
-                const button = document.querySelector('#bulk-student-delivery-button');
-                let allFilteredSelected = false;
-                const update = () => {
-                    const selectable = boxes.filter(box => !box.disabled);
-                    const selected = selectable.filter(box => box.checked).length;
-                    if (button) button.disabled = !allFilteredSelected && selected === 0;
-                    if (selectAll) selectAll.checked = selectable.length > 0 && selected === selectable.length;
-                };
-                selectAll?.addEventListener('change', () => {
-                    allFilteredSelected = false;
-                    filteredBoxes.forEach(box => box.disabled = true);
-                    boxes.forEach(box => { if (!box.disabled) box.checked = selectAll.checked; });
-                    if (selectAllFiltered) selectAllFiltered.textContent = 'Filtreye uyan tüm uygun öğrencileri seç';
-                    update();
-                });
-                selectAllFiltered?.addEventListener('click', () => {
-                    allFilteredSelected = !allFilteredSelected;
-                    filteredBoxes.forEach(box => box.disabled = !allFilteredSelected);
-                    boxes.forEach(box => { if (!box.disabled) box.checked = false; });
-                    selectAll.checked = false;
-                    selectAllFiltered.textContent = allFilteredSelected ? 'Tüm filtre seçimini kaldır' : 'Filtreye uyan tüm uygun öğrencileri seç';
-                    update();
-                });
-                boxes.forEach(box => box.addEventListener('change', update));
-                update();
-            })();
-        </script>
     </section>
 }
 

@@ -44,7 +44,7 @@ public sealed class ManufacturingController : CoreApiControllerBase
         return Ok(await service.CreateAndReserveOrderKitsAsync(
                 orderId, request.Lines.Select(line => new OrderKitLineCommand(line.ProductModelId, line.Quantity)).ToArray(),
                 request.UseAvailableKits, User.GetRequiredUserId(), cancellationToken, request.RentalCohortId,
-                GetActorDisplayName()));
+                GetActorDisplayName(), request.StudentIds));
     }
 
 }

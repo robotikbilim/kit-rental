@@ -24,7 +24,7 @@ public sealed class InMemoryCoreRepository : ICoreRepository
     private readonly Dictionary<Guid, Customer> _customers = [];
     private readonly Dictionary<Guid, RentalOrder> _orders = [];
     private readonly Dictionary<Guid, RentalCohort> _rentalCohorts = [];
-    private readonly Dictionary<Guid, Shipment> _shipments = [];
+    private readonly Dictionary<Guid, KargonomiShipment> _kargonomiShipments = [];
     private readonly Dictionary<Guid, KitLocationEvent> _kitLocationEvents = [];
     private readonly Dictionary<Guid, FaultTicket> _faultTickets = [];
     private readonly Dictionary<Guid, PublicFormAccessToken> _publicFormAccessTokens = [];
@@ -338,28 +338,45 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         return Task.CompletedTask;
     }
 
-    public Task AddShipmentAsync(Shipment shipment, CancellationToken cancellationToken)
+    public Task AddKargonomiShipmentAsync(KargonomiShipment shipment, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         lock (_gate)
         {
-            if (_shipments.Values.Any(existing => existing.TrackingNumber == shipment.TrackingNumber))
-                throw new InvalidOperationException("Kargo takip numarası benzersiz olmalıdır.");
-            _shipments.Add(shipment.Id, shipment);
+            if (_kargonomiShipments.Values.Any(item => item.OrderId == shipment.OrderId && item.StudentId == shipment.StudentId))
+                throw new InvalidOperationException("Öğrenci için zaten Kargonomi gönderisi bulunmaktadır.");
+            _kargonomiShipments.Add(shipment.Id, shipment);
         }
         return Task.CompletedTask;
     }
 
-    public Task<Shipment?> GetShipmentAsync(Guid id, CancellationToken cancellationToken)
+    public Task<KargonomiShipment?> GetKargonomiShipmentAsync(Guid id, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        lock (_gate) return Task.FromResult(_shipments.GetValueOrDefault(id));
+        lock (_gate) return Task.FromResult(_kargonomiShipments.GetValueOrDefault(id));
     }
 
-    public Task<IReadOnlyCollection<Shipment>> GetShipmentsAsync(Guid orderId, CancellationToken cancellationToken)
+    public Task<KargonomiShipment?> GetKargonomiShipmentAsync(Guid orderId, Guid studentId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        lock (_gate) return Task.FromResult<IReadOnlyCollection<Shipment>>(_shipments.Values.Where(shipment => shipment.OrderId == orderId).ToArray());
+        lock (_gate) return Task.FromResult(_kargonomiShipments.Values.SingleOrDefault(item => item.OrderId == orderId && item.StudentId == studentId));
+    }
+
+    public Task<KargonomiShipment?> GetKargonomiShipmentByExternalIdAsync(int externalShipmentId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult(_kargonomiShipments.Values.SingleOrDefault(item => item.ExternalShipmentId == externalShipmentId));
+    }
+
+    public Task<IReadOnlyCollection<KargonomiShipment>> GetKargonomiShipmentsAsync(Guid? orderId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            var items = _kargonomiShipments.Values.Where(item => !orderId.HasValue || item.OrderId == orderId.Value)
+                .OrderByDescending(item => item.UpdatedAt).ToArray();
+            return Task.FromResult<IReadOnlyCollection<KargonomiShipment>>(items);
+        }
     }
 
     public Task AddKitLocationEventAsync(KitLocationEvent locationEvent, CancellationToken cancellationToken)

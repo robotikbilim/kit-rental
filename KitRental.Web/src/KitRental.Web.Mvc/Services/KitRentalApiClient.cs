@@ -573,16 +573,36 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         PostAsync<OrderDetailViewModel>($"/core/api/orders/{orderId}/students/delivery-confirmations",
             new { studentIds }, cancellationToken);
 
+    public Task<ApiCommandResult<KargonomiShipmentBatchViewModel>> StartKargonomiShipmentsAsync(Guid orderId,
+        IReadOnlyCollection<Guid>? studentIds, CancellationToken cancellationToken) =>
+        PostAsync<KargonomiShipmentBatchViewModel>($"/core/api/orders/{orderId}/kargonomi/shipments",
+            new { studentIds }, cancellationToken);
+
+    public Task<ApiCommandResult<KargonomiShipmentViewModel>> RefreshKargonomiShipmentAsync(Guid shipmentId,
+        CancellationToken cancellationToken) =>
+        PostAsync<KargonomiShipmentViewModel>($"/core/api/kargonomi/shipments/{shipmentId}/refresh", new { }, cancellationToken);
+
+    public Task<ApiCommandResult<KargonomiBarcodeViewModel>> GetKargonomiBarcodeAsync(Guid shipmentId,
+        CancellationToken cancellationToken) =>
+        SendAsync<KargonomiBarcodeViewModel>(HttpMethod.Get,
+            $"/core/api/kargonomi/shipments/{shipmentId}/barcode", null, cancellationToken);
+
+    public async Task<IReadOnlyCollection<KargonomiShipmentListItemViewModel>> GetKargonomiShipmentsAsync(
+        CancellationToken cancellationToken) => await GetAsync<KargonomiShipmentListItemViewModel[]>(
+            "/core/api/kargonomi/shipments", cancellationToken) ?? [];
+
     public Task<ApiCommandResult<OrderKitPreparationViewModel>> CreateOrderKitsAsync(Guid orderId,
         IReadOnlyCollection<PortalRentalLineInputViewModel> lines,
         bool useAvailableKits,
         Guid? rentalCohortId,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken,
+        IReadOnlyCollection<Guid>? studentIds = null) =>
         PostAsync<OrderKitPreparationViewModel>($"/core/api/orders/{orderId}/kits", new
         {
             lines = lines.Select(line => new { line.ProductModelId, line.Quantity }).ToArray(),
             useAvailableKits,
-            rentalCohortId
+            rentalCohortId,
+            studentIds
         }, cancellationToken);
 
     public Task<ApiCommandResult<FaultViewModel>> ChangeFaultStatusAsync(Guid faultId, int status, string note,

@@ -9,6 +9,7 @@ using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Support;
+using KitRental.Core.Application.Kargonomi;
 using KitRental.SharedKernel;
 
 namespace KitRental.Core.Application.Operations;
@@ -26,8 +27,6 @@ public sealed record CreateStudentAddressOrderCommand(Guid CustomerId, Guid Prod
     DateOnly EndDate, IReadOnlyCollection<CreateStudentAddressOrderStudentCommand> Students, Guid ActorId);
 public sealed record CreatePurchaseOrderCommand(Guid CustomerId, Guid AddressId,
     IReadOnlyCollection<OrderLineCommand> Lines, Guid ActorId);
-public sealed record CreateShipmentCommand(Guid OrderId, Guid? FaultTicketId, ShipmentType Type, string Carrier, string TrackingNumber, Guid ActorId);
-public sealed record AddShipmentEventCommand(Guid ShipmentId, ShipmentStatus Status, DateTimeOffset OccurredAt, string Location, string Description, Guid ActorId);
 public sealed record OpenFaultCommand(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId,
     string Category, FaultSeverity Severity, string Description, Guid ActorId, string? ReporterName = null,
     string? ReporterPhone = null, string? ReporterAddress = null, double? Latitude = null, double? Longitude = null,
@@ -76,7 +75,8 @@ public sealed record OrderDetailStudentResponse(Guid Id, string FullName, string
 public sealed record OrderDetailResponse(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName, OrderType Type,
     RentalOrderStatus Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt, Guid? RentalCohortId,
     IReadOnlyCollection<OrderDetailLineResponse> Lines, IReadOnlyCollection<OrderDetailKitResponse> Kits,
-    IReadOnlyCollection<OrderDetailStudentResponse> Students);
+    IReadOnlyCollection<OrderDetailStudentResponse> Students,
+    IReadOnlyCollection<KargonomiShipmentResponse> KargonomiShipments = default!);
 public sealed record PublicStudentAddressContextResponse(string StudentName, string GuardianPhone, string CustomerName,
     string OrderNumber, string ProductName, string? AddressLine, double? Latitude, double? Longitude);
 public sealed record SavePublicStudentAddressCommand(string Token, string AddressLine, double? Latitude,
@@ -374,9 +374,20 @@ public sealed class OperationsService(
                     student.ProductUnitId);
             })
             .ToArray() ?? [];
+        var kargonomiShipments = (await repository.GetKargonomiShipmentsAsync(order.Id, cancellationToken))
+            .Select(shipment => new KargonomiShipmentResponse(shipment.Id, shipment.OrderId, shipment.StudentId,
+                shipment.ExternalShipmentId,
+                students.FirstOrDefault(student => student.Id == shipment.StudentId)?.FullName ?? "Öğrenci",
+                students.FirstOrDefault(student => student.Id == shipment.StudentId)?.AddressLine ?? string.Empty,
+                shipment.Carrier, shipment.TrackingNumber, shipment.ExternalStatus, shipment.StatusLabel,
+                shipment.State, shipment.LastError, shipment.UpdatedAt,
+                shipment.Events.Select(item => new KargonomiShipmentEventResponse(item.ExternalStatus,
+                    item.StatusLabel, item.State, item.TrackingNumber, item.OccurredAt, item.Description)).ToArray()))
+            .ToArray();
         return new OrderDetailResponse(order.Id, order.OrderNumber, order.CustomerId, customer?.Name ?? "Müşteri", order.Type,
             order.Status, order.Period?.StartDate, order.Period?.EndDate, order.CreatedAt, cohort?.Id, lines,
-            kits.OrderBy(item => item.ProductName).ThenBy(item => item.SerialNumber).ToArray(), students);
+            kits.OrderBy(item => item.ProductName).ThenBy(item => item.SerialNumber).ToArray(), students,
+            kargonomiShipments);
     }
 
     public async Task RemoveStudentFromOrderAsync(Guid orderId, Guid studentId, Guid actorId,
@@ -517,7 +528,8 @@ public sealed class OperationsService(
 
     public async Task<OrderKitPreparationResponse> CreateAndReserveOrderKitsAsync(Guid orderId,
         IReadOnlyCollection<OrderKitLineCommand> requestedLines, bool useAvailableKits, Guid actorId,
-        CancellationToken cancellationToken, Guid? rentalCohortId = null, string? actorDisplayName = null)
+        CancellationToken cancellationToken, Guid? rentalCohortId = null, string? actorDisplayName = null,
+        IReadOnlyCollection<Guid>? selectedStudentIds = null)
     {
         var order = await repository.GetOrderAsync(orderId, cancellationToken)
             ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
@@ -525,7 +537,8 @@ public sealed class OperationsService(
             throw new ConflictException("order.not_approved", "Fiziksel kitler yalnızca onaylanmış sipariş için oluşturulabilir.");
 
         var existingAssignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
-        if (existingAssignments.Count > 0 || order.ProductUnits.Count > 0)
+        var hasSelectedStudents = selectedStudentIds is { Count: > 0 };
+        if ((!hasSelectedStudents && existingAssignments.Count > 0) || order.ProductUnits.Count > 0)
             throw new ConflictException("order.kits_already_created", "Bu siparişin fiziksel kitleri daha önce oluşturulmuş.");
         RentalCohort? cohort = null;
         IReadOnlyCollection<RentalCohortStudent> cohortStudents = [];
@@ -535,7 +548,14 @@ public sealed class OperationsService(
                 ?? throw new ResourceNotFoundException("Kiralama dönemi bulunamadı.");
             if (cohort.CustomerId != order.CustomerId)
                 throw new ForbiddenException("Seçilen dönem bu siparişin müşterisine ait değil.");
-            cohortStudents = cohort.Students.Where(item => !item.IsDeleted && !item.HasKitAssignment).ToArray();
+            var eligibleStudents = cohort.Students.Where(item => !item.IsDeleted && !item.HasKitAssignment).ToArray();
+            if (hasSelectedStudents && selectedStudentIds!.Any(studentId =>
+                    !eligibleStudents.Any(student => student.Id == studentId)))
+                throw new ConflictException("rental_cohort.student_selection_invalid",
+                    "Seçilen öğrencilerden biri kit oluşturma için uygun değil.");
+            cohortStudents = hasSelectedStudents
+                ? eligibleStudents.Where(student => selectedStudentIds!.Contains(student.Id)).ToArray()
+                : eligibleStudents;
             if (cohortStudents.Count == 0)
                 throw new ConflictException("rental_cohort.no_students", "Seçilen dönemde kit atanacak öğrenci yok.");
             requestedLines = cohortStudents
@@ -570,7 +590,23 @@ public sealed class OperationsService(
                 ?? throw new ResourceNotFoundException("Seçilen eğitim kitlerinden biri bulunamadı.");
             models[model.Id] = model;
         }
-        order.ReplaceLines(lines.Select(line => (line.ProductModelId, line.Quantity)).ToArray());
+        if (hasSelectedStudents)
+        {
+            if (cohort is null || order.Type != OrderType.Rental)
+                throw new ConflictException("rental_cohort.student_selection_invalid",
+                    "Öğrenci seçimi yalnızca kiralama siparişlerinde kullanılabilir.");
+        }
+        else
+        {
+            order.ReplaceLines(lines.Select(line => (line.ProductModelId, line.Quantity)).ToArray());
+        }
+        var preparationLines = lines.Select(line =>
+        {
+            var orderLine = order.Lines.FirstOrDefault(item => item.ProductModelId == line.ProductModelId);
+            return orderLine is null
+                ? throw new ConflictException("order.line_not_found", "Seçilen kit sipariş satırında bulunamadı.")
+                : (Line: line, OrderLine: orderLine);
+        }).ToArray();
 
         var now = timeProvider.GetTurkeyNow();
         var units = new List<ProductUnit>();
@@ -584,12 +620,12 @@ public sealed class OperationsService(
                 .ToDictionary(group => group.Key,
                     group => new Queue<ProductUnit>(group.OrderBy(unit => unit.SerialNumber)))
             : [];
-        foreach (var line in order.Lines)
+        foreach (var preparationLine in preparationLines)
         {
-            for (var index = 0; index < line.Quantity; index++)
+            for (var index = 0; index < preparationLine.Line.Quantity; index++)
             {
                 ProductUnit unit;
-                if (availableUnitsByModel.TryGetValue(line.ProductModelId, out var availableUnits) &&
+                if (availableUnitsByModel.TryGetValue(preparationLine.Line.ProductModelId, out var availableUnits) &&
                     availableUnits.TryDequeue(out var availableUnit))
                 {
                     unit = availableUnit;
@@ -597,17 +633,17 @@ public sealed class OperationsService(
                 else
                 {
                     var unitId = Guid.NewGuid();
-                    var serialNumber = ProductUnitSerialNumber.Create(models[line.ProductModelId].Sku, now, unitId);
-                    unit = ProductUnit.Create(unitId, line.ProductModelId, serialNumber,
+                    var serialNumber = ProductUnitSerialNumber.Create(models[preparationLine.Line.ProductModelId].Sku, now, unitId);
+                    unit = ProductUnit.Create(unitId, preparationLine.Line.ProductModelId, serialNumber,
                         $"KITRENTAL:{serialNumber}", actorId, now);
                     createdUnits.Add(unit);
                 }
                 units.Add(unit);
                 if (order.Type == OrderType.Rental)
-                    assignments.Add(RentalAssignment.Create(Guid.NewGuid(), line.Id, order.CustomerId, unit.Id,
+                    assignments.Add(RentalAssignment.Create(Guid.NewGuid(), preparationLine.OrderLine.Id, order.CustomerId, unit.Id,
                         order.Period!.Value, now, actorId));
                 else
-                    purchaseLinks.Add((line.Id, unit.Id));
+                    purchaseLinks.Add((preparationLine.OrderLine.Id, unit.Id));
             }
         }
 
@@ -786,98 +822,6 @@ public sealed class OperationsService(
         await AuditAsync(actorId, nameof(RentalOrder), order.Id, "StatusChanged", previous.ToString(), order.Status.ToString(), cancellationToken);
         return order;
     }
-
-    public async Task<Shipment> CreateShipmentAsync(CreateShipmentCommand command, CancellationToken cancellationToken)
-    {
-        var order = await repository.GetOrderAsync(command.OrderId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
-        var now = timeProvider.GetTurkeyNow();
-        var assignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
-        var outboundUnitIds = order.Type == OrderType.Rental
-            ? assignments.Select(item => item.ProductUnitId)
-            : order.ProductUnits.Select(item => item.ProductUnitId);
-
-        if (command.Type == ShipmentType.Outbound)
-        {
-            order.Dispatch(command.ActorId, now);
-            foreach (var unitId in outboundUnitIds)
-            {
-                var unit = await repository.GetProductUnitAsync(unitId, cancellationToken);
-                if (unit?.Status == ProductUnitStatus.Reserved)
-                    unit.StartPreparation(command.ActorId, now);
-                if (unit?.Status == ProductUnitStatus.Preparing)
-                    unit.Dispatch(command.ActorId, now);
-            }
-        }
-        else if (command.Type == ShipmentType.Return)
-        {
-            if (order.Type != OrderType.Rental)
-                throw new ConflictException("order.purchase_return_not_allowed",
-                    "Satın alma siparişi için iade kargosu oluşturulamaz.");
-            order.StartReturnShipment(command.ActorId, now);
-            foreach (var assignment in assignments)
-            {
-                var unit = await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken);
-                unit?.StartReturn(command.ActorId, now);
-            }
-        }
-
-        var shipment = Shipment.Create(Guid.NewGuid(), command.OrderId, command.FaultTicketId, command.Type, command.Carrier, command.TrackingNumber);
-        try
-        {
-            await repository.AddShipmentAsync(shipment, cancellationToken);
-        }
-        catch (InvalidOperationException exception)
-        {
-            throw new ConflictException("shipment.tracking_not_unique", exception.Message);
-        }
-        await AuditAsync(command.ActorId, nameof(Shipment), shipment.Id, "Created", null, shipment.Status.ToString(), cancellationToken);
-        return shipment;
-    }
-
-    public async Task<Shipment> AddShipmentEventAsync(AddShipmentEventCommand command, CancellationToken cancellationToken)
-    {
-        var shipment = await repository.GetShipmentAsync(command.ShipmentId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Kargo kaydı bulunamadı.");
-        var previousStatus = shipment.Status;
-        shipment.AddEvent(command.Status, command.OccurredAt, command.Location, command.Description);
-
-        if (command.Status == ShipmentStatus.Delivered)
-        {
-            var order = await repository.GetOrderAsync(shipment.OrderId, cancellationToken)
-                ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
-            var assignments = await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken);
-            if (shipment.Type == ShipmentType.Outbound)
-            {
-                order.ConfirmDelivery(command.ActorId, command.OccurredAt);
-                if (order.Type == OrderType.Purchase)
-                {
-                    foreach (var allocation in order.ProductUnits)
-                        (await repository.GetProductUnitAsync(allocation.ProductUnitId, cancellationToken))
-                            ?.CompleteSale(command.ActorId, command.OccurredAt);
-                    order.LockAfterDelivery(command.ActorId, command.OccurredAt);
-                }
-                else
-                {
-                    order.ActivateRental(command.ActorId, command.OccurredAt);
-                    foreach (var assignment in assignments)
-                        (await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken))
-                            ?.ConfirmDelivery(command.ActorId, command.OccurredAt);
-                }
-            }
-            else if (shipment.Type == ShipmentType.Return)
-            {
-                order.ReceiveReturn(command.ActorId, command.OccurredAt);
-                foreach (var assignment in assignments)
-                    (await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken))?.ReceiveForInspection(command.ActorId, command.OccurredAt);
-            }
-        }
-        await AuditAsync(command.ActorId, nameof(Shipment), shipment.Id, "StatusChanged", previousStatus.ToString(), shipment.Status.ToString(), cancellationToken);
-        return shipment;
-    }
-
-    public Task<IReadOnlyCollection<Shipment>> GetShipmentsAsync(Guid orderId, CancellationToken cancellationToken) =>
-        repository.GetShipmentsAsync(orderId, cancellationToken);
 
     public async Task<FaultTicket> OpenFaultAsync(OpenFaultCommand command, CancellationToken cancellationToken)
     {

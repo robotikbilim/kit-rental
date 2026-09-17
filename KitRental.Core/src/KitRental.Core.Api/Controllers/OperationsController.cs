@@ -3,6 +3,7 @@ using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Application.CustomerPortal;
 using KitRental.Core.Application.Operations;
 using KitRental.Core.Application.Rentals;
+using KitRental.Core.Application.Kargonomi;
 using KitRental.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -185,30 +186,43 @@ public sealed class OperationsController : CoreApiControllerBase
         return Created($"/api/rental-assignments/{result.Id}", result);
     }
 
-    [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff")]
-    [HttpPost("shipments")]
-    public async Task<IActionResult> CreateShipment(CreateShipmentRequest request, [FromServices] OperationsService service, CancellationToken cancellationToken)
-    {
-        var result = await service.CreateShipmentAsync(
-                new CreateShipmentCommand(request.OrderId, request.FaultTicketId, request.Type, request.Carrier, request.TrackingNumber,
-                    User.GetRequiredUserId()), cancellationToken);
-        return Created($"/api/shipments/{result.Id}", result);
-    }
+    [Authorize(Roles = "SystemAdmin,OperationsManager")]
+    [HttpPost("orders/{orderId:guid}/kargonomi/shipments")]
+    public async Task<IActionResult> StartKargonomiShipments(Guid orderId, KargonomiShipmentStartRequest request,
+        [FromServices] KargonomiShippingService service, CancellationToken cancellationToken) =>
+        Ok(await service.StartForOrderAsync(orderId, request.StudentIds, cancellationToken));
 
-    [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff")]
-    [HttpPost("shipments/{shipmentId:guid}/events")]
-    public async Task<IActionResult> CreateShipmentEvent(Guid shipmentId, ShipmentEventRequest request, [FromServices] OperationsService service, CancellationToken cancellationToken)
-    {
-        return Ok(await service.AddShipmentEventAsync(
-                new AddShipmentEventCommand(shipmentId, request.Status, request.OccurredAt, request.Location, request.Description,
-                    User.GetRequiredUserId()), cancellationToken));
-    }
+    [Authorize(Roles = "SystemAdmin,OperationsManager")]
+    [HttpPost("orders/{orderId:guid}/kargonomi/shipments/{studentId:guid}")]
+    public async Task<IActionResult> StartKargonomiShipment(Guid orderId, Guid studentId,
+        [FromServices] KargonomiShippingService service, CancellationToken cancellationToken) =>
+        Ok(await service.StartForOrderAsync(orderId, [studentId], cancellationToken));
 
-    [Authorize]
-    [HttpGet("orders/{orderId:guid}/shipments")]
-    public async Task<IActionResult> GetOrderShipments(Guid orderId, int? page, int? pageSize, [FromServices] OperationsService service, CancellationToken cancellationToken)
+    [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
+    [HttpGet("orders/{orderId:guid}/kargonomi/shipments")]
+    public async Task<IActionResult> GetKargonomiShipments(Guid orderId,
+        [FromServices] KargonomiShippingService service, CancellationToken cancellationToken) =>
+        Ok(await service.GetForOrderAsync(orderId, cancellationToken));
+
+    [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
+    [HttpGet("kargonomi/shipments")]
+    public async Task<IActionResult> GetAllKargonomiShipments(
+        [FromServices] KargonomiShippingService service, CancellationToken cancellationToken) =>
+        Ok(await service.GetAllAsync(cancellationToken));
+
+    [Authorize(Roles = "SystemAdmin,OperationsManager")]
+    [HttpPost("kargonomi/shipments/{shipmentId:guid}/refresh")]
+    public async Task<IActionResult> RefreshKargonomiShipment(Guid shipmentId,
+        [FromServices] KargonomiShippingService service, CancellationToken cancellationToken) =>
+        Ok(await service.RefreshAsync(shipmentId, cancellationToken));
+
+    [Authorize(Roles = "SystemAdmin,OperationsManager")]
+    [HttpGet("kargonomi/shipments/{shipmentId:guid}/barcode")]
+    public async Task<IActionResult> GetKargonomiBarcode(Guid shipmentId,
+        [FromServices] KargonomiShippingService service, CancellationToken cancellationToken)
     {
-        return Ok((await service.GetShipmentsAsync(orderId, cancellationToken)).ToPagedResponse(page, pageSize));
+        var base64 = await service.GetBarcodeAsync(shipmentId, cancellationToken);
+        return Ok(new { base64 });
     }
 
 }

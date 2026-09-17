@@ -132,8 +132,10 @@ public sealed class RentalOrder
 
     public void RemoveOneKitRequirement(Guid productModelId)
     {
-        if (Status != RentalOrderStatus.Approved)
-            throw new DomainException("order.lines_not_editable", "Yalnızca onaylanmış ve hazırlığı başlamamış siparişin kit adedi azaltılabilir.");
+        if (Type != OrderType.Rental || Status is RentalOrderStatus.Draft or RentalOrderStatus.PendingApproval or
+            RentalOrderStatus.Rejected or RentalOrderStatus.Cancelled)
+            throw new DomainException("order.lines_not_editable",
+                "Yalnızca onaylanmış kiralama siparişinin kit adedi azaltılabilir.");
         var index = _lines.FindIndex(line => line.ProductModelId == productModelId);
         if (index < 0)
             throw new DomainException("order.line_not_found", "Öğrencinin eğitim kiti sipariş satırında bulunamadı.");

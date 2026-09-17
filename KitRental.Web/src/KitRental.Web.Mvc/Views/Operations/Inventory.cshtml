@@ -33,7 +33,7 @@
 }
 else
 {
-    <div class="table-scroll"><table class="inventory-table"><thead><tr><th>Seri numarası</th><th>QR kod</th><th>Eğitim kiti</th>@if (showRentalColumns) { <th>Müşteri</th><th>Sipariş</th><th>Kiralama Bitişi</th> }<th>Oluşturulma tarihi</th><th>Durum</th><th></th></tr></thead><tbody>
+    <div class="table-scroll"><table class="inventory-table js-datatable" data-datatable-server="true"><thead><tr><th>Seri numarası</th><th>QR kod</th><th>Eğitim kiti</th>@if (showRentalColumns) { <th>Müşteri</th><th>Sipariş</th><th>Kiralama Bitişi</th> }<th>Oluşturulma tarihi</th><th>Durum</th><th></th></tr></thead><tbody>
     @foreach (var item in Model.Result.Items)
     {
         var rentalTiming = item.DaysRemaining.HasValue

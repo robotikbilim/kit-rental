@@ -51,9 +51,11 @@ public interface ICoreRepository
     Task<RentalCohort?> GetRentalCohortByStudentAddressTokenAsync(string token, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<RentalCohort>> GetRentalCohortsAsync(Guid? customerId, CancellationToken cancellationToken);
     Task RemoveRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken);
-    Task AddShipmentAsync(Shipment shipment, CancellationToken cancellationToken);
-    Task<Shipment?> GetShipmentAsync(Guid id, CancellationToken cancellationToken);
-    Task<IReadOnlyCollection<Shipment>> GetShipmentsAsync(Guid orderId, CancellationToken cancellationToken);
+    Task AddKargonomiShipmentAsync(KargonomiShipment shipment, CancellationToken cancellationToken);
+    Task<KargonomiShipment?> GetKargonomiShipmentAsync(Guid id, CancellationToken cancellationToken);
+    Task<KargonomiShipment?> GetKargonomiShipmentAsync(Guid orderId, Guid studentId, CancellationToken cancellationToken);
+    Task<KargonomiShipment?> GetKargonomiShipmentByExternalIdAsync(int externalShipmentId, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<KargonomiShipment>> GetKargonomiShipmentsAsync(Guid? orderId, CancellationToken cancellationToken);
     Task AddKitLocationEventAsync(KitLocationEvent locationEvent, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KitLocationEvent>> GetKitLocationEventsAsync(CancellationToken cancellationToken);
     Task<KitLocationEvent?> GetKitLocationEventAsync(Guid id, CancellationToken cancellationToken);

@@ -106,10 +106,56 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     }
 
     [HttpGet]
+    public async Task<IActionResult> KargonomiShipments(CancellationToken cancellationToken) =>
+        View(await apiClient.GetKargonomiShipmentsAsync(cancellationToken));
+
+    [HttpGet]
     public async Task<IActionResult> OrderDetails(Guid id, CancellationToken cancellationToken)
     {
         var model = await apiClient.GetOrderDetailAsync(id, cancellationToken);
         return model is null ? NotFound() : View(model);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> StartKargonomiShipments(Guid id, Guid[]? studentIds,
+        CancellationToken cancellationToken)
+    {
+        var result = await apiClient.StartKargonomiShipmentsAsync(id,
+            studentIds is { Length: > 0 } ? studentIds : null, cancellationToken);
+        if (!result.IsSuccess)
+            TempData["Error"] = result.Error ?? "Kargonomi gönderileri başlatılamadı.";
+        else
+            TempData[result.Data!.FailedCount == 0 ? "Success" : "Error"] =
+                $"{result.Data.SucceededCount} gönderi başlatıldı, {result.Data.FailedCount} gönderi başarısız oldu.";
+        return RedirectToAction(nameof(OrderDetails), new { id });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> RefreshKargonomiShipment(Guid id, Guid shipmentId,
+        CancellationToken cancellationToken)
+    {
+        var result = await apiClient.RefreshKargonomiShipmentAsync(shipmentId, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "Kargonomi gönderi durumu güncellendi."
+            : result.Error ?? "Kargonomi gönderi durumu güncellenemedi.";
+        return RedirectToAction(nameof(OrderDetails), new { id });
+    }
+
+    [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> KargonomiBarcode(Guid id, Guid shipmentId,
+        CancellationToken cancellationToken)
+    {
+        var result = await apiClient.GetKargonomiBarcodeAsync(shipmentId, cancellationToken);
+        if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Data?.Base64))
+            return NotFound();
+        try
+        {
+            return File(Convert.FromBase64String(result.Data.Base64), "application/pdf", $"kargonomi-{shipmentId:N}.pdf");
+        }
+        catch (FormatException)
+        {
+            return Problem("Kargonomi barkod PDF'i geçersiz döndü.");
+        }
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
@@ -119,6 +165,36 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
             ? "Öğrenci ve sipariş içindeki fiziksel kit bağlantısı silindi."
             : result.Error ?? "Öğrenci silinemedi.";
+        return RedirectToAction(nameof(OrderDetails), new { id });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> DeleteOrderStudents(Guid id, Guid[]? studentIds, CancellationToken cancellationToken)
+    {
+        var uniqueStudentIds = (studentIds ?? []).Where(studentId => studentId != Guid.Empty).Distinct().ToArray();
+        if (uniqueStudentIds.Length == 0)
+        {
+            TempData["Error"] = "Silmek için en az bir öğrenci seçin.";
+            return RedirectToAction(nameof(OrderDetails), new { id });
+        }
+
+        var deletedCount = 0;
+        string? firstError = null;
+        foreach (var studentId in uniqueStudentIds)
+        {
+            var result = await apiClient.DeleteOrderStudentAsync(id, studentId, cancellationToken);
+            if (result.IsSuccess)
+                deletedCount++;
+            else
+                firstError ??= result.Error;
+        }
+
+        var failedCount = uniqueStudentIds.Length - deletedCount;
+        if (failedCount == 0)
+            TempData["Success"] = $"{deletedCount} öğrenci ve sipariş içindeki fiziksel kit bağlantıları silindi.";
+        else
+            TempData["Error"] = $"{deletedCount} öğrenci silindi, {failedCount} öğrenci silinemedi. {firstError ?? "İşlem tamamlanamadı."}";
+
         return RedirectToAction(nameof(OrderDetails), new { id });
     }
 
@@ -382,6 +458,34 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             ? await apiClient.GetCustomerRentalCohortsAsync(order.CustomerId, cancellationToken)
             : [];
         return View(model);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> CreateSelectedOrderKits(Guid id, Guid[] studentIds,
+        CancellationToken cancellationToken)
+    {
+        if (studentIds.Length == 0)
+        {
+            TempData["Error"] = "Kit oluşturmak için en az bir öğrenci seçmelisiniz.";
+            return RedirectToAction(nameof(OrderDetails), new { id });
+        }
+
+        var order = await apiClient.GetOrderDetailAsync(id, cancellationToken);
+        if (order is null) return NotFound();
+        var result = await apiClient.CreateOrderKitsAsync(id, [], true, order.RentalCohortId,
+            cancellationToken, studentIds);
+        if (result.IsSuccess)
+        {
+            var data = result.Data!;
+            TempData["Success"] = data.ReusedCount > 0
+                ? $"Seçilen öğrenciler için {data.ReusedCount} hazır kit rezerve edildi; {data.CreatedCount} fiziksel kit üretildi."
+                : $"Seçilen öğrenciler için {data.CreatedCount} fiziksel kit oluşturuldu ve rezerve edildi.";
+        }
+        else
+        {
+            TempData["Error"] = result.Error ?? "Seçilen öğrenciler için fiziksel kit oluşturulamadı.";
+        }
+        return RedirectToAction(nameof(OrderDetails), new { id });
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
