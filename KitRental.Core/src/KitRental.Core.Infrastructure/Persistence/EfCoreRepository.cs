@@ -51,6 +51,10 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
     public Task<ProductUnit?> GetProductUnitAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.ProductUnits.Include(unit => unit.History).SingleOrDefaultAsync(unit => unit.Id == id, cancellationToken);
 
+    public Task<ProductUnit?> GetProductUnitByQrCodeAsync(string qrCode, CancellationToken cancellationToken) =>
+        dbContext.ProductUnits.Include(unit => unit.History)
+            .SingleOrDefaultAsync(unit => unit.QrCode == qrCode.Trim(), cancellationToken);
+
     public async Task<IReadOnlyCollection<ProductUnit>> GetProductUnitsByIdsAsync(
         IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
     {
@@ -268,6 +272,15 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
             .OrderByDescending(location => location.OccurredAt)
             .ThenByDescending(location => location.Id)
             .ToArrayAsync(cancellationToken);
+
+    public Task<KitLocationEvent?> GetLatestKitLocationEventForAssignmentAsync(Guid productUnitId,
+        Guid assignmentId, CancellationToken cancellationToken) =>
+        dbContext.KitLocationEvents.AsNoTracking()
+            .Where(location => location.ProductUnitId == productUnitId &&
+                location.AssignmentId == assignmentId)
+            .OrderByDescending(location => location.OccurredAt)
+            .ThenByDescending(location => location.Id)
+            .FirstOrDefaultAsync(cancellationToken);
 
     public Task<KitLocationEvent?> GetKitLocationEventAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.KitLocationEvents.SingleOrDefaultAsync(location => location.Id == id, cancellationToken);

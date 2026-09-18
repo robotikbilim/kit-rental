@@ -21,6 +21,7 @@ public interface ICoreRepository
     Task RemoveProductModelAsync(ProductModel model, CancellationToken cancellationToken);
     Task AddProductUnitAsync(ProductUnit unit, CancellationToken cancellationToken);
     Task<ProductUnit?> GetProductUnitAsync(Guid id, CancellationToken cancellationToken);
+    Task<ProductUnit?> GetProductUnitByQrCodeAsync(string qrCode, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<ProductUnit>> GetProductUnitsByIdsAsync(IReadOnlyCollection<Guid> ids,
         CancellationToken cancellationToken);
     Task<IReadOnlyCollection<ProductUnit>> GetProductUnitsAsync(CancellationToken cancellationToken);
@@ -63,6 +64,8 @@ public interface ICoreRepository
     Task AddKitLocationEventAsync(KitLocationEvent locationEvent, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KitLocationEvent>> GetKitLocationEventsAsync(CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KitLocationEvent>> GetKitLocationEventsForCustomerAsync(Guid customerId,
+        CancellationToken cancellationToken);
+    Task<KitLocationEvent?> GetLatestKitLocationEventForAssignmentAsync(Guid productUnitId, Guid assignmentId,
         CancellationToken cancellationToken);
     Task<KitLocationEvent?> GetKitLocationEventAsync(Guid id, CancellationToken cancellationToken);
     Task AddFaultTicketAsync(FaultTicket ticket, CancellationToken cancellationToken);

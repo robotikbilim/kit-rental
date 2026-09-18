@@ -67,6 +67,10 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             "Sol motor yük altında dönmüyor."), cancellationToken);
         fault.EnsureSuccessStatusCode();
         var createdFault = (await fault.Content.ReadFromJsonAsync<CreatedFaultResponse>(cancellationToken))!;
+        var portalFaultContext = await customer.GetFromJsonAsync<PortalFaultFormContextResponse>(
+            $"/api/customer-portal/assignments/{rental.AssignmentId}/fault-context", cancellationToken);
+        Assert.Equal("TACEV Test Merkezi", portalFaultContext!.ReporterName);
+        Assert.Equal("Test Sokak 1", portalFaultContext.ReporterAddress);
 
         var faultPage = await admin.GetFromJsonAsync<FaultPageResponse>(
             "/api/faults?page=1&pageSize=10&status=1&query=TACEV%20Test%20Merkezi", cancellationToken);
@@ -177,11 +181,20 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
                 today.AddDays(-1), today.AddDays(30)), cancellationToken);
 
         var token = await CreatePublicTokenAsync(publicClient, unit.QrCode, cancellationToken);
+        var initialContext = await publicClient.GetFromJsonAsync<PublicKitDeliveryContextResponse>(
+            $"/api/public/deliveries/context/{token}", cancellationToken);
+        Assert.Equal("Public QR Musterisi", initialContext!.RecipientName);
+        Assert.Equal("Test Sokak 10", initialContext.AddressLine);
+
         var fault = await publicClient.PostAsJsonAsync("/api/public/faults", new PublicFaultRequest(
-            null, token, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul",
+            null, token, "Ayse Test", "05321112233", "Ariza Sokak 20 Kadikoy Istanbul",
             "Kit acildiginda sensor okumasi yapmiyor."), cancellationToken);
         fault.EnsureSuccessStatusCode();
         var createdFault = (await fault.Content.ReadFromJsonAsync<CreatedFaultResponse>(cancellationToken))!;
+        var faultContext = await publicClient.GetFromJsonAsync<PublicKitDeliveryContextResponse>(
+            $"/api/public/deliveries/context/{token}", cancellationToken);
+        Assert.Equal("Ayse Test", faultContext!.RecipientName);
+        Assert.Equal("Ariza Sokak 20 Kadikoy Istanbul", faultContext.AddressLine);
         var faultPage = await admin.GetFromJsonAsync<FaultPageResponse>(
             "/api/faults?page=1&pageSize=10&query=Ayse%20Test", cancellationToken);
         var listedFault = Assert.Single(faultPage!.Items, item => item.Id == createdFault.Id);
@@ -189,20 +202,32 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal(FaultStatus.Open, listedFault.Status);
 
         var createdReturn = await PostAsync<PublicReturnResponse>(publicClient, "/api/public/returns",
-            new PublicKitReturnRequest(token, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", null, null, KitReturnReason.EducationCompleted),
+            new PublicKitReturnRequest(token, "Ayse Test", "05321112233", "Iade Sokak 30 Kadikoy Istanbul",
+                null, null, KitReturnReason.EducationCompleted),
             cancellationToken);
         Assert.Equal(KitReturnStatus.Requested, createdReturn.Status);
+        var returnContext = await publicClient.GetFromJsonAsync<PublicKitDeliveryContextResponse>(
+            $"/api/public/deliveries/context/{token}", cancellationToken);
+        Assert.Equal("Iade Sokak 30 Kadikoy Istanbul", returnContext!.AddressLine);
 
         var duplicateReturn = await publicClient.PostAsJsonAsync("/api/public/returns",
-            new PublicKitReturnRequest(token, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345, KitReturnReason.EducationCompleted),
+            new PublicKitReturnRequest(token, "Ayse Guncel", "05321112233",
+                "Guncel Iade Sokak 40 Kadikoy Istanbul", 41.012345, 29.012345,
+                KitReturnReason.EducationCompleted),
             cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Created, duplicateReturn.StatusCode);
+        var latestContext = await publicClient.GetFromJsonAsync<PublicKitDeliveryContextResponse>(
+            $"/api/public/deliveries/context/{token}", cancellationToken);
+        Assert.Equal("Ayse Guncel", latestContext!.RecipientName);
+        Assert.Equal("Guncel Iade Sokak 40 Kadikoy Istanbul", latestContext.AddressLine);
+        Assert.Equal(41.012345, latestContext.Latitude);
+        Assert.Equal(29.012345, latestContext.Longitude);
 
         var dashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
         var dashboardReturn = Assert.Single(dashboard!.ReturnsInProgress, item => item.Id == createdReturn.Id);
-        Assert.Equal("Ayse Test", dashboardReturn.RequesterName);
+        Assert.Equal("Ayse Guncel", dashboardReturn.RequesterName);
         Assert.Equal("0532 111 22 33", dashboardReturn.RequesterPhone);
-        Assert.Equal("Test Sokak 10 Kadikoy Istanbul", dashboardReturn.ReturnAddress);
+        Assert.Equal("Guncel Iade Sokak 40 Kadikoy Istanbul", dashboardReturn.ReturnAddress);
         Assert.Equal(41.012345, dashboardReturn.Latitude);
         Assert.Equal(29.012345, dashboardReturn.Longitude);
         Assert.Equal(rental.AssignmentId, createdReturn.Items.Single().AssignmentId);

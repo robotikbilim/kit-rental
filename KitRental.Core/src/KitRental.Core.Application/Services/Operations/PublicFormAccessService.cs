@@ -43,8 +43,7 @@ public sealed class PublicFormAccessService(ICoreRepository repository, TimeProv
     }
 
     private async Task<ProductUnit> FindUnitByQrCodeAsync(string qrCode, CancellationToken cancellationToken) =>
-        (await repository.GetProductUnitsAsync(cancellationToken))
-            .SingleOrDefault(item => string.Equals(item.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase))
+        await repository.GetProductUnitByQrCodeAsync(qrCode, cancellationToken)
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
 
     private static string Hash(string token)

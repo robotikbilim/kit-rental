@@ -3,6 +3,7 @@ using KitRental.Core.Application.Common;
 using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Customers;
 using KitRental.Core.Domain.Inventory;
+using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Support;
@@ -230,6 +231,10 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
         unit.ConfirmDelivery(command.ActorId, now);
         order.ActivateRental(command.ActorId, now);
         assignment.Activate();
+        await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id,
+            assignment.Id, order.Id, customer.Id, KitLocationEventSource.DeliveryReceipt, null,
+            command.CustomerName, command.Phone, command.AddressLine, null, null, now, command.ActorId),
+            cancellationToken);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(ProductUnit), unit.Id,
             "Rented", ProductUnitStatus.Available.ToString(), unit.Status.ToString(), now), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
@@ -306,12 +311,18 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
         foreach (var assignment in assignments)
             assignment.Activate();
 
+        var assignmentByUnit = assignments.ToDictionary(item => item.ProductUnitId);
         foreach (var unit in units)
+        {
+            await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id,
+                assignmentByUnit[unit.Id].Id, order.Id, customer.Id, KitLocationEventSource.DeliveryReceipt, null,
+                command.CustomerName, command.Phone, command.AddressLine, null, null, now, command.ActorId),
+                cancellationToken);
             await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(ProductUnit),
                 unit.Id, "BulkRented", ProductUnitStatus.Available.ToString(), unit.Status.ToString(), now), cancellationToken);
+        }
         await repository.SaveChangesAsync(cancellationToken);
 
-        var assignmentByUnit = assignments.ToDictionary(item => item.ProductUnitId);
         var items = units.OrderBy(item => item.SerialNumber).Select(unit => new BulkRentPhysicalKitItemResponse(
             unit.Id, assignmentByUnit[unit.Id].Id, unit.SerialNumber, unit.Status)).ToArray();
         return new BulkRentPhysicalKitsResponse(customer.Id, order.Id, order.OrderNumber, items.Length, items);

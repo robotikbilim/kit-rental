@@ -53,19 +53,19 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
             AccessToken = token,
             KitName = kit.KitName,
             SerialNumber = kit.SerialNumber,
-            ReporterName = faultContext?.ReporterName
-                ?? deliveryContext?.RecipientName
+            ReporterName = deliveryContext?.RecipientName
+                ?? faultContext?.ReporterName
                 ?? string.Empty,
-            ReporterPhone = faultContext?.ReporterPhone
-                ?? deliveryContext?.RecipientPhone
+            ReporterPhone = deliveryContext?.RecipientPhone
+                ?? faultContext?.ReporterPhone
                 ?? string.Empty,
             City = parsedAddress.City,
             District = parsedAddress.District,
             ReporterAddress = parsedAddress.AddressLine,
             Description = faultContext?.Description ?? string.Empty,
             AttachmentUrl = faultContext?.AttachmentUrl,
-            Latitude = faultContext?.Latitude ?? deliveryContext?.Latitude,
-            Longitude = faultContext?.Longitude ?? deliveryContext?.Longitude
+            Latitude = deliveryContext?.Latitude ?? faultContext?.Latitude,
+            Longitude = deliveryContext?.Longitude ?? faultContext?.Longitude
         });
     }
 

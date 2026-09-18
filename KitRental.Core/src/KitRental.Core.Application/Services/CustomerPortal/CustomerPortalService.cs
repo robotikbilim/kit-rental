@@ -218,16 +218,20 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var student = (await repository.GetRentalCohortsAsync(customerId, cancellationToken))
             .SelectMany(item => item.Students).FirstOrDefault(item => !item.IsDeleted && item.AssignmentId == assignmentId);
         var locations = await repository.GetKitLocationEventsForCustomerAsync(customerId, cancellationToken);
-        var latestLocation = locations.Where(item => item.ProductUnitId == unit.Id)
+        var latestLocation = locations.Where(item => item.ProductUnitId == unit.Id &&
+                item.AssignmentId == assignmentId)
             .OrderByDescending(item => item.OccurredAt).ThenByDescending(item => item.Id).FirstOrDefault();
         var delivery = locations.Where(item => item.AssignmentId == assignmentId &&
                 item.Source == KitLocationEventSource.DeliveryReceipt)
             .OrderByDescending(item => item.OccurredAt).ThenByDescending(item => item.Id).FirstOrDefault();
         var address = customer.Addresses.FirstOrDefault();
         return new PortalFaultFormContextResponse(assignmentId, model?.Name ?? "Eğitim kiti", unit.SerialNumber,
-            delivery?.ContactName ?? student?.FullName ?? address?.ContactName ?? string.Empty,
-            delivery?.ContactPhone ?? student?.GuardianPhone ?? address?.Phone ?? string.Empty,
-            latestLocation?.AddressLine ?? delivery?.AddressLine ?? student?.AddressLine ?? address?.Line1 ?? string.Empty);
+            FirstNotEmpty(latestLocation?.ContactName, delivery?.ContactName, student?.FullName,
+                address?.ContactName) ?? string.Empty,
+            FirstNotEmpty(latestLocation?.ContactPhone, delivery?.ContactPhone, student?.GuardianPhone,
+                address?.Phone) ?? string.Empty,
+            FirstNotEmpty(latestLocation?.AddressLine, delivery?.AddressLine, student?.AddressLine,
+                address?.Line1) ?? string.Empty);
     }
 
     private async Task<PortalKitData> LoadPortalKitDataAsync(Guid customerId, CancellationToken cancellationToken)
@@ -612,8 +616,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             throw new DomainException("kit_return.reason_required", "İade nedeni seçilmelidir.");
         if (!Enum.IsDefined(command.DeliveryMethod))
             throw new DomainException("kit_return.delivery_method_required", "Teslimat şekli seçilmelidir.");
-        var unit = (await repository.GetProductUnitsAsync(cancellationToken))
-            .SingleOrDefault(item => string.Equals(item.QrCode, command.QrCode.Trim(), StringComparison.OrdinalIgnoreCase))
+        var unit = await repository.GetProductUnitByQrCodeAsync(command.QrCode, cancellationToken)
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
         if (unit.Status is not (ProductUnitStatus.WithCustomer or ProductUnitStatus.ReturnInTransit))
             throw new ConflictException("kit_return.unit_not_with_customer", "Bu kit şu anda müşteride görünmüyor.");
@@ -754,8 +757,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
     public async Task<PublicKitReturnContextResponse?> GetPublicKitReturnContextAsync(string qrCode,
         CancellationToken cancellationToken)
     {
-        var unit = (await repository.GetProductUnitsAsync(cancellationToken))
-            .SingleOrDefault(item => string.Equals(item.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase));
+        var unit = await repository.GetProductUnitByQrCodeAsync(qrCode, cancellationToken);
         if (unit is null) return null;
         var assignment = (await repository.GetAssignmentsForProductUnitAsync(unit.Id, cancellationToken))
             .Where(item => item.Status == RentalAssignmentStatus.Active)
@@ -1117,6 +1119,9 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
 
     private static bool CoordinatesAreValid(double? latitude, double? longitude) =>
         latitude is >= -90 and <= 90 && longitude is >= -180 and <= 180;
+
+    private static string? FirstNotEmpty(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
 }
 
 

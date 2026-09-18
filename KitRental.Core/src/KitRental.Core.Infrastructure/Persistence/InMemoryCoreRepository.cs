@@ -108,6 +108,13 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         }
     }
 
+    public Task<ProductUnit?> GetProductUnitByQrCodeAsync(string qrCode, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult(_units.Values.SingleOrDefault(unit =>
+            string.Equals(unit.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase)));
+    }
+
     public Task<IReadOnlyCollection<ProductUnit>> GetProductUnitsByIdsAsync(
         IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
     {
@@ -428,6 +435,17 @@ public sealed class InMemoryCoreRepository : ICoreRepository
                 .OrderByDescending(item => item.OccurredAt)
                 .ThenByDescending(item => item.Id)
                 .ToArray());
+    }
+
+    public Task<KitLocationEvent?> GetLatestKitLocationEventForAssignmentAsync(Guid productUnitId,
+        Guid assignmentId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult(_kitLocationEvents.Values
+            .Where(item => item.ProductUnitId == productUnitId && item.AssignmentId == assignmentId)
+            .OrderByDescending(item => item.OccurredAt)
+            .ThenByDescending(item => item.Id)
+            .FirstOrDefault());
     }
 
     public Task<KitLocationEvent?> GetKitLocationEventAsync(Guid id, CancellationToken cancellationToken)

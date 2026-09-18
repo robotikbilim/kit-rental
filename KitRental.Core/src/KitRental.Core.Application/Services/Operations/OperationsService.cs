@@ -852,8 +852,7 @@ public sealed class OperationsService(
     public async Task<PublicFaultKitResponse> GetPublicFaultKitAsync(string qrCode,
         CancellationToken cancellationToken)
     {
-        var unit = (await repository.GetProductUnitsAsync(cancellationToken))
-            .SingleOrDefault(item => string.Equals(item.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase))
+        var unit = await repository.GetProductUnitByQrCodeAsync(qrCode, cancellationToken)
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
         var model = await repository.GetProductModelAsync(unit.ProductModelId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kit modeli bulunamadı.");
@@ -863,32 +862,43 @@ public sealed class OperationsService(
     public async Task<PublicKitDeliveryContextResponse> GetPublicKitDeliveryContextAsync(string qrCode,
         CancellationToken cancellationToken)
     {
-        var unit = (await repository.GetProductUnitsAsync(cancellationToken))
-            .SingleOrDefault(item => string.Equals(item.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase))
+        var unit = await repository.GetProductUnitByQrCodeAsync(qrCode, cancellationToken)
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
-        var location = (await repository.GetKitLocationEventsAsync(cancellationToken))
-            .Where(item => item.ProductUnitId == unit.Id)
-            .OrderByDescending(item => item.OccurredAt)
-            .ThenByDescending(item => item.Id)
+        var assignment = (await repository.GetAssignmentsForProductUnitAsync(unit.Id, cancellationToken))
+            .Where(item => item.Status is RentalAssignmentStatus.Reserved or RentalAssignmentStatus.Active)
+            .OrderByDescending(item => item.CreatedAt)
             .FirstOrDefault();
-        return location is null
-            ? new PublicKitDeliveryContextResponse(null, null, null, null, null)
-            : new PublicKitDeliveryContextResponse(location.ContactName, location.ContactPhone, location.AddressLine,
-                location.Latitude, location.Longitude);
+        if (assignment is null)
+            return new PublicKitDeliveryContextResponse(null, null, null, null, null);
+
+        var location = await repository.GetLatestKitLocationEventForAssignmentAsync(unit.Id, assignment.Id,
+            cancellationToken);
+        if (location is not null)
+            return new PublicKitDeliveryContextResponse(location.ContactName, location.ContactPhone,
+                location.AddressLine, location.Latitude, location.Longitude);
+
+        var customer = await repository.GetCustomerAsync(assignment.CustomerId, cancellationToken);
+        var student = (await repository.GetRentalCohortsAsync(assignment.CustomerId, cancellationToken))
+            .SelectMany(item => item.Students)
+            .FirstOrDefault(item => !item.IsDeleted &&
+                (item.AssignmentId == assignment.Id ||
+                    (!item.AssignmentId.HasValue && item.ProductUnitId == unit.Id)));
+        var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken);
+        var customerAddress = customer?.Addresses.FirstOrDefault();
+        return new PublicKitDeliveryContextResponse(
+            FirstNotEmpty(student?.FullName, order?.DeliveryAddress.ContactName, customerAddress?.ContactName),
+            FirstNotEmpty(student?.GuardianPhone, order?.DeliveryAddress.Phone, customerAddress?.Phone),
+            FirstNotEmpty(student?.AddressLine, order?.DeliveryAddress.Line1, customerAddress?.Line1),
+            student?.Latitude,
+            student?.Longitude);
     }
 
     public async Task<PublicFaultContextResponse> GetPublicFaultContextAsync(string qrCode,
         CancellationToken cancellationToken)
     {
-        var unit = (await repository.GetProductUnitsAsync(cancellationToken))
-            .SingleOrDefault(item => string.Equals(item.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase))
+        var unit = await repository.GetProductUnitByQrCodeAsync(qrCode, cancellationToken)
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
         var ticket = await repository.GetOpenFaultTicketAsync(unit.Id, cancellationToken);
-        var latestLocation = (await repository.GetKitLocationEventsAsync(cancellationToken))
-            .Where(item => item.ProductUnitId == unit.Id)
-            .OrderByDescending(item => item.OccurredAt)
-            .ThenByDescending(item => item.Id)
-            .FirstOrDefault();
         return ticket is null
             ? new PublicFaultContextResponse(null, null, null, null, null, null, null, null)
             : new PublicFaultContextResponse(ticket.Id, ticket.ReporterName, ticket.ReporterPhone,
@@ -900,8 +910,7 @@ public sealed class OperationsService(
         double? latitude, double? longitude, string? attachmentUrl,
         CancellationToken cancellationToken)
     {
-        var unit = (await repository.GetProductUnitsAsync(cancellationToken))
-            .SingleOrDefault(item => string.Equals(item.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase))
+        var unit = await repository.GetProductUnitByQrCodeAsync(qrCode, cancellationToken)
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
         var ticket = await repository.GetFaultTicketAsync(faultId, cancellationToken)
             ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
@@ -927,8 +936,7 @@ public sealed class OperationsService(
     public async Task<FaultTicket> OpenPublicFaultAsync(OpenPublicFaultCommand command,
         CancellationToken cancellationToken)
     {
-        var unit = (await repository.GetProductUnitsAsync(cancellationToken))
-            .SingleOrDefault(item => string.Equals(item.QrCode, command.QrCode.Trim(), StringComparison.OrdinalIgnoreCase))
+        var unit = await repository.GetProductUnitByQrCodeAsync(command.QrCode, cancellationToken)
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
         var existing = await repository.GetOpenFaultTicketAsync(unit.Id, cancellationToken);
         if (existing is not null)
@@ -978,8 +986,7 @@ public sealed class OperationsService(
     public async Task<KitLocationEvent> CreatePublicKitDeliveryAsync(CreatePublicKitDeliveryCommand command,
         CancellationToken cancellationToken)
     {
-        var unit = (await repository.GetProductUnitsAsync(cancellationToken))
-            .SingleOrDefault(item => string.Equals(item.QrCode, command.QrCode.Trim(), StringComparison.OrdinalIgnoreCase))
+        var unit = await repository.GetProductUnitByQrCodeAsync(command.QrCode, cancellationToken)
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
         if (unit.Status != ProductUnitStatus.OutboundInTransit)
             throw new ConflictException("kit_delivery.not_in_transit", "Yalnızca kargodaki kit teslim alınabilir.");
@@ -1033,8 +1040,7 @@ public sealed class OperationsService(
     public async Task<IReadOnlyCollection<FaultGuideEntryResponse>> GetPublicFaultGuideEntriesAsync(string qrCode,
         CancellationToken cancellationToken)
     {
-        var unit = (await repository.GetProductUnitsAsync(cancellationToken))
-            .SingleOrDefault(item => string.Equals(item.QrCode, qrCode.Trim(), StringComparison.OrdinalIgnoreCase))
+        var unit = await repository.GetProductUnitByQrCodeAsync(qrCode, cancellationToken)
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
         var entries = (await repository.GetFaultGuideEntriesAsync(true, cancellationToken))
             .Where(item => item.ProductModelId is null || item.ProductModelId == unit.ProductModelId)
@@ -1338,6 +1344,9 @@ public sealed class OperationsService(
 
     private static bool CoordinatesAreValid(double? latitude, double? longitude) =>
         latitude is >= -90 and <= 90 && longitude is >= -180 and <= 180;
+
+    private static string? FirstNotEmpty(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
 
     private async Task AuditAsync(
         Guid actorId,
