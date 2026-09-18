@@ -91,3 +91,8 @@ public sealed record KargonomiShipmentListItemResponse(
     int Id, string BuyerName, string? BuyerPhone, string BuyerAddress, string? BuyerState, string? BuyerCity,
     string? TrackingNumber, string? Carrier, string? ExternalStatus, string StatusLabel, int PackageCount,
     DateTimeOffset? CreatedAt, DateTimeOffset? UpdatedAt);
+
+public sealed record KargonomiShipmentRefreshResponse(
+    int ShipmentCount,
+    int OrderShipmentCount,
+    int FaultShipmentCount);

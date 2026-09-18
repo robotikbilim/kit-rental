@@ -630,6 +630,10 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => await GetAsync<KargonomiShipmentListItemViewModel[]>(
             "/core/api/kargonomi/shipments", cancellationToken) ?? [];
 
+    public Task<ApiCommandResult<KargonomiShipmentRefreshViewModel>> RefreshAllKargonomiShipmentsAsync(
+        CancellationToken cancellationToken) => PostAsync<KargonomiShipmentRefreshViewModel>(
+            "/core/api/kargonomi/shipment-refreshes", new { }, cancellationToken);
+
     public Task<ApiCommandResult<OrderKitPreparationViewModel>> CreateOrderKitsAsync(Guid orderId,
         IReadOnlyCollection<PortalRentalLineInputViewModel> lines,
         bool useAvailableKits,

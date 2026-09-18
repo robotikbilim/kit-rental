@@ -544,6 +544,8 @@ public sealed record KargonomiShipmentListItemViewModel(int Id, string BuyerName
     string BuyerAddress, string? BuyerState, string? BuyerCity, string? TrackingNumber, string? Carrier,
     string? ExternalStatus, string StatusLabel, int PackageCount, DateTimeOffset? CreatedAt,
     DateTimeOffset? UpdatedAt);
+public sealed record KargonomiShipmentRefreshViewModel(int ShipmentCount, int OrderShipmentCount,
+    int FaultShipmentCount);
 public sealed class PrepareOrderKitsViewModel
 {
     public Guid OrderId { get; set; }

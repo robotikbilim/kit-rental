@@ -1,8 +1,21 @@
 @model IReadOnlyCollection<KargonomiShipmentListItemViewModel>
 @{
     ViewData["Title"] = "Kargonomi Gönderileri";
+    var canRefresh = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager");
 }
-<div class="page-heading"><div><span class="eyebrow">KARGONOMİ</span><h1>Gönderiler</h1><p>Kargonomi hesabındaki @Model.Count gönderi</p></div></div>
+<div class="page-heading">
+    <div><span class="eyebrow">KARGONOMİ</span><h1>Gönderiler</h1><p>Kargonomi hesabındaki @Model.Count gönderi</p></div>
+    @if (canRefresh)
+    {
+        <div class="heading-actions">
+            <form asp-action="RefreshAllKargonomiShipments" method="post">
+                <button type="submit" class="secondary-action"><i data-lucide="refresh-cw"></i> Tümünü Yenile</button>
+            </form>
+        </div>
+    }
+</div>
+@if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
+@if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 <section class="detail-section">
     <div class="table-scroll">
         <table class="order-kits-table js-datatable">

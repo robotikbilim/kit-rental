@@ -109,6 +109,17 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     public async Task<IActionResult> KargonomiShipments(CancellationToken cancellationToken) =>
         View(await apiClient.GetKargonomiShipmentsAsync(cancellationToken));
 
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> RefreshAllKargonomiShipments(CancellationToken cancellationToken)
+    {
+        var result = await apiClient.RefreshAllKargonomiShipmentsAsync(cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? $"Kargonomi'deki {result.Data!.ShipmentCount} gönderi kontrol edildi; " +
+              $"{result.Data.OrderShipmentCount} sipariş ve {result.Data.FaultShipmentCount} arıza gönderisi güncellendi."
+            : result.Error ?? "Kargonomi gönderileri güncellenemedi.";
+        return RedirectToAction(nameof(KargonomiShipments));
+    }
+
     [HttpGet]
     public async Task<IActionResult> OrderDetails(Guid id, bool edit = false, CancellationToken cancellationToken = default)
     {

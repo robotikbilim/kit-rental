@@ -63,13 +63,7 @@ public sealed class KargonomiShippingService(
             ?? throw new ResourceNotFoundException("Arıza Kargonomi gönderisi eşleşmedi.");
         var shipment = ticket.KargonomiShipments.First(item => item.ExternalShipmentId == externalShipmentId);
         shipment.ApplyUpdate(status, statusLabel, trackingNumber, timeProvider.GetUtcNow(), description);
-        if (shipment.State == KargonomiShipmentState.Delivered)
-        {
-            if (shipment.Direction == FaultKargonomiShipmentDirection.ToWorkshop && ticket.Status == FaultStatus.WorkshopShipmentInTransit)
-                ticket.MarkWorkshopReceived(SystemActorId, timeProvider.GetTurkeyNow(), "Atölye kargosu teslim edildi.");
-            else if (shipment.Direction == FaultKargonomiShipmentDirection.ToCustomer && ticket.Status == FaultStatus.CustomerShipmentInTransit)
-                ticket.Close(SystemActorId, timeProvider.GetTurkeyNow(), "Onarılan kit müşteriye teslim edildi.");
-        }
+        ApplyFaultDeliveryTransition(ticket, shipment);
         await repository.SaveChangesAsync(cancellationToken);
     }
 
@@ -154,11 +148,51 @@ public sealed class KargonomiShippingService(
     public async Task<IReadOnlyCollection<KargonomiShipmentListItemResponse>> GetAllAsync(CancellationToken cancellationToken)
         => (await client.GetShipmentsAsync(cancellationToken))
             .OrderByDescending(item => item.CreatedAt)
-            .Select(item => new KargonomiShipmentListItemResponse(
-                item.Id, item.BuyerName, item.BuyerPhone, item.BuyerAddress, item.BuyerState, item.BuyerCity,
-                item.TrackingNumber, item.Carrier, item.Status, item.StatusLabel, item.PackageCount,
-                item.CreatedAt, item.UpdatedAt))
+            .Select(MapListItem)
             .ToArray();
+
+    public async Task<KargonomiShipmentRefreshResponse> RefreshAllAsync(CancellationToken cancellationToken)
+    {
+        var snapshots = await client.GetShipmentsAsync(cancellationToken);
+        var snapshotsById = snapshots
+            .Where(item => item.Id > 0)
+            .GroupBy(item => item.Id)
+            .ToDictionary(group => group.Key, group => group.Last());
+        var occurredAt = timeProvider.GetUtcNow();
+
+        var orderShipmentCount = 0;
+        var orderShipments = await repository.GetKargonomiShipmentsAsync(null, cancellationToken);
+        foreach (var shipment in orderShipments)
+        {
+            if (!shipment.ExternalShipmentId.HasValue ||
+                !snapshotsById.TryGetValue(shipment.ExternalShipmentId.Value, out var snapshot))
+                continue;
+
+            shipment.ApplyUpdate(snapshot.Status, snapshot.StatusLabel, snapshot.TrackingNumber, occurredAt,
+                "Kargonomi gönderi listesinden yenilendi.");
+            orderShipmentCount++;
+        }
+
+        var faultShipmentCount = 0;
+        var faultTickets = await repository.GetFaultTicketsAsync(null, cancellationToken);
+        foreach (var ticket in faultTickets)
+        {
+            foreach (var shipment in ticket.KargonomiShipments)
+            {
+                if (!shipment.ExternalShipmentId.HasValue ||
+                    !snapshotsById.TryGetValue(shipment.ExternalShipmentId.Value, out var snapshot))
+                    continue;
+
+                shipment.ApplyUpdate(snapshot.Status, snapshot.StatusLabel, snapshot.TrackingNumber, occurredAt,
+                    "Kargonomi gönderi listesinden yenilendi.");
+                ApplyFaultDeliveryTransition(ticket, shipment);
+                faultShipmentCount++;
+            }
+        }
+
+        await repository.SaveChangesAsync(cancellationToken);
+        return new(snapshots.Count, orderShipmentCount, faultShipmentCount);
+    }
 
     public async Task<KargonomiShipmentResponse> RefreshAsync(Guid shipmentId, CancellationToken cancellationToken)
     {
@@ -196,6 +230,24 @@ public sealed class KargonomiShippingService(
         shipment.ApplyUpdate(status, statusLabel, trackingNumber, timeProvider.GetUtcNow(), description);
         await repository.SaveChangesAsync(cancellationToken);
     }
+
+    private void ApplyFaultDeliveryTransition(FaultTicket ticket, FaultKargonomiShipment shipment)
+    {
+        if (shipment.State != KargonomiShipmentState.Delivered)
+            return;
+
+        if (shipment.Direction == FaultKargonomiShipmentDirection.ToWorkshop &&
+            ticket.Status == FaultStatus.WorkshopShipmentInTransit)
+            ticket.MarkWorkshopReceived(SystemActorId, timeProvider.GetTurkeyNow(), "Atölye kargosu teslim edildi.");
+        else if (shipment.Direction == FaultKargonomiShipmentDirection.ToCustomer &&
+            ticket.Status == FaultStatus.CustomerShipmentInTransit)
+            ticket.Close(SystemActorId, timeProvider.GetTurkeyNow(), "Onarılan kit müşteriye teslim edildi.");
+    }
+
+    private static KargonomiShipmentListItemResponse MapListItem(KargonomiShipmentListSnapshot item) =>
+        new(item.Id, item.BuyerName, item.BuyerPhone, item.BuyerAddress, item.BuyerState, item.BuyerCity,
+            item.TrackingNumber, item.Carrier, item.Status, item.StatusLabel, item.PackageCount,
+            item.CreatedAt, item.UpdatedAt);
 
     private static KargonomiShipmentResponse Map(KargonomiShipment shipment, string studentName) =>
         new(shipment.Id, shipment.OrderId, shipment.StudentId, shipment.ExternalShipmentId, studentName, string.Empty,
