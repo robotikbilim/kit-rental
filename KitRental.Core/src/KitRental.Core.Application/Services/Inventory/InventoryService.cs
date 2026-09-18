@@ -195,11 +195,11 @@ public sealed class InventoryService(
             {
                 if (assignment.Status != RentalAssignmentStatus.Active)
                     continue;
-                var daysRemaining = assignment.Period.EndDate.DayNumber - today.DayNumber;
+                var daysRemaining = order.Period!.Value.EndDate.DayNumber - today.DayNumber;
                 result[assignment.ProductUnitId] = new ActiveRentalInfo(
                     customers.TryGetValue(assignment.CustomerId, out var customer) ? customer.Name : "Müşteri",
                     order.OrderNumber,
-                    assignment.Period.EndDate,
+                    order.Period.Value.EndDate,
                     daysRemaining);
             }
         }

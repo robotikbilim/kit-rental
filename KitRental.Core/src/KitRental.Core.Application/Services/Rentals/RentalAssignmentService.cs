@@ -29,11 +29,6 @@ public sealed class RentalAssignmentService(ICoreRepository repository, TimeProv
             throw new ConflictException("rental_assignment.order_not_approved", "Fiziksel ürün yalnız onaylanmış siparişe atanabilir.");
         }
 
-        if (order.Period != new RentalPeriod(command.StartDate, command.EndDate))
-        {
-            throw new ConflictException("rental_assignment.period_mismatch", "Atama tarihleri sipariş tarihleriyle eşleşmelidir.");
-        }
-
         if (unit.Status is ProductUnitStatus.InMaintenance or ProductUnitStatus.Quarantined or ProductUnitStatus.Lost or ProductUnitStatus.Retired)
         {
             throw new ConflictException("rental_assignment.unit_not_rentable", "Ürün birimi mevcut durumunda kiralanamaz.");
@@ -45,7 +40,6 @@ public sealed class RentalAssignmentService(ICoreRepository repository, TimeProv
             command.OrderLineId,
             command.CustomerId,
             command.ProductUnitId,
-            new RentalPeriod(command.StartDate, command.EndDate),
             now,
             command.ActorId);
 
@@ -65,7 +59,7 @@ public sealed class RentalAssignmentService(ICoreRepository repository, TimeProv
 
         await repository.AddAuditEntryAsync(
             new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(RentalAssignment), assignment.Id, "Reserved", null,
-                $"{assignment.Period.StartDate:O}/{assignment.Period.EndDate:O}", now),
+                $"{order.Period!.Value.StartDate:O}/{order.Period.Value.EndDate:O}", now),
             cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
 
@@ -74,8 +68,8 @@ public sealed class RentalAssignmentService(ICoreRepository repository, TimeProv
             assignment.OrderLineId,
             assignment.CustomerId,
             assignment.ProductUnitId,
-            assignment.Period.StartDate,
-            assignment.Period.EndDate,
+            order.Period!.Value.StartDate,
+            order.Period.Value.EndDate,
             assignment.Status);
     }
 }

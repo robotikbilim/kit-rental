@@ -37,6 +37,5 @@ public sealed class RentalAssignmentTests
     }
 
     private static RentalAssignment CreateAssignment() => RentalAssignment.Create(Guid.NewGuid(), Guid.NewGuid(),
-        Guid.NewGuid(), Guid.NewGuid(), new RentalPeriod(new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 31)),
-        DateTimeOffset.UtcNow, Guid.NewGuid());
+        Guid.NewGuid(), Guid.NewGuid(), DateTimeOffset.UtcNow, Guid.NewGuid());
 }

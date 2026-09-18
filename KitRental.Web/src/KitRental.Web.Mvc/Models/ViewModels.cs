@@ -409,7 +409,7 @@ public sealed record PortalKitsPageViewModel(string CustomerName, string Query, 
 public sealed record PortalOrderLineViewModel(Guid ProductModelId, string ProductName, string ProductSku, int Quantity);
 public sealed record PortalOrderViewModel(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName, int Type,
     int Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt, IReadOnlyCollection<PortalOrderLineViewModel> Lines,
-    int AssignedKitCount = 0);
+    int AssignedKitCount = 0, string? RentalPeriodName = null);
 public sealed record OrderCustomerViewModel(Guid Id, string Name, string Email, bool IsActive,
     IReadOnlyCollection<PortalAddressViewModel> Addresses,
     IReadOnlyCollection<Guid>? AllowedProductModelIds = null);
@@ -513,9 +513,21 @@ public sealed record OrderDetailStudentViewModel(Guid Id, string FullName, strin
     Guid? AssignedKitId = null);
 public sealed record OrderDetailViewModel(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName,
     int Type, int Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt, Guid? RentalCohortId,
+    string? RentalPeriodName,
     IReadOnlyCollection<OrderDetailLineViewModel> Lines, IReadOnlyCollection<OrderDetailKitViewModel> Kits,
     IReadOnlyCollection<OrderDetailStudentViewModel> Students,
     IReadOnlyCollection<KargonomiShipmentViewModel> KargonomiShipments);
+public sealed class OrderRentalPeriodInputViewModel
+{
+    [Required, StringLength(200), Display(Name = "Sipariş dönemi")]
+    public string PeriodName { get; set; } = string.Empty;
+
+    [Required, DataType(DataType.Date), Display(Name = "Başlangıç tarihi")]
+    public DateOnly StartDate { get; set; }
+
+    [Required, DataType(DataType.Date), Display(Name = "Bitiş tarihi")]
+    public DateOnly EndDate { get; set; }
+}
 
 public sealed record KargonomiShipmentEventViewModel(string ExternalStatus, string StatusLabel, int State,
     string? TrackingNumber, DateTimeOffset OccurredAt, string? Description);

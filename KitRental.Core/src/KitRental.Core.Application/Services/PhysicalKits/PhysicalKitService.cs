@@ -138,8 +138,8 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
                         latestLocation.Longitude);
             }
             deliveries.Add(new PhysicalKitDeliveryHistoryResponse(assignment.Id, order.OrderNumber, order.Status,
-                assignment.Status, customer.Name, customer.Email, assignment.Period.StartDate,
-                assignment.Period.EndDate, assignment.CreatedAt, location.RecipientName, location.Phone,
+                assignment.Status, customer.Name, customer.Email, order.Period!.Value.StartDate,
+                order.Period.Value.EndDate, assignment.CreatedAt, location.RecipientName, location.Phone,
                 location.AddressLine, location.DeliveredAt, location.Latitude, location.Longitude));
         }
         deliveries = deliveries.OrderByDescending(item => item.CreatedAt).ToList();
@@ -218,7 +218,7 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
         order.Approve(command.ActorId, now);
         await repository.AddOrderAsync(order, cancellationToken);
 
-        var assignment = RentalAssignment.Create(Guid.NewGuid(), line.Id, customer.Id, unit.Id, period, now, command.ActorId);
+        var assignment = RentalAssignment.Create(Guid.NewGuid(), line.Id, customer.Id, unit.Id, now, command.ActorId);
         if (!await repository.TryCreateReservationAsync(unit, assignment, command.ActorId, now, cancellationToken))
             throw new ConflictException("rental_assignment.overlap", "Kit bu tarih aralığında başka bir kiralamaya atanmış.");
 
@@ -292,7 +292,7 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
         await repository.AddOrderAsync(order, cancellationToken);
 
         var assignments = units.Select(unit => RentalAssignment.Create(Guid.NewGuid(),
-            linesByModel[unit.ProductModelId].Id, customer.Id, unit.Id, period, now, command.ActorId)).ToArray();
+            linesByModel[unit.ProductModelId].Id, customer.Id, unit.Id, now, command.ActorId)).ToArray();
         if (!await repository.TryCreateReservationsAsync(units, assignments, command.ActorId, now, cancellationToken))
             throw new ConflictException("rental_assignment.overlap",
                 "Seçilen kitlerden biri başka bir işlem tarafından kiralandı. Listeyi yenileyip tekrar deneyin.");
@@ -339,8 +339,8 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
             var customer = await repository.GetCustomerAsync(assignment.CustomerId, cancellationToken);
             var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken);
             if (customer is not null && order is not null)
-                current = new PhysicalKitCurrentRentalResponse(customer.Name, assignment.Period.StartDate,
-                    assignment.Period.EndDate);
+                current = new PhysicalKitCurrentRentalResponse(customer.Name, order.Period!.Value.StartDate,
+                    order.Period.Value.EndDate);
         }
         return new PhysicalKitListItemResponse(unit.Id, model.Id, model.Name, model.Sku, model.ImageUrl,
             unit.SerialNumber, unit.QrCode, unit.Status, current);

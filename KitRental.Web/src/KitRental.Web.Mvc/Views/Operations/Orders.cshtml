@@ -34,7 +34,7 @@
 }
 else
 {
-    <div class="table-scroll"><table class="orders-table js-datatable"><thead><tr><th>Sipariş</th><th>Tür</th><th>Müşteri</th><th>Talep edilen kitler</th><th>Fiziksel kit</th><th>Dönem</th><th>Durum</th><th>Aksiyon</th></tr></thead><tbody>
+    <div class="table-scroll"><table class="orders-table js-datatable" data-datatable-responsive="false"><thead><tr><th>Sipariş</th><th>Tür</th><th>Müşteri</th><th>Talep edilen kitler</th><th>Fiziksel kit</th><th>Dönem</th><th>Durum</th><th>Aksiyon</th></tr></thead><tbody>
     @foreach (var item in Model)
     {
         var requestedKitCount = item.Lines.Sum(line => line.Quantity);
@@ -46,9 +46,59 @@ else
             <td><span class="order-kit-count @(item.AssignedKitCount == requestedKitCount ? "complete" : null)">@item.AssignedKitCount / @requestedKitCount</span><small class="block-muted">oluşturuldu</small></td>
             <td>@(item.Type == 2 ? "Satın alma" : $"{item.StartDate:dd.MM.yyyy} — {item.EndDate:dd.MM.yyyy}")</td>
             <td><span class="badge order-status-@item.Status">@StatusName(item.Status)</span></td>
-            <td><a class="row-link" asp-action="OrderDetails" asp-route-id="@item.Id">Detay →</a></td>
+            <td><div class="order-row-actions">
+                @if (canManageOrders && item.Type == 1 && !string.IsNullOrWhiteSpace(item.RentalPeriodName))
+                {
+                    <button class="icon-action icon-action-edit" type="button" data-dialog-open="order-period-dialog-@item.Id"
+                            title="Siparişi Düzenle" aria-label="@($"{item.OrderNumber} siparişini düzenle")">
+                        <i data-lucide="pencil"></i><span class="visually-hidden">Siparişi Düzenle</span>
+                    </button>
+                }
+                <a class="icon-action icon-action-neutral order-details-link" asp-action="OrderDetails" asp-route-id="@item.Id"
+                   title="Sipariş Detayı" aria-label="@($"{item.OrderNumber} sipariş detayını aç")">
+                    <i data-lucide="eye"></i><span class="visually-hidden">Detay</span>
+                </a>
+            </div></td>
         </tr>
     }
     </tbody></table></div>
+    @foreach (var item in Model.Where(item => canManageOrders && item.Type == 1 && !string.IsNullOrWhiteSpace(item.RentalPeriodName)))
+    {
+        <dialog class="student-edit-dialog order-period-dialog" id="order-period-dialog-@item.Id"
+                aria-labelledby="order-period-dialog-title-@item.Id">
+            <form class="student-edit-modal" asp-action="UpdateOrderRentalPeriod" asp-route-id="@item.Id"
+                  asp-route-returnToOrders="true" method="post">
+                <div asp-validation-summary="All" class="error"></div>
+                <header>
+                    <div>
+                        <span class="eyebrow">SİPARİŞ DÜZENLEME</span>
+                        <h2 id="order-period-dialog-title-@item.Id">Sipariş dönemini güncelle</h2>
+                        <p class="block-muted">@item.OrderNumber · @item.CustomerName</p>
+                    </div>
+                    <button class="icon-action icon-action-neutral" type="button" data-dialog-close title="Kapat" aria-label="Pencereyi Kapat">
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="form-grid">
+                    <div class="field wide">
+                        <label for="order-period-name-@item.Id">Sipariş dönemi</label>
+                        <input id="order-period-name-@item.Id" name="PeriodName" value="@item.RentalPeriodName" required maxlength="200" />
+                    </div>
+                    <div class="field">
+                        <label for="order-period-start-@item.Id">Başlangıç tarihi</label>
+                        <input id="order-period-start-@item.Id" name="StartDate" type="date" value="@(item.StartDate?.ToString("yyyy-MM-dd"))" required />
+                    </div>
+                    <div class="field">
+                        <label for="order-period-end-@item.Id">Bitiş tarihi</label>
+                        <input id="order-period-end-@item.Id" name="EndDate" type="date" value="@(item.EndDate?.ToString("yyyy-MM-dd"))" required />
+                    </div>
+                </div>
+                <footer>
+                    <button class="secondary-action" type="button" data-dialog-close>Vazgeç</button>
+                    <button class="primary-action" type="submit">Kaydet</button>
+                </footer>
+            </form>
+        </dialog>
+    }
 }
 

@@ -6,8 +6,6 @@ public sealed record CreateRentalAssignmentCommand(
     Guid OrderLineId,
     Guid CustomerId,
     Guid ProductUnitId,
-    DateOnly StartDate,
-    DateOnly EndDate,
     Guid ActorId);
 
 public sealed record RentalAssignmentResponse(

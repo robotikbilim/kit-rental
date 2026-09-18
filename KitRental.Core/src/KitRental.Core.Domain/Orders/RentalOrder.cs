@@ -119,6 +119,14 @@ public sealed class RentalOrder
             _lines.Add(new RentalOrderLine(Guid.NewGuid(), line.ProductModelId, line.Quantity));
     }
 
+    public void UpdateRentalPeriod(DateOnly startDate, DateOnly endDate)
+    {
+        if (Type != OrderType.Rental)
+            throw new DomainException("order.period_not_editable", "Yalnızca kiralama siparişlerinin dönem bilgileri düzenlenebilir.");
+
+        Period = new RentalPeriod(startDate, endDate);
+    }
+
     public void ReplaceLines(IReadOnlyCollection<(Guid ProductModelId, int Quantity)> lines)
     {
         if (Status != RentalOrderStatus.Approved || lines.Count == 0)

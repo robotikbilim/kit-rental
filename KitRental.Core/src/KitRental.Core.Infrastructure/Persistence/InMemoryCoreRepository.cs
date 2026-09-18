@@ -797,10 +797,13 @@ public sealed class InMemoryCoreRepository : ICoreRepository
 
         lock (_gate)
         {
-            var requestedPeriods = assignments.ToDictionary(item => item.ProductUnitId, item => item.Period);
+            var requestedPeriods = assignments.ToDictionary(item => item.ProductUnitId,
+                item => _orders.Values.Single(order => order.Lines.Any(line => line.Id == item.OrderLineId))
+                    .Period!.Value);
             var overlaps = units.Any(item => item.Status != ProductUnitStatus.Available) ||
                 _assignments.Any(existing => unitIds.Contains(existing.ProductUnitId) && existing.BlocksAvailability &&
-                    existing.Period.Overlaps(requestedPeriods[existing.ProductUnitId]));
+                    _orders.Values.Single(order => order.Lines.Any(line => line.Id == existing.OrderLineId)).Period!.Value
+                        .Overlaps(requestedPeriods[existing.ProductUnitId]));
 
             if (overlaps)
                 return Task.FromResult(false);

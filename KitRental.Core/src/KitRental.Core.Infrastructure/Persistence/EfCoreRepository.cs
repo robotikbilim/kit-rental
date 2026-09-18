@@ -550,8 +550,29 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
                     unitIds.Contains(existing.ProductUnitId) &&
                     (existing.Status == RentalAssignmentStatus.Reserved || existing.Status == RentalAssignmentStatus.Active))
                 .ToArrayAsync(cancellationToken);
-            var requestedPeriods = assignments.ToDictionary(item => item.ProductUnitId, item => item.Period);
-            if (candidates.Any(existing => existing.Period.Overlaps(requestedPeriods[existing.ProductUnitId])))
+            var lineIds = candidates.Select(item => item.OrderLineId)
+                .Concat(assignments.Select(item => item.OrderLineId)).Distinct().ToArray();
+            var periodOrders = await OrdersQuery()
+                .Where(order => order.Lines.Any(line => lineIds.Contains(line.Id)))
+                .ToArrayAsync(cancellationToken);
+            foreach (var localOrder in dbContext.RentalOrders.Local)
+            {
+                if (localOrder.Period.HasValue && localOrder.Lines.Any(line => lineIds.Contains(line.Id)) &&
+                    periodOrders.All(order => order.Id != localOrder.Id))
+                    periodOrders = periodOrders.Append(localOrder).ToArray();
+            }
+
+            var periodsByLineId = periodOrders.SelectMany(order => order.Lines
+                    .Where(line => lineIds.Contains(line.Id) && order.Period.HasValue)
+                    .Select(line => (line.Id, Period: order.Period!.Value)))
+                .ToDictionary(item => item.Id, item => item.Period);
+            var requestedPeriods = assignments.ToDictionary(assignment => assignment.ProductUnitId,
+                assignment => periodsByLineId.GetValueOrDefault(assignment.OrderLineId));
+            if (assignments.Any(assignment => !periodsByLineId.ContainsKey(assignment.OrderLineId)) ||
+                candidates.Any(existing =>
+                    !periodsByLineId.TryGetValue(existing.OrderLineId, out var existingPeriod) ||
+                    !requestedPeriods.TryGetValue(existing.ProductUnitId, out var requestedPeriod) ||
+                    requestedPeriod.Overlaps(existingPeriod)))
             {
                 await transaction.RollbackAsync(cancellationToken);
                 return false;

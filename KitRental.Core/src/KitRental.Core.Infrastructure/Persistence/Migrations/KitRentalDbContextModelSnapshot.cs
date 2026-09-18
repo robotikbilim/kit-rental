@@ -534,11 +534,6 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("OrderLineId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Period")
-                        .IsRequired()
-                        .HasMaxLength(21)
-                        .HasColumnType("nvarchar(21)");
-
                     b.Property<Guid>("ProductUnitId")
                         .HasColumnType("uniqueidentifier");
 

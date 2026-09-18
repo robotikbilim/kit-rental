@@ -110,10 +110,32 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         View(await apiClient.GetKargonomiShipmentsAsync(cancellationToken));
 
     [HttpGet]
-    public async Task<IActionResult> OrderDetails(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> OrderDetails(Guid id, bool edit = false, CancellationToken cancellationToken = default)
     {
         var model = await apiClient.GetOrderDetailAsync(id, cancellationToken);
+        ViewData["OpenOrderPeriodDialog"] = edit;
         return model is null ? NotFound() : View(model);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> UpdateOrderRentalPeriod(Guid id, OrderRentalPeriodInputViewModel model,
+        bool returnToOrders = false, CancellationToken cancellationToken = default)
+    {
+        if (!ModelState.IsValid || model.EndDate <= model.StartDate)
+        {
+            TempData["Error"] = model.EndDate <= model.StartDate
+                ? "Bitiş tarihi başlangıç tarihinden sonra olmalıdır."
+                : "Dönem adı, başlangıç ve bitiş tarihi zorunludur.";
+            return RedirectToAction(returnToOrders ? nameof(Orders) : nameof(OrderDetails),
+                returnToOrders ? null : new { id });
+        }
+
+        var result = await apiClient.UpdateOrderRentalPeriodAsync(id, model, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "Sipariş dönemi ve kiralama tarihleri güncellendi."
+            : result.Error ?? "Sipariş dönemi güncellenemedi.";
+        return RedirectToAction(returnToOrders ? nameof(Orders) : nameof(OrderDetails),
+            returnToOrders ? null : new { id });
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]

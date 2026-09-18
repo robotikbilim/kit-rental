@@ -148,7 +148,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 : unitStudents.Length == 1 ? unitStudents[0] : null;
             return new PortalKitResponse(unit.Id, assignment.Id, order.Id, order.OrderNumber, model.Name, model.Sku,
                 model.ImageUrl, unit.SerialNumber, unit.QrCode, unit.Status, assignment.Status,
-                assignment.Period.StartDate, assignment.Period.EndDate,
+                order.Period!.Value.StartDate, order.Period.Value.EndDate,
                 faults.Count(item => !IsCompletedFaultStatus(item.Status)), deliveryIds.Contains(assignment.Id),
                 student?.FullName, student?.GuardianPhone, student?.AddressLine, student?.CohortName,
                 returnedIds.Contains(assignment.Id), student?.StudentOrderLocked ?? false);
@@ -288,13 +288,13 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                     : studentsByUnit.TryGetValue(unit.Id, out var byUnit) ? byUnit : null;
                 kits.Add(new PortalKitResponse(unit.Id, assignment.Id, order.Id, order.OrderNumber, model.Name,
                     model.Sku, model.ImageUrl, unit.SerialNumber, unit.QrCode, unit.Status, assignment.Status,
-                    assignment.Period.StartDate, assignment.Period.EndDate, openFaultCount,
+                    order.Period!.Value.StartDate, order.Period.Value.EndDate, openFaultCount,
                     deliveryAssignmentIds.Contains(assignment.Id), student?.FullName, student?.GuardianPhone,
                     student?.AddressLine, student?.CohortName, returnedIds.Contains(assignment.Id),
                     student?.StudentOrderLocked ?? false));
                 if (assignment.Status != RentalAssignmentStatus.Active || returnedIds.Contains(assignment.Id)) continue;
                 var category = GetKitLocationCategory(unit.Status, openFaultCount > 0,
-                    returnStartedIds.Contains(assignment.Id), assignment.Period.EndDate < today);
+                    returnStartedIds.Contains(assignment.Id), order.Period.Value.EndDate < today);
                 var location = latestLocationsByUnit.GetValueOrDefault(unit.Id);
                 kitLocations.Add(new PortalKitLocationResponse(unit.Id, unit.ProductModelId, model.Name, model.Sku,
                     unit.SerialNumber, location?.ContactName ?? order.DeliveryAddress.ContactName,
@@ -622,7 +622,6 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             throw new ConflictException("kit_return.unit_not_with_customer", "Bu kit şu anda müşteride görünmüyor.");
         var assignment = (await repository.GetAssignmentsForProductUnitAsync(unit.Id, cancellationToken))
             .Where(item => item.Status == RentalAssignmentStatus.Active)
-            .OrderByDescending(item => item.Period.EndDate)
             .FirstOrDefault()
             ?? throw new ConflictException("kit_return.no_active_rental", "Bu kit için aktif bir kiralama bulunmuyor.");
         var activeReturns = await repository.GetKitReturnRequestsAsync(assignment.CustomerId, cancellationToken);
@@ -761,7 +760,6 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         if (unit is null) return null;
         var assignment = (await repository.GetAssignmentsForProductUnitAsync(unit.Id, cancellationToken))
             .Where(item => item.Status == RentalAssignmentStatus.Active)
-            .OrderByDescending(item => item.Period.EndDate)
             .FirstOrDefault();
         if (assignment is null) return null;
         var request = (await repository.GetKitReturnRequestsAsync(assignment.CustomerId, cancellationToken))
@@ -780,6 +778,12 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
     {
         var customers = (await repository.GetCustomersAsync(cancellationToken)).ToDictionary(item => item.Id);
         var models = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(item => item.Id);
+        var cohortsByOrderId = (await repository.GetRentalCohortsAsync(customerId, cancellationToken))
+            .SelectMany(cohort => cohort.Students
+                .Where(student => student.OrderId.HasValue)
+                .Select(student => new { OrderId = student.OrderId!.Value, Cohort = cohort }))
+            .GroupBy(item => item.OrderId)
+            .ToDictionary(group => group.Key, group => group.First().Cohort);
         var result = new List<PortalOrderResponse>();
         foreach (var order in await repository.GetOrdersAsync(customerId, cancellationToken))
         {
@@ -787,13 +791,14 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 ? (await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken))
                     .Count(assignment => assignment.Status != RentalAssignmentStatus.Cancelled)
                 : order.ProductUnits.Count;
+            cohortsByOrderId.TryGetValue(order.Id, out var cohort);
             result.Add(new PortalOrderResponse(order.Id, order.OrderNumber, order.CustomerId,
                 customers.TryGetValue(order.CustomerId, out var customer) ? customer.Name : "Müşteri",
                 order.Type, order.Status, order.Period?.StartDate, order.Period?.EndDate, order.CreatedAt,
                 order.Lines.Select(line => new PortalOrderLineResponse(line.ProductModelId,
                     models.TryGetValue(line.ProductModelId, out var model) ? model.Name : "Eğitim kiti",
                     models.TryGetValue(line.ProductModelId, out model) ? model.Sku : "-", line.Quantity)).ToArray(),
-                assignedKitCount));
+                assignedKitCount, cohort?.Name));
         }
         return result;
     }

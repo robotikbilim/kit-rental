@@ -589,6 +589,15 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<OrderDetailViewModel?> GetOrderDetailAsync(Guid orderId, CancellationToken cancellationToken) =>
         GetAsync<OrderDetailViewModel>($"/core/api/orders/{orderId}", cancellationToken);
 
+    public Task<ApiCommandResult<OrderDetailViewModel>> UpdateOrderRentalPeriodAsync(Guid orderId,
+        OrderRentalPeriodInputViewModel model, CancellationToken cancellationToken) =>
+        SendAsync<OrderDetailViewModel>(HttpMethod.Put, $"/core/api/orders/{orderId}/rental-period", new
+        {
+            periodName = model.PeriodName,
+            model.StartDate,
+            model.EndDate
+        }, cancellationToken);
+
     public Task<ApiCommandResult<object>> DeleteOrderStudentAsync(Guid orderId, Guid studentId,
         CancellationToken cancellationToken) =>
         SendAsync<object>(HttpMethod.Delete, $"/core/api/orders/{orderId}/students/{studentId}", null, cancellationToken);

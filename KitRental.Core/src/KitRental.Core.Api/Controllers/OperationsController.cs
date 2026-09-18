@@ -152,6 +152,15 @@ public sealed class OperationsController : CoreApiControllerBase
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager")]
+    [HttpPut("orders/{orderId:guid}/rental-period")]
+    public async Task<IActionResult> UpdateOrderRentalPeriod(Guid orderId, UpdateOrderRentalPeriodRequest request,
+        [FromServices] OperationsService service, CancellationToken cancellationToken)
+    {
+        return Ok(await service.UpdateOrderRentalPeriodAsync(new UpdateOrderRentalPeriodCommand(orderId,
+            request.PeriodName, request.StartDate, request.EndDate, User.GetRequiredUserId()), cancellationToken));
+    }
+
+    [Authorize(Roles = "SystemAdmin,OperationsManager")]
     [HttpDelete("orders/{orderId:guid}/students/{studentId:guid}")]
     public async Task<IActionResult> RemoveStudentFromOrder(Guid orderId, Guid studentId,
         [FromServices] OperationsService service, CancellationToken cancellationToken)
@@ -181,8 +190,8 @@ public sealed class OperationsController : CoreApiControllerBase
     public async Task<IActionResult> CreateRentalAssignment(CreateRentalAssignmentRequest request, [FromServices] RentalAssignmentService service, CancellationToken cancellationToken)
     {
         var result = await service.CreateAsync(
-                new CreateRentalAssignmentCommand(request.OrderLineId, request.CustomerId, request.ProductUnitId, request.StartDate,
-                    request.EndDate, User.GetRequiredUserId()), cancellationToken);
+            new CreateRentalAssignmentCommand(request.OrderLineId, request.CustomerId, request.ProductUnitId,
+                User.GetRequiredUserId()), cancellationToken);
         return Created($"/api/rental-assignments/{result.Id}", result);
     }
 

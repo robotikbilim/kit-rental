@@ -21,7 +21,6 @@ public sealed class RentalAssignment
         Guid orderLineId,
         Guid customerId,
         Guid productUnitId,
-        RentalPeriod period,
         DateTimeOffset createdAt,
         Guid createdBy)
     {
@@ -29,7 +28,6 @@ public sealed class RentalAssignment
         OrderLineId = orderLineId;
         CustomerId = customerId;
         ProductUnitId = productUnitId;
-        Period = period;
         CreatedAt = createdAt;
         CreatedBy = createdBy;
         Status = RentalAssignmentStatus.Reserved;
@@ -39,7 +37,6 @@ public sealed class RentalAssignment
     public Guid OrderLineId { get; private set; }
     public Guid CustomerId { get; private set; }
     public Guid ProductUnitId { get; private set; }
-    public RentalPeriod Period { get; private set; }
     public RentalAssignmentStatus Status { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public Guid CreatedBy { get; private set; }
@@ -51,7 +48,6 @@ public sealed class RentalAssignment
         Guid orderLineId,
         Guid customerId,
         Guid productUnitId,
-        RentalPeriod period,
         DateTimeOffset createdAt,
         Guid createdBy)
     {
@@ -60,7 +56,7 @@ public sealed class RentalAssignment
             throw new DomainException("rental_assignment.required_ids", "Kiralama atamasındaki kimlik alanları zorunludur.");
         }
 
-        return new RentalAssignment(id, orderLineId, customerId, productUnitId, period, createdAt, createdBy);
+        return new RentalAssignment(id, orderLineId, customerId, productUnitId, createdAt, createdBy);
     }
 
     public void Activate()

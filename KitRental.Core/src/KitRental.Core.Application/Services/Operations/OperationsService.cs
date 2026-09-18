@@ -25,6 +25,8 @@ public sealed record CreateOrderCommand(Guid CustomerId, Guid AddressId, DateOnl
 public sealed record CreateStudentAddressOrderStudentCommand(string FullName, string GuardianPhone);
 public sealed record CreateStudentAddressOrderCommand(Guid CustomerId, Guid ProductModelId, DateOnly StartDate,
     DateOnly EndDate, IReadOnlyCollection<CreateStudentAddressOrderStudentCommand> Students, Guid ActorId);
+public sealed record UpdateOrderRentalPeriodCommand(Guid OrderId, string PeriodName, DateOnly StartDate,
+    DateOnly EndDate, Guid ActorId);
 public sealed record CreatePurchaseOrderCommand(Guid CustomerId, Guid AddressId,
     IReadOnlyCollection<OrderLineCommand> Lines, Guid ActorId);
 public sealed record OpenFaultCommand(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId,
@@ -74,6 +76,7 @@ public sealed record OrderDetailStudentResponse(Guid Id, string FullName, string
     Guid? AssignedKitId = null);
 public sealed record OrderDetailResponse(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName, OrderType Type,
     RentalOrderStatus Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt, Guid? RentalCohortId,
+    string? RentalPeriodName,
     IReadOnlyCollection<OrderDetailLineResponse> Lines, IReadOnlyCollection<OrderDetailKitResponse> Kits,
     IReadOnlyCollection<OrderDetailStudentResponse> Students,
     IReadOnlyCollection<KargonomiShipmentResponse> KargonomiShipments = default!);
@@ -385,9 +388,33 @@ public sealed class OperationsService(
                     item.StatusLabel, item.State, item.TrackingNumber, item.OccurredAt, item.Description)).ToArray()))
             .ToArray();
         return new OrderDetailResponse(order.Id, order.OrderNumber, order.CustomerId, customer?.Name ?? "Müşteri", order.Type,
-            order.Status, order.Period?.StartDate, order.Period?.EndDate, order.CreatedAt, cohort?.Id, lines,
+            order.Status, order.Period?.StartDate, order.Period?.EndDate, order.CreatedAt, cohort?.Id,
+            cohort?.Name, lines,
             kits.OrderBy(item => item.ProductName).ThenBy(item => item.SerialNumber).ToArray(), students,
             kargonomiShipments);
+    }
+
+    public async Task<OrderDetailResponse> UpdateOrderRentalPeriodAsync(
+        UpdateOrderRentalPeriodCommand command, CancellationToken cancellationToken)
+    {
+        var order = await repository.GetOrderAsync(command.OrderId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
+        if (order.Type != OrderType.Rental)
+            throw new ConflictException("order.period_not_editable", "Satın alma siparişlerinin dönem bilgileri düzenlenemez.");
+
+        var cohorts = await repository.GetRentalCohortsAsync(order.CustomerId, cancellationToken);
+        var cohort = cohorts.FirstOrDefault(item => item.Students.Any(student => student.OrderId == order.Id));
+        if (cohort is null)
+            throw new ConflictException("order.period_not_editable", "Bu sipariş için düzenlenebilir bir dönem kaydı bulunamadı.");
+
+        var previousValue = $"{cohort.Name}|{cohort.StartDate:O}/{cohort.EndDate:O}";
+        order.UpdateRentalPeriod(command.StartDate, command.EndDate);
+        cohort.Update(command.PeriodName, command.StartDate, command.EndDate);
+        await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(RentalOrder),
+            order.Id, "RentalPeriodUpdated", previousValue,
+            $"{cohort.Name}|{command.StartDate:O}/{command.EndDate:O}", timeProvider.GetTurkeyNow()), cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+        return await GetOrderDetailAsync(order.Id, cancellationToken);
     }
 
     public async Task RemoveStudentFromOrderAsync(Guid orderId, Guid studentId, Guid actorId,
@@ -641,7 +668,7 @@ public sealed class OperationsService(
                 units.Add(unit);
                 if (order.Type == OrderType.Rental)
                     assignments.Add(RentalAssignment.Create(Guid.NewGuid(), preparationLine.OrderLine.Id, order.CustomerId, unit.Id,
-                        order.Period!.Value, now, actorId));
+                        now, actorId));
                 else
                     purchaseLinks.Add((preparationLine.OrderLine.Id, unit.Id));
             }
@@ -960,7 +987,7 @@ public sealed class OperationsService(
         }
         var assignment = (await repository.GetAssignmentsForProductUnitAsync(unit.Id, cancellationToken))
             .Where(item => item.Status == RentalAssignmentStatus.Active)
-            .OrderByDescending(item => item.Period.EndDate).FirstOrDefault()
+            .FirstOrDefault()
             ?? throw new ConflictException("fault.no_active_rental", "Bu kit için aktif bir kiralama bulunmuyor.");
         var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
@@ -1217,12 +1244,12 @@ public sealed class OperationsService(
                     !unitLookup.TryGetValue(assignment.ProductUnitId, out var unit) ||
                     unit.Status != ProductUnitStatus.WithCustomer)
                     continue;
-                var daysRemaining = assignment.Period.EndDate.DayNumber - today.DayNumber;
+                var daysRemaining = order.Period!.Value.EndDate.DayNumber - today.DayNumber;
                 rentalExpiryItems.Add(new DashboardRentalExpiryResponse(unit.Id,
                     modelLookup.TryGetValue(unit.ProductModelId, out var model) ? model.Name : "Eğitim kiti",
                     unit.SerialNumber,
                     customerLookup.TryGetValue(assignment.CustomerId, out var rentalCustomer) ? rentalCustomer.Name : "Müşteri",
-                    order.OrderNumber, assignment.Period.EndDate, daysRemaining));
+                    order.OrderNumber, order.Period.Value.EndDate, daysRemaining));
             }
         }
         var openFaultUnitIds = faults
@@ -1265,7 +1292,7 @@ public sealed class OperationsService(
                 var kitName = modelLookup.TryGetValue(unit.ProductModelId, out var model) ? model.Name : "Eğitim kiti";
                 var kitSku = modelLookup.TryGetValue(unit.ProductModelId, out model) ? model.Sku : "-";
                 var locationCategory = GetKitLocationCategory(unit.Status, faultyUnitIds.Contains(unit.Id),
-                    returnProcessStartedAssignmentIds.Contains(assignment.Id), assignment.Period.EndDate < today);
+                    returnProcessStartedAssignmentIds.Contains(assignment.Id), order.Period!.Value.EndDate < today);
                 if (latestLocationsByUnit.TryGetValue(unit.Id, out var location))
                 {
                     kitLocations.Add(new DashboardKitLocationResponse(unit.Id, unit.ProductModelId, kitName, kitSku,

@@ -12,6 +12,9 @@
         .ToDictionary(group => group.Key, group => group.OrderByDescending(shipment => shipment.UpdatedAt).First());
     var hasKitCreatableStudents = !isPurchase && canManage && Model.Status == 3 &&
         Model.Students.Any(student => !student.HasKitAssignment);
+    var canEditRentalPeriod = !isPurchase && canManage && Model.RentalCohortId.HasValue &&
+        Model.StartDate.HasValue && Model.EndDate.HasValue;
+    var openRentalPeriodDialog = ViewData["OpenOrderPeriodDialog"] is true;
     string OrderStatus(int status) => status switch { 2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Hazırlanıyor", 5 => "Kargoya hazır", 6 => "Kargoya verildi", 13 => "Tamamlandı", _ => "İşlemde" };
 }
 <div class="order-detail-heading">
@@ -195,6 +198,41 @@
             </table>
         </div>
     </section>
+}
+
+@if (canEditRentalPeriod)
+{
+    <dialog class="student-edit-dialog" id="order-period-dialog" aria-labelledby="order-period-dialog-title" data-auto-open="@openRentalPeriodDialog.ToString().ToLowerInvariant()">
+        <form class="student-edit-modal" asp-action="UpdateOrderRentalPeriod" asp-route-id="@Model.Id" method="post">
+            <div asp-validation-summary="All" class="error"></div>
+            <header>
+                <div>
+                    <span class="eyebrow">SİPARİŞ DÜZENLEME</span>
+                    <h2 id="order-period-dialog-title">Sipariş dönemini güncelle</h2>
+                    <p class="block-muted">@Model.OrderNumber · @Model.CustomerName</p>
+                </div>
+                <button class="icon-action icon-action-neutral" type="button" data-dialog-close title="Kapat" aria-label="Pencereyi Kapat"><i data-lucide="x"></i></button>
+            </header>
+            <div class="form-grid">
+                <div class="field wide">
+                    <label for="order-period-name">Sipariş dönemi</label>
+                    <input id="order-period-name" name="PeriodName" value="@Model.RentalPeriodName" required maxlength="200" />
+                </div>
+                <div class="field">
+                    <label for="order-period-start">Başlangıç tarihi</label>
+                    <input id="order-period-start" name="StartDate" type="date" value="@(Model.StartDate?.ToString("yyyy-MM-dd"))" required />
+                </div>
+                <div class="field">
+                    <label for="order-period-end">Bitiş tarihi</label>
+                    <input id="order-period-end" name="EndDate" type="date" value="@(Model.EndDate?.ToString("yyyy-MM-dd"))" required />
+                </div>
+            </div>
+            <footer>
+                <button class="secondary-action" type="button" data-dialog-close>Vazgeç</button>
+                <button class="primary-action" type="submit">Kaydet</button>
+            </footer>
+        </form>
+    </dialog>
 }
 
 @if (canManage && Model.Status == 2)

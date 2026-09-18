@@ -72,14 +72,14 @@ public sealed class RentalAssignmentApiTests : IClassFixture<WebApplicationFacto
 
         var firstResponse = await _client.PostAsJsonAsync(
             "/api/rental-assignments",
-            CreateAssignmentRequest(order.Lines.Single().Id, customer.Id, unit!.Id, new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 10)),
+            CreateAssignmentRequest(order.Lines.Single().Id, customer.Id, unit!.Id),
             cancellationToken);
         firstResponse.EnsureSuccessStatusCode();
         var firstAssignment = await firstResponse.Content.ReadFromJsonAsync<RentalAssignmentResponse>(cancellationToken);
 
         var overlappingResponse = await _client.PostAsJsonAsync(
             "/api/rental-assignments",
-            CreateAssignmentRequest(order.Lines.Single().Id, customer.Id, unit.Id, new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 10)),
+            CreateAssignmentRequest(order.Lines.Single().Id, customer.Id, unit.Id),
             cancellationToken);
 
         Assert.NotNull(firstAssignment);
@@ -91,10 +91,8 @@ public sealed class RentalAssignmentApiTests : IClassFixture<WebApplicationFacto
     private static CreateRentalAssignmentRequest CreateAssignmentRequest(
         Guid orderLineId,
         Guid customerId,
-        Guid unitId,
-        DateOnly startDate,
-        DateOnly endDate) =>
-        new(orderLineId, customerId, unitId, startDate, endDate);
+        Guid unitId) =>
+        new(orderLineId, customerId, unitId);
 
     private sealed record ProblemDetailsResponse(string Code);
     private sealed record CustomerApiResponse(Guid Id, IReadOnlyCollection<AddressApiResponse> Addresses);

@@ -42,6 +42,7 @@ public sealed record CreateOrderStudentRequest(string FullName, string GuardianP
 public sealed record CreateOrderRequest(Guid CustomerId, Guid ProductModelId, DateOnly StartDate, DateOnly EndDate,
     IReadOnlyCollection<CreateOrderStudentRequest> Students);
 public sealed record OrderTransitionRequest(RentalOrderStatus Target);
+public sealed record UpdateOrderRentalPeriodRequest(string PeriodName, DateOnly StartDate, DateOnly EndDate);
 public sealed record CreateOrderKitsRequest(IReadOnlyCollection<OrderLineRequest> Lines, bool UseAvailableKits = false,
     Guid? RentalCohortId = null, IReadOnlyCollection<Guid>? StudentIds = null);
 public sealed record RentalCohortRequest(string Name, DateOnly StartDate, DateOnly EndDate);
@@ -52,7 +53,7 @@ public sealed record RentalCohortImportRowRequest(string FullName, string Guardi
 public sealed record RentalCohortStudentImportRequest(IReadOnlyCollection<RentalCohortImportRowRequest> Rows);
 public sealed record CreatePurchaseOrderRequest(Guid CustomerId, Guid AddressId,
     IReadOnlyCollection<OrderLineRequest> Lines);
-public sealed record CreateRentalAssignmentRequest(Guid OrderLineId, Guid CustomerId, Guid ProductUnitId, DateOnly StartDate, DateOnly EndDate);
+public sealed record CreateRentalAssignmentRequest(Guid OrderLineId, Guid CustomerId, Guid ProductUnitId);
 public sealed record OpenFaultRequest(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId, string Category, FaultSeverity Severity, string Description);
 public sealed record FaultStatusRequest(FaultStatus Status, string? Note);
 public sealed record FaultKargonomiShipmentStartRequest(FaultKargonomiShipmentDirection Direction,

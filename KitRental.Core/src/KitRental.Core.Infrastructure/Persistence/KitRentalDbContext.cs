@@ -232,7 +232,6 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
     {
         builder.ToTable("RentalAssignments");
         builder.HasKey(assignment => assignment.Id);
-        builder.Property(assignment => assignment.Period).HasConversion(RentalPeriodConverter()).HasMaxLength(21);
         builder.HasIndex(assignment => new { assignment.ProductUnitId, assignment.Status });
         builder.HasIndex(assignment => assignment.OrderLineId);
         builder.HasIndex(assignment => new { assignment.CustomerId, assignment.Status });
