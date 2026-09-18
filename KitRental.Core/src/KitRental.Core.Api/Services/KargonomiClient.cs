@@ -76,6 +76,30 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
     public async Task<KargonomiShipmentSnapshot> GetShipmentAsync(int shipmentId, CancellationToken cancellationToken) =>
         ParseShipment(await SendAsync(HttpMethod.Get, $"shipments/{shipmentId}", null, cancellationToken));
 
+    public async Task<IReadOnlyCollection<KargonomiShipmentListSnapshot>> GetShipmentsAsync(
+        CancellationToken cancellationToken)
+    {
+        var shipments = new List<KargonomiShipmentListSnapshot>();
+        var page = 1;
+        var lastPage = 1;
+
+        do
+        {
+            using var document = JsonDocument.Parse(await SendAsync(
+                HttpMethod.Get, $"shipments?page={page}", null, cancellationToken));
+            var root = document.RootElement;
+            if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+                shipments.AddRange(data.EnumerateArray().Select(ParseShipmentListItem));
+
+            lastPage = root.TryGetProperty("meta", out var meta)
+                ? Math.Max(page, ReadInt(meta, "last_page"))
+                : page;
+            page++;
+        } while (page <= lastPage);
+
+        return shipments;
+    }
+
     public async Task<string> GetBarcodeAsync(int shipmentId, CancellationToken cancellationToken)
     {
         using var document = JsonDocument.Parse(await SendAsync(HttpMethod.Get, $"shipments/{shipmentId}/barcode?format=pdf", null, cancellationToken));
@@ -106,16 +130,30 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
 
     private async Task<string> SendAsync(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(method, new Uri(new Uri(options.BaseUrl.TrimEnd('/') + "/"), path));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.ApiToken);
-        if (body is HttpContent content) request.Content = content;
-        else if (body is not null) request.Content = JsonContent.Create(body, options: JsonOptions);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        var contentText = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException($"Kargonomi API hatası ({(int)response.StatusCode}): {contentText}");
-        return contentText;
+        const int maximumRateLimitRetries = 3;
+        for (var attempt = 0; ; attempt++)
+        {
+            using var request = new HttpRequestMessage(method, new Uri(new Uri(options.BaseUrl.TrimEnd('/') + "/"), path));
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.ApiToken);
+            if (body is HttpContent content) request.Content = content;
+            else if (body is not null) request.Content = JsonContent.Create(body, options: JsonOptions);
+            using var response = await httpClient.SendAsync(request, cancellationToken);
+            var contentText = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests && method == HttpMethod.Get &&
+                attempt < maximumRateLimitRetries)
+            {
+                var retryAfter = response.Headers.RetryAfter?.Delta
+                    ?? response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow
+                    ?? TimeSpan.FromSeconds(10);
+                retryAfter = TimeSpan.FromSeconds(Math.Clamp(retryAfter.TotalSeconds, 1, 30));
+                await Task.Delay(retryAfter, cancellationToken);
+                continue;
+            }
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException($"Kargonomi API hatası ({(int)response.StatusCode}): {contentText}");
+            return contentText;
+        }
     }
 
     private static KargonomiShipmentSnapshot ParseShipment(string json)
@@ -126,6 +164,33 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
         return new(ReadInt(root, "id"), ReadString(root, "status"), ReadString(root, "status_label"),
             ReadString(root, "shipping_provider_name"), ReadString(root, "shipping_webservice_tracking_code"),
             ReadString(root, "shipping_webservice_barcode"), ReadDate(root, "updated_at"));
+    }
+
+    private static KargonomiShipmentListSnapshot ParseShipmentListItem(JsonElement item)
+    {
+        var buyer = item.TryGetProperty("buyer", out var buyerElement) && buyerElement.ValueKind == JsonValueKind.Object
+            ? buyerElement
+            : default;
+        var packages = item.TryGetProperty("shipment_packages", out var packageItems) &&
+                       packageItems.ValueKind == JsonValueKind.Array
+            ? packageItems.GetArrayLength()
+            : 0;
+        var packageCount = ReadInt(item, "package_count");
+
+        return new KargonomiShipmentListSnapshot(
+            ReadInt(item, "id"),
+            ReadString(item, "buyer_name") ?? ReadString(buyer, "buyer_name") ?? "-",
+            ReadString(buyer, "buyer_phone"),
+            ReadString(buyer, "buyer_address") ?? string.Empty,
+            ReadString(buyer, "buyer_state"),
+            ReadString(buyer, "buyer_city"),
+            ReadString(item, "shipping_webservice_tracking_code"),
+            ReadString(item, "shipping_provider_name"),
+            ReadString(item, "status"),
+            ReadString(item, "status_label") ?? ReadString(item, "status") ?? "Bilinmiyor",
+            packageCount > 0 ? packageCount : packages,
+            ReadDate(item, "created_at"),
+            ReadDate(item, "updated_at"));
     }
 
     private static (int Id, string Name) FindByName(JsonElement root, string name)
@@ -142,6 +207,6 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
     private static string Normalize(string value) => value.Trim().ToUpperInvariant().Replace('İ', 'I');
     private static int ParseNullableInt(string value) => int.TryParse(value, out var result) ? result : 0;
     private static int ReadInt(JsonElement item, string name) => item.TryGetProperty(name, out var value) && value.TryGetInt32(out var result) ? result : int.TryParse(ReadString(item, name), out result) ? result : 0;
-    private static string? ReadString(JsonElement item, string name) => item.TryGetProperty(name, out var value) && value.ValueKind != JsonValueKind.Null ? value.ToString() : null;
+    private static string? ReadString(JsonElement item, string name) => item.ValueKind == JsonValueKind.Object && item.TryGetProperty(name, out var value) && value.ValueKind != JsonValueKind.Null ? value.ToString() : null;
     private static DateTimeOffset? ReadDate(JsonElement item, string name) => DateTimeOffset.TryParse(ReadString(item, name), out var result) ? result : null;
 }

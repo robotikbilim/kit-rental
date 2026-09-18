@@ -22,6 +22,21 @@ public sealed record KargonomiShipmentSnapshot(
     string? Barcode,
     DateTimeOffset? UpdatedAt);
 
+public sealed record KargonomiShipmentListSnapshot(
+    int Id,
+    string BuyerName,
+    string? BuyerPhone,
+    string BuyerAddress,
+    string? BuyerState,
+    string? BuyerCity,
+    string? TrackingNumber,
+    string? Carrier,
+    string? Status,
+    string StatusLabel,
+    int PackageCount,
+    DateTimeOffset? CreatedAt,
+    DateTimeOffset? UpdatedAt);
+
 public sealed record KargonomiCarrierQuote(int Id, string Name, string Slug, string? Price);
 
 public interface IKargonomiClient
@@ -30,6 +45,7 @@ public interface IKargonomiClient
     Task<IReadOnlyCollection<KargonomiCarrierQuote>> GetPriceQuotesAsync(int shipmentId, CancellationToken cancellationToken);
     Task<KargonomiShipmentSnapshot> ConfirmShippingPriceAsync(int shipmentId, int providerId, CancellationToken cancellationToken);
     Task<KargonomiShipmentSnapshot> GetShipmentAsync(int shipmentId, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<KargonomiShipmentListSnapshot>> GetShipmentsAsync(CancellationToken cancellationToken);
     Task<string> GetBarcodeAsync(int shipmentId, CancellationToken cancellationToken);
     Task<(int StateId, int CityId)> ResolveLocationAsync(string address, CancellationToken cancellationToken);
 }
@@ -72,6 +88,6 @@ public sealed record FaultKargonomiShipmentResponse(Guid Id, Guid FaultTicketId,
     KargonomiShipmentState State, string? LastError, DateTimeOffset UpdatedAt);
 
 public sealed record KargonomiShipmentListItemResponse(
-    Guid Id, Guid OrderId, string OrderNumber, Guid StudentId, string StudentName,
-    string? TrackingNumber, string Carrier, string StatusLabel, KargonomiShipmentState State,
-    string? LastError, DateTimeOffset UpdatedAt);
+    int Id, string BuyerName, string? BuyerPhone, string BuyerAddress, string? BuyerState, string? BuyerCity,
+    string? TrackingNumber, string? Carrier, string? ExternalStatus, string StatusLabel, int PackageCount,
+    DateTimeOffset? CreatedAt, DateTimeOffset? UpdatedAt);

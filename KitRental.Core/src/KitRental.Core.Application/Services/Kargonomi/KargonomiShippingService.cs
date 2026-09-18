@@ -152,19 +152,13 @@ public sealed class KargonomiShippingService(
     }
 
     public async Task<IReadOnlyCollection<KargonomiShipmentListItemResponse>> GetAllAsync(CancellationToken cancellationToken)
-    {
-        var orders = (await repository.GetOrdersAsync(null, cancellationToken)).ToDictionary(item => item.Id);
-        var students = (await repository.GetRentalCohortsAsync(null, cancellationToken)).SelectMany(item => item.Students)
-            .Where(item => !item.IsDeleted).ToDictionary(item => item.Id);
-        return (await repository.GetKargonomiShipmentsAsync(null, cancellationToken)).Select(item =>
-        {
-            students.TryGetValue(item.StudentId, out var student);
-            orders.TryGetValue(item.OrderId, out var order);
-            return new KargonomiShipmentListItemResponse(item.Id, item.OrderId, order?.OrderNumber ?? "-",
-                item.StudentId, student?.FullName ?? "Öğrenci", item.TrackingNumber, item.Carrier, item.StatusLabel,
-                item.State, item.LastError, item.UpdatedAt);
-        }).ToArray();
-    }
+        => (await client.GetShipmentsAsync(cancellationToken))
+            .OrderByDescending(item => item.CreatedAt)
+            .Select(item => new KargonomiShipmentListItemResponse(
+                item.Id, item.BuyerName, item.BuyerPhone, item.BuyerAddress, item.BuyerState, item.BuyerCity,
+                item.TrackingNumber, item.Carrier, item.Status, item.StatusLabel, item.PackageCount,
+                item.CreatedAt, item.UpdatedAt))
+            .ToArray();
 
     public async Task<KargonomiShipmentResponse> RefreshAsync(Guid shipmentId, CancellationToken cancellationToken)
     {

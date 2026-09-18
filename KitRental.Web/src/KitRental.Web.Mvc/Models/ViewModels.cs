@@ -540,9 +540,10 @@ public sealed record KargonomiShipmentAttemptViewModel(Guid StudentId, string St
     string Message, KargonomiShipmentViewModel? Shipment);
 public sealed record KargonomiShipmentBatchViewModel(IReadOnlyCollection<KargonomiShipmentAttemptViewModel> Items,
     int SucceededCount, int FailedCount);
-public sealed record KargonomiShipmentListItemViewModel(Guid Id, Guid OrderId, string OrderNumber, Guid StudentId,
-    string StudentName, string? TrackingNumber, string Carrier, string StatusLabel, int State, string? LastError,
-    DateTimeOffset UpdatedAt);
+public sealed record KargonomiShipmentListItemViewModel(int Id, string BuyerName, string? BuyerPhone,
+    string BuyerAddress, string? BuyerState, string? BuyerCity, string? TrackingNumber, string? Carrier,
+    string? ExternalStatus, string StatusLabel, int PackageCount, DateTimeOffset? CreatedAt,
+    DateTimeOffset? UpdatedAt);
 public sealed class PrepareOrderKitsViewModel
 {
     public Guid OrderId { get; set; }

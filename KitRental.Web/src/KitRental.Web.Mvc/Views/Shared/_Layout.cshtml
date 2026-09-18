@@ -79,13 +79,12 @@
                             </div>
                         </div>
 
-                        <div class="nav-group @(currentController == "SupplyNeeds" || (currentController == "Operations" && (currentAction == "Orders" || currentAction == "KargonomiShipments" || currentAction == "Faults" || currentAction == "FaultGuide")) ? "is-active" : null)">
+                        <div class="nav-group @(currentController == "SupplyNeeds" || (currentController == "Operations" && (currentAction == "Orders" || currentAction == "Faults" || currentAction == "FaultGuide")) ? "is-active" : null)">
                             <button class="submenu-toggle" type="button" aria-expanded="false">
                                 <i data-lucide="workflow"></i>Operasyon <span aria-hidden="true"></span>
                             </button>
                             <div class="submenu">
                                   <a asp-controller="Operations" asp-action="Orders">Siparişler</a>
-                                  <a asp-controller="Operations" asp-action="KargonomiShipments">Kargonomi Kargoları</a>
                                   @if (User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager"))
                                   {
                                       <a asp-controller="Operations" asp-action="CreatePurchaseOrder">Satın Alma Siparişi</a>
@@ -96,6 +95,15 @@
                                 {
                                     <a asp-controller="Operations" asp-action="FaultGuide">Problem Rehberi</a>
                                 }
+                            </div>
+                        </div>
+
+                        <div class="nav-group @(currentController == "Operations" && currentAction == "KargonomiShipments" ? "is-active" : null)">
+                            <button class="submenu-toggle" type="button" aria-expanded="false">
+                                <i data-lucide="truck"></i>Kargonomi <span aria-hidden="true"></span>
+                            </button>
+                            <div class="submenu">
+                                <a asp-controller="Operations" asp-action="KargonomiShipments">Gönderiler</a>
                             </div>
                         </div>
 

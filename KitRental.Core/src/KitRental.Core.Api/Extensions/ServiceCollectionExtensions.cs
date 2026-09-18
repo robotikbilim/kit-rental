@@ -56,7 +56,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient("gemini", client =>
             client.BaseAddress = new Uri(configuration["Gemini:BaseUrl"]
                 ?? "https://generativelanguage.googleapis.com"));
-        services.AddHttpClient<KargonomiClient>();
+        services.AddHttpClient<IKargonomiClient, KargonomiClient>();
 
         return services;
     }
