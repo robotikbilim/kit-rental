@@ -41,16 +41,16 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
                 "34000", new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1)), cancellationToken);
 
         var customer = CreateClient(new TokenUser(Guid.NewGuid(), email, "CustomerAccountManager", rental.CustomerId));
-        var overview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
-        Assert.Equal(unit.Id, overview!.Kits.Single().ProductUnitId);
+        var kits = await customer.GetFromJsonAsync<CustomerPortalKitsResponse>("/api/customer-portal/kits", cancellationToken);
+        Assert.Equal(unit.Id, kits!.Kits.Single().ProductUnitId);
         var forbiddenPurchase = await customer.PostAsJsonAsync("/api/purchase-orders",
-            new CreatePurchaseOrderRequest(rental.CustomerId, overview.Addresses.Single().Id,
+            new CreatePurchaseOrderRequest(rental.CustomerId, Guid.NewGuid(),
                 [new OrderLineRequest(model.Id, 1)]), cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Forbidden, forbiddenPurchase.StatusCode);
 
         var blockedRequest = await customer.PostAsJsonAsync("/api/customer-portal/rental-requests", new
         {
-            addressId = overview.Addresses.Single().Id,
+            addressId = Guid.NewGuid(),
             startDate = new DateOnly(2026, 11, 1),
             endDate = new DateOnly(2026, 12, 1),
             lines = new[] { new OrderLineRequest(model.Id, 1) }
@@ -74,9 +74,12 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal("TACEV Test Merkezi", listedFault.ReporterName);
         Assert.Equal("(0216) 555 00 00", listedFault.ReporterPhone);
 
-        overview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
-        Assert.Contains(overview!.Orders, item => item.Status == RentalOrderStatus.PendingApproval);
-        Assert.Contains(overview.Faults, item => item.ProductUnitId == unit.Id && item.Status == FaultStatus.Open);
+        var rentalPeriods = await customer.GetFromJsonAsync<CustomerPortalRentalPeriodsResponse>(
+            "/api/customer-portal/rental-periods/context", cancellationToken);
+        var faults = await customer.GetFromJsonAsync<CustomerPortalFaultsResponse>(
+            "/api/customer-portal/faults", cancellationToken);
+        Assert.Contains(rentalPeriods!.RentalCohorts, item => item.OrderStatus == RentalOrderStatus.PendingApproval);
+        Assert.Contains(faults!.Faults, item => item.ProductUnitId == unit.Id && item.Status == FaultStatus.Open);
 
         await PostAsync<OrderResponse>(admin, $"/api/orders/{deliveryOrder.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
@@ -100,9 +103,12 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var confirmedOrder = (await confirmation.Content.ReadFromJsonAsync<OrderResponse>(cancellationToken))!;
         Assert.Equal(RentalOrderStatus.Completed, confirmedOrder.Status);
 
-        overview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
-        Assert.Contains(overview!.Orders, item => item.Id == deliveryOrder.Id && item.Status == RentalOrderStatus.Completed);
-        Assert.Contains(overview.Kits, item => item.ProductUnitId == deliverableUnit.Id &&
+        rentalPeriods = await customer.GetFromJsonAsync<CustomerPortalRentalPeriodsResponse>(
+            "/api/customer-portal/rental-periods/context", cancellationToken);
+        kits = await customer.GetFromJsonAsync<CustomerPortalKitsResponse>("/api/customer-portal/kits", cancellationToken);
+        Assert.Contains(rentalPeriods!.RentalCohorts,
+            item => item.OrderId == deliveryOrder.Id && item.OrderStatus == RentalOrderStatus.Completed);
+        Assert.Contains(kits!.Kits, item => item.ProductUnitId == deliverableUnit.Id &&
             item.UnitStatus == KitRental.Core.Domain.Inventory.ProductUnitStatus.WithCustomer);
 
         var adminOrders = (await admin.GetFromJsonAsync<PagedResponse<PortalOrderResponse>>("/api/order-summaries?pageSize=5000", cancellationToken))!.Items;
@@ -363,7 +369,8 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
                 "34000", today.AddDays(-5), today.AddDays(10)), cancellationToken);
 
         var customer = CreateClient(new TokenUser(Guid.NewGuid(), email, "CustomerAccountManager", faultyRental.CustomerId));
-        var initialOverview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
+        var initialOverview = await customer.GetFromJsonAsync<CustomerPortalDashboardResponse>(
+            "/api/customer-portal", cancellationToken);
         Assert.Equal(0, initialOverview!.ActiveKitCount);
         Assert.Equal(2, initialOverview.UnassignedKitCount);
 
@@ -378,7 +385,8 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
                 "Test Sokak 2 Kadikoy Istanbul", null, null, KitReturnReason.EnrollmentCancelled), cancellationToken);
         await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{publicReturn.Id}/receipts", new { }, cancellationToken);
 
-        var updatedOverview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
+        var updatedOverview = await customer.GetFromJsonAsync<CustomerPortalDashboardResponse>(
+            "/api/customer-portal", cancellationToken);
         Assert.Equal(0, updatedOverview!.ActiveKitCount);
         Assert.Equal(1, updatedOverview.UnassignedKitCount);
         var faultyLocation = Assert.Single(updatedOverview.KitLocations);
@@ -471,8 +479,9 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         var units = (await admin.GetFromJsonAsync<PagedResponse<ProductUnitResponse>>("/api/product-units?pageSize=5000", cancellationToken))!.Items;
         Assert.Equal(ProductUnitStatus.Available, units!.Single(x => x.Id == unit.Id).Status);
-        var overview = await customer.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
-        Assert.Contains(overview!.Returns, x => x.Id == created.Id && x.Status == KitReturnStatus.Received);
+        var returns = await customer.GetFromJsonAsync<CustomerPortalReturnsResponse>(
+            "/api/customer-portal/returns", cancellationToken);
+        Assert.Contains(returns!.Returns, x => x.Id == created.Id && x.Status == KitReturnStatus.Received);
     }
 
     [Fact]
@@ -523,12 +532,15 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             new { lines = Array.Empty<OrderLineRequest>(), useAvailableKits = true },
             cancellationToken);
 
-        var overview = await portal.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
-        var assigned = overview!.RentalCohorts.Single(x => x.Id == cohort.Id).Students.Single(x => x.Id == student.Id);
+        var period = await portal.GetFromJsonAsync<CustomerPortalRentalPeriodResponse>(
+            $"/api/customer-portal/rental-periods/{cohort.Id}/context", cancellationToken);
+        var assigned = period!.RentalCohort.Students.Single(x => x.Id == student.Id);
         Assert.Equal(prepared.Kits.Single().ProductUnitId, assigned.ProductUnitId);
         Assert.Equal(prepared.Kits.Single().AssignmentId, assigned.AssignmentId);
         Assert.False(assigned.HasDeliveryForm);
-        Assert.False(overview.Kits.Single(x => x.AssignmentId == assigned.AssignmentId).HasDeliveryForm);
+        var kits = await portal.GetFromJsonAsync<CustomerPortalKitsResponse>(
+            "/api/customer-portal/kits", cancellationToken);
+        Assert.False(kits!.Kits.Single(x => x.AssignmentId == assigned.AssignmentId).HasDeliveryForm);
 
         var detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
             $"/api/physical-kits/{prepared.Kits.Single().ProductUnitId}", cancellationToken);
@@ -552,13 +564,16 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Completed), cancellationToken);
 
-        overview = await portal.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
-        assigned = overview!.RentalCohorts.Single(x => x.Id == cohort.Id).Students.Single(x => x.Id == student.Id);
+        period = await portal.GetFromJsonAsync<CustomerPortalRentalPeriodResponse>(
+            $"/api/customer-portal/rental-periods/{cohort.Id}/context", cancellationToken);
+        assigned = period!.RentalCohort.Students.Single(x => x.Id == student.Id);
         Assert.True(assigned.HasDeliveryForm);
         Assert.Equal("Ayşe Yılmaz", assigned.DeliveredTo);
         Assert.Equal("0532 000 00 00", assigned.DeliveryPhone);
         Assert.Equal("Test Mahallesi 1", assigned.DeliveryAddress);
-        Assert.True(overview.Kits.Single(x => x.AssignmentId == assigned.AssignmentId).HasDeliveryForm);
+        kits = await portal.GetFromJsonAsync<CustomerPortalKitsResponse>(
+            "/api/customer-portal/kits", cancellationToken);
+        Assert.True(kits!.Kits.Single(x => x.AssignmentId == assigned.AssignmentId).HasDeliveryForm);
 
         var returnRequest = await PostAsync<ReturnResponse>(portal,
             $"/api/customer-portal/rental-periods/{cohort.Id}/students/{student.Id}/returns",
@@ -569,8 +584,9 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{returnRequest.Id}/receipts", new { },
             cancellationToken);
 
-        overview = await portal.GetFromJsonAsync<CustomerPortalResponse>("/api/customer-portal", cancellationToken);
-        var updatedCohort = overview!.RentalCohorts.Single(x => x.Id == cohort.Id);
+        period = await portal.GetFromJsonAsync<CustomerPortalRentalPeriodResponse>(
+            $"/api/customer-portal/rental-periods/{cohort.Id}/context", cancellationToken);
+        var updatedCohort = period!.RentalCohort;
         var returnedStudent = Assert.Single(updatedCohort.Students);
         Assert.Equal("Ayşe Yılmaz", returnedStudent.FullName);
         Assert.Equal("0532 000 00 00", returnedStudent.GuardianPhone);

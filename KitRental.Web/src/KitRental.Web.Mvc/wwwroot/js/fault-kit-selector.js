@@ -10,6 +10,11 @@
     const scanner = document.getElementById('fault-qr-scanner');
     const video = document.getElementById('fault-scanner-video');
     const scannerStatus = document.getElementById('fault-scanner-status');
+    const kitName = document.getElementById('KitName');
+    const serialNumber = document.getElementById('SerialNumber');
+    const reporterName = document.getElementById('ReporterName');
+    const reporterPhone = document.getElementById('ReporterPhone');
+    const reporterAddress = document.getElementById('ReporterAddress');
     let stream;
     let scanning = false;
     let filteredOptions = [];
@@ -41,9 +46,19 @@
         activeItem.scrollIntoView({ block: 'nearest' });
     };
 
-    const chooseOption = (option, message = true) => {
+    const syncSelectedKitFields = option => {
+        if (!option) return;
+        if (kitName) kitName.value = option.dataset.name ?? '';
+        if (serialNumber) serialNumber.value = option.dataset.serial ?? '';
+        if (reporterName) reporterName.value = option.dataset.reporterName ?? '';
+        if (reporterPhone) reporterPhone.value = option.dataset.reporterPhone ?? '';
+        if (reporterAddress) reporterAddress.value = option.dataset.reporterAddress ?? '';
+    };
+
+    const chooseOption = (option, message = true, syncFields = true) => {
         select.value = option.value;
         search.value = optionLabel(option);
+        if (syncFields) syncSelectedKitFields(option);
         select.dispatchEvent(new Event('change', { bubbles: true }));
         closeOptions();
         if (message) searchStatus.textContent = `${option.dataset.serial} seri numaralı kit seçildi.`;
@@ -98,7 +113,11 @@
     };
 
     const selectedOption = options.find(option => option.selected) ?? options[0];
-    if (selectedOption) chooseOption(selectedOption, false);
+    select.addEventListener('change', () => {
+        syncSelectedKitFields(options.find(option => option.value === select.value));
+    });
+
+    if (selectedOption) chooseOption(selectedOption, false, false);
     select.hidden = true;
     combobox.hidden = false;
 

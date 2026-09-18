@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddResponseCompression(options => options.EnableForHttps = true);
 builder.Services.Configure<BrandingOptions>(builder.Configuration.GetSection("Branding"));
 builder.Services.AddScoped<IBrandResolver, HostBrandResolver>();
 builder.Services.AddHttpClient<KitRentalApiClient>(client =>
@@ -26,7 +27,12 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/home/error");
     app.UseHsts();
 }
-app.UseStaticFiles();
+app.UseResponseCompression();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = context =>
+        context.Context.Response.Headers.CacheControl = "public,max-age=604800"
+});
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();

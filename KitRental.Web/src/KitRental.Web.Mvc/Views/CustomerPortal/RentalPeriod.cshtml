@@ -158,7 +158,7 @@
                         <td>
                             @if (student.ProductUnitId.HasValue)
                             {
-                                <a class="student-kit-serial-truncate" title="@student.SerialNumber" asp-action="Kit" asp-route-id="@student.ProductUnitId.Value">@student.SerialNumber</a>
+                                <a class="student-kit-serial-truncate" title="@student.SerialNumber" asp-action="Kit" asp-route-id="@student.ProductUnitId.Value" target="_blank" rel="noopener">@student.SerialNumber</a>
                             }
                             else
                             {
@@ -243,7 +243,7 @@
                                     }
                                     else
                                     {
-                                        <a class="icon-action icon-action-fault" asp-action="NewFault" asp-route-assignmentId="@student.AssignmentId" title="Arıza Kaydı Oluştur" aria-label="@($"{student.FullName} için arıza kaydı oluştur")">
+                                        <a class="icon-action icon-action-fault" asp-action="NewFault" asp-route-assignmentId="@student.AssignmentId" target="_blank" rel="noopener" title="Arıza Kaydı Oluştur" aria-label="@($"{student.FullName} için arıza kaydı oluştur")">
                                             <i data-lucide="wrench"></i><span class="visually-hidden">Arıza Kaydı Oluştur</span>
                                         </a>
                                     }

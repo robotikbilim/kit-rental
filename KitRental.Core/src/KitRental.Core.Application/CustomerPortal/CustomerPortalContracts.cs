@@ -43,15 +43,27 @@ public sealed record PortalFaultResponse(Guid Id, string Number, Guid ProductUni
     IReadOnlyCollection<PortalFaultStatusResponse> History,
     string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "",
     FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired, FaultOrigin Origin = FaultOrigin.Internal);
-public sealed record CustomerPortalResponse(string CustomerName, string CustomerEmail, int TotalRentedKitCount,
-    int UndeliveredKitCount, int ActiveKitCount, int UnassignedKitCount, int PendingRequestCount, int OpenFaultCount,
-    int CompletedFaultCount, int ExpiredRentalKitCount, int ReturnProcessStartedKitCount, int ReturnedKitCount,
-    IReadOnlyCollection<PortalKitResponse> Kits,
-    IReadOnlyCollection<PortalOrderResponse> Orders, IReadOnlyCollection<PortalFaultResponse> Faults,
-    IReadOnlyCollection<PortalAddressResponse> Addresses, IReadOnlyCollection<PortalProductModelResponse> ProductModels,
-    IReadOnlyCollection<PortalKitReturnResponse> Returns,
-    IReadOnlyCollection<PortalKitLocationResponse> KitLocations,
+public sealed record CustomerPortalDashboardResponse(string CustomerName, int TotalRentedKitCount,
+    int ActiveKitCount, int UnassignedKitCount, int OpenFaultCount, int CompletedFaultCount,
+    int ExpiredRentalKitCount, int ReturnProcessStartedKitCount, int ReturnedKitCount,
+    IReadOnlyCollection<PortalKitLocationResponse> KitLocations);
+public sealed record CustomerPortalRentalPeriodsResponse(string CustomerName,
+    IReadOnlyCollection<PortalProductModelResponse> ProductModels,
     IReadOnlyCollection<PortalRentalCohortResponse> RentalCohorts);
+public sealed record CustomerPortalRentalPeriodResponse(string CustomerName,
+    IReadOnlyCollection<PortalProductModelResponse> ProductModels, PortalRentalCohortResponse RentalCohort);
+public sealed record CustomerPortalKitsResponse(string CustomerName, IReadOnlyCollection<PortalKitResponse> Kits);
+public sealed record CustomerPortalReturnsResponse(string CustomerName, IReadOnlyCollection<PortalKitResponse> Kits,
+    IReadOnlyCollection<PortalFaultResponse> Faults, IReadOnlyCollection<PortalKitReturnResponse> Returns);
+public sealed record CustomerPortalFaultsResponse(string CustomerName,
+    IReadOnlyCollection<PortalFaultResponse> Faults);
+public sealed record PortalKitRentalHistoryResponse(string StudentName, string Address, string PeriodName,
+    string? OrderNumber, DateOnly StartDate, DateOnly EndDate, DateTimeOffset? DeliveredAt);
+public sealed record CustomerPortalKitDetailResponse(PortalKitResponse Kit, PortalKitLocationResponse? CurrentLocation,
+    IReadOnlyCollection<PortalFaultResponse> Faults, IReadOnlyCollection<PortalKitReturnResponse> Returns,
+    IReadOnlyCollection<PortalKitRentalHistoryResponse> RentalHistory);
+public sealed record PortalFaultFormContextResponse(Guid AssignmentId, string KitName, string SerialNumber,
+    string ReporterName, string ReporterPhone, string ReporterAddress);
 public sealed record PortalKitLocationResponse(Guid ProductUnitId, Guid ProductModelId, string KitName,
     string KitSku, string SerialNumber, string RecipientName, string AddressLine,
     int Status, double? Latitude = null, double? Longitude = null, string LocationCategory = "active");

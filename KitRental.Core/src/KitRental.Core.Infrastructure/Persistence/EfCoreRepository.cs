@@ -51,6 +51,14 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
     public Task<ProductUnit?> GetProductUnitAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.ProductUnits.Include(unit => unit.History).SingleOrDefaultAsync(unit => unit.Id == id, cancellationToken);
 
+    public async Task<IReadOnlyCollection<ProductUnit>> GetProductUnitsByIdsAsync(
+        IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
+    {
+        if (ids.Count == 0) return [];
+        return await dbContext.ProductUnits.Include(unit => unit.History)
+            .Where(unit => ids.Contains(unit.Id)).ToArrayAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<ProductUnit>> GetProductUnitsAsync(CancellationToken cancellationToken) =>
         await dbContext.ProductUnits.Include(unit => unit.History).OrderBy(unit => unit.SerialNumber).ToArrayAsync(cancellationToken);
 
@@ -200,6 +208,19 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
             .ToArrayAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<RentalAssignment>> GetAssignmentsForOrdersAsync(
+        IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken)
+    {
+        if (orderIds.Count == 0) return [];
+        var lineIds = await dbContext.RentalOrders
+            .Where(order => orderIds.Contains(order.Id))
+            .SelectMany(order => order.Lines.Select(line => line.Id))
+            .ToArrayAsync(cancellationToken);
+        return await dbContext.RentalAssignments
+            .Where(assignment => lineIds.Contains(assignment.OrderLineId))
+            .ToArrayAsync(cancellationToken);
+    }
+
     public Task RemoveRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken)
     {
         dbContext.RentalCohorts.Remove(cohort);
@@ -236,6 +257,14 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
 
     public async Task<IReadOnlyCollection<KitLocationEvent>> GetKitLocationEventsAsync(CancellationToken cancellationToken) =>
         await dbContext.KitLocationEvents.AsNoTracking()
+            .OrderByDescending(location => location.OccurredAt)
+            .ThenByDescending(location => location.Id)
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<KitLocationEvent>> GetKitLocationEventsForCustomerAsync(Guid customerId,
+        CancellationToken cancellationToken) =>
+        await dbContext.KitLocationEvents.AsNoTracking()
+            .Where(location => location.CustomerId == customerId)
             .OrderByDescending(location => location.OccurredAt)
             .ThenByDescending(location => location.Id)
             .ToArrayAsync(cancellationToken);

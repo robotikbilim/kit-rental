@@ -108,6 +108,15 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         }
     }
 
+    public Task<IReadOnlyCollection<ProductUnit>> GetProductUnitsByIdsAsync(
+        IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+            return Task.FromResult<IReadOnlyCollection<ProductUnit>>(_units.Values
+                .Where(unit => ids.Contains(unit.Id)).ToArray());
+    }
+
     public Task<IReadOnlyCollection<ProductUnit>> GetProductUnitsAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -379,6 +388,19 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         }
     }
 
+    public Task<IReadOnlyCollection<RentalAssignment>> GetAssignmentsForOrdersAsync(
+        IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            var lineIds = _orders.Values.Where(order => orderIds.Contains(order.Id))
+                .SelectMany(order => order.Lines).Select(line => line.Id).ToHashSet();
+            return Task.FromResult<IReadOnlyCollection<RentalAssignment>>(
+                _assignments.Where(assignment => lineIds.Contains(assignment.OrderLineId)).ToArray());
+        }
+    }
+
     public Task AddKitLocationEventAsync(KitLocationEvent locationEvent, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -391,6 +413,18 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         cancellationToken.ThrowIfCancellationRequested();
         lock (_gate) return Task.FromResult<IReadOnlyCollection<KitLocationEvent>>(
             _kitLocationEvents.Values
+                .OrderByDescending(item => item.OccurredAt)
+                .ThenByDescending(item => item.Id)
+                .ToArray());
+    }
+
+    public Task<IReadOnlyCollection<KitLocationEvent>> GetKitLocationEventsForCustomerAsync(Guid customerId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult<IReadOnlyCollection<KitLocationEvent>>(
+            _kitLocationEvents.Values
+                .Where(item => item.CustomerId == customerId)
                 .OrderByDescending(item => item.OccurredAt)
                 .ThenByDescending(item => item.Id)
                 .ToArray());

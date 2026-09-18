@@ -387,13 +387,43 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public Task<ApiCommandResult<object>> DeleteKitAsync(Guid id, CancellationToken cancellationToken) =>
         SendAsync<object>(HttpMethod.Delete, $"/core/api/product-models/{id}", null, cancellationToken);
 
-    public Task<CustomerPortalViewModel?> GetCustomerPortalAsync(CancellationToken cancellationToken) =>
-        GetAsync<CustomerPortalViewModel>("/core/api/customer-portal", cancellationToken);
-
-    public async Task<IReadOnlyCollection<PortalRentalCohortViewModel>> GetRentalCohortsAsync(
+    public Task<CustomerPortalDashboardViewModel?> GetCustomerPortalDashboardAsync(
         CancellationToken cancellationToken) =>
-        await GetPagedItemsAsync<PortalRentalCohortViewModel>("/core/api/customer-portal/rental-periods?pageSize=5000",
-            cancellationToken);
+        GetAsync<CustomerPortalDashboardViewModel>("/core/api/customer-portal", cancellationToken);
+
+    public Task<CustomerPortalRentalPeriodsDataViewModel?> GetCustomerPortalRentalPeriodsPageAsync(
+        CancellationToken cancellationToken) =>
+        GetAsync<CustomerPortalRentalPeriodsDataViewModel>(
+            "/core/api/customer-portal/rental-periods/context", cancellationToken);
+
+    public Task<CustomerPortalRentalPeriodDataViewModel?> GetCustomerPortalRentalPeriodPageAsync(Guid periodId,
+        CancellationToken cancellationToken) =>
+        GetAsync<CustomerPortalRentalPeriodDataViewModel>(
+            $"/core/api/customer-portal/rental-periods/{periodId}/context", cancellationToken);
+
+    public Task<CustomerPortalKitsDataViewModel?> GetCustomerPortalKitsAsync(CancellationToken cancellationToken) =>
+        GetAsync<CustomerPortalKitsDataViewModel>("/core/api/customer-portal/kits", cancellationToken);
+
+    public Task<CustomerPortalReturnsDataViewModel?> GetCustomerPortalReturnsAsync(
+        CancellationToken cancellationToken) =>
+        GetAsync<CustomerPortalReturnsDataViewModel>("/core/api/customer-portal/returns", cancellationToken);
+
+    public Task<CustomerPortalFaultsDataViewModel?> GetCustomerPortalFaultsAsync(
+        CancellationToken cancellationToken) =>
+        GetAsync<CustomerPortalFaultsDataViewModel>("/core/api/customer-portal/faults", cancellationToken);
+
+    public Task<PortalFaultViewModel?> GetCustomerPortalFaultAsync(Guid faultId,
+        CancellationToken cancellationToken) =>
+        GetAsync<PortalFaultViewModel>($"/core/api/customer-portal/faults/{faultId}", cancellationToken);
+
+    public Task<PortalKitDetailPageViewModel?> GetCustomerPortalKitAsync(Guid productUnitId,
+        CancellationToken cancellationToken) =>
+        GetAsync<PortalKitDetailPageViewModel>($"/core/api/customer-portal/kits/{productUnitId}", cancellationToken);
+
+    public Task<PortalFaultFormContextViewModel?> GetCustomerPortalFaultContextAsync(Guid assignmentId,
+        CancellationToken cancellationToken) =>
+        GetAsync<PortalFaultFormContextViewModel>(
+            $"/core/api/customer-portal/assignments/{assignmentId}/fault-context", cancellationToken);
 
     public Task<ApiCommandResult<PortalRentalCohortViewModel>> CreateRentalCohortAsync(
         RentalCohortInputViewModel model, CancellationToken cancellationToken) =>

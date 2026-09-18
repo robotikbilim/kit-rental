@@ -21,6 +21,8 @@ public interface ICoreRepository
     Task RemoveProductModelAsync(ProductModel model, CancellationToken cancellationToken);
     Task AddProductUnitAsync(ProductUnit unit, CancellationToken cancellationToken);
     Task<ProductUnit?> GetProductUnitAsync(Guid id, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<ProductUnit>> GetProductUnitsByIdsAsync(IReadOnlyCollection<Guid> ids,
+        CancellationToken cancellationToken);
     Task<IReadOnlyCollection<ProductUnit>> GetProductUnitsAsync(CancellationToken cancellationToken);
     Task RemoveProductUnitAsync(ProductUnit unit, CancellationToken cancellationToken);
     Task AddProductUnitActivityAsync(ProductUnitActivity activity, CancellationToken cancellationToken);
@@ -45,6 +47,8 @@ public interface ICoreRepository
     Task RemoveOrderAsync(RentalOrder order, CancellationToken cancellationToken);
     Task<RentalAssignment?> GetRentalAssignmentAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<RentalAssignment>> GetAssignmentsForOrderAsync(Guid orderId, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<RentalAssignment>> GetAssignmentsForOrdersAsync(IReadOnlyCollection<Guid> orderIds,
+        CancellationToken cancellationToken);
     Task<IReadOnlyCollection<RentalAssignment>> GetAssignmentsForProductUnitAsync(Guid productUnitId, CancellationToken cancellationToken);
     Task AddRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken);
     Task<RentalCohort?> GetRentalCohortAsync(Guid id, CancellationToken cancellationToken);
@@ -58,6 +62,8 @@ public interface ICoreRepository
     Task<IReadOnlyCollection<KargonomiShipment>> GetKargonomiShipmentsAsync(Guid? orderId, CancellationToken cancellationToken);
     Task AddKitLocationEventAsync(KitLocationEvent locationEvent, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KitLocationEvent>> GetKitLocationEventsAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<KitLocationEvent>> GetKitLocationEventsForCustomerAsync(Guid customerId,
+        CancellationToken cancellationToken);
     Task<KitLocationEvent?> GetKitLocationEventAsync(Guid id, CancellationToken cancellationToken);
     Task AddFaultTicketAsync(FaultTicket ticket, CancellationToken cancellationToken);
     Task AddPublicFormAccessTokenAsync(PublicFormAccessToken token, CancellationToken cancellationToken);

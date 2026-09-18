@@ -383,8 +383,14 @@ public sealed record PortalKitViewModel(Guid ProductUnitId, Guid AssignmentId, G
     string? AssignedStudentAddressLine = null, string? AssignedStudentPeriodName = null, bool IsReturned = false,
     bool StudentOrderLocked = false);
 public sealed record PortalKitLookupPageViewModel(string Identifier, bool HasSearched, string? Error);
+public sealed record PortalKitRentalHistoryViewModel(string StudentName, string Address,
+    string PeriodName, string? OrderNumber, DateOnly StartDate, DateOnly EndDate,
+    DateTimeOffset? DeliveredAt);
 public sealed record PortalKitDetailPageViewModel(PortalKitViewModel Kit,
-    IReadOnlyCollection<PortalFaultViewModel> Faults);
+    DashboardKitLocationViewModel? CurrentLocation,
+    IReadOnlyCollection<PortalFaultViewModel> Faults,
+    IReadOnlyCollection<PortalKitReturnViewModel> Returns,
+    IReadOnlyCollection<PortalKitRentalHistoryViewModel> RentalHistory);
 public sealed record PortalFaultsPageViewModel(string CustomerName, string Query, int? Status, string State,
     int Page, int PageSize, int TotalCount, int TotalFaultCount, IReadOnlyCollection<PortalFaultViewModel> Faults)
 {
@@ -631,15 +637,24 @@ public sealed class PublicStudentAddressFormViewModel
     [Display(Name = "Enlem")] public double? Latitude { get; set; }
     [Display(Name = "Boylam")] public double? Longitude { get; set; }
 }
-public sealed record CustomerPortalViewModel(string CustomerName, string CustomerEmail, int TotalRentedKitCount,
-    int UndeliveredKitCount, int ActiveKitCount, int UnassignedKitCount, int PendingRequestCount, int OpenFaultCount,
-    int CompletedFaultCount, int ExpiredRentalKitCount, int ReturnProcessStartedKitCount, int ReturnedKitCount,
-    IReadOnlyCollection<PortalKitViewModel> Kits,
-    IReadOnlyCollection<PortalOrderViewModel> Orders, IReadOnlyCollection<PortalFaultViewModel> Faults,
-    IReadOnlyCollection<PortalAddressViewModel> Addresses, IReadOnlyCollection<PortalProductModelViewModel> ProductModels,
-    IReadOnlyCollection<PortalKitReturnViewModel> Returns,
-    IReadOnlyCollection<DashboardKitLocationViewModel> KitLocations,
+public sealed record CustomerPortalDashboardViewModel(string CustomerName, int TotalRentedKitCount,
+    int ActiveKitCount, int UnassignedKitCount, int OpenFaultCount, int CompletedFaultCount,
+    int ExpiredRentalKitCount, int ReturnProcessStartedKitCount, int ReturnedKitCount,
+    IReadOnlyCollection<DashboardKitLocationViewModel> KitLocations);
+public sealed record CustomerPortalRentalPeriodsDataViewModel(string CustomerName,
+    IReadOnlyCollection<PortalProductModelViewModel> ProductModels,
     IReadOnlyCollection<PortalRentalCohortViewModel> RentalCohorts);
+public sealed record CustomerPortalRentalPeriodDataViewModel(string CustomerName,
+    IReadOnlyCollection<PortalProductModelViewModel> ProductModels, PortalRentalCohortViewModel RentalCohort);
+public sealed record CustomerPortalKitsDataViewModel(string CustomerName,
+    IReadOnlyCollection<PortalKitViewModel> Kits);
+public sealed record CustomerPortalReturnsDataViewModel(string CustomerName,
+    IReadOnlyCollection<PortalKitViewModel> Kits, IReadOnlyCollection<PortalFaultViewModel> Faults,
+    IReadOnlyCollection<PortalKitReturnViewModel> Returns);
+public sealed record CustomerPortalFaultsDataViewModel(string CustomerName,
+    IReadOnlyCollection<PortalFaultViewModel> Faults);
+public sealed record PortalFaultFormContextViewModel(Guid AssignmentId, string KitName, string SerialNumber,
+    string ReporterName, string ReporterPhone, string ReporterAddress);
 public sealed record PortalReturnListItemViewModel(Guid ProductUnitId, Guid AssignmentId, Guid? ReturnId,
     string KitName, string KitSku, string SerialNumber, string OrderNumber, DateOnly StartDate, DateOnly EndDate,
     int UnitStatus, int AssignmentStatus, int ReturnStatus, int OpenFaultCount, string ReturnStateKey,
@@ -669,8 +684,7 @@ public sealed class PortalFaultRequestViewModel
     [Required, StringLength(1000), Display(Name = "Adres")] public string ReporterAddress { get; set; } = string.Empty;
     [Required, StringLength(4000, MinimumLength = 10), Display(Name = "Arıza nedeni")] public string Description { get; set; } = string.Empty;
 }
-public sealed record PortalFaultRequestPageViewModel(PortalFaultRequestViewModel Form,
-    IReadOnlyCollection<PortalKitViewModel> ActiveKits);
+public sealed record PortalFaultRequestPageViewModel(PortalFaultRequestViewModel Form);
 
 public sealed class PortalStudentReturnFormViewModel
 {

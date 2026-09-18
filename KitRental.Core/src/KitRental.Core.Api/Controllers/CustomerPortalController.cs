@@ -15,8 +15,56 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     [HttpGet("customer-portal")]
     public async Task<IActionResult> GetCustomerPortal([FromServices] CustomerPortalService service, CancellationToken cancellationToken)
     {
-        return Ok(await service.GetOverviewAsync(GetRequiredCustomerId(), cancellationToken));
+        return Ok(await service.GetDashboardAsync(GetRequiredCustomerId(), cancellationToken));
     }
+
+    [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
+    [HttpGet("customer-portal/kits")]
+    public async Task<IActionResult> GetCustomerPortalKits([FromServices] CustomerPortalService service,
+        CancellationToken cancellationToken) =>
+        Ok(await service.GetKitsPageAsync(GetRequiredCustomerId(), cancellationToken));
+
+    [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
+    [HttpGet("customer-portal/kits/{productUnitId:guid}")]
+    public async Task<IActionResult> GetCustomerPortalKit(Guid productUnitId,
+        [FromServices] CustomerPortalService service, CancellationToken cancellationToken) =>
+        Ok(await service.GetKitDetailAsync(GetRequiredCustomerId(), productUnitId, cancellationToken));
+
+    [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
+    [HttpGet("customer-portal/returns")]
+    public async Task<IActionResult> GetCustomerPortalReturns([FromServices] CustomerPortalService service,
+        CancellationToken cancellationToken) =>
+        Ok(await service.GetReturnsPageAsync(GetRequiredCustomerId(), cancellationToken));
+
+    [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
+    [HttpGet("customer-portal/faults")]
+    public async Task<IActionResult> GetCustomerPortalFaults([FromServices] CustomerPortalService service,
+        CancellationToken cancellationToken) =>
+        Ok(await service.GetFaultsPageAsync(GetRequiredCustomerId(), cancellationToken));
+
+    [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
+    [HttpGet("customer-portal/faults/{faultId:guid}")]
+    public async Task<IActionResult> GetCustomerPortalFault(Guid faultId,
+        [FromServices] CustomerPortalService service, CancellationToken cancellationToken) =>
+        Ok(await service.GetFaultAsync(GetRequiredCustomerId(), faultId, cancellationToken));
+
+    [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
+    [HttpGet("customer-portal/assignments/{assignmentId:guid}/fault-context")]
+    public async Task<IActionResult> GetCustomerPortalFaultContext(Guid assignmentId,
+        [FromServices] CustomerPortalService service, CancellationToken cancellationToken) =>
+        Ok(await service.GetFaultFormContextAsync(GetRequiredCustomerId(), assignmentId, cancellationToken));
+
+    [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
+    [HttpGet("customer-portal/rental-periods/context")]
+    public async Task<IActionResult> GetCustomerPortalRentalPeriodsContext(
+        [FromServices] CustomerPortalService service, CancellationToken cancellationToken) =>
+        Ok(await service.GetRentalPeriodsPageAsync(GetRequiredCustomerId(), cancellationToken));
+
+    [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
+    [HttpGet("customer-portal/rental-periods/{periodId:guid}/context")]
+    public async Task<IActionResult> GetCustomerPortalRentalPeriodContext(Guid periodId,
+        [FromServices] CustomerPortalService service, CancellationToken cancellationToken) =>
+        Ok(await service.GetRentalPeriodPageAsync(GetRequiredCustomerId(), periodId, cancellationToken));
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
     [HttpPost("customer-portal/faults")]

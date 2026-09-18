@@ -445,6 +445,16 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 
 ## Recent UI Behavior
 
+- Customer portal kit detail pages now show a current location/student card, chronological rental-history entries with student/address/period/date data, chronological fault log entries, and chronological return-process log entries for the selected physical kit.
+- Customer portal fault form data is server-enriched from the requested rental-period student assignment before rendering, so the selected assignment carries its own student and contact details instead of relying only on the aggregated kit summary.
+- Customer portal fault creation preserves user-entered fields after validation errors while revalidating the submitted assignment against the customer's active physical kits.
+- Customer portal fault creation opened from a student row now targets only that student's reserved or active, non-returned physical-kit assignment. The fault form no longer exposes kit selection or QR scanning; the address is prefixed from the selected kit's latest `KitLocationEvent` address, with student/customer details used only as fallback. The generic fault entry point opens the customer kit list so a physical kit must be selected first.
+- Customer portal fault-report links from kit, student, return, and kit-list rows open the fixed-kit form in a new browser tab.
+- Customer portal physical-kit detail links from student, return, and kit-list rows open the kit detail in a new browser tab.
+- Customer portal physical-kit detail history loops close their Razor `foreach` blocks correctly so no literal closing brace is rendered below rental, fault, or return history cards.
+- Customer portal physical-kit detail selection prefers the current non-returned active assignment when a physical unit has historical assignments; this keeps the detail page's fault link tied to the currently using student rather than an older assignment.
+- Customer portal kit summaries use the assignment-to-student link as authoritative; physical-unit fallback is used only when that unit has a single linked student, preventing historical rows from being shown as the current user.
+
 - The customer portal `RentalPeriods`, `Kits`, and `Returns` DataTable wrappers have no outer border or frame; the common table and cell styling remains unchanged.
 - The customer portal `Faults` table now follows the same client-side DataTables standard and no-frame wrapper as the other customer lists, including header filters, sorting, page-length and column-visibility menus, shared pagination, and compact icon-based detail actions.
 - Every row in the customer portal `Kits` table now shows the fault-record action; it is active for assigned, non-returned kits and visibly disabled with an explanatory tooltip for unassigned or returned kits.
@@ -474,7 +484,13 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 
 ## Development Checklist
 
+## Customer Portal Performance (2026-09-18)
+
+- The former all-in-one customer portal overview response was split by screen. `GET /api/customer-portal` now returns only dashboard metrics and map locations; dedicated reads are available at `/api/customer-portal/kits`, `/kits/{productUnitId}`, `/returns`, `/faults`, `/faults/{faultId}`, `/assignments/{assignmentId}/fault-context`, `/rental-periods/context`, and `/rental-periods/{periodId}/context`. MVC customer pages call only their matching endpoint. Portal kit loading also batches assignments across all rental orders and reads kit-location events within the current customer scope instead of loading the system-wide location history.
+
 ## Performance and Database Notes (2026-09-17)
+
+- Customer portal kit-oriented reads batch physical-kit lookups by id instead of querying each assignment, fault, return item, and cohort student separately. Reused product models, returns, kit-location events, and rental cohorts are shared within each relevant screen request. MVC and Gateway responses use compression, and MVC static assets receive a one-week client cache header.
 
 - The relational domain foreign keys are represented with `Guid` values. No string-valued relational foreign key was found; audit/polymorphic fields such as `AuditEntries.EntityId` and `KitLocationEvents.SourceId` remain string identifiers by design and must not be converted without a domain-specific migration.
 - Added supporting indexes for assignment/order activity lookups, order-linked student filtering, order/assignment fault filtering, order-scoped kit-location history, return-inspection and stock-movement lookups, and owned collection foreign keys.

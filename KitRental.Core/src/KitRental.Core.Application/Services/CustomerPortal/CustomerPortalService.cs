@@ -18,157 +18,302 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
     private static readonly Guid PublicActorId = new("00000000-0000-0000-0000-000000000001");
     private const string CargoDropOffAddress = "Aras Kargo şubesine bırakılacak. İade kodu: 1234567890";
 
-    public async Task<CustomerPortalResponse> GetOverviewAsync(Guid customerId, CancellationToken cancellationToken)
+    public async Task<CustomerPortalDashboardResponse> GetDashboardAsync(Guid customerId,
+        CancellationToken cancellationToken)
     {
-        var customer = await repository.GetCustomerAsync(customerId, cancellationToken)
-            ?? throw new ResourceNotFoundException("Müşteri hesabı bulunamadı.");
-        var productModels = await repository.GetProductModelsAsync(cancellationToken);
-        var availableProductModels = FilterAvailableProductModels(customer, productModels);
-        var modelLookup = productModels.ToDictionary(item => item.Id);
+        var data = await LoadPortalKitDataAsync(customerId, cancellationToken);
+        var today = TurkeyTime.Today();
+        var returnProcessStartedAssignmentIds = data.Returns
+            .Where(item => item.Status is KitReturnStatus.Requested or KitReturnStatus.InTransit)
+            .SelectMany(item => item.Items).Select(item => item.AssignmentId).ToHashSet();
+        var returnedAssignmentIds = data.Returns.Where(item => item.Status == KitReturnStatus.Received)
+            .SelectMany(item => item.Items).Select(item => item.AssignmentId).ToHashSet();
+        var currentKits = data.Kits.Where(item =>
+            item.AssignmentStatus is RentalAssignmentStatus.Reserved or RentalAssignmentStatus.Active &&
+            !returnedAssignmentIds.Contains(item.AssignmentId)).ToArray();
+        return new CustomerPortalDashboardResponse(data.Customer.Name, currentKits.Length,
+            currentKits.Count(item => !string.IsNullOrWhiteSpace(item.AssignedStudentName)),
+            currentKits.Count(item => string.IsNullOrWhiteSpace(item.AssignedStudentName)),
+            data.Faults.Count(item => !IsCompletedFaultStatus(item.Status)),
+            data.Faults.Count(item => IsCompletedFaultStatus(item.Status)),
+            data.Kits.Count(item => item.AssignmentStatus == RentalAssignmentStatus.Active &&
+                item.EndDate < today && !returnProcessStartedAssignmentIds.Contains(item.AssignmentId)),
+            returnProcessStartedAssignmentIds.Count, returnedAssignmentIds.Count, data.KitLocations);
+    }
+
+    public async Task<CustomerPortalKitsResponse> GetKitsPageAsync(Guid customerId,
+        CancellationToken cancellationToken)
+    {
+        var data = await LoadPortalKitDataAsync(customerId, cancellationToken);
+        return new CustomerPortalKitsResponse(data.Customer.Name, data.Kits);
+    }
+
+    public async Task<CustomerPortalReturnsResponse> GetReturnsPageAsync(Guid customerId,
+        CancellationToken cancellationToken)
+    {
+        var data = await LoadPortalKitDataAsync(customerId, cancellationToken);
+        return new CustomerPortalReturnsResponse(data.Customer.Name, data.Kits,
+            MapFaults(data.Faults, data.Models, data.Units),
+            await MapReturnsAsync(customerId, data.Models, data.Units, cancellationToken, data.Returns,
+                data.Customer));
+    }
+
+    public async Task<CustomerPortalFaultsResponse> GetFaultsPageAsync(Guid customerId,
+        CancellationToken cancellationToken)
+    {
+        var customer = await GetCustomerAsync(customerId, cancellationToken);
+        var tickets = await repository.GetFaultTicketsAsync(customerId, cancellationToken);
+        var models = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(item => item.Id);
+        var units = await LoadProductUnitsAsync(tickets.Select(ticket => ticket.ProductUnitId), cancellationToken);
+        return new CustomerPortalFaultsResponse(customer.Name, MapFaults(tickets, models, units));
+    }
+
+    public async Task<PortalFaultResponse> GetFaultAsync(Guid customerId, Guid faultId,
+        CancellationToken cancellationToken)
+    {
+        var ticket = await repository.GetFaultTicketAsync(faultId, cancellationToken);
+        if (ticket is null || ticket.CustomerId != customerId)
+            throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
+        var unit = await repository.GetProductUnitAsync(ticket.ProductUnitId, cancellationToken);
+        var model = unit is null ? null : await repository.GetProductModelAsync(unit.ProductModelId, cancellationToken);
+        return MapFault(ticket, unit, model);
+    }
+
+    public async Task<CustomerPortalRentalPeriodsResponse> GetRentalPeriodsPageAsync(Guid customerId,
+        CancellationToken cancellationToken)
+    {
+        var customer = await GetCustomerAsync(customerId, cancellationToken);
+        var models = await repository.GetProductModelsAsync(cancellationToken);
+        return new CustomerPortalRentalPeriodsResponse(customer.Name, MapProductModels(customer, models),
+            await MapRentalCohortsAsync(customerId, cancellationToken,
+                models.ToDictionary(item => item.Id)));
+    }
+
+    public async Task<CustomerPortalRentalPeriodResponse> GetRentalPeriodPageAsync(Guid customerId, Guid periodId,
+        CancellationToken cancellationToken)
+    {
+        var customer = await GetCustomerAsync(customerId, cancellationToken);
+        var cohort = await GetOwnedCohortAsync(customerId, periodId, cancellationToken);
+        var models = await repository.GetProductModelsAsync(cancellationToken);
+        return new CustomerPortalRentalPeriodResponse(customer.Name, MapProductModels(customer, models),
+            await MapRentalCohortAsync(cohort, cancellationToken,
+                models.ToDictionary(item => item.Id)));
+    }
+
+    public async Task<CustomerPortalKitDetailResponse> GetKitDetailAsync(Guid customerId, Guid productUnitId,
+        CancellationToken cancellationToken)
+    {
+        var customer = await GetCustomerAsync(customerId, cancellationToken);
+        var unit = await repository.GetProductUnitAsync(productUnitId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Fiziksel kit bulunamadı.");
+        var model = await repository.GetProductModelAsync(unit.ProductModelId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Kit modeli bulunamadı.");
+        var assignments = (await repository.GetAssignmentsForProductUnitAsync(productUnitId, cancellationToken))
+            .Where(item => item.CustomerId == customerId && item.Status != RentalAssignmentStatus.Cancelled).ToArray();
+        var assignmentOrders = new Dictionary<Guid, RentalOrder>();
+        foreach (var assignment in assignments)
+        {
+            var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken);
+            if (order is not null && order.CustomerId == customerId && order.Type == OrderType.Rental)
+                assignmentOrders[assignment.Id] = order;
+        }
+        var faults = (await repository.GetFaultTicketsAsync(customerId, cancellationToken))
+            .Where(item => item.ProductUnitId == productUnitId).ToArray();
+        var returns = await repository.GetKitReturnRequestsAsync(customerId, cancellationToken);
+        var cohorts = await repository.GetRentalCohortsAsync(customerId, cancellationToken);
+        var locations = await repository.GetKitLocationEventsForCustomerAsync(customerId, cancellationToken);
+        var returnedIds = returns.Where(item => item.Status == KitReturnStatus.Received)
+            .SelectMany(item => item.Items).Select(item => item.AssignmentId).ToHashSet();
+        var deliveryIds = locations.Where(item => item.Source == KitLocationEventSource.DeliveryReceipt &&
+                item.AssignmentId.HasValue).Select(item => item.AssignmentId!.Value).ToHashSet();
+        var studentsByAssignment = cohorts.SelectMany(cohort => cohort.Students
+                .Where(student => !student.IsDeleted && student.AssignmentId.HasValue)
+                .Select(student => new PortalLinkedStudent(student.AssignmentId, student.ProductUnitId,
+                    student.FullName, student.GuardianPhone, student.AddressLine, cohort.Name,
+                    student.OrderId.HasValue && assignmentOrders.Values.Any(order =>
+                        order.Id == student.OrderId.Value && IsApprovedOrderStatus(order.Status)))))
+            .GroupBy(item => item.AssignmentId!.Value).ToDictionary(group => group.Key, group => group.First());
+        var unitStudents = cohorts.SelectMany(cohort => cohort.Students
+                .Where(student => !student.IsDeleted && student.ProductUnitId == productUnitId)
+                .Select(student => new PortalLinkedStudent(student.AssignmentId, student.ProductUnitId,
+                    student.FullName, student.GuardianPhone, student.AddressLine, cohort.Name,
+                    student.OrderId.HasValue && assignmentOrders.Values.Any(order =>
+                        order.Id == student.OrderId.Value && IsApprovedOrderStatus(order.Status)))))
+            .ToArray();
+        var kitRows = assignments.Where(item => assignmentOrders.ContainsKey(item.Id)).Select(assignment =>
+        {
+            var order = assignmentOrders[assignment.Id];
+            var student = studentsByAssignment.TryGetValue(assignment.Id, out var assignedStudent)
+                ? assignedStudent
+                : unitStudents.Length == 1 ? unitStudents[0] : null;
+            return new PortalKitResponse(unit.Id, assignment.Id, order.Id, order.OrderNumber, model.Name, model.Sku,
+                model.ImageUrl, unit.SerialNumber, unit.QrCode, unit.Status, assignment.Status,
+                assignment.Period.StartDate, assignment.Period.EndDate,
+                faults.Count(item => !IsCompletedFaultStatus(item.Status)), deliveryIds.Contains(assignment.Id),
+                student?.FullName, student?.GuardianPhone, student?.AddressLine, student?.CohortName,
+                returnedIds.Contains(assignment.Id), student?.StudentOrderLocked ?? false);
+        }).ToArray();
+        var kit = kitRows
+            .OrderByDescending(item => item.AssignmentStatus == RentalAssignmentStatus.Active && !item.IsReturned)
+            .ThenByDescending(item => item.AssignmentStatus == RentalAssignmentStatus.Active)
+            .ThenByDescending(item => item.EndDate).ThenByDescending(item => item.StartDate)
+            .FirstOrDefault() ?? throw new ResourceNotFoundException("Fiziksel kit bulunamadı.");
+        var mappedFaults = faults.Select(item => MapFault(item, unit, model))
+            .OrderByDescending(item => item.OpenedAt).ToArray();
+        var relatedReturnRequests = returns.Where(item =>
+            item.Items.Any(returnItem => returnItem.ProductUnitId == productUnitId)).ToArray();
+        var returnUnits = await LoadProductUnitsAsync(relatedReturnRequests.SelectMany(item => item.Items)
+            .Select(item => item.ProductUnitId), cancellationToken);
+        var returnModels = (await repository.GetProductModelsAsync(cancellationToken))
+            .ToDictionary(item => item.Id);
+        var mappedReturns = (await MapReturnsAsync(customerId, returnModels, returnUnits, cancellationToken,
+                relatedReturnRequests, customer))
+            .OrderByDescending(item => item.CreatedAt).ToArray();
+        var rentalHistory = cohorts.SelectMany(cohort => cohort.Students
+                .Where(student => student.ProductUnitId == productUnitId)
+                .Select(student =>
+                {
+                    var delivery = student.AssignmentId.HasValue
+                        ? locations.Where(item => item.AssignmentId == student.AssignmentId.Value &&
+                                item.Source == KitLocationEventSource.DeliveryReceipt)
+                            .OrderByDescending(item => item.OccurredAt).ThenByDescending(item => item.Id).FirstOrDefault()
+                        : null;
+                    return new PortalKitRentalHistoryResponse(student.FullName,
+                        delivery?.AddressLine ?? student.AddressLine, cohort.Name,
+                        student.OrderId.HasValue
+                            ? assignmentOrders.Values.FirstOrDefault(item => item.Id == student.OrderId.Value)?.OrderNumber
+                            : null,
+                        cohort.StartDate, cohort.EndDate, delivery?.OccurredAt);
+                }))
+            .OrderByDescending(item => item.DeliveredAt ?? DateTimeOffset.MinValue)
+            .ThenByDescending(item => item.StartDate).ToArray();
+        PortalKitLocationResponse? currentLocation = null;
+        if (kit.AssignmentStatus == RentalAssignmentStatus.Active && !kit.IsReturned)
+        {
+            var latest = locations.Where(item => item.ProductUnitId == productUnitId)
+                .OrderByDescending(item => item.OccurredAt).ThenByDescending(item => item.Id).FirstOrDefault();
+            currentLocation = new PortalKitLocationResponse(unit.Id, model.Id, model.Name, model.Sku,
+                unit.SerialNumber, latest?.ContactName ?? customer.Name,
+                latest?.AddressLine ?? customer.Addresses.FirstOrDefault()?.Line1 ?? string.Empty,
+                (int)unit.Status, latest?.Latitude, latest?.Longitude);
+        }
+        return new CustomerPortalKitDetailResponse(kit, currentLocation, mappedFaults, mappedReturns, rentalHistory);
+    }
+
+    public async Task<PortalFaultFormContextResponse> GetFaultFormContextAsync(Guid customerId, Guid assignmentId,
+        CancellationToken cancellationToken)
+    {
+        var customer = await GetCustomerAsync(customerId, cancellationToken);
+        var assignment = await repository.GetRentalAssignmentAsync(assignmentId, cancellationToken);
+        if (assignment is null || assignment.CustomerId != customerId ||
+            assignment.Status is not (RentalAssignmentStatus.Reserved or RentalAssignmentStatus.Active))
+            throw new ResourceNotFoundException("Arıza bildirilebilecek kiralama kaydı bulunamadı.");
+        var returns = await repository.GetKitReturnRequestsAsync(customerId, cancellationToken);
+        if (returns.Where(item => item.Status == KitReturnStatus.Received).SelectMany(item => item.Items)
+            .Any(item => item.AssignmentId == assignmentId))
+            throw new ResourceNotFoundException("İade edilmiş kit için arıza kaydı açılamaz.");
+        var unit = await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Fiziksel kit bulunamadı.");
+        var model = await repository.GetProductModelAsync(unit.ProductModelId, cancellationToken);
+        var student = (await repository.GetRentalCohortsAsync(customerId, cancellationToken))
+            .SelectMany(item => item.Students).FirstOrDefault(item => !item.IsDeleted && item.AssignmentId == assignmentId);
+        var locations = await repository.GetKitLocationEventsForCustomerAsync(customerId, cancellationToken);
+        var latestLocation = locations.Where(item => item.ProductUnitId == unit.Id)
+            .OrderByDescending(item => item.OccurredAt).ThenByDescending(item => item.Id).FirstOrDefault();
+        var delivery = locations.Where(item => item.AssignmentId == assignmentId &&
+                item.Source == KitLocationEventSource.DeliveryReceipt)
+            .OrderByDescending(item => item.OccurredAt).ThenByDescending(item => item.Id).FirstOrDefault();
+        var address = customer.Addresses.FirstOrDefault();
+        return new PortalFaultFormContextResponse(assignmentId, model?.Name ?? "Eğitim kiti", unit.SerialNumber,
+            delivery?.ContactName ?? student?.FullName ?? address?.ContactName ?? string.Empty,
+            delivery?.ContactPhone ?? student?.GuardianPhone ?? address?.Phone ?? string.Empty,
+            latestLocation?.AddressLine ?? delivery?.AddressLine ?? student?.AddressLine ?? address?.Line1 ?? string.Empty);
+    }
+
+    private async Task<PortalKitData> LoadPortalKitDataAsync(Guid customerId, CancellationToken cancellationToken)
+    {
+        var customer = await GetCustomerAsync(customerId, cancellationToken);
+        var models = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(item => item.Id);
         var orders = await repository.GetOrdersAsync(customerId, cancellationToken);
+        var rentalOrders = orders.Where(item => item.Type == OrderType.Rental).ToArray();
+        var assignments = await repository.GetAssignmentsForOrdersAsync(rentalOrders.Select(item => item.Id).ToArray(),
+            cancellationToken);
+        var units = await LoadProductUnitsAsync(assignments.Select(item => item.ProductUnitId), cancellationToken);
+        var faults = await repository.GetFaultTicketsAsync(customerId, cancellationToken);
+        var returns = await repository.GetKitReturnRequestsAsync(customerId, cancellationToken);
+        var cohorts = await repository.GetRentalCohortsAsync(customerId, cancellationToken);
+        var locations = await repository.GetKitLocationEventsForCustomerAsync(customerId, cancellationToken);
+        var ordersById = orders.ToDictionary(item => item.Id);
+        var linkedStudents = cohorts.SelectMany(cohort => cohort.Students
+            .Where(student => !student.IsDeleted && (student.AssignmentId.HasValue || student.ProductUnitId.HasValue))
+            .Select(student => new PortalLinkedStudent(student.AssignmentId, student.ProductUnitId, student.FullName,
+                student.GuardianPhone, student.AddressLine, cohort.Name,
+                student.OrderId.HasValue && ordersById.TryGetValue(student.OrderId.Value, out var order) &&
+                IsApprovedOrderStatus(order.Status)))).ToArray();
+        var studentsByAssignment = linkedStudents.Where(item => item.AssignmentId.HasValue)
+            .GroupBy(item => item.AssignmentId!.Value).ToDictionary(group => group.Key, group => group.First());
+        var studentsByUnit = linkedStudents.Where(item => item.ProductUnitId.HasValue)
+            .GroupBy(item => item.ProductUnitId!.Value).Where(group => group.Count() == 1)
+            .ToDictionary(group => group.Key, group => group.First());
+        var latestLocationsByUnit = locations.GroupBy(item => item.ProductUnitId)
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(item => item.OccurredAt)
+                .ThenByDescending(item => item.Id).First());
+        var deliveryAssignmentIds = locations.Where(item => item.Source == KitLocationEventSource.DeliveryReceipt &&
+                item.AssignmentId.HasValue).Select(item => item.AssignmentId!.Value).ToHashSet();
+        var returnStartedIds = returns.Where(item => item.Status is KitReturnStatus.Requested or KitReturnStatus.InTransit)
+            .SelectMany(item => item.Items).Select(item => item.AssignmentId).ToHashSet();
+        var returnedIds = returns.Where(item => item.Status == KitReturnStatus.Received)
+            .SelectMany(item => item.Items).Select(item => item.AssignmentId).ToHashSet();
+        var assignmentsByLine = assignments.GroupBy(item => item.OrderLineId)
+            .ToDictionary(group => group.Key, group => group.ToArray());
         var kits = new List<PortalKitResponse>();
         var kitLocations = new List<PortalKitLocationResponse>();
-        var orderResponses = new List<PortalOrderResponse>();
-        var customerFaults = await repository.GetFaultTicketsAsync(customerId, cancellationToken);
-        var customerReturns = await repository.GetKitReturnRequestsAsync(customerId, cancellationToken);
-        var rentalCohorts = await repository.GetRentalCohortsAsync(customerId, cancellationToken);
-        var linkedStudents = rentalCohorts
-            .SelectMany(cohort => cohort.Students
-                .Where(student => !student.IsDeleted &&
-                    (student.AssignmentId.HasValue || student.ProductUnitId.HasValue))
-                .Select(student => new
-                {
-                    student.AssignmentId,
-                    student.ProductUnitId,
-                    student.FullName,
-                    student.GuardianPhone,
-                    student.AddressLine,
-                    CohortName = cohort.Name,
-                    StudentOrderLocked = student.OrderId.HasValue &&
-                        orders.Any(order => order.Id == student.OrderId.Value && IsApprovedOrderStatus(order.Status))
-                }))
-            .ToArray();
-        var studentsByAssignmentId = linkedStudents
-            .Where(student => student.AssignmentId.HasValue)
-            .GroupBy(student => student.AssignmentId!.Value)
-            .ToDictionary(group => group.Key, group => group.First());
-        var studentsByProductUnitId = linkedStudents
-            .Where(student => student.ProductUnitId.HasValue)
-            .GroupBy(student => student.ProductUnitId!.Value)
-            .ToDictionary(group => group.Key, group => group.First());
-        var kitLocationEvents = await repository.GetKitLocationEventsAsync(cancellationToken);
-        var latestLocationsByUnit = kitLocationEvents
-            .Where(location => location.CustomerId == customerId)
-            .GroupBy(location => location.ProductUnitId)
-            .ToDictionary(group => group.Key, group => group.OrderByDescending(location => location.OccurredAt)
-                .ThenByDescending(location => location.Id).First());
-        var deliveryFormAssignmentIds = kitLocationEvents
-            .Where(location => location.CustomerId == customerId &&
-                location.Source == KitLocationEventSource.DeliveryReceipt &&
-                location.AssignmentId.HasValue)
-            .Select(location => location.AssignmentId!.Value)
-            .ToHashSet();
         var today = TurkeyTime.Today();
-        var returnProcessStartedAssignmentIds = customerReturns
-            .Where(item => item.Status is KitReturnStatus.Requested or KitReturnStatus.InTransit)
-            .SelectMany(item => item.Items)
-            .Select(item => item.AssignmentId)
-            .ToHashSet();
-        var returnedAssignmentIds = customerReturns
-            .Where(item => item.Status == KitReturnStatus.Received)
-            .SelectMany(item => item.Items)
-            .Select(item => item.AssignmentId)
-            .ToHashSet();
-        foreach (var order in orders.Where(item => item.Type == OrderType.Rental))
+        foreach (var order in rentalOrders)
+        foreach (var line in order.Lines)
         {
-            orderResponses.Add(new PortalOrderResponse(order.Id, order.OrderNumber, customer.Id, customer.Name,
-                order.Type, order.Status, order.Period!.Value.StartDate, order.Period.Value.EndDate, order.CreatedAt,
-                order.Lines.Select(line => new PortalOrderLineResponse(line.ProductModelId,
-                    modelLookup.TryGetValue(line.ProductModelId, out var lineModel) ? lineModel.Name : "Eğitim kiti",
-                    modelLookup.TryGetValue(line.ProductModelId, out lineModel) ? lineModel.Sku : "-", line.Quantity)).ToArray()));
-
-            var lineIds = order.Lines.Select(line => line.Id).ToHashSet();
-            foreach (var assignment in await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken))
+            if (!assignmentsByLine.TryGetValue(line.Id, out var lineAssignments)) continue;
+            foreach (var assignment in lineAssignments.Where(item => item.Status != RentalAssignmentStatus.Cancelled))
             {
-                if (!lineIds.Contains(assignment.OrderLineId) || assignment.Status == RentalAssignmentStatus.Cancelled)
-                    continue;
-                var unit = await repository.GetProductUnitAsync(assignment.ProductUnitId, cancellationToken);
-                if (unit is null || !modelLookup.TryGetValue(unit.ProductModelId, out var model))
-                    continue;
-                var openFaults = customerFaults.Count(ticket =>
-                    ticket.ProductUnitId == unit.Id && ticket.Status is not (FaultStatus.Resolved or FaultStatus.RemoteResolved or FaultStatus.Rejected or FaultStatus.Closed));
-                var linkedStudent = studentsByAssignmentId.TryGetValue(assignment.Id, out var studentByAssignment)
-                    ? studentByAssignment
-                    : studentsByProductUnitId.TryGetValue(unit.Id, out var studentByUnit)
-                        ? studentByUnit
-                        : null;
-                kits.Add(new PortalKitResponse(unit.Id, assignment.Id, order.Id, order.OrderNumber, model.Name, model.Sku,
-                    model.ImageUrl, unit.SerialNumber, unit.QrCode, unit.Status, assignment.Status, assignment.Period.StartDate,
-                    assignment.Period.EndDate, openFaults, deliveryFormAssignmentIds.Contains(assignment.Id),
-                    linkedStudent?.FullName, linkedStudent?.GuardianPhone, linkedStudent?.AddressLine,
-                    linkedStudent?.CohortName, returnedAssignmentIds.Contains(assignment.Id),
-                    linkedStudent?.StudentOrderLocked ?? false));
-                if (assignment.Status == RentalAssignmentStatus.Active &&
-                    !returnedAssignmentIds.Contains(assignment.Id))
-                {
-                    var locationCategory = GetKitLocationCategory(unit.Status, openFaults > 0,
-                        returnProcessStartedAssignmentIds.Contains(assignment.Id), assignment.Period.EndDate < today);
-                    if (latestLocationsByUnit.TryGetValue(unit.Id, out var location))
-                    {
-                        kitLocations.Add(new PortalKitLocationResponse(unit.Id, unit.ProductModelId, model.Name,
-                            model.Sku, unit.SerialNumber,
-                            location.ContactName, location.AddressLine,
-                            (int)unit.Status, location.Latitude, location.Longitude, locationCategory));
-                    }
-                    else
-                    {
-                        var address = order.DeliveryAddress;
-                        kitLocations.Add(new PortalKitLocationResponse(unit.Id, unit.ProductModelId, model.Name,
-                            model.Sku, unit.SerialNumber,
-                            address.ContactName, address.Line1, (int)unit.Status,
-                            null, null, locationCategory));
-                    }
-                }
+                if (!units.TryGetValue(assignment.ProductUnitId, out var unit) ||
+                    !models.TryGetValue(unit.ProductModelId, out var model)) continue;
+                var openFaultCount = faults.Count(ticket => ticket.ProductUnitId == unit.Id &&
+                    !IsCompletedFaultStatus(ticket.Status));
+                var student = studentsByAssignment.TryGetValue(assignment.Id, out var byAssignment)
+                    ? byAssignment
+                    : studentsByUnit.TryGetValue(unit.Id, out var byUnit) ? byUnit : null;
+                kits.Add(new PortalKitResponse(unit.Id, assignment.Id, order.Id, order.OrderNumber, model.Name,
+                    model.Sku, model.ImageUrl, unit.SerialNumber, unit.QrCode, unit.Status, assignment.Status,
+                    assignment.Period.StartDate, assignment.Period.EndDate, openFaultCount,
+                    deliveryAssignmentIds.Contains(assignment.Id), student?.FullName, student?.GuardianPhone,
+                    student?.AddressLine, student?.CohortName, returnedIds.Contains(assignment.Id),
+                    student?.StudentOrderLocked ?? false));
+                if (assignment.Status != RentalAssignmentStatus.Active || returnedIds.Contains(assignment.Id)) continue;
+                var category = GetKitLocationCategory(unit.Status, openFaultCount > 0,
+                    returnStartedIds.Contains(assignment.Id), assignment.Period.EndDate < today);
+                var location = latestLocationsByUnit.GetValueOrDefault(unit.Id);
+                kitLocations.Add(new PortalKitLocationResponse(unit.Id, unit.ProductModelId, model.Name, model.Sku,
+                    unit.SerialNumber, location?.ContactName ?? order.DeliveryAddress.ContactName,
+                    location?.AddressLine ?? order.DeliveryAddress.Line1, (int)unit.Status,
+                    location?.Latitude, location?.Longitude, category));
             }
         }
-
-        var faults = await MapFaultsAsync(customerId, modelLookup, cancellationToken);
-        var returns = await MapReturnsAsync(customerId, cancellationToken);
-        var expiredRentalKitCount = kits.Count(item =>
-            item.AssignmentStatus == RentalAssignmentStatus.Active &&
-            item.EndDate < today &&
-            !returnProcessStartedAssignmentIds.Contains(item.AssignmentId));
-        var currentlyRentedKits = kits
-            .Where(item => item.AssignmentStatus is RentalAssignmentStatus.Reserved or RentalAssignmentStatus.Active &&
-                !returnedAssignmentIds.Contains(item.AssignmentId))
-            .ToArray();
-        var assignedStudentKitCount = currentlyRentedKits.Count(item =>
-            !string.IsNullOrWhiteSpace(item.AssignedStudentName));
-        var unassignedKitCount = currentlyRentedKits.Count(item =>
-            string.IsNullOrWhiteSpace(item.AssignedStudentName));
-        var undeliveredKitCount = kits.Count(item =>
-            item.AssignmentStatus is RentalAssignmentStatus.Reserved or RentalAssignmentStatus.Active &&
-            !item.HasDeliveryForm);
-        return new CustomerPortalResponse(customer.Name, customer.Email,
-            currentlyRentedKits.Length,
-            undeliveredKitCount,
-            assignedStudentKitCount,
-            unassignedKitCount,
-            orders.Count(item => item.Status == RentalOrderStatus.PendingApproval),
-            faults.Count(item => item.Status is not (FaultStatus.Resolved or FaultStatus.RemoteResolved or FaultStatus.Rejected or FaultStatus.Closed)),
-            faults.Count(item => item.Status is FaultStatus.Resolved or FaultStatus.RemoteResolved or FaultStatus.Rejected or FaultStatus.Closed),
-            expiredRentalKitCount,
-            returnProcessStartedAssignmentIds.Count,
-            returnedAssignmentIds.Count,
+        return new PortalKitData(customer, models, orders, faults, returns, cohorts, locations, units,
             kits.OrderByDescending(item => item.AssignmentStatus).ThenBy(item => item.KitName).ToArray(),
-            orderResponses, faults,
-            customer.Addresses.Select(item => new PortalAddressResponse(item.Id, item.Title, item.ContactName, item.Phone,
-                item.Line1, item.PostalCode)).ToArray(),
-            availableProductModels.Select(item => new PortalProductModelResponse(item.Id, item.Name, item.Sku, item.Description,
-                item.ImageUrl)).ToArray(), returns,
-            kitLocations.OrderBy(item => item.SerialNumber).ToArray(),
-            await MapRentalCohortsAsync(customerId, cancellationToken));
+            kitLocations.OrderBy(item => item.SerialNumber).ToArray());
     }
+
+    private async Task<Customer> GetCustomerAsync(Guid customerId, CancellationToken cancellationToken) =>
+        await repository.GetCustomerAsync(customerId, cancellationToken)
+        ?? throw new ResourceNotFoundException("Müşteri hesabı bulunamadı.");
+
+    private static IReadOnlyCollection<PortalProductModelResponse> MapProductModels(Customer customer,
+        IReadOnlyCollection<ProductModel> models) => FilterAvailableProductModels(customer, models)
+        .Select(item => new PortalProductModelResponse(item.Id, item.Name, item.Sku, item.Description, item.ImageUrl))
+        .ToArray();
+
+    private static bool IsCompletedFaultStatus(FaultStatus status) =>
+        status is FaultStatus.Resolved or FaultStatus.RemoteResolved or FaultStatus.Rejected or FaultStatus.Closed;
 
     private static string GetKitLocationCategory(ProductUnitStatus status, bool hasOpenFault,
         bool hasReturnProcessStarted, bool isExpired) =>
@@ -181,7 +326,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                     : "active";
 
     public Task<IReadOnlyCollection<PortalKitReturnResponse>> GetReturnsAsync(Guid? customerId,
-        CancellationToken cancellationToken) => MapReturnsAsync(customerId, cancellationToken);
+        CancellationToken cancellationToken) => MapReturnsAsync(customerId, null, null, cancellationToken);
 
     public Task<IReadOnlyCollection<PortalRentalCohortResponse>> GetRentalCohortsAsync(Guid customerId,
         CancellationToken cancellationToken) => MapRentalCohortsAsync(customerId, cancellationToken);
@@ -573,23 +718,32 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
     }
 
     private async Task<IReadOnlyCollection<PortalKitReturnResponse>> MapReturnsAsync(Guid? customerId,
-        CancellationToken cancellationToken)
+        IReadOnlyDictionary<Guid, ProductModel>? models,
+        IReadOnlyDictionary<Guid, ProductUnit>? units,
+        CancellationToken cancellationToken,
+        IReadOnlyCollection<KitReturnRequest>? requests = null,
+        Customer? customer = null)
     {
-        var customers = (await repository.GetCustomersAsync(cancellationToken)).ToDictionary(x => x.Id);
-        var models = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(x => x.Id);
+        var customers = customer is null
+            ? (await repository.GetCustomersAsync(cancellationToken)).ToDictionary(item => item.Id)
+            : new Dictionary<Guid, Customer> { [customer.Id] = customer };
+        models ??= (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(x => x.Id);
+        requests ??= await repository.GetKitReturnRequestsAsync(customerId, cancellationToken);
+        units ??= await LoadProductUnitsAsync(requests.SelectMany(item => item.Items)
+            .Select(item => item.ProductUnitId), cancellationToken);
         var result = new List<PortalKitReturnResponse>();
-        foreach (var request in await repository.GetKitReturnRequestsAsync(customerId, cancellationToken))
+        foreach (var request in requests)
         {
             var items = new List<PortalKitReturnItemResponse>();
             foreach (var item in request.Items)
             {
-                var unit = await repository.GetProductUnitAsync(item.ProductUnitId, cancellationToken);
+                units.TryGetValue(item.ProductUnitId, out var unit);
                 items.Add(new PortalKitReturnItemResponse(item.AssignmentId, item.ProductUnitId, item.OrderId,
                     unit is not null && models.TryGetValue(unit.ProductModelId, out var model) ? model.Name : "Eğitim kiti",
                     unit?.SerialNumber ?? "-"));
             }
             result.Add(new PortalKitReturnResponse(request.Id, request.CustomerId,
-                customers.TryGetValue(request.CustomerId, out var customer) ? customer.Name : "Müşteri",
+                customers.TryGetValue(request.CustomerId, out var requestCustomer) ? requestCustomer.Name : "Müşteri",
                 request.Status, request.Carrier, request.TrackingNumber, request.CreatedAt, request.ShippedAt,
                 request.RequesterName, request.RequesterPhone,
                 request.ReturnAddress, request.Latitude, request.Longitude, request.DeliveryMethod, items));
@@ -667,8 +821,9 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 "Arıza için bildiren kişi, telefon, adres ve arıza nedeni zorunludur.");
         var assignment = await repository.GetRentalAssignmentAsync(command.AssignmentId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kiralama kaydı bulunamadı.");
-        if (assignment.CustomerId != command.CustomerId || assignment.Status != RentalAssignmentStatus.Active)
-            throw new ForbiddenException("Yalnızca hesabınıza ait aktif kiralamalar için arıza kaydı açabilirsiniz.");
+        if (assignment.CustomerId != command.CustomerId ||
+            assignment.Status is not (RentalAssignmentStatus.Reserved or RentalAssignmentStatus.Active))
+            throw new ForbiddenException("Yalnızca hesabınıza ait atanmış ve iade edilmemiş kitler için arıza kaydı açabilirsiniz.");
         var customerReturns = await repository.GetKitReturnRequestsAsync(command.CustomerId, cancellationToken);
         if (customerReturns.Where(item => item.Status == KitReturnStatus.Received)
             .SelectMany(item => item.Items)
@@ -797,19 +952,38 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
     }
 
     private async Task<IReadOnlyCollection<PortalRentalCohortResponse>> MapRentalCohortsAsync(Guid customerId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<Guid, ProductModel>? models = null,
+        IReadOnlyCollection<KitReturnRequest>? returns = null,
+        IReadOnlyCollection<KitLocationEvent>? locations = null,
+        IReadOnlyDictionary<Guid, ProductUnit>? units = null,
+        IReadOnlyCollection<RentalCohort>? cohorts = null)
     {
+        models ??= (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(item => item.Id);
+        returns ??= await repository.GetKitReturnRequestsAsync(customerId, cancellationToken);
+        locations ??= await repository.GetKitLocationEventsForCustomerAsync(customerId, cancellationToken);
+        cohorts ??= await repository.GetRentalCohortsAsync(customerId, cancellationToken);
+        units ??= await LoadProductUnitsAsync(cohorts.SelectMany(cohort => cohort.Students)
+            .Where(student => student.ProductUnitId.HasValue)
+            .Select(student => student.ProductUnitId!.Value), cancellationToken);
         var result = new List<PortalRentalCohortResponse>();
-        foreach (var cohort in await repository.GetRentalCohortsAsync(customerId, cancellationToken))
-            result.Add(await MapRentalCohortAsync(cohort, cancellationToken));
+        foreach (var cohort in cohorts)
+            result.Add(await MapRentalCohortAsync(cohort, cancellationToken, models, returns, locations, units));
         return result;
     }
 
     private async Task<PortalRentalCohortResponse> MapRentalCohortAsync(RentalCohort cohort,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<Guid, ProductModel>? models = null,
+        IReadOnlyCollection<KitReturnRequest>? returns = null,
+        IReadOnlyCollection<KitLocationEvent>? locations = null,
+        IReadOnlyDictionary<Guid, ProductUnit>? units = null)
     {
-        var models = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(item => item.Id);
-        var returns = await repository.GetKitReturnRequestsAsync(cohort.CustomerId, cancellationToken);
+        models ??= (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(item => item.Id);
+        returns ??= await repository.GetKitReturnRequestsAsync(cohort.CustomerId, cancellationToken);
+        locations ??= await repository.GetKitLocationEventsForCustomerAsync(cohort.CustomerId, cancellationToken);
+        units ??= await LoadProductUnitsAsync(cohort.Students.Where(student => student.ProductUnitId.HasValue)
+            .Select(student => student.ProductUnitId!.Value), cancellationToken);
         var activeReturnAssignmentIds = returns.Where(item => item.Status != KitReturnStatus.Received)
             .SelectMany(item => item.Items)
             .Select(item => item.AssignmentId)
@@ -818,7 +992,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             .SelectMany(item => item.Items)
             .Select(item => item.AssignmentId)
             .ToHashSet();
-        var deliveryEventsByAssignment = (await repository.GetKitLocationEventsAsync(cancellationToken))
+        var deliveryEventsByAssignment = locations
             .Where(item => item.CustomerId == cohort.CustomerId &&
                 item.Source == KitLocationEventSource.DeliveryReceipt &&
                 item.AssignmentId.HasValue)
@@ -829,8 +1003,9 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         foreach (var student in cohort.Students.Where(item => !item.IsDeleted))
         {
             models.TryGetValue(student.ProductModelId, out var model);
-            ProductUnit? unit = student.ProductUnitId.HasValue
-                ? await repository.GetProductUnitAsync(student.ProductUnitId.Value, cancellationToken)
+            ProductUnit? unit = student.ProductUnitId.HasValue &&
+                units.TryGetValue(student.ProductUnitId.Value, out var foundUnit)
+                ? foundUnit
                 : null;
             var delivery = student.AssignmentId.HasValue &&
                 deliveryEventsByAssignment.TryGetValue(student.AssignmentId.Value, out var foundDelivery)
@@ -852,8 +1027,8 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         foreach (var deleted in cohort.Students.Where(item => item.IsDeleted && item.ProductUnitId.HasValue))
         {
             if (!deleted.ProductUnitId.HasValue) continue;
-            var unit = await repository.GetProductUnitAsync(deleted.ProductUnitId.Value, cancellationToken);
-            if (unit is null || assignedStudentUnitIds.Contains(unit.Id)) continue;
+            if (!units.TryGetValue(deleted.ProductUnitId.Value, out var unit) ||
+                assignedStudentUnitIds.Contains(unit.Id)) continue;
             models.TryGetValue(unit.ProductModelId, out var model);
             unassigned.Add(new PortalUnassignedCohortKitResponse(unit.Id, deleted.AssignmentId ?? Guid.Empty,
                 deleted.OrderId ?? Guid.Empty, unit.ProductModelId, model?.Name ?? "Eğitim kiti", model?.Sku ?? "-",
@@ -900,6 +1075,14 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             : models.Where(model => allowedIds.Contains(model.Id)).ToArray();
     }
 
+    private async Task<IReadOnlyDictionary<Guid, ProductUnit>> LoadProductUnitsAsync(
+        IEnumerable<Guid> ids, CancellationToken cancellationToken)
+    {
+        var distinctIds = ids.Where(id => id != Guid.Empty).Distinct().ToArray();
+        return (await repository.GetProductUnitsByIdsAsync(distinctIds, cancellationToken))
+            .ToDictionary(item => item.Id);
+    }
+
     private Task AddActivityAsync(Guid productUnitId, Guid? assignmentId, Guid? orderId, Guid? studentId,
         Guid actorId, string actorDisplayName, string action, string description, CancellationToken cancellationToken,
         DateTimeOffset? occurredAt = null) =>
@@ -907,24 +1090,30 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             assignmentId, orderId, studentId, actorId, actorDisplayName, action, description,
             occurredAt ?? TurkeyTime.Now()), cancellationToken);
 
-    private async Task<IReadOnlyCollection<PortalFaultResponse>> MapFaultsAsync(Guid customerId,
-        IReadOnlyDictionary<Guid, ProductModel> models, CancellationToken cancellationToken)
-    {
-        var result = new List<PortalFaultResponse>();
-        foreach (var ticket in await repository.GetFaultTicketsAsync(customerId, cancellationToken))
+    private static IReadOnlyCollection<PortalFaultResponse> MapFaults(IReadOnlyCollection<FaultTicket> tickets,
+        IReadOnlyDictionary<Guid, ProductModel> models, IReadOnlyDictionary<Guid, ProductUnit> units) =>
+        tickets.Select(ticket =>
         {
-            var unit = await repository.GetProductUnitAsync(ticket.ProductUnitId, cancellationToken);
-            var modelName = unit is not null && models.TryGetValue(unit.ProductModelId, out var model)
-                ? model.Name : "Eğitim kiti";
-            result.Add(new PortalFaultResponse(ticket.Id, ticket.Number, ticket.ProductUnitId, modelName,
-                unit?.SerialNumber ?? "-", ticket.Category, ticket.Severity, ticket.Description, ticket.Status,
-                ticket.OpenedAt, ticket.History.OrderBy(item => item.OccurredAt).Select(item =>
-                    new PortalFaultStatusResponse(item.Previous, item.Current, item.OccurredAt, item.Note)).ToArray(),
-                ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress, ticket.ApprovalStatus,
-                ticket.Origin));
-        }
-        return result.OrderByDescending(item => item.OpenedAt).ToArray();
-    }
+            units.TryGetValue(ticket.ProductUnitId, out var unit);
+            models.TryGetValue(unit?.ProductModelId ?? Guid.Empty, out var model);
+            return MapFault(ticket, unit, model);
+        }).OrderByDescending(item => item.OpenedAt).ToArray();
+
+    private static PortalFaultResponse MapFault(FaultTicket ticket, ProductUnit? unit, ProductModel? model) =>
+        new(ticket.Id, ticket.Number, ticket.ProductUnitId, model?.Name ?? "Eğitim kiti",
+            unit?.SerialNumber ?? "-", ticket.Category, ticket.Severity, ticket.Description, ticket.Status,
+            ticket.OpenedAt, ticket.History.OrderBy(item => item.OccurredAt).Select(item =>
+                new PortalFaultStatusResponse(item.Previous, item.Current, item.OccurredAt, item.Note)).ToArray(),
+            ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress, ticket.ApprovalStatus, ticket.Origin);
+
+    private sealed record PortalLinkedStudent(Guid? AssignmentId, Guid? ProductUnitId, string FullName,
+        string GuardianPhone, string AddressLine, string CohortName, bool StudentOrderLocked);
+
+    private sealed record PortalKitData(Customer Customer, IReadOnlyDictionary<Guid, ProductModel> Models,
+        IReadOnlyCollection<RentalOrder> Orders, IReadOnlyCollection<FaultTicket> Faults,
+        IReadOnlyCollection<KitReturnRequest> Returns, IReadOnlyCollection<RentalCohort> Cohorts,
+        IReadOnlyCollection<KitLocationEvent> Locations, IReadOnlyDictionary<Guid, ProductUnit> Units,
+        IReadOnlyCollection<PortalKitResponse> Kits, IReadOnlyCollection<PortalKitLocationResponse> KitLocations);
 
     private static bool CoordinatesAreValid(double? latitude, double? longitude) =>
         latitude is >= -90 and <= 90 && longitude is >= -180 and <= 180;

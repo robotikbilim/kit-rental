@@ -11,6 +11,8 @@
     ViewData["Title"] = Model.Kit.KitName;
     string UnitStatus(int value) => value switch { 1 => "Hazır", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimat yolunda", 5 => "Kullanımınızda", 6 => "Geri gönderiliyor", 7 => "Kontrolde", 8 => "Serviste", _ => "İşlemde" };
     string FaultStatus(int value) => value switch { 1 => "Kayıt açıldı", 2 => "İnceleniyor", 3 => "Bilgi bekleniyor", 4 => "Kit bekleniyor", 5 => "Eski servis süreci", 6 => "Eski kargo süreci", 7 => "Eski çözüldü", 8 => "Tamamlandı", 9 => "Kabul edildi", 10 => "Reddedildi", 11 => "Uzaktan destekle çözüldü", 12 => "Kargo bekliyor", 13 => "Atölyeye kargolandı", 14 => "Atölyeye geldi", 15 => "Arıza giderildi", _ => "İşlemde" };
+    string ReturnStatus(int value) => value switch { 1 => "Talep oluşturuldu", 2 => "Kargoda", 3 => "Teslim alındı", _ => "İşlemde" };
+    var currentAddress = Model.CurrentLocation?.AddressLine ?? Model.Kit.AssignedStudentAddressLine;
 }
 <a class="back-link" asp-action="Index">← Kitlerime dön</a>
 <section class="portal-kit-detail-hero">
@@ -25,11 +27,36 @@
 {
     <div class="portal-fault-cta"><div><span class="eyebrow">GEÇMİŞ KİRALAMA</span><h2>Bu kit iade edildi</h2><p>Geçmiş kiralama kaydı salt okunur olarak görüntülenebilir. Bu kit üzerinde yeni işlem yapılamaz.</p></div></div>
 }
+else if (Model.Kit.AssignmentStatus is 1 or 2)
+{
+    <div class="portal-fault-cta"><div><span class="eyebrow">TEKNİK DESTEK</span><h2>Bu kitle ilgili bir sorun mu var?</h2><p>Arızayı açıklayın, servis ve geri gönderim sürecini portal üzerinden takip edin.</p></div><a class="primary-action" asp-action="NewFault" asp-route-assignmentId="@Model.Kit.AssignmentId" target="_blank" rel="noopener">Bu Kit İçin Arıza Bildir</a></div>
+}
 else
 {
-    <div class="portal-fault-cta"><div><span class="eyebrow">TEKNİK DESTEK</span><h2>Bu kitle ilgili bir sorun mu var?</h2><p>Arızayı açıklayın, servis ve geri gönderim sürecini portal üzerinden takip edin.</p></div><a class="primary-action" asp-action="NewFault" asp-route-assignmentId="@Model.Kit.AssignmentId">Bu Kit İçin Arıza Bildir</a></div>
+    <div class="portal-fault-cta"><div><span class="eyebrow">TEKNİK DESTEK</span><h2>Bu kit için yeni arıza kaydı açılamaz</h2><p>Bu fiziksel kitin kiralama ataması artık aktif değil.</p></div></div>
 }
-<section class="portal-section"><div class="section-heading"><div><span class="eyebrow">ARIZA GEÇMİŞİ</span><h2>Bu kite ait kayıtlar</h2></div><b>@Model.Faults.Count kayıt</b></div>
-@if(Model.Faults.Count == 0){<div class="empty">Bu kit için daha önce arıza kaydı oluşturulmamış.</div>}else{<div class="portal-fault-grid">@foreach(var fault in Model.Faults){<a asp-action="Fault" asp-route-id="@fault.Id" class="portal-fault-card"><div><small>@fault.Number · @fault.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy")</small><h3>@fault.Category</h3><p>@fault.Description</p></div><div><span class="fault-stage status-@fault.Status">@FaultStatus(fault.Status)</span></div></a>}</div>}
+<section class="portal-section portal-kit-location-section">
+    <div class="section-heading"><div><span class="eyebrow">GÜNCEL KONUM</span><h2>Kit şu anda nerede?</h2></div></div>
+    <div class="portal-location-card">
+        <div class="portal-location-icon"><i data-lucide="map-pin"></i></div>
+        <div>
+            <span class="portal-log-label">KULLANAN ÖĞRENCİ</span>
+            <strong>@(Model.Kit.AssignedStudentName ?? "Öğrenci atanmamış")</strong>
+            <span class="portal-log-label">ADRES</span>
+            <p>@(currentAddress ?? "Adres bilgisi bulunmuyor.")</p>
+        </div>
+    </div>
+</section>
+
+<section class="portal-section"><div class="section-heading"><div><span class="eyebrow">KİRALAMA GEÇMİŞİ</span><h2>Bu kit kimlerde kullanıldı?</h2></div><b>@Model.RentalHistory.Count kayıt</b></div>
+@if(Model.RentalHistory.Count == 0){<div class="empty">Bu kit için geçmiş kiralama kaydı bulunmuyor.</div>}else{<div class="portal-log-list">@foreach(var rental in Model.RentalHistory){<article class="portal-log-item"><i data-lucide="graduation-cap"></i><div><div class="portal-log-meta"><span>@rental.StartDate.ToString("dd.MM.yyyy") – @rental.EndDate.ToString("dd.MM.yyyy")</span>@if(rental.DeliveredAt.HasValue){<span>Teslim: @rental.DeliveredAt.Value.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</span>}</div><h3>@rental.StudentName</h3><p>@(string.IsNullOrWhiteSpace(rental.Address) ? "Adres bilgisi bulunmuyor." : rental.Address)</p><small class="portal-log-subline">@rental.PeriodName@if(!string.IsNullOrWhiteSpace(rental.OrderNumber)){<text> · @rental.OrderNumber</text>}</small></div></article>}</div>}
+</section>
+
+<section class="portal-section"><div class="section-heading"><div><span class="eyebrow">ARIZA GÜNLÜĞÜ</span><h2>Bu kitteki arıza kayıtları</h2></div><b>@Model.Faults.Count kayıt</b></div>
+@if(Model.Faults.Count == 0){<div class="empty">Bu kit için daha önce arıza kaydı oluşturulmamış.</div>}else{<div class="portal-log-list">@foreach(var fault in Model.Faults){<a asp-action="Fault" asp-route-id="@fault.Id" class="portal-log-item"><i data-lucide="triangle-alert"></i><div><div class="portal-log-meta"><span>@fault.Number · @fault.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</span><span class="fault-stage status-@fault.Status">@FaultStatus(fault.Status)</span></div><h3>@fault.Category</h3><p>@fault.Description</p></div></a>}</div>}
+</section>
+
+<section class="portal-section"><div class="section-heading"><div><span class="eyebrow">İADE GÜNLÜĞÜ</span><h2>Bu kitteki iade süreçleri</h2></div><b>@Model.Returns.Count süreç</b></div>
+@if(Model.Returns.Count == 0){<div class="empty">Bu kit için başlatılmış bir iade süreci bulunmuyor.</div>}else{<div class="portal-log-list">@foreach(var item in Model.Returns){<article class="portal-log-item"><i data-lucide="rotate-ccw"></i><div><div class="portal-log-meta"><span>@item.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</span><span class="fault-stage status-@item.Status">@ReturnStatus(item.Status)</span></div><h3>@(item.RequesterName ?? "İade talebi")</h3><p>@(item.ReturnAddress ?? "Adres bilgisi belirtilmedi.")</p>@if(!string.IsNullOrWhiteSpace(item.TrackingNumber)){<small class="portal-log-subline">@item.Carrier · @item.TrackingNumber</small>}</div></article>}</div>}
 </section>
 

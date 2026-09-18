@@ -13,7 +13,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
 {
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        var portal = await apiClient.GetCustomerPortalDashboardAsync(cancellationToken);
         return portal is null ? Forbid() : View(portal);
     }
 
@@ -24,7 +24,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     public async Task<IActionResult> RentalPeriods(string? periodName, string? approvalStatus, int page = 1,
         CancellationToken cancellationToken = default)
     {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        var portal = await apiClient.GetCustomerPortalRentalPeriodsPageAsync(cancellationToken);
         if (portal is null) return Forbid();
         return View(BuildRentalCohortsPage(portal, new RentalCohortInputViewModel
         {
@@ -51,7 +51,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             }
             ModelState.AddModelError(string.Empty, result.Error ?? "Kiralama dönemi kaydedilemedi.");
         }
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        var portal = await apiClient.GetCustomerPortalRentalPeriodsPageAsync(cancellationToken);
         return portal is null ? Forbid() : View("RentalPeriods", BuildRentalCohortsPage(portal, model));
     }
 
@@ -65,7 +65,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         return RedirectToAction(nameof(RentalPeriods));
     }
 
-    private static RentalCohortsPageViewModel BuildRentalCohortsPage(CustomerPortalViewModel portal,
+    private static RentalCohortsPageViewModel BuildRentalCohortsPage(CustomerPortalRentalPeriodsDataViewModel portal,
         RentalCohortInputViewModel form, string? periodName = null, string? approvalStatus = null, int page = 1)
     {
         var periodNameOptions = portal.RentalCohorts
@@ -117,10 +117,9 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         Guid? productModelId, string? assignmentState, string? addressState, int page = 1,
         CancellationToken cancellationToken = default)
     {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        var portal = await apiClient.GetCustomerPortalRentalPeriodPageAsync(id, cancellationToken);
         if (portal is null) return Forbid();
-        var cohort = portal.RentalCohorts.SingleOrDefault(item => item.Id == id);
-        if (cohort is null) return NotFound();
+        var cohort = portal.RentalCohort;
         var edit = editStudentId.HasValue
             ? cohort.Students.SingleOrDefault(item => item.Id == editStudentId.Value)
             : null;
@@ -146,10 +145,9 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     [HttpGet]
     public async Task<IActionResult> ExportRentalPeriodStudents(Guid id, CancellationToken cancellationToken)
     {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        var portal = await apiClient.GetCustomerPortalRentalPeriodPageAsync(id, cancellationToken);
         if (portal is null) return Forbid();
-        var cohort = portal.RentalCohorts.SingleOrDefault(item => item.Id == id);
-        if (cohort is null) return NotFound();
+        var cohort = portal.RentalCohort;
 
         using var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Öğrenci Adresleri");
@@ -289,10 +287,9 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     public async Task<IActionResult> ImportRentalPeriodStudents(Guid cohortId, Guid productModelId, IFormFile? file,
         CancellationToken cancellationToken)
     {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        var portal = await apiClient.GetCustomerPortalRentalPeriodPageAsync(cohortId, cancellationToken);
         if (portal is null) return Forbid();
-        var cohort = portal.RentalCohorts.SingleOrDefault(item => item.Id == cohortId);
-        if (cohort is null) return NotFound();
+        var cohort = portal.RentalCohort;
         if (cohort.IsApproved)
         {
             TempData["Error"] = "Onaylanmış siparişlerde öğrenci listesi kilitlidir; yeni öğrenci yüklenemez.";
@@ -344,10 +341,9 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     public async Task<IActionResult> ConfirmRentalPeriodStudentImport(
         RentalCohortStudentImportPreviewViewModel model, CancellationToken cancellationToken)
     {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        var portal = await apiClient.GetCustomerPortalRentalPeriodPageAsync(model.CohortId, cancellationToken);
         if (portal is null) return Forbid();
-        var cohort = portal.RentalCohorts.SingleOrDefault(item => item.Id == model.CohortId);
-        if (cohort is null) return NotFound();
+        var cohort = portal.RentalCohort;
         if (cohort.IsApproved)
         {
             TempData["Error"] = "Onaylanmış siparişlerde öğrenci listesi kilitlidir; içe aktarma onaylanamaz.";
@@ -392,10 +388,8 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     }
 
     [HttpGet]
-    public async Task<IActionResult> RentalPeriodTemplate(CancellationToken cancellationToken)
+    public IActionResult RentalPeriodTemplate()
     {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
-        if (portal is null) return Forbid();
         using var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Öğrenciler");
         sheet.Cell(1, 1).Value = "Öğrenci Adı Soyadı";
@@ -444,9 +438,8 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     private async Task<PortalStudentReturnFormViewModel?> BuildStudentReturnFormAsync(Guid cohortId, Guid studentId,
         CancellationToken cancellationToken)
     {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
-        var cohort = portal?.RentalCohorts.SingleOrDefault(item => item.Id == cohortId);
-        var student = cohort?.Students.SingleOrDefault(item => item.Id == studentId);
+        var portal = await apiClient.GetCustomerPortalRentalPeriodPageAsync(cohortId, cancellationToken);
+        var student = portal?.RentalCohort.Students.SingleOrDefault(item => item.Id == studentId);
         if (student is null || !student.AssignmentId.HasValue || student.HasActiveReturn || student.HasCompletedReturn)
             return null;
 
@@ -477,7 +470,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     public async Task<IActionResult> Faults(string? query, int? status, string state = "all", int page = 1,
         int pageSize = 10, CancellationToken cancellationToken = default)
     {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        var portal = await apiClient.GetCustomerPortalFaultsAsync(cancellationToken);
         if (portal is null) return Forbid();
 
         var normalizedQuery = query?.Trim() ?? string.Empty;
@@ -516,7 +509,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         int page = 1,
         int pageSize = 10, CancellationToken cancellationToken = default)
     {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        var portal = await apiClient.GetCustomerPortalKitsAsync(cancellationToken);
         if (portal is null) return Forbid();
 
         var normalizedQuery = query?.Trim() ?? string.Empty;
@@ -569,7 +562,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     public async Task<IActionResult> Returns(string? query, string state = "all", int page = 1,
         int pageSize = 10, CancellationToken cancellationToken = default)
     {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        var portal = await apiClient.GetCustomerPortalReturnsAsync(cancellationToken);
         if (portal is null) return Forbid();
 
         var normalizedQuery = query?.Trim() ?? string.Empty;
@@ -656,7 +649,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         var value = QrCodeValue.Normalize(identifier);
         if (value.Length == 0)
             return View(new PortalKitLookupPageViewModel(string.Empty, false, null));
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
+        var portal = await apiClient.GetCustomerPortalKitsAsync(cancellationToken);
         if (portal is null) return Forbid();
         var kit = portal.Kits.FirstOrDefault(item => item.AssignmentStatus == 2 &&
             (string.Equals(item.SerialNumber, value, StringComparison.OrdinalIgnoreCase) ||
@@ -670,11 +663,8 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     [HttpGet]
     public async Task<IActionResult> Kit(Guid id, CancellationToken cancellationToken)
     {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
-        if (portal is null) return Forbid();
-        var kit = portal.Kits.FirstOrDefault(item => item.ProductUnitId == id);
-        return kit is null ? NotFound() : View(new PortalKitDetailPageViewModel(kit,
-            portal.Faults.Where(fault => fault.ProductUnitId == id).ToArray()));
+        var kit = await apiClient.GetCustomerPortalKitAsync(id, cancellationToken);
+        return kit is null ? NotFound() : View(kit);
     }
 
     [HttpGet]
@@ -697,15 +687,13 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     [HttpGet]
     public async Task<IActionResult> NewFault(Guid? assignmentId, CancellationToken cancellationToken)
     {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
-        if (portal is null) return Forbid();
-        var activeKits = portal.Kits
-            .Where(item => item.AssignmentStatus == 2 && !item.IsReturned)
-            .ToArray();
-        var selectedAssignmentId = assignmentId.HasValue && activeKits.Any(item => item.AssignmentId == assignmentId)
-            ? assignmentId.Value
-            : activeKits.FirstOrDefault()?.AssignmentId ?? Guid.Empty;
-        return View(new PortalFaultRequestPageViewModel(BuildPortalFaultForm(portal, selectedAssignmentId), activeKits));
+        if (!assignmentId.HasValue)
+            return RedirectToAction(nameof(Kits));
+
+        var context = await apiClient.GetCustomerPortalFaultContextAsync(assignmentId.Value, cancellationToken);
+        return context is null
+            ? NotFound()
+            : View(new PortalFaultRequestPageViewModel(BuildPortalFaultForm(context)));
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -721,49 +709,27 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             }
             ModelState.AddModelError(string.Empty, result.Error ?? "Arıza kaydı oluşturulamadı.");
         }
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
-        if (portal is null) return Forbid();
-        var activeKits = portal.Kits
-            .Where(item => item.AssignmentStatus == 2 && !item.IsReturned)
-            .ToArray();
-        var selectedKit = activeKits.FirstOrDefault(item => item.AssignmentId == model.AssignmentId);
-        model.KitName = selectedKit?.KitName ?? model.KitName;
-        model.SerialNumber = selectedKit?.SerialNumber ?? model.SerialNumber;
-        return View(new PortalFaultRequestPageViewModel(model, activeKits));
+        var context = await apiClient.GetCustomerPortalFaultContextAsync(model.AssignmentId, cancellationToken);
+        if (context is null) return NotFound();
+        model.KitName = context.KitName;
+        model.SerialNumber = context.SerialNumber;
+        return View(new PortalFaultRequestPageViewModel(model));
     }
 
-    private static PortalFaultRequestViewModel BuildPortalFaultForm(CustomerPortalViewModel portal, Guid assignmentId)
-    {
-        var kit = portal.Kits.FirstOrDefault(item => item.AssignmentId == assignmentId);
-        var student = portal.RentalCohorts
-            .SelectMany(cohort => cohort.Students)
-            .FirstOrDefault(item => item.AssignmentId == assignmentId);
-        var address = portal.Addresses.FirstOrDefault();
-        return new PortalFaultRequestViewModel
+    private static PortalFaultRequestViewModel BuildPortalFaultForm(PortalFaultFormContextViewModel context) =>
+        new()
         {
-            AssignmentId = assignmentId,
-            KitName = kit?.KitName ?? string.Empty,
-            SerialNumber = kit?.SerialNumber ?? string.Empty,
-            ReporterName = student?.FullName
-                ?? kit?.AssignedStudentName
-                ?? address?.ContactName
-                ?? string.Empty,
-            ReporterPhone = student?.GuardianPhone
-                ?? kit?.AssignedStudentGuardianPhone
-                ?? address?.Phone
-                ?? string.Empty,
-            ReporterAddress = student?.DeliveryAddress
-                ?? student?.AddressLine
-                ?? kit?.AssignedStudentAddressLine
-                ?? address?.Line1
-                ?? string.Empty
+            AssignmentId = context.AssignmentId,
+            KitName = context.KitName,
+            SerialNumber = context.SerialNumber,
+            ReporterName = context.ReporterName,
+            ReporterPhone = context.ReporterPhone,
+            ReporterAddress = context.ReporterAddress
         };
-    }
 
     public async Task<IActionResult> Fault(Guid id, CancellationToken cancellationToken)
     {
-        var portal = await apiClient.GetCustomerPortalAsync(cancellationToken);
-        var fault = portal?.Faults.SingleOrDefault(item => item.Id == id);
+        var fault = await apiClient.GetCustomerPortalFaultAsync(id, cancellationToken);
         return fault is null ? NotFound() : View(fault);
     }
 }
