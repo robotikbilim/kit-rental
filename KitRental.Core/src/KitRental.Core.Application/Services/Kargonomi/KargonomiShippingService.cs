@@ -87,21 +87,24 @@ public sealed class KargonomiShippingService(
 
         foreach (var student in students)
         {
+            KargonomiShipment? shipment = null;
             try
             {
-                var existing = await repository.GetKargonomiShipmentAsync(orderId, student.Id, cancellationToken);
-                if (existing is not null && existing.ExternalShipmentId.HasValue)
+                shipment = await repository.GetKargonomiShipmentAsync(orderId, student.Id, cancellationToken);
+                if (shipment is not null && shipment.ExternalShipmentId.HasValue)
                 {
-                    attempts.Add(new(student.Id, student.FullName, true, "Kargo zaten başlatılmış.", Map(existing, student.FullName)));
+                    attempts.Add(new(student.Id, student.FullName, true, "Kargo zaten başlatılmış.", Map(shipment, student.FullName)));
                     continue;
                 }
                 if (!student.HasAddress)
                     throw new ConflictException("kargonomi.address_required", "Öğrenci adresi tamamlanmadan kargo başlatılamaz.");
 
-                var shipment = existing ?? KargonomiShipment.Create(Guid.NewGuid(), orderId, student.Id,
-                    timeProvider.GetUtcNow());
-                if (existing is null)
+                if (shipment is null)
+                {
+                    shipment = KargonomiShipment.Create(Guid.NewGuid(), orderId, student.Id,
+                        timeProvider.GetUtcNow());
                     await repository.AddKargonomiShipmentAsync(shipment, cancellationToken);
+                }
 
                 var location = await client.ResolveLocationAsync(student.AddressLine, cancellationToken);
                 var created = await client.CreateShipmentAsync(new KargonomiCreateShipmentRequest(
@@ -121,15 +124,15 @@ public sealed class KargonomiShippingService(
             }
             catch (Exception exception) when (exception is ConflictException or HttpRequestException or TaskCanceledException)
             {
-                var failed = await repository.GetKargonomiShipmentAsync(orderId, student.Id, cancellationToken);
-                if (failed is null)
+                if (shipment is null)
                 {
-                    failed = KargonomiShipment.Create(Guid.NewGuid(), orderId, student.Id, timeProvider.GetUtcNow());
-                    await repository.AddKargonomiShipmentAsync(failed, cancellationToken);
+                    shipment = KargonomiShipment.Create(Guid.NewGuid(), orderId, student.Id, timeProvider.GetUtcNow());
+                    await repository.AddKargonomiShipmentAsync(shipment, cancellationToken);
                 }
-                failed.MarkFailed(exception.Message, timeProvider.GetUtcNow());
+                shipment.MarkFailed(exception.Message, timeProvider.GetUtcNow());
                 await repository.SaveChangesAsync(cancellationToken);
-                attempts.Add(new(student.Id, student.FullName, false, exception.Message, Map(failed, student.FullName)));
+                attempts.Add(new(student.Id, student.FullName, false,
+                    shipment.LastError ?? "Bilinmeyen Kargonomi hatası.", Map(shipment, student.FullName)));
             }
         }
 

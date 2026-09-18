@@ -69,10 +69,10 @@ public sealed class KargonomiShipment
             throw new DomainException("kargonomi_shipment.external_id_required", "Kargonomi gönderi kimliği zorunludur.");
 
         ExternalShipmentId = externalShipmentId;
-        ExternalStatus = externalStatus;
-        StatusLabel = string.IsNullOrWhiteSpace(statusLabel) ? "Taslak" : statusLabel.Trim();
-        TrackingNumber = Clean(trackingNumber);
-        State = MapState(externalStatus);
+        ExternalStatus = Clean(externalStatus, 80);
+        StatusLabel = Clean(statusLabel, 160) ?? "Taslak";
+        TrackingNumber = Clean(trackingNumber, 160);
+        State = MapState(ExternalStatus);
         UpdatedAt = occurredAt;
         LastError = null;
     }
@@ -80,11 +80,11 @@ public sealed class KargonomiShipment
     public void ApplyUpdate(string? externalStatus, string? statusLabel, string? trackingNumber,
         DateTimeOffset occurredAt, string? description = null)
     {
-        var normalizedStatus = Clean(externalStatus);
-        var normalizedLabel = string.IsNullOrWhiteSpace(statusLabel) ? StatusLabel : statusLabel.Trim();
-        var normalizedTracking = Clean(trackingNumber) ?? TrackingNumber;
-        var normalizedDescription = Clean(description);
-        var state = MapState(externalStatus);
+        var normalizedStatus = Clean(externalStatus, 80);
+        var normalizedLabel = Clean(statusLabel, 160) ?? StatusLabel;
+        var normalizedTracking = Clean(trackingNumber, 160) ?? TrackingNumber;
+        var normalizedDescription = Clean(description, 1000);
+        var state = MapState(normalizedStatus);
         var lastEvent = _events.LastOrDefault();
         if (lastEvent is not null && lastEvent.ExternalStatus == (normalizedStatus ?? string.Empty) &&
             lastEvent.StatusLabel == normalizedLabel && lastEvent.State == state &&
@@ -105,7 +105,7 @@ public sealed class KargonomiShipment
     {
         State = KargonomiShipmentState.Failed;
         StatusLabel = "Hata";
-        LastError = string.IsNullOrWhiteSpace(error) ? "Bilinmeyen Kargonomi hatası." : error.Trim();
+        LastError = Clean(error, 2000) ?? "Bilinmeyen Kargonomi hatası.";
         UpdatedAt = occurredAt;
     }
 
@@ -115,7 +115,14 @@ public sealed class KargonomiShipment
         UpdatedAt = occurredAt;
     }
 
-    private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string? Clean(string? value, int maximumLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var cleaned = value.Trim();
+        return cleaned.Length <= maximumLength ? cleaned : cleaned[..maximumLength];
+    }
 
     private static KargonomiShipmentState MapState(string? status) => status?.Trim().ToLowerInvariant() switch
     {

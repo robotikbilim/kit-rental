@@ -158,8 +158,13 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         if (!result.IsSuccess)
             TempData["Error"] = result.Error ?? "Kargonomi gönderileri başlatılamadı.";
         else
-            TempData[result.Data!.FailedCount == 0 ? "Success" : "Error"] =
-                $"{result.Data.SucceededCount} gönderi başlatıldı, {result.Data.FailedCount} gönderi başarısız oldu.";
+        {
+            var message = $"{result.Data!.SucceededCount} gönderi başlatıldı, {result.Data.FailedCount} gönderi başarısız oldu.";
+            var firstFailure = result.Data.Items.FirstOrDefault(item => !item.Succeeded)?.Message;
+            TempData[result.Data.FailedCount == 0 ? "Success" : "Error"] = string.IsNullOrWhiteSpace(firstFailure)
+                ? message
+                : $"{message} İlk hata: {firstFailure}";
+        }
         return RedirectToAction(nameof(OrderDetails), new { id });
     }
 
