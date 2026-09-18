@@ -35,13 +35,13 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
             {
                 sender_name = options.SenderName,
                 sender_email = options.SenderEmail,
-                sender_phone = options.SenderPhone,
+                sender_phone = ToKargonomiMobilePhone(options.SenderPhone, "Gönderici telefon numarası"),
                 sender_address = options.SenderAddress,
                 sender_state_id = options.SenderStateId,
                 sender_city_id = options.SenderCityId,
                 warehouse_id = ParseNullableInt(options.WarehouseId),
                 buyer_name = request.BuyerName,
-                buyer_phone = request.BuyerPhone,
+                buyer_phone = ToKargonomiMobilePhone(request.BuyerPhone, "Alıcı telefon numarası"),
                 buyer_address = request.BuyerAddress,
                 buyer_state_id = request.BuyerStateId,
                 buyer_city_id = request.BuyerCityId,
@@ -205,6 +205,22 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
     }
 
     private static string Normalize(string value) => value.Trim().ToUpperInvariant().Replace('İ', 'I');
+    private static string ToKargonomiMobilePhone(string value, string fieldName)
+    {
+        var digits = new string(value.Where(char.IsDigit).ToArray());
+        if (digits.Length == 14 && digits.StartsWith("0090", StringComparison.Ordinal))
+            digits = digits[4..];
+        else if (digits.Length == 12 && digits.StartsWith("90", StringComparison.Ordinal))
+            digits = digits[2..];
+        else if (digits.Length == 11 && digits.StartsWith('0'))
+            digits = digits[1..];
+
+        if (digits.Length != 10 || digits[0] != '5')
+            throw new ConflictException("kargonomi.mobile_phone_invalid",
+                $"{fieldName} 05xx xxx xx xx biçiminde geçerli bir cep telefonu olmalıdır.");
+
+        return digits;
+    }
     private static int ParseNullableInt(string value) => int.TryParse(value, out var result) ? result : 0;
     private static int ReadInt(JsonElement item, string name) => item.TryGetProperty(name, out var value) && value.TryGetInt32(out var result) ? result : int.TryParse(ReadString(item, name), out result) ? result : 0;
     private static string? ReadString(JsonElement item, string name) => item.ValueKind == JsonValueKind.Object && item.TryGetProperty(name, out var value) && value.ValueKind != JsonValueKind.Null ? value.ToString() : null;
