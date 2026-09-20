@@ -31,12 +31,13 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var currentKits = data.Kits.Where(item =>
             item.AssignmentStatus is RentalAssignmentStatus.Reserved or RentalAssignmentStatus.Active &&
             !returnedAssignmentIds.Contains(item.AssignmentId)).ToArray();
-        var assignedStudentKits = data.AssignedStudentKits
-            .Where(item => !returnedAssignmentIds.Contains(item.AssignmentId)).ToArray();
-        var deliveredKitCount = assignedStudentKits.Count(item => item.ShipmentState == KargonomiShipmentState.Delivered);
-        var inTransitKitCount = assignedStudentKits.Count(item => item.ShipmentState == KargonomiShipmentState.InTransit);
-        var preparedKitCount = assignedStudentKits.Count(item => item.ShipmentState is not KargonomiShipmentState.Delivered and
-            not KargonomiShipmentState.InTransit);
+        var assignedStudentKits = data.Kits
+            .Where(item => !string.IsNullOrWhiteSpace(item.AssignedStudentName) &&
+                !returnedAssignmentIds.Contains(item.AssignmentId)).ToArray();
+        var deliveredKitCount = assignedStudentKits.Count(IsDeliveredShipment);
+        var inTransitKitCount = assignedStudentKits.Count(item =>
+            !IsDeliveredShipment(item) && IsInTransitShipment(item));
+        var preparedKitCount = assignedStudentKits.Length - deliveredKitCount - inTransitKitCount;
         return new CustomerPortalDashboardResponse(data.Customer.Name, assignedStudentKits.Length,
             deliveredKitCount, inTransitKitCount, preparedKitCount,
             data.Faults.Count(item => !IsCompletedFaultStatus(item.Status)),
@@ -268,18 +269,6 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var studentsByUnit = linkedStudents.Where(item => item.ProductUnitId.HasValue)
             .GroupBy(item => item.ProductUnitId!.Value).Where(group => group.Count() == 1)
             .ToDictionary(group => group.Key, group => group.First());
-        var assignmentsById = assignments.ToDictionary(item => item.Id);
-        var assignedStudentKits = linkedStudents
-            .Where(student => student.AssignmentId.HasValue && student.OrderId.HasValue &&
-                assignmentsById.TryGetValue(student.AssignmentId.Value, out var assignment) &&
-                assignment.Status != RentalAssignmentStatus.Cancelled)
-            .GroupBy(student => student.AssignmentId!.Value)
-            .Select(group =>
-            {
-                var student = group.First();
-                shipmentsByStudent.TryGetValue((student.OrderId!.Value, student.StudentId), out var shipment);
-                return new PortalAssignedStudentKit(group.Key, student.StudentId, student.OrderId.Value, shipment?.State);
-            }).ToArray();
         var latestLocationsByUnit = locations.GroupBy(item => item.ProductUnitId)
             .ToDictionary(group => group.Key, group => group.OrderByDescending(item => item.OccurredAt)
                 .ThenByDescending(item => item.Id).First());
@@ -331,7 +320,6 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             }
         }
         return new PortalKitData(customer, models, orders, faults, returns, cohorts, locations, units,
-            assignedStudentKits,
             kits.OrderByDescending(item => item.AssignmentStatus).ThenBy(item => item.KitName).ToArray(),
             kitLocations.OrderBy(item => item.SerialNumber).ToArray());
     }
@@ -347,6 +335,14 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
 
     private static bool IsCompletedFaultStatus(FaultStatus status) =>
         status is FaultStatus.Resolved or FaultStatus.RemoteResolved or FaultStatus.Rejected or FaultStatus.Closed;
+
+    private static bool IsDeliveredShipment(PortalKitResponse shipment) =>
+        shipment.ShipmentState == KargonomiShipmentState.Delivered ||
+        string.Equals(shipment.KargonomiStatusLabel?.Trim(), "Teslim Edildi", StringComparison.CurrentCultureIgnoreCase);
+
+    private static bool IsInTransitShipment(PortalKitResponse shipment) =>
+        shipment.ShipmentState == KargonomiShipmentState.InTransit ||
+        string.Equals(shipment.KargonomiStatusLabel?.Trim(), "Teslim Sürecinde", StringComparison.CurrentCultureIgnoreCase);
 
     private static string GetKitLocationCategory(ProductUnitStatus status, bool hasOpenFault,
         bool hasReturnProcessStarted, bool isExpired) =>
@@ -1145,14 +1141,10 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
     private sealed record PortalLinkedStudent(Guid StudentId, Guid? AssignmentId, Guid? ProductUnitId, string FullName,
         string GuardianPhone, string AddressLine, string CohortName, bool StudentOrderLocked, Guid? OrderId);
 
-    private sealed record PortalAssignedStudentKit(Guid AssignmentId, Guid StudentId, Guid OrderId,
-        KargonomiShipmentState? ShipmentState);
-
     private sealed record PortalKitData(Customer Customer, IReadOnlyDictionary<Guid, ProductModel> Models,
         IReadOnlyCollection<RentalOrder> Orders, IReadOnlyCollection<FaultTicket> Faults,
         IReadOnlyCollection<KitReturnRequest> Returns, IReadOnlyCollection<RentalCohort> Cohorts,
         IReadOnlyCollection<KitLocationEvent> Locations, IReadOnlyDictionary<Guid, ProductUnit> Units,
-        IReadOnlyCollection<PortalAssignedStudentKit> AssignedStudentKits,
         IReadOnlyCollection<PortalKitResponse> Kits, IReadOnlyCollection<PortalKitLocationResponse> KitLocations);
 
     private static bool CoordinatesAreValid(double? latitude, double? longitude) =>

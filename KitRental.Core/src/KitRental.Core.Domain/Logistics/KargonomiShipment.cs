@@ -72,7 +72,7 @@ public sealed class KargonomiShipment
         ExternalStatus = Clean(externalStatus, 80);
         StatusLabel = Clean(statusLabel, 160) ?? "Taslak";
         TrackingNumber = Clean(trackingNumber, 160);
-        State = MapState(ExternalStatus);
+        State = MapState(ExternalStatus, StatusLabel);
         UpdatedAt = occurredAt;
         LastError = null;
     }
@@ -84,7 +84,7 @@ public sealed class KargonomiShipment
         var normalizedLabel = Clean(statusLabel, 160) ?? StatusLabel;
         var normalizedTracking = Clean(trackingNumber, 160) ?? TrackingNumber;
         var normalizedDescription = Clean(description, 1000);
-        var state = MapState(normalizedStatus);
+        var state = MapState(normalizedStatus, normalizedLabel);
         var lastEvent = _events.LastOrDefault();
         if (lastEvent is not null && lastEvent.ExternalStatus == (normalizedStatus ?? string.Empty) &&
             lastEvent.StatusLabel == normalizedLabel && lastEvent.State == state &&
@@ -124,13 +124,22 @@ public sealed class KargonomiShipment
         return cleaned.Length <= maximumLength ? cleaned : cleaned[..maximumLength];
     }
 
-    private static KargonomiShipmentState MapState(string? status) => status?.Trim().ToLowerInvariant() switch
+    private static KargonomiShipmentState MapState(string? status, string? statusLabel) =>
+        status?.Trim().ToLowerInvariant() switch
     {
         "draft" => KargonomiShipmentState.Draft,
         "ready" or "processing" or "prepared" => KargonomiShipmentState.Ready,
         "shipped" or "in_transit" or "in-transit" or "on_the_way" => KargonomiShipmentState.InTransit,
         "delivered" or "completed" => KargonomiShipmentState.Delivered,
         "cancelled" or "canceled" => KargonomiShipmentState.Cancelled,
+        _ => MapLabelState(statusLabel)
+    };
+
+    private static KargonomiShipmentState MapLabelState(string? statusLabel) => statusLabel?.Trim().ToLowerInvariant() switch
+    {
+        "işleme hazır" => KargonomiShipmentState.Ready,
+        "teslim sürecinde" => KargonomiShipmentState.InTransit,
+        "teslim edildi" => KargonomiShipmentState.Delivered,
         _ => KargonomiShipmentState.Pending
     };
 }
