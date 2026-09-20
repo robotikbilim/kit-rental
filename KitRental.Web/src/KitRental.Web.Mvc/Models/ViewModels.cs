@@ -655,9 +655,9 @@ public sealed class PublicStudentAddressFormViewModel
     [Display(Name = "Boylam")] public double? Longitude { get; set; }
 }
 public sealed record CustomerPortalDashboardViewModel(string CustomerName, int TotalRentedKitCount,
-    int ActiveKitCount, int UnassignedKitCount, int OpenFaultCount, int CompletedFaultCount,
+    int ActiveKitCount, int InTransitKitCount, int PreparedKitCount, int OpenFaultCount, int CompletedFaultCount,
     int ExpiredRentalKitCount, int ReturnProcessStartedKitCount, int ReturnedKitCount,
-    IReadOnlyCollection<DashboardKitLocationViewModel> KitLocations);
+    IReadOnlyCollection<DashboardKitLocationViewModel> KitLocations, int UnassignedKitCount = 0);
 public sealed record CustomerPortalRentalPeriodsDataViewModel(string CustomerName,
     IReadOnlyCollection<PortalProductModelViewModel> ProductModels,
     IReadOnlyCollection<PortalRentalCohortViewModel> RentalCohorts);

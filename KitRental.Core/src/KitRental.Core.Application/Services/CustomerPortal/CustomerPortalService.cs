@@ -31,14 +31,20 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var currentKits = data.Kits.Where(item =>
             item.AssignmentStatus is RentalAssignmentStatus.Reserved or RentalAssignmentStatus.Active &&
             !returnedAssignmentIds.Contains(item.AssignmentId)).ToArray();
-        return new CustomerPortalDashboardResponse(data.Customer.Name, currentKits.Length,
-            currentKits.Count(item => !string.IsNullOrWhiteSpace(item.AssignedStudentName)),
-            currentKits.Count(item => string.IsNullOrWhiteSpace(item.AssignedStudentName)),
+        var assignedStudentKits = data.AssignedStudentKits
+            .Where(item => !returnedAssignmentIds.Contains(item.AssignmentId)).ToArray();
+        var deliveredKitCount = assignedStudentKits.Count(item => item.ShipmentState == KargonomiShipmentState.Delivered);
+        var inTransitKitCount = assignedStudentKits.Count(item => item.ShipmentState == KargonomiShipmentState.InTransit);
+        var preparedKitCount = assignedStudentKits.Count(item => item.ShipmentState is not KargonomiShipmentState.Delivered and
+            not KargonomiShipmentState.InTransit);
+        return new CustomerPortalDashboardResponse(data.Customer.Name, assignedStudentKits.Length,
+            deliveredKitCount, inTransitKitCount, preparedKitCount,
             data.Faults.Count(item => !IsCompletedFaultStatus(item.Status)),
             data.Faults.Count(item => IsCompletedFaultStatus(item.Status)),
             data.Kits.Count(item => item.AssignmentStatus == RentalAssignmentStatus.Active &&
                 item.EndDate < today && !returnProcessStartedAssignmentIds.Contains(item.AssignmentId)),
-            returnProcessStartedAssignmentIds.Count, returnedAssignmentIds.Count, data.KitLocations);
+            returnProcessStartedAssignmentIds.Count, returnedAssignmentIds.Count, data.KitLocations,
+            currentKits.Count(item => string.IsNullOrWhiteSpace(item.AssignedStudentName)));
     }
 
     public async Task<CustomerPortalKitsResponse> GetKitsPageAsync(Guid customerId,
@@ -128,17 +134,17 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 item.AssignmentId.HasValue).Select(item => item.AssignmentId!.Value).ToHashSet();
         var studentsByAssignment = cohorts.SelectMany(cohort => cohort.Students
                 .Where(student => !student.IsDeleted && student.AssignmentId.HasValue)
-                .Select(student => new PortalLinkedStudent(student.AssignmentId, student.ProductUnitId,
+                .Select(student => new PortalLinkedStudent(student.Id, student.AssignmentId, student.ProductUnitId,
                     student.FullName, student.GuardianPhone, student.AddressLine, cohort.Name,
                     student.OrderId.HasValue && assignmentOrders.Values.Any(order =>
-                        order.Id == student.OrderId.Value && IsApprovedOrderStatus(order.Status)))))
+                        order.Id == student.OrderId.Value && IsApprovedOrderStatus(order.Status)), student.OrderId)))
             .GroupBy(item => item.AssignmentId!.Value).ToDictionary(group => group.Key, group => group.First());
         var unitStudents = cohorts.SelectMany(cohort => cohort.Students
                 .Where(student => !student.IsDeleted && student.ProductUnitId == productUnitId)
-                .Select(student => new PortalLinkedStudent(student.AssignmentId, student.ProductUnitId,
+                .Select(student => new PortalLinkedStudent(student.Id, student.AssignmentId, student.ProductUnitId,
                     student.FullName, student.GuardianPhone, student.AddressLine, cohort.Name,
                     student.OrderId.HasValue && assignmentOrders.Values.Any(order =>
-                        order.Id == student.OrderId.Value && IsApprovedOrderStatus(order.Status)))))
+                        order.Id == student.OrderId.Value && IsApprovedOrderStatus(order.Status)), student.OrderId)))
             .ToArray();
         var kitRows = assignments.Where(item => assignmentOrders.ContainsKey(item.Id)).Select(assignment =>
         {
@@ -247,18 +253,33 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var returns = await repository.GetKitReturnRequestsAsync(customerId, cancellationToken);
         var cohorts = await repository.GetRentalCohortsAsync(customerId, cancellationToken);
         var locations = await repository.GetKitLocationEventsForCustomerAsync(customerId, cancellationToken);
+        var shipments = await repository.GetKargonomiShipmentsForOrdersAsync(
+            rentalOrders.Select(item => item.Id).ToArray(), cancellationToken);
+        var shipmentsByStudent = shipments.ToDictionary(item => (item.OrderId, item.StudentId));
         var ordersById = orders.ToDictionary(item => item.Id);
         var linkedStudents = cohorts.SelectMany(cohort => cohort.Students
             .Where(student => !student.IsDeleted && (student.AssignmentId.HasValue || student.ProductUnitId.HasValue))
-            .Select(student => new PortalLinkedStudent(student.AssignmentId, student.ProductUnitId, student.FullName,
+            .Select(student => new PortalLinkedStudent(student.Id, student.AssignmentId, student.ProductUnitId, student.FullName,
                 student.GuardianPhone, student.AddressLine, cohort.Name,
                 student.OrderId.HasValue && ordersById.TryGetValue(student.OrderId.Value, out var order) &&
-                IsApprovedOrderStatus(order.Status)))).ToArray();
+                IsApprovedOrderStatus(order.Status), student.OrderId))).ToArray();
         var studentsByAssignment = linkedStudents.Where(item => item.AssignmentId.HasValue)
             .GroupBy(item => item.AssignmentId!.Value).ToDictionary(group => group.Key, group => group.First());
         var studentsByUnit = linkedStudents.Where(item => item.ProductUnitId.HasValue)
             .GroupBy(item => item.ProductUnitId!.Value).Where(group => group.Count() == 1)
             .ToDictionary(group => group.Key, group => group.First());
+        var assignmentsById = assignments.ToDictionary(item => item.Id);
+        var assignedStudentKits = linkedStudents
+            .Where(student => student.AssignmentId.HasValue && student.OrderId.HasValue &&
+                assignmentsById.TryGetValue(student.AssignmentId.Value, out var assignment) &&
+                assignment.Status != RentalAssignmentStatus.Cancelled)
+            .GroupBy(student => student.AssignmentId!.Value)
+            .Select(group =>
+            {
+                var student = group.First();
+                shipmentsByStudent.TryGetValue((student.OrderId!.Value, student.StudentId), out var shipment);
+                return new PortalAssignedStudentKit(group.Key, student.StudentId, student.OrderId.Value, shipment?.State);
+            }).ToArray();
         var latestLocationsByUnit = locations.GroupBy(item => item.ProductUnitId)
             .ToDictionary(group => group.Key, group => group.OrderByDescending(item => item.OccurredAt)
                 .ThenByDescending(item => item.Id).First());
@@ -303,6 +324,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             }
         }
         return new PortalKitData(customer, models, orders, faults, returns, cohorts, locations, units,
+            assignedStudentKits,
             kits.OrderByDescending(item => item.AssignmentStatus).ThenBy(item => item.KitName).ToArray(),
             kitLocations.OrderBy(item => item.SerialNumber).ToArray());
     }
@@ -1113,13 +1135,17 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 new PortalFaultStatusResponse(item.Previous, item.Current, item.OccurredAt, item.Note)).ToArray(),
             ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress, ticket.ApprovalStatus, ticket.Origin);
 
-    private sealed record PortalLinkedStudent(Guid? AssignmentId, Guid? ProductUnitId, string FullName,
-        string GuardianPhone, string AddressLine, string CohortName, bool StudentOrderLocked);
+    private sealed record PortalLinkedStudent(Guid StudentId, Guid? AssignmentId, Guid? ProductUnitId, string FullName,
+        string GuardianPhone, string AddressLine, string CohortName, bool StudentOrderLocked, Guid? OrderId);
+
+    private sealed record PortalAssignedStudentKit(Guid AssignmentId, Guid StudentId, Guid OrderId,
+        KargonomiShipmentState? ShipmentState);
 
     private sealed record PortalKitData(Customer Customer, IReadOnlyDictionary<Guid, ProductModel> Models,
         IReadOnlyCollection<RentalOrder> Orders, IReadOnlyCollection<FaultTicket> Faults,
         IReadOnlyCollection<KitReturnRequest> Returns, IReadOnlyCollection<RentalCohort> Cohorts,
         IReadOnlyCollection<KitLocationEvent> Locations, IReadOnlyDictionary<Guid, ProductUnit> Units,
+        IReadOnlyCollection<PortalAssignedStudentKit> AssignedStudentKits,
         IReadOnlyCollection<PortalKitResponse> Kits, IReadOnlyCollection<PortalKitLocationResponse> KitLocations);
 
     private static bool CoordinatesAreValid(double? latitude, double? longitude) =>

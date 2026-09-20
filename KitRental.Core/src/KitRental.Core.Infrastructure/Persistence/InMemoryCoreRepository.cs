@@ -395,6 +395,18 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         }
     }
 
+    public Task<IReadOnlyCollection<KargonomiShipment>> GetKargonomiShipmentsForOrdersAsync(
+        IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            var items = _kargonomiShipments.Values.Where(item => orderIds.Contains(item.OrderId))
+                .OrderByDescending(item => item.UpdatedAt).ToArray();
+            return Task.FromResult<IReadOnlyCollection<KargonomiShipment>>(items);
+        }
+    }
+
     public Task<IReadOnlyCollection<RentalAssignment>> GetAssignmentsForOrdersAsync(
         IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken)
     {

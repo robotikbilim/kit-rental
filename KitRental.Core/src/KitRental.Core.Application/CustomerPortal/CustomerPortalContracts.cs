@@ -45,9 +45,9 @@ public sealed record PortalFaultResponse(Guid Id, string Number, Guid ProductUni
     string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "",
     FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired, FaultOrigin Origin = FaultOrigin.Internal);
 public sealed record CustomerPortalDashboardResponse(string CustomerName, int TotalRentedKitCount,
-    int ActiveKitCount, int UnassignedKitCount, int OpenFaultCount, int CompletedFaultCount,
+    int ActiveKitCount, int InTransitKitCount, int PreparedKitCount, int OpenFaultCount, int CompletedFaultCount,
     int ExpiredRentalKitCount, int ReturnProcessStartedKitCount, int ReturnedKitCount,
-    IReadOnlyCollection<PortalKitLocationResponse> KitLocations);
+    IReadOnlyCollection<PortalKitLocationResponse> KitLocations, int UnassignedKitCount = 0);
 public sealed record CustomerPortalRentalPeriodsResponse(string CustomerName,
     IReadOnlyCollection<PortalProductModelResponse> ProductModels,
     IReadOnlyCollection<PortalRentalCohortResponse> RentalCohorts);

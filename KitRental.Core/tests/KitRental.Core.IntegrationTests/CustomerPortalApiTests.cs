@@ -90,6 +90,12 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         await CompleteStudentAddressesAsync(admin, deliveryOrder.Id, "Test Sokak 1", cancellationToken);
         await PostAsync<OrderKitPreparationResponse>(admin, $"/api/orders/{deliveryOrder.Id}/kits",
             new { lines = new[] { new { productModelId = model.Id, quantity = 1 } }, useAvailableKits = true }, cancellationToken);
+        var preparedDashboard = await customer.GetFromJsonAsync<CustomerPortalDashboardResponse>(
+            "/api/customer-portal", cancellationToken);
+        Assert.Equal(1, preparedDashboard!.TotalRentedKitCount);
+        Assert.Equal(0, preparedDashboard.ActiveKitCount);
+        Assert.Equal(0, preparedDashboard.InTransitKitCount);
+        Assert.Equal(1, preparedDashboard.PreparedKitCount);
         await PostAsync<OrderResponse>(admin, $"/api/orders/{deliveryOrder.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Preparing), cancellationToken);
         await PostAsync<OrderResponse>(admin, $"/api/orders/{deliveryOrder.Id}/status-transitions",

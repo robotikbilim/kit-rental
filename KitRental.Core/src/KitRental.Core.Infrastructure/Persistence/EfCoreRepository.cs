@@ -256,6 +256,15 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
         return await query.OrderByDescending(item => item.UpdatedAt).ToArrayAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<KargonomiShipment>> GetKargonomiShipmentsForOrdersAsync(
+        IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken)
+    {
+        if (orderIds.Count == 0) return [];
+        return await dbContext.KargonomiShipments.Include(item => item.Events)
+            .Where(item => orderIds.Contains(item.OrderId))
+            .OrderByDescending(item => item.UpdatedAt).ToArrayAsync(cancellationToken);
+    }
+
     public Task AddKitLocationEventAsync(KitLocationEvent locationEvent, CancellationToken cancellationToken) =>
         dbContext.KitLocationEvents.AddAsync(locationEvent, cancellationToken).AsTask();
 

@@ -61,6 +61,8 @@ public interface ICoreRepository
     Task<KargonomiShipment?> GetKargonomiShipmentAsync(Guid orderId, Guid studentId, CancellationToken cancellationToken);
     Task<KargonomiShipment?> GetKargonomiShipmentByExternalIdAsync(int externalShipmentId, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KargonomiShipment>> GetKargonomiShipmentsAsync(Guid? orderId, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<KargonomiShipment>> GetKargonomiShipmentsForOrdersAsync(
+        IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken);
     Task AddKitLocationEventAsync(KitLocationEvent locationEvent, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KitLocationEvent>> GetKitLocationEventsAsync(CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KitLocationEvent>> GetKitLocationEventsForCustomerAsync(Guid customerId,
