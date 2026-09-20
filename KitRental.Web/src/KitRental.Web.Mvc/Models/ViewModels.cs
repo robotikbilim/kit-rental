@@ -381,7 +381,8 @@ public sealed record PortalKitViewModel(Guid ProductUnitId, Guid AssignmentId, G
     DateOnly StartDate, DateOnly EndDate, int OpenFaultCount, bool HasDeliveryForm,
     string? AssignedStudentName = null, string? AssignedStudentGuardianPhone = null,
     string? AssignedStudentAddressLine = null, string? AssignedStudentPeriodName = null, bool IsReturned = false,
-    bool StudentOrderLocked = false);
+    bool StudentOrderLocked = false, string KargonomiStatusLabel = "Başlatılmadı",
+    int ShipmentState = 1);
 public sealed record PortalKitLookupPageViewModel(string Identifier, bool HasSearched, string? Error);
 public sealed record PortalKitRentalHistoryViewModel(string StudentName, string Address,
     string PeriodName, string? OrderNumber, DateOnly StartDate, DateOnly EndDate,

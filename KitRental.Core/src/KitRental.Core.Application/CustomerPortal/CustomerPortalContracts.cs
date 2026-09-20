@@ -32,7 +32,8 @@ public sealed record PortalKitResponse(Guid ProductUnitId, Guid AssignmentId, Gu
     RentalAssignmentStatus AssignmentStatus, DateOnly StartDate, DateOnly EndDate, int OpenFaultCount,
     bool HasDeliveryForm, string? AssignedStudentName = null, string? AssignedStudentGuardianPhone = null,
     string? AssignedStudentAddressLine = null, string? AssignedStudentPeriodName = null, bool IsReturned = false,
-    bool StudentOrderLocked = false);
+    bool StudentOrderLocked = false, string KargonomiStatusLabel = "Başlatılmadı",
+    KargonomiShipmentState ShipmentState = KargonomiShipmentState.Pending);
 public sealed record PortalOrderLineResponse(Guid ProductModelId, string ProductName, string ProductSku, int Quantity);
 public sealed record PortalOrderResponse(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName,
     OrderType Type, RentalOrderStatus Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt,

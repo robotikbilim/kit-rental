@@ -2,11 +2,6 @@
 @{
     ViewData["Title"] = "Kiralanmış Kitler";
 }
-@functions {
-    string UnitStatus(int value) => value switch { 1 => "Hazır", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimat yolunda", 5 => "Kullanımınızda", 6 => "Geri gönderiliyor", 7 => "Kontrolde", 8 => "Serviste", _ => "İşlemde" };
-
-}
-
 <div class="portal-heading portal-kits-heading">
     <div>
         <span class="eyebrow">KİRALANAN ÜRÜNLER</span>
@@ -32,13 +27,13 @@
         <div class="table-scroll portal-kit-table-wrap portal-table-no-frame">
             <table class="portal-kit-table js-datatable" data-datatable-responsive="false" data-datatable-page-length="10" data-datatable-column-filters="true">
                 <thead>
-                    <tr><th>Kit</th><th>Öğrenci</th><th>Seri numarası</th><th>Kiralama dönemi</th><th>Durum</th><th>Arıza</th><th><span class="visually-hidden">İşlemler</span></th></tr>
+                    <tr><th>Kit</th><th>Öğrenci</th><th>Seri numarası</th><th>Kiralama dönemi</th><th>Kargo Durumu</th><th>Arıza</th><th><span class="visually-hidden">İşlemler</span></th></tr>
                     <tr class="column-filter-row" data-dt-order="disable">
                         <th><input type="search" data-column-filter placeholder="Kit filtrele" aria-label="Kit sütununu filtrele" autocomplete="off" /></th>
                         <th><input type="search" data-column-filter placeholder="Öğrenci filtrele" aria-label="Öğrenci sütununu filtrele" autocomplete="off" /></th>
                         <th><input type="search" data-column-filter placeholder="Seri no filtrele" aria-label="Seri numarası sütununu filtrele" autocomplete="off" /></th>
                         <th><input type="search" data-column-filter placeholder="Dönem filtrele" aria-label="Kiralama dönemi sütununu filtrele" autocomplete="off" /></th>
-                        <th><input type="search" data-column-filter placeholder="Durum filtrele" aria-label="Durum sütununu filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter placeholder="Kargo durumu filtrele" aria-label="Kargo durumu sütununu filtrele" autocomplete="off" /></th>
                         <th><input type="search" data-column-filter placeholder="Arıza filtrele" aria-label="Arıza sütununu filtrele" autocomplete="off" /></th>
                         <th></th>
                     </tr>
@@ -68,7 +63,7 @@
                         </td>
                         <td data-mobile-label="Seri numarası"><a class="student-kit-serial-truncate" title="@kit.SerialNumber" asp-action="Kit" asp-route-id="@kit.ProductUnitId" target="_blank" rel="noopener">@kit.SerialNumber</a></td>
                         <td data-mobile-label="Kiralama dönemi"><span class="portal-kit-period">@kit.StartDate.ToString("dd.MM.yyyy")<small>@kit.EndDate.ToString("dd.MM.yyyy") tarihine kadar</small></span></td>
-                        <td data-mobile-label="Durum"><span class="fleet-status status-@kit.UnitStatus">@UnitStatus(kit.UnitStatus)</span></td>
+                        <td data-mobile-label="Kargo Durumu"><span class="fleet-status status-@kit.ShipmentState">@kit.KargonomiStatusLabel</span></td>
                         <td data-mobile-label="Arıza">@if (kit.OpenFaultCount > 0) { <span class="portal-alert">@kit.OpenFaultCount açık arıza</span> } else { <span class="portal-no-fault">Arıza yok</span> }</td>
                         <td data-mobile-label="İşlemler">
                             <div class="portal-table-actions">

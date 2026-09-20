@@ -307,12 +307,19 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 var student = studentsByAssignment.TryGetValue(assignment.Id, out var byAssignment)
                     ? byAssignment
                     : studentsByUnit.TryGetValue(unit.Id, out var byUnit) ? byUnit : null;
+                var shipment = student?.OrderId is { } studentOrderId && student is { StudentId: var studentId }
+                    ? shipmentsByStudent.GetValueOrDefault((studentOrderId, studentId))
+                    : null;
+                var shipmentStatusLabel = shipment is null
+                    ? "Başlatılmadı"
+                    : shipment.State == KargonomiShipmentState.Failed ? "Hata" : shipment.StatusLabel;
                 kits.Add(new PortalKitResponse(unit.Id, assignment.Id, order.Id, order.OrderNumber, model.Name,
                     model.Sku, model.ImageUrl, unit.SerialNumber, unit.QrCode, unit.Status, assignment.Status,
                     order.Period!.Value.StartDate, order.Period.Value.EndDate, openFaultCount,
                     deliveryAssignmentIds.Contains(assignment.Id), student?.FullName, student?.GuardianPhone,
                     student?.AddressLine, student?.CohortName, returnedIds.Contains(assignment.Id),
-                    student?.StudentOrderLocked ?? false));
+                    student?.StudentOrderLocked ?? false, shipmentStatusLabel,
+                    shipment?.State ?? KargonomiShipmentState.Pending));
                 if (assignment.Status != RentalAssignmentStatus.Active || returnedIds.Contains(assignment.Id)) continue;
                 var category = GetKitLocationCategory(unit.Status, openFaultCount > 0,
                     returnStartedIds.Contains(assignment.Id), order.Period.Value.EndDate < today);
