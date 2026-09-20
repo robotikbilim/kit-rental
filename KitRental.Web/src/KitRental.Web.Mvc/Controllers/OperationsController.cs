@@ -150,6 +150,40 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> UpdateOrderStudent(Guid id, OrderStudentInputViewModel model,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid || model.StudentId == Guid.Empty)
+        {
+            TempData["Error"] = "Öğrenci adı soyadı ve geçerli telefon numarası zorunludur.";
+            return RedirectToAction(nameof(OrderDetails), new { id });
+        }
+
+        var result = await apiClient.UpdateOrderStudentAsync(id, model, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "Öğrenci bilgileri güncellendi."
+            : result.Error ?? "Öğrenci bilgileri güncellenemedi.";
+        return RedirectToAction(nameof(OrderDetails), new { id });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> AddOrderStudent(Guid id, OrderStudentInputViewModel model,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            TempData["Error"] = "Öğrenci adı soyadı ve geçerli telefon numarası zorunludur.";
+            return RedirectToAction(nameof(OrderDetails), new { id });
+        }
+
+        var result = await apiClient.AddOrderStudentAsync(id, model, cancellationToken);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
+            ? "Yeni öğrenci siparişe eklendi; hazırlanması gereken kit sayısı güncellendi."
+            : result.Error ?? "Öğrenci siparişe eklenemedi.";
+        return RedirectToAction(nameof(OrderDetails), new { id });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
     public async Task<IActionResult> StartKargonomiShipments(Guid id, Guid[]? studentIds,
         CancellationToken cancellationToken)
     {

@@ -528,6 +528,16 @@ public sealed class OrderRentalPeriodInputViewModel
     [Required, DataType(DataType.Date), Display(Name = "Bitiş tarihi")]
     public DateOnly EndDate { get; set; }
 }
+public sealed class OrderStudentInputViewModel
+{
+    public Guid StudentId { get; set; }
+
+    [Required, StringLength(160), Display(Name = "Öğrenci adı soyadı")]
+    public string FullName { get; set; } = string.Empty;
+
+    [Required, TurkishPhone, StringLength(40), Display(Name = "Telefon numarası")]
+    public string GuardianPhone { get; set; } = string.Empty;
+}
 
 public sealed record KargonomiShipmentEventViewModel(string ExternalStatus, string StatusLabel, int State,
     string? TrackingNumber, DateTimeOffset OccurredAt, string? Description);

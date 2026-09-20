@@ -26,6 +26,7 @@
         (canManage ? ",bulk-student-delete-form,bulk-student-shipping-form,bulk-student-kargonomi-labels-form,bulk-student-kit-form" : string.Empty);
     var canEditRentalPeriod = !isPurchase && canManage && Model.RentalCohortId.HasValue &&
         Model.StartDate.HasValue && Model.EndDate.HasValue;
+    var canAddOrderStudent = !isPurchase && canManage && Model.RentalCohortId.HasValue && (Model.Status is 2 or 3);
     var openRentalPeriodDialog = ViewData["OpenOrderPeriodDialog"] is true;
     string OrderStatus(int status) => status switch { 2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Hazırlanıyor", 5 => "Kargoya hazır", 6 => "Kargoya verildi", 13 => "Tamamlandı", _ => "İşlemde" };
 }
@@ -57,10 +58,16 @@
     </div>
 </section>
 
-@if (!isPurchase && Model.Students.Count > 0)
+@if (!isPurchase && (Model.Students.Count > 0 || canAddOrderStudent))
 {
         <section class="detail-section" id="student-addresses">
-        <div class="section-heading"><div><span class="eyebrow">ÖĞRENCİ VE KARGO LİSTESİ</span><h2>Öğrenciler ve gönderi durumları</h2></div></div>
+        <div class="section-heading">
+            <div><span class="eyebrow">ÖĞRENCİ VE KARGO LİSTESİ</span><h2>Öğrenciler ve gönderi durumları</h2></div>
+            @if (canAddOrderStudent)
+            {
+                <button class="primary-action" type="button" data-dialog-open="student-add-dialog">+ Yeni Öğrenci Ekle</button>
+            }
+        </div>
         <form id="bulk-student-excel-form"
               asp-action="ExportOrderStudents"
               asp-route-id="@Model.Id"
@@ -260,6 +267,16 @@
                             @if (canManage)
                             {
                                 <div class="table-actions-compact student-shipment-actions">
+                                    <button class="icon-action icon-action-edit" type="button" title="Öğrenciyi Güncelle"
+                                            aria-label="@($"{student.FullName} öğrencisini güncelle")"
+                                            data-student-edit
+                                            data-student-id="@student.Id"
+                                            data-student-name="@student.FullName"
+                                            data-student-phone="@student.GuardianPhone"
+                                            data-student-address="@student.AddressLine"
+                                            data-student-product="@student.ProductModelId">
+                                        <i data-lucide="pencil"></i><span class="visually-hidden">Güncelle</span>
+                                    </button>
                                     <form asp-action="DeleteOrderStudent" asp-route-id="@Model.Id" asp-route-studentId="@student.Id" method="post">
                                         <button class="icon-action icon-action-delete" type="submit" title="Öğrenciyi Sil" aria-label="@($"{student.FullName} öğrencisini sil")" data-confirm="@($"{student.FullName} öğrencisi ve bağlı fiziksel kiti siparişten silinsin mi?")">
                                             <i data-lucide="trash-2"></i><span class="visually-hidden">Sil</span>
@@ -308,6 +325,62 @@
             </table>
         </div>
     </section>
+}
+
+@if (canManage && !isPurchase)
+{
+    <dialog class="student-edit-dialog" id="student-edit-dialog" aria-labelledby="student-edit-title">
+        <form class="student-edit-modal" asp-action="UpdateOrderStudent" asp-route-id="@Model.Id" method="post">
+            <div asp-validation-summary="All" class="error"></div>
+            <input type="hidden" id="edit-student-id" name="StudentId" />
+            <input type="hidden" id="edit-student-address" name="AddressLine" />
+            <input type="hidden" id="edit-student-product" name="ProductModelId" />
+            <header>
+                <div>
+                    <span class="eyebrow">ÖĞRENCİ BİLGİLERİ</span>
+                    <h2 id="student-edit-title">Öğrenciyi güncelle</h2>
+                </div>
+                <button class="icon-action icon-action-neutral" type="button" data-student-edit-close title="Kapat" aria-label="Pencereyi Kapat">
+                    <i data-lucide="x"></i>
+                </button>
+            </header>
+            <div class="form-grid">
+                <div class="field"><label for="edit-student-name">Öğrenci adı soyadı</label><input id="edit-student-name" name="FullName" maxlength="160" required /></div>
+                <div class="field"><label for="edit-student-phone">Telefon numarası</label><input id="edit-student-phone" name="GuardianPhone" type="tel" data-phone-mask="tr" maxlength="40" required /></div>
+            </div>
+            <footer>
+                <button class="secondary-action" type="button" data-student-edit-close>Vazgeç</button>
+                <button class="primary-action" type="submit">Kaydet</button>
+            </footer>
+        </form>
+    </dialog>
+}
+
+@if (canAddOrderStudent)
+{
+    <dialog class="student-edit-dialog" id="student-add-dialog" aria-labelledby="student-add-title">
+        <form class="student-edit-modal" asp-action="AddOrderStudent" asp-route-id="@Model.Id" method="post">
+            <div asp-validation-summary="All" class="error"></div>
+            <header>
+                <div>
+                    <span class="eyebrow">YENİ ÖĞRENCİ</span>
+                    <h2 id="student-add-title">Siparişe öğrenci ekle</h2>
+                    <p class="block-muted">Yeni öğrenci için siparişe bir kit adedi eklenecek.</p>
+                </div>
+                <button class="icon-action icon-action-neutral" type="button" data-dialog-close title="Kapat" aria-label="Pencereyi Kapat">
+                    <i data-lucide="x"></i>
+                </button>
+            </header>
+            <div class="form-grid">
+                <div class="field"><label for="add-student-name">Öğrenci adı soyadı</label><input id="add-student-name" name="FullName" maxlength="160" autocomplete="name" required /></div>
+                <div class="field"><label for="add-student-phone">Telefon numarası</label><input id="add-student-phone" name="GuardianPhone" type="tel" inputmode="tel" data-phone-mask="tr" maxlength="40" placeholder="0xxx xxx xx xx" autocomplete="tel" required /></div>
+            </div>
+            <footer>
+                <button class="secondary-action" type="button" data-dialog-close>Vazgeç</button>
+                <button class="primary-action" type="submit">Öğrenciyi Ekle</button>
+            </footer>
+        </form>
+    </dialog>
 }
 
 @if (canEditRentalPeriod)

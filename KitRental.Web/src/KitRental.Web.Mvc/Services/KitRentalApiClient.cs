@@ -598,6 +598,23 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.EndDate
         }, cancellationToken);
 
+    public Task<ApiCommandResult<OrderDetailViewModel>> UpdateOrderStudentAsync(Guid orderId,
+        OrderStudentInputViewModel model, CancellationToken cancellationToken) =>
+        SendAsync<OrderDetailViewModel>(HttpMethod.Put,
+            $"/core/api/orders/{orderId}/students/{model.StudentId}", new
+            {
+                model.FullName,
+                model.GuardianPhone
+            }, cancellationToken);
+
+    public Task<ApiCommandResult<OrderDetailViewModel>> AddOrderStudentAsync(Guid orderId,
+        OrderStudentInputViewModel model, CancellationToken cancellationToken) =>
+        PostAsync<OrderDetailViewModel>($"/core/api/orders/{orderId}/students", new
+        {
+            model.FullName,
+            model.GuardianPhone
+        }, cancellationToken);
+
     public Task<ApiCommandResult<object>> DeleteOrderStudentAsync(Guid orderId, Guid studentId,
         CancellationToken cancellationToken) =>
         SendAsync<object>(HttpMethod.Delete, $"/core/api/orders/{orderId}/students/{studentId}", null, cancellationToken);

@@ -152,6 +152,18 @@ public sealed class RentalOrder
         else _lines[index] = line with { Quantity = line.Quantity - 1 };
     }
 
+    public void AddOneKitRequirement(Guid productModelId)
+    {
+        if (Type != OrderType.Rental || Status is not (RentalOrderStatus.PendingApproval or RentalOrderStatus.Approved))
+            throw new DomainException("order.lines_not_editable",
+                "Yalnızca onay bekleyen veya onaylanmış kiralama siparişine kit adedi eklenebilir.");
+        var index = _lines.FindIndex(line => line.ProductModelId == productModelId);
+        if (index < 0)
+            throw new DomainException("order.line_not_found", "Öğrencinin eğitim kiti sipariş satırında bulunamadı.");
+        var line = _lines[index];
+        _lines[index] = line with { Quantity = line.Quantity + 1 };
+    }
+
     public void AddProductUnit(Guid orderLineId, Guid productUnitId)
     {
         if (Type != OrderType.Purchase || Status != RentalOrderStatus.Approved)

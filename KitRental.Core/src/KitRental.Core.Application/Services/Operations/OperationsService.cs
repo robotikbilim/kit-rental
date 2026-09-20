@@ -27,6 +27,9 @@ public sealed record CreateStudentAddressOrderCommand(Guid CustomerId, Guid Prod
     DateOnly EndDate, IReadOnlyCollection<CreateStudentAddressOrderStudentCommand> Students, Guid ActorId);
 public sealed record UpdateOrderRentalPeriodCommand(Guid OrderId, string PeriodName, DateOnly StartDate,
     DateOnly EndDate, Guid ActorId);
+public sealed record UpdateOrderStudentCommand(Guid OrderId, Guid StudentId, string FullName, string GuardianPhone,
+    Guid ActorId);
+public sealed record AddOrderStudentCommand(Guid OrderId, string FullName, string GuardianPhone, Guid ActorId);
 public sealed record CreatePurchaseOrderCommand(Guid CustomerId, Guid AddressId,
     IReadOnlyCollection<OrderLineCommand> Lines, Guid ActorId);
 public sealed record OpenFaultCommand(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId,
@@ -413,6 +416,58 @@ public sealed class OperationsService(
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(RentalOrder),
             order.Id, "RentalPeriodUpdated", previousValue,
             $"{cohort.Name}|{command.StartDate:O}/{command.EndDate:O}", timeProvider.GetTurkeyNow()), cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+        return await GetOrderDetailAsync(order.Id, cancellationToken);
+    }
+
+    public async Task<OrderDetailResponse> UpdateOrderStudentAsync(
+        UpdateOrderStudentCommand command, CancellationToken cancellationToken)
+    {
+        var order = await repository.GetOrderAsync(command.OrderId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
+        if (order.Type != OrderType.Rental)
+            throw new ConflictException("order.student_not_editable", "Öğrenci yalnızca kiralama siparişinde güncellenebilir.");
+
+        var cohort = (await repository.GetRentalCohortsAsync(order.CustomerId, cancellationToken))
+            .FirstOrDefault(item => item.Students.Any(student => student.Id == command.StudentId &&
+                student.OrderId == command.OrderId))
+            ?? throw new ResourceNotFoundException("Sipariş öğrencisi bulunamadı.");
+        var student = cohort.Students.FirstOrDefault(item => item.Id == command.StudentId &&
+            !item.IsDeleted && item.OrderId == command.OrderId)
+            ?? throw new ResourceNotFoundException("Sipariş öğrencisi bulunamadı.");
+
+        var previousValue = $"{student.FullName}|{student.GuardianPhone}";
+        cohort.UpdateStudent(student.Id, command.FullName, command.GuardianPhone, student.AddressLine,
+            student.ProductModelId);
+        await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(RentalCohort),
+            cohort.Id, "OrderStudentUpdated", previousValue,
+            $"{student.FullName}|{student.GuardianPhone}", timeProvider.GetTurkeyNow()), cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+        return await GetOrderDetailAsync(order.Id, cancellationToken);
+    }
+
+    public async Task<OrderDetailResponse> AddOrderStudentAsync(
+        AddOrderStudentCommand command, CancellationToken cancellationToken)
+    {
+        var order = await repository.GetOrderAsync(command.OrderId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Sipariş bulunamadı.");
+        if (order.Type != OrderType.Rental)
+            throw new ConflictException("order.student_add_not_allowed", "Öğrenci yalnızca kiralama siparişine eklenebilir.");
+
+        var cohort = (await repository.GetRentalCohortsAsync(order.CustomerId, cancellationToken))
+            .FirstOrDefault(item => item.Students.Any(student => student.OrderId == command.OrderId))
+            ?? throw new ConflictException("order.student_add_not_allowed", "Bu sipariş için öğrenci listesi bulunamadı.");
+        var productModelId = order.Lines.FirstOrDefault()?.ProductModelId
+            ?? throw new ConflictException("order.student_add_not_allowed", "Siparişte eklenecek öğrenci için kit satırı bulunamadı.");
+
+        order.AddOneKitRequirement(productModelId);
+        var student = cohort.AddStudent(command.FullName, command.GuardianPhone, string.Empty, productModelId);
+        student.LinkOrder(order.Id);
+        var now = timeProvider.GetTurkeyNow();
+        await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(RentalOrder),
+            order.Id, "OrderStudentAdded", null, $"{student.FullName}|{student.GuardianPhone}", now), cancellationToken);
+        await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(RentalCohort),
+            cohort.Id, "StudentAddedToOrder", null, student.FullName, now), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return await GetOrderDetailAsync(order.Id, cancellationToken);
     }

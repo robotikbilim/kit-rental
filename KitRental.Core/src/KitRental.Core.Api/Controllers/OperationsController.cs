@@ -161,6 +161,24 @@ public sealed class OperationsController : CoreApiControllerBase
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager")]
+    [HttpPut("orders/{orderId:guid}/students/{studentId:guid}")]
+    public async Task<IActionResult> UpdateOrderStudent(Guid orderId, Guid studentId, UpdateOrderStudentRequest request,
+        [FromServices] OperationsService service, CancellationToken cancellationToken)
+    {
+        return Ok(await service.UpdateOrderStudentAsync(new UpdateOrderStudentCommand(orderId, studentId,
+            request.FullName, request.GuardianPhone, User.GetRequiredUserId()), cancellationToken));
+    }
+
+    [Authorize(Roles = "SystemAdmin,OperationsManager")]
+    [HttpPost("orders/{orderId:guid}/students")]
+    public async Task<IActionResult> AddOrderStudent(Guid orderId, AddOrderStudentRequest request,
+        [FromServices] OperationsService service, CancellationToken cancellationToken)
+    {
+        return Ok(await service.AddOrderStudentAsync(new AddOrderStudentCommand(orderId,
+            request.FullName, request.GuardianPhone, User.GetRequiredUserId()), cancellationToken));
+    }
+
+    [Authorize(Roles = "SystemAdmin,OperationsManager")]
     [HttpDelete("orders/{orderId:guid}/students/{studentId:guid}")]
     public async Task<IActionResult> RemoveStudentFromOrder(Guid orderId, Guid studentId,
         [FromServices] OperationsService service, CancellationToken cancellationToken)

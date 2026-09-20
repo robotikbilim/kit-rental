@@ -60,6 +60,19 @@ public sealed class RentalCohortStudentTests
         Assert.Equal("rental_cohort.student_not_found", exception.Code);
     }
 
+    [Fact]
+    public void UpdateStudentChangesNameAndPhoneWithoutChangingAddress()
+    {
+        var cohort = CreateCohort();
+        var student = cohort.AddStudent("Ayşe Yılmaz", "05320000000", "Test Sokak 1", Guid.NewGuid());
+
+        cohort.UpdateStudent(student.Id, "Mehmet Kaya", "05440000000", student.AddressLine, student.ProductModelId);
+
+        Assert.Equal("Mehmet Kaya", student.FullName);
+        Assert.Equal("05440000000", student.GuardianPhone);
+        Assert.Equal("Test Sokak 1", student.AddressLine);
+    }
+
     private static RentalCohort CreateCohort() =>
         RentalCohort.Create(Guid.NewGuid(), Guid.NewGuid(), "2026 Güz", new DateOnly(2026, 9, 1),
             new DateOnly(2026, 12, 31), DateTimeOffset.Parse("2026-09-07T12:00:00+03:00"));
