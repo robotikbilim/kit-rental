@@ -179,6 +179,39 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         return RedirectToAction(nameof(OrderDetails), new { id });
     }
 
+    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> RefreshOrderKargonomiShipments(Guid id,
+        CancellationToken cancellationToken)
+    {
+        var order = await apiClient.GetOrderDetailAsync(id, cancellationToken);
+        if (order is null)
+            return NotFound(new { message = "Sipariş bulunamadı." });
+
+        var shipments = order.KargonomiShipments
+            .Where(shipment => shipment.ExternalShipmentId.HasValue)
+            .ToArray();
+        var refreshedCount = 0;
+        var errors = new List<string>();
+
+        foreach (var shipment in shipments)
+        {
+            var result = await apiClient.RefreshKargonomiShipmentAsync(shipment.Id, cancellationToken);
+            if (result.IsSuccess)
+                refreshedCount++;
+            else
+                errors.Add(result.Error ?? "Kargonomi gönderi durumu güncellenemedi.");
+        }
+
+        var failedCount = errors.Count;
+        var message = shipments.Length == 0
+            ? "Güncellenecek Kargonomi gönderisi bulunamadı."
+            : failedCount == 0
+                ? $"{refreshedCount} kargo durumu güncellendi."
+                : $"{refreshedCount} kargo durumu güncellendi, {failedCount} kayıt güncellenemedi. İlk hata: {errors[0]}";
+
+        return Ok(new { success = failedCount == 0, message });
+    }
+
     [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]
     public async Task<IActionResult> KargonomiBarcode(Guid id, Guid shipmentId,
         CancellationToken cancellationToken)
@@ -194,6 +227,40 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         {
             return Problem("Kargonomi barkod PDF'i geçersiz döndü.");
         }
+    }
+
+    [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> KargonomiBarcodes(Guid id, Guid[]? studentIds,
+        CancellationToken cancellationToken)
+    {
+        var order = await apiClient.GetOrderDetailAsync(id, cancellationToken);
+        if (order is null)
+            return NotFound();
+
+        var selectedStudentIds = (studentIds ?? [])
+            .Where(studentId => studentId != Guid.Empty)
+            .Distinct()
+            .ToHashSet();
+        var shipmentsByStudentId = order.KargonomiShipments
+            .GroupBy(shipment => shipment.StudentId)
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(shipment => shipment.UpdatedAt).First());
+
+        var items = await Task.WhenAll(order.Students
+            .Where(student => selectedStudentIds.Contains(student.Id))
+            .Select(async student =>
+            {
+                if (!shipmentsByStudentId.TryGetValue(student.Id, out var shipment) || !shipment.ExternalShipmentId.HasValue)
+                    return new KargonomiBarcodePrintItemViewModel(student.FullName, null,
+                        "Henüz kargo etiketi oluşmamış, lütfen tekrar deneyin.");
+
+                var result = await apiClient.GetKargonomiBarcodeAsync(shipment.Id, cancellationToken);
+                return result.IsSuccess && !string.IsNullOrWhiteSpace(result.Data?.Base64)
+                    ? new KargonomiBarcodePrintItemViewModel(student.FullName, result.Data.Base64, null)
+                    : new KargonomiBarcodePrintItemViewModel(student.FullName, null,
+                        "Henüz kargo etiketi oluşmamış, lütfen tekrar deneyin.");
+            }));
+
+        return View("KargonomiBarcodes", new KargonomiBarcodePrintPageViewModel(items));
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]

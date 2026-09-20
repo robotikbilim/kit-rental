@@ -1,0 +1,65 @@
+@model KargonomiBarcodePrintPageViewModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Kargo Etiketleri";
+}
+<!doctype html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kargo Etiketleri</title>
+    <style>
+        :root { color-scheme: light; font-family: Arial, sans-serif; }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 24px; color: #173a2d; background: #f4f7f4; }
+        .print-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 auto 18px; max-width: 1000px; }
+        h1 { margin: 0; font-size: 22px; }
+        button { padding: 10px 16px; color: #fff; background: #227347; border: 0; border-radius: 7px; font-weight: 700; cursor: pointer; }
+        .label-list { display: grid; gap: 18px; margin: 0 auto; max-width: 1000px; }
+        .label-card { padding: 10px; background: #fff; border: 1px solid #d7e3dc; border-radius: 10px; }
+        .label-card h2 { margin: 0 0 8px; font-size: 13px; }
+        .label-frame { display: block; width: 100%; height: 680px; border: 0; background: #fff; }
+        .label-error { padding: 24px; color: #991b1b; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; }
+        @@media print {
+            @@page { margin: 0; }
+            body { padding: 0; background: #fff; }
+            .print-toolbar, .label-card h2 { display: none; }
+            .label-list { display: block; max-width: none; }
+            .label-card { padding: 0; border: 0; border-radius: 0; break-after: page; }
+            .label-card:last-child { break-after: auto; }
+            .label-frame { height: 100vh; }
+            .label-error { margin: 12mm; }
+        }
+    </style>
+</head>
+<body>
+    <header class="print-toolbar">
+        <h1>Kargo Etiketleri</h1>
+        <button type="button" onclick="window.print()">Etiketleri Yazdır</button>
+    </header>
+    <main class="label-list">
+        @if (Model.Items.Count == 0)
+        {
+            <div class="label-error">Yazdırılacak kargo etiketi bulunamadı.</div>
+        }
+        @foreach (var item in Model.Items)
+        {
+            <section class="label-card">
+                <h2>@item.StudentName</h2>
+                @if (!string.IsNullOrWhiteSpace(item.Base64))
+                {
+                    <iframe class="label-frame" title="@item.StudentName kargo etiketi" src="data:application/pdf;base64,@item.Base64"></iframe>
+                }
+                else
+                {
+                    <div class="label-error">@item.Error</div>
+                }
+            </section>
+        }
+    </main>
+    <script>
+        window.addEventListener('load', () => window.setTimeout(() => window.print(), 500));
+    </script>
+</body>
+</html>

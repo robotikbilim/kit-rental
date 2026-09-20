@@ -536,6 +536,8 @@ public sealed record KargonomiShipmentViewModel(Guid Id, Guid OrderId, Guid Stud
     string StatusLabel, int State, string? LastError, DateTimeOffset UpdatedAt,
     IReadOnlyCollection<KargonomiShipmentEventViewModel> Events);
 public sealed record KargonomiBarcodeViewModel(string Base64);
+public sealed record KargonomiBarcodePrintItemViewModel(string StudentName, string? Base64, string? Error);
+public sealed record KargonomiBarcodePrintPageViewModel(IReadOnlyCollection<KargonomiBarcodePrintItemViewModel> Items);
 public sealed record KargonomiShipmentAttemptViewModel(Guid StudentId, string StudentName, bool Succeeded,
     string Message, KargonomiShipmentViewModel? Shipment);
 public sealed record KargonomiShipmentBatchViewModel(IReadOnlyCollection<KargonomiShipmentAttemptViewModel> Items,

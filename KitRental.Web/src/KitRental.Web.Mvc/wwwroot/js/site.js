@@ -111,7 +111,8 @@
                         label: form.dataset.datatableBulkLabel || table.dataset.datatableBulkLabel || 'Seçilenlere Uygula',
                         className: form.dataset.datatableBulkClass || '',
                         selectionAttribute: form.dataset.datatableSelectionAttribute || '',
-                        disabledTitle: form.dataset.datatableBulkDisabledTitle || ''
+                        disabledTitle: form.dataset.datatableBulkDisabledTitle || '',
+                        windowName: form.dataset.datatableBulkWindow || ''
                     } : null;
                 })
                 .filter(Boolean) : [];
@@ -166,6 +167,11 @@
                             input.dataset.datatableSelection = 'true';
                             bulkAction.form.append(input);
                         });
+                        if (bulkAction.windowName) {
+                            const printWindow = window.open('', bulkAction.windowName, 'popup,width=1100,height=850');
+                            if (!printWindow) return;
+                            bulkAction.form.target = bulkAction.windowName;
+                        }
                         bulkAction.form.requestSubmit();
                     }
                 })));
@@ -236,6 +242,79 @@
                     },
                     columnDefs
                 });
+                const kargonomiRefreshUrl = table.dataset.datatableKargonomiRefreshUrl;
+                if (kargonomiRefreshUrl) {
+                    const searchElement = dataTable.table().container().querySelector('.dt-search');
+                    const searchCell = searchElement?.closest('.dt-layout-cell');
+                    if (searchCell && !searchCell.querySelector('.dt-kargonomi-refresh')) {
+                        const tableSearchActions = document.createElement('div');
+                        tableSearchActions.className = 'dt-kargonomi-search-actions';
+
+                        const refreshButton = document.createElement('button');
+                        refreshButton.type = 'button';
+                        refreshButton.className = 'btn btn-sm dt-kargonomi-refresh';
+                        refreshButton.textContent = 'Kargo Durumlarını Güncelle';
+                        refreshButton.title = 'Bu siparişteki Kargonomi gönderilerinin durumlarını güncelle';
+
+                        refreshButton.addEventListener('click', async () => {
+                            if (refreshButton.disabled) return;
+
+                            refreshButton.disabled = true;
+                            refreshButton.classList.add('is-loading');
+                            refreshButton.textContent = 'Güncelleniyor…';
+                            try {
+                                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                                const headers = { Accept: 'application/json' };
+                                if (token) headers.RequestVerificationToken = token;
+
+                                const response = await fetch(kargonomiRefreshUrl, {
+                                    method: 'POST',
+                                    headers
+                                });
+                                const payload = await response.json().catch(() => null);
+                                if (!response.ok)
+                                    throw new Error(payload?.message || payload?.detail || 'Kargo durumları güncellenemedi.');
+
+                                if (payload?.message)
+                                    showPopup(payload.message, payload.success === false ? 'error' : 'success');
+                                window.setTimeout(() => window.location.reload(), 800);
+                            } catch (error) {
+                                refreshButton.disabled = false;
+                                refreshButton.classList.remove('is-loading');
+                                refreshButton.textContent = 'Kargo Durumlarını Güncelle';
+                                showPopup(error instanceof Error ? error.message : 'Kargo durumları güncellenemedi.', 'error');
+                            }
+                        });
+
+                        const clearFiltersButton = document.createElement('button');
+                        clearFiltersButton.type = 'button';
+                        clearFiltersButton.className = 'btn btn-sm dt-kargonomi-clear';
+                        clearFiltersButton.textContent = 'Filtreyi Temizle';
+                        clearFiltersButton.title = 'Bu tablodaki tüm arama ve sütun filtrelerini temizle';
+                        clearFiltersButton.addEventListener('click', () => {
+                            const globalSearchInput = dataTable.table().container().querySelector('.dt-search input');
+                            if (globalSearchInput) globalSearchInput.value = '';
+
+                            dataTable.search('');
+                            table.querySelectorAll('thead .column-filter-row [data-column-filter]').forEach((filter) => {
+                                if (filter instanceof HTMLSelectElement && filter.multiple) {
+                                    [...filter.options].forEach((option) => {
+                                        option.selected = option.value === '';
+                                    });
+                                    filter.dispatchEvent(new Event('change', { bubbles: true }));
+                                    return;
+                                }
+
+                                filter.value = '';
+                                filter.dispatchEvent(new Event('input', { bubbles: true }));
+                            });
+                            dataTable.columns().search('').draw();
+                        });
+
+                        tableSearchActions.append(refreshButton, clearFiltersButton);
+                        searchCell.append(tableSearchActions);
+                    }
+                }
                 if (multiSelect) {
                     const selectionCount = document.createElement('span');
                     selectionCount.className = 'datatable-selection-count d-none';

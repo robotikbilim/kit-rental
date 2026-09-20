@@ -23,7 +23,7 @@
     var canPrintOrderLabels = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager") || User.IsInRole("WarehouseStaff");
     var studentBulkActionIds = "bulk-student-excel-form,bulk-student-kargonomi-form" +
         (canPrintOrderLabels ? ",bulk-student-labels-form" : string.Empty) +
-        (canManage ? ",bulk-student-delete-form,bulk-student-shipping-form,bulk-student-kit-form" : string.Empty);
+        (canManage ? ",bulk-student-delete-form,bulk-student-shipping-form,bulk-student-kargonomi-labels-form,bulk-student-kit-form" : string.Empty);
     var canEditRentalPeriod = !isPurchase && canManage && Model.RentalCohortId.HasValue &&
         Model.StartDate.HasValue && Model.EndDate.HasValue;
     var openRentalPeriodDialog = ViewData["OpenOrderPeriodDialog"] is true;
@@ -117,6 +117,19 @@
                   data-datatable-bulk-class="dt-bulk-shipping"
                   data-datatable-selection-attribute="canShip"
                   data-datatable-bulk-disabled-title="Seçilen kayıtların tamamında adres bulunmalı ve kargo işlemi başlatılabilir durumda olmalıdır."></form>
+            <form id="bulk-student-kargonomi-labels-form"
+                  asp-action="KargonomiBarcodes"
+                  asp-route-id="@Model.Id"
+                  method="get"
+                  hidden
+                  data-no-busy="true"
+                  data-datatable-bulk-label="Kargo Etiketi Yazdır"
+                  data-datatable-bulk-class="dt-bulk-kargonomi-labels"
+                  data-datatable-selection-attribute="hasKargonomiShipment"
+                  data-datatable-bulk-window="kargonomi-label-print"
+                  data-datatable-bulk-disabled-title="Kargo etiketi yazdırmak için seçilen kayıtların tamamında Kargonomi gönderisi oluşmuş olmalıdır.">
+                <input type="hidden" name="id" value="@Model.Id" />
+            </form>
             @if (hasKitCreatableStudents)
             {
                 <form id="bulk-student-kit-form"
@@ -139,7 +152,8 @@
                    data-datatable-select="multi"
                    data-datatable-select-all-pages="true"
                    data-datatable-bulk-actions="@studentBulkActionIds"
-                   data-datatable-bulk-input="studentIds">
+                   data-datatable-bulk-input="studentIds"
+                   data-datatable-kargonomi-refresh-url="@(canManage ? Url.Action("RefreshOrderKargonomiShipments", "Operations", new { id = Model.Id }) : null)">
                 <thead>
                     <tr><th><span class="visually-hidden">Seç</span></th><th>Öğrenci</th><th>Telefon</th><th>Fiziksel Kit</th><th>Kargo Durumu</th><th>Takip No</th><th>Adres</th><th>Adres Linki</th><th>İşlem</th></tr>
                     <tr class="column-filter-row" data-dt-order="disable">
@@ -184,8 +198,9 @@
                     var addressUrl = Url.Action("Index", "PublicStudentAddress", new { token = student.PublicAddressToken }, Context.Request.Scheme) ?? string.Empty;
                     var hasAddress = !string.IsNullOrWhiteSpace(student.AddressLine);
                     shipmentsByStudentId.TryGetValue(student.Id, out var shipment);
+                    var hasKargonomiShipment = shipment is not null && shipment.ExternalShipmentId.HasValue;
                     var canStartShipment = canManage && hasAddress && (shipment is null || shipment.State == 6);
-                    <tr data-select-value="@student.Id" data-has-kit="@student.HasKitAssignment.ToString().ToLowerInvariant()" data-can-ship="@canStartShipment.ToString().ToLowerInvariant()" data-can-create-kit="@((Model.Status == 3 && !student.HasKitAssignment).ToString().ToLowerInvariant())">
+                    <tr data-select-value="@student.Id" data-has-kit="@student.HasKitAssignment.ToString().ToLowerInvariant()" data-can-ship="@canStartShipment.ToString().ToLowerInvariant()" data-has-kargonomi-shipment="@hasKargonomiShipment.ToString().ToLowerInvariant()" data-can-create-kit="@((Model.Status == 3 && !student.HasKitAssignment).ToString().ToLowerInvariant())">
                         <td></td>
                         <td><strong class="student-name-truncate" title="@student.FullName">@student.FullName</strong></td>
                         <td>@student.GuardianPhone</td>
@@ -257,15 +272,23 @@
                                         var shipmentActionTitle = !hasAddress
                                             ? "Öğrenci adresi tamamlanmadan kargoya verilemez."
                                             : "Bu öğrenci için kargo gönderisi zaten başlatıldı.";
-                                        <button class="icon-action icon-action-shipping" type="button" disabled aria-disabled="true" title="@shipmentActionTitle" aria-label="@($"{student.FullName} öğrencisini kargoya ver")">
+                                        <button class="icon-action icon-action-shipping icon-action-disabled" type="button" disabled aria-disabled="true" title="@shipmentActionTitle" aria-label="@($"{student.FullName} öğrencisini kargoya ver")">
                                             <i data-lucide="truck"></i><span class="visually-hidden">Kargoya Ver</span>
                                         </button>
                                     }
-                                    @if (shipment is not null && shipment.ExternalShipmentId.HasValue)
+                                    @if (hasKargonomiShipment)
                                     {
                                         <button class="icon-action icon-action-label js-kargonomi-barcode" type="button"
-                                                data-kargonomi-barcode-url="@Url.Action("KargonomiBarcode", "Operations", new { id = Model.Id, shipmentId = shipment.Id })"
+                                                data-kargonomi-barcode-url="@Url.Action("KargonomiBarcode", "Operations", new { id = Model.Id, shipmentId = shipment!.Id })"
                                                 title="Kargo Etiketi Bastır" aria-label="@($"{student.FullName} kargo etiketini bastır")">
+                                            <i data-lucide="printer"></i><span class="visually-hidden">Kargo Etiketi Bastır</span>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="icon-action icon-action-label" type="button" disabled aria-disabled="true"
+                                                title="Kargo etiketi için önce kargo gönderisi başlatılmalıdır."
+                                                aria-label="@($"{student.FullName} kargo etiketi hazır değil")">
                                             <i data-lucide="printer"></i><span class="visually-hidden">Kargo Etiketi Bastır</span>
                                         </button>
                                     }
