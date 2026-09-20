@@ -10,8 +10,20 @@
     var shipmentsByStudentId = Model.KargonomiShipments
         .GroupBy(shipment => shipment.StudentId)
         .ToDictionary(group => group.Key, group => group.OrderByDescending(shipment => shipment.UpdatedAt).First());
+    var shipmentFilterOptions = Model.KargonomiShipments
+        .Where(shipment => shipment.State != 6 && !string.IsNullOrWhiteSpace(shipment.StatusLabel))
+        .Select(shipment => shipment.StatusLabel.Trim())
+        .Append("Başlatılmadı")
+        .Append("Hata")
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(status => status, StringComparer.CurrentCultureIgnoreCase)
+        .ToArray();
     var hasKitCreatableStudents = !isPurchase && canManage && Model.Status == 3 &&
         Model.Students.Any(student => !student.HasKitAssignment);
+    var canPrintOrderLabels = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager") || User.IsInRole("WarehouseStaff");
+    var studentBulkActionIds = "bulk-student-excel-form,bulk-student-kargonomi-form" +
+        (canPrintOrderLabels ? ",bulk-student-labels-form" : string.Empty) +
+        (canManage ? ",bulk-student-delete-form,bulk-student-shipping-form,bulk-student-kit-form" : string.Empty);
     var canEditRentalPeriod = !isPurchase && canManage && Model.RentalCohortId.HasValue &&
         Model.StartDate.HasValue && Model.EndDate.HasValue;
     var openRentalPeriodDialog = ViewData["OpenOrderPeriodDialog"] is true;
@@ -48,7 +60,43 @@
 @if (!isPurchase && Model.Students.Count > 0)
 {
         <section class="detail-section" id="student-addresses">
-        <div class="section-heading"><div><span class="eyebrow">ÖĞRENCİ VE KARGO LİSTESİ</span><h2>Öğrenciler ve gönderi durumları</h2></div><div class="heading-actions"><a class="secondary-action" asp-action="ExportOrderStudents" asp-route-id="@Model.Id">Excel Olarak İndir</a><a class="secondary-action" asp-action="ExportKargonomi" asp-route-id="@Model.Id">Kargonomi</a><a class="primary-action" asp-controller="PhysicalKits" asp-action="OrderLabels" asp-route-orderId="@Model.Id">QR Etiketlerini Yazdır</a></div></div>
+        <div class="section-heading"><div><span class="eyebrow">ÖĞRENCİ VE KARGO LİSTESİ</span><h2>Öğrenciler ve gönderi durumları</h2></div></div>
+        <form id="bulk-student-excel-form"
+              asp-action="ExportOrderStudents"
+              asp-route-id="@Model.Id"
+              method="get"
+              hidden
+              data-no-busy="true"
+              data-datatable-bulk-label="Excel İle İndir"
+              data-datatable-bulk-class="dt-bulk-export">
+            <input type="hidden" name="id" value="@Model.Id" />
+        </form>
+        <form id="bulk-student-kargonomi-form"
+              asp-action="ExportKargonomi"
+              asp-route-id="@Model.Id"
+              method="get"
+              hidden
+              data-no-busy="true"
+              data-datatable-bulk-label="Kargonomi"
+              data-datatable-bulk-class="dt-bulk-kargonomi">
+            <input type="hidden" name="id" value="@Model.Id" />
+        </form>
+        @if (canPrintOrderLabels)
+        {
+            <form id="bulk-student-labels-form"
+                  asp-controller="PhysicalKits"
+                  asp-action="OrderLabels"
+                  asp-route-orderId="@Model.Id"
+                  method="get"
+                  hidden
+                  data-no-busy="true"
+                  data-datatable-bulk-label="QR Etiketlerini Yazdır"
+                  data-datatable-bulk-class="dt-bulk-labels"
+                  data-datatable-selection-attribute="hasKit"
+                  data-datatable-bulk-disabled-title="QR etiketi yazdırmak için seçilen öğrencilerin tamamına fiziksel kit atanmış olmalıdır.">
+                <input type="hidden" name="orderId" value="@Model.Id" />
+            </form>
+        }
         @if (canManage)
         {
             <form id="bulk-student-delete-form"
@@ -88,9 +136,9 @@
                    data-datatable-responsive="false"
                    data-datatable-page-length="10"
                    data-datatable-column-filters="true"
-                   data-datatable-select="@(canManage ? "multi" : "false")"
+                   data-datatable-select="multi"
                    data-datatable-select-all-pages="true"
-                   data-datatable-bulk-actions="bulk-student-delete-form,bulk-student-shipping-form,bulk-student-kit-form"
+                   data-datatable-bulk-actions="@studentBulkActionIds"
                    data-datatable-bulk-input="studentIds">
                 <thead>
                     <tr><th><span class="visually-hidden">Seç</span></th><th>Öğrenci</th><th>Telefon</th><th>Fiziksel Kit</th><th>Kargo Durumu</th><th>Takip No</th><th>Adres</th><th>Adres Linki</th><th>İşlem</th></tr>
@@ -99,9 +147,23 @@
                         <th><input type="search" data-column-filter aria-label="Öğrenci sütununu filtrele" placeholder="Öğrenci filtrele" autocomplete="off" /></th>
                         <th><input type="search" data-column-filter aria-label="Telefon sütununu filtrele" placeholder="Telefon filtrele" autocomplete="off" /></th>
                         <th><input type="search" data-column-filter aria-label="Fiziksel kit sütununu filtrele" placeholder="Kit filtrele" autocomplete="off" /></th>
-                        <th><input type="search" data-column-filter aria-label="Kargo durumu sütununu filtrele" placeholder="Durum filtrele" autocomplete="off" /></th>
+                        <th>
+                            <select data-column-filter aria-label="Kargo durumu sütununu filtrele">
+                                <option value="">Tümü</option>
+                                @foreach (var status in shipmentFilterOptions)
+                                {
+                                    <option value="@status">@status</option>
+                                }
+                            </select>
+                        </th>
                         <th><input type="search" data-column-filter aria-label="Takip numarası sütununu filtrele" placeholder="Takip no filtrele" autocomplete="off" /></th>
-                        <th><input type="search" data-column-filter aria-label="Adres sütununu filtrele" placeholder="Adres filtrele" autocomplete="off" /></th>
+                        <th>
+                            <select data-column-filter data-column-filter-regex="true" aria-label="Adres sütununu filtrele">
+                                <option value="">Tümü</option>
+                                <option value="\S+">Adresi Girilenler</option>
+                                <option value="^\s*$">Adresi Girilmeyenler</option>
+                            </select>
+                        </th>
                         <th><input type="search" data-column-filter aria-label="Adres linki sütununu filtrele" placeholder="Adres linki filtrele" autocomplete="off" /></th>
                         <th></th>
                     </tr>
@@ -113,7 +175,7 @@
                     var hasAddress = !string.IsNullOrWhiteSpace(student.AddressLine);
                     shipmentsByStudentId.TryGetValue(student.Id, out var shipment);
                     var canStartShipment = canManage && hasAddress && (shipment is null || shipment.State == 6);
-                    <tr data-select-value="@student.Id" data-can-ship="@canStartShipment.ToString().ToLowerInvariant()" data-can-create-kit="@((Model.Status == 3 && !student.HasKitAssignment).ToString().ToLowerInvariant())">
+                    <tr data-select-value="@student.Id" data-has-kit="@student.HasKitAssignment.ToString().ToLowerInvariant()" data-can-ship="@canStartShipment.ToString().ToLowerInvariant()" data-can-create-kit="@((Model.Status == 3 && !student.HasKitAssignment).ToString().ToLowerInvariant())">
                         <td></td>
                         <td><strong class="student-name-truncate" title="@student.FullName">@student.FullName</strong></td>
                         <td>@student.GuardianPhone</td>

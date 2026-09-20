@@ -115,7 +115,8 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
     }
 
     [HttpGet]
-    public async Task<IActionResult> OrderLabels(Guid orderId, CancellationToken cancellationToken)
+    public async Task<IActionResult> OrderLabels(Guid orderId, Guid[]? studentIds,
+        CancellationToken cancellationToken)
     {
         var order = await apiClient.GetOrderDetailAsync(orderId, cancellationToken);
         if (order is null || order.Kits.Count == 0)
@@ -127,12 +128,20 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
             .Where(student => student.OrderId == order.Id && student.ProductUnitId.HasValue)
             .GroupBy(student => student.ProductUnitId!.Value)
             .ToDictionary(group => group.Key, group => group.First());
-        var labels = order.Kits.Select(kit =>
+        var selectedStudentIds = (studentIds ?? []).Where(studentId => studentId != Guid.Empty).Distinct().ToHashSet();
+        var selectedUnitIds = selectedStudentIds.Count == 0
+            ? null
+            : studentsByUnit.Where(pair => selectedStudentIds.Contains(pair.Value.Id)).Select(pair => pair.Key).ToHashSet();
+        var labels = order.Kits
+            .Where(kit => selectedUnitIds is null || selectedUnitIds.Contains(kit.Id))
+            .Select(kit =>
         {
             studentsByUnit.TryGetValue(kit.Id, out var student);
             return new PhysicalKitLabelViewModel(kit.Id, kit.ProductName, kit.ProductSku, kit.SerialNumber,
                 kit.QrCode, student?.FullName, student?.GuardianPhone, FormatStudentAddress(student));
         }).ToArray();
+        if (labels.Length == 0)
+            return RedirectToAction("OrderDetails", "Operations", new { id = orderId });
         var backUrl = Url.Action("OrderDetails", "Operations", new { id = orderId });
         return View("Labels", new PhysicalKitLabelsPageViewModel(TurkeyTime.Now(), labels, backUrl,
             order.CustomerName));

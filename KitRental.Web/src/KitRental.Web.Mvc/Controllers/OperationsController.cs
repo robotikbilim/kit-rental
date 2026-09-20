@@ -259,23 +259,33 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     }
 
     [HttpGet]
-    public async Task<IActionResult> ExportOrderStudents(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> ExportOrderStudents(Guid id, Guid[]? studentIds,
+        CancellationToken cancellationToken)
     {
         var order = await apiClient.GetOrderDetailAsync(id, cancellationToken);
         if (order is null) return NotFound();
-        return ExportStudentAddressWorkbook(order.OrderNumber, order.Students.Select(student =>
+        var selectedStudentIds = (studentIds ?? []).Where(studentId => studentId != Guid.Empty).Distinct().ToHashSet();
+        var students = selectedStudentIds.Count == 0
+            ? order.Students
+            : order.Students.Where(student => selectedStudentIds.Contains(student.Id)).ToArray();
+        return ExportStudentAddressWorkbook(order.OrderNumber, students.Select(student =>
             new StudentAddressExportRow(student.FullName, student.GuardianPhone,
                 string.IsNullOrWhiteSpace(student.ProductName) ? "Eğitim kiti" : student.ProductName, student.HasAddress,
                 student.AddressLine, BuildStudentAddressUrl(student.PublicAddressToken))).ToArray());
     }
 
     [HttpGet]
-    public async Task<IActionResult> ExportKargonomi(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> ExportKargonomi(Guid id, Guid[]? studentIds,
+        CancellationToken cancellationToken)
     {
         var order = await apiClient.GetOrderDetailAsync(id, cancellationToken);
         if (order is null) return NotFound();
 
-        return ExportKargonomiWorkbook(order.OrderNumber, order.Students.Where(student => student.HasAddress).Select(student =>
+        var selectedStudentIds = (studentIds ?? []).Where(studentId => studentId != Guid.Empty).Distinct().ToHashSet();
+        var students = selectedStudentIds.Count == 0
+            ? order.Students
+            : order.Students.Where(student => selectedStudentIds.Contains(student.Id)).ToArray();
+        return ExportKargonomiWorkbook(order.OrderNumber, students.Where(student => student.HasAddress).Select(student =>
         {
             var (city, district) = ParseStudentAddressRegion(student.AddressLine);
             return new KargonomiExportRow(student.FullName, student.AddressLine, city, district,

@@ -288,10 +288,31 @@
                         const columnIndex = filter.closest('th')?.cellIndex;
                         if (columnIndex === undefined) return;
 
-                        filter.value = dataTable.column(columnIndex).search();
-                        filter.addEventListener('input', () => {
-                            const column = dataTable.column(columnIndex);
-                            if (column.search() !== filter.value) column.search(filter.value).draw();
+                        const column = dataTable.column(columnIndex);
+                        const savedSearch = column.search();
+                        filter.value = savedSearch;
+                        if (filter instanceof HTMLSelectElement && filter.value !== savedSearch) {
+                            column.search('', {
+                                regex: true,
+                                smart: false,
+                                caseInsensitive: true
+                            }).draw();
+                        }
+
+                        const filterEvent = filter instanceof HTMLSelectElement ? 'change' : 'input';
+                        filter.addEventListener(filterEvent, () => {
+                            if (column.search() === filter.value) return;
+
+                            if (filter.dataset.columnFilterRegex === 'true') {
+                                column.search(filter.value, {
+                                    regex: true,
+                                    smart: false,
+                                    caseInsensitive: true
+                                }).draw();
+                                return;
+                            }
+
+                            column.search(filter.value).draw();
                         });
                     });
                 }
