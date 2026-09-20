@@ -244,18 +244,20 @@
                 });
                 const kargonomiRefreshUrl = table.dataset.datatableKargonomiRefreshUrl;
                 if (kargonomiRefreshUrl) {
-                    const searchElement = dataTable.table().container().querySelector('.dt-search');
-                    const searchCell = searchElement?.closest('.dt-layout-cell');
-                    if (searchCell && !searchCell.querySelector('.dt-kargonomi-refresh')) {
-                        const tableSearchActions = document.createElement('div');
-                        tableSearchActions.className = 'dt-kargonomi-search-actions';
+                    const dataTableContainer = dataTable.table().container();
+                    const tableSearchActions = table.closest('.table-scroll')?.querySelector('[data-kargonomi-search-actions]')
+                        || document.createElement('div');
+                    tableSearchActions.classList.add('dt-kargonomi-search-actions');
 
-                        const refreshButton = document.createElement('button');
-                        refreshButton.type = 'button';
-                        refreshButton.className = 'btn btn-sm dt-kargonomi-refresh';
-                        refreshButton.textContent = 'Kargo Durumlarını Güncelle';
-                        refreshButton.title = 'Bu siparişteki Kargonomi gönderilerinin durumlarını güncelle';
+                    const refreshButton = tableSearchActions.querySelector('[data-kargonomi-refresh-button]')
+                        || document.createElement('button');
+                    refreshButton.type = 'button';
+                    refreshButton.classList.add('btn', 'btn-sm', 'dt-kargonomi-refresh');
+                    refreshButton.textContent = 'Kargo Durumlarını Güncelle';
+                    refreshButton.title = 'Bu siparişteki Kargonomi gönderilerinin durumlarını güncelle';
 
+                    if (refreshButton.dataset.kargonomiBound !== 'true') {
+                        refreshButton.dataset.kargonomiBound = 'true';
                         refreshButton.addEventListener('click', async () => {
                             if (refreshButton.disabled) return;
 
@@ -285,12 +287,16 @@
                                 showPopup(error instanceof Error ? error.message : 'Kargo durumları güncellenemedi.', 'error');
                             }
                         });
+                    }
 
-                        const clearFiltersButton = document.createElement('button');
-                        clearFiltersButton.type = 'button';
-                        clearFiltersButton.className = 'btn btn-sm dt-kargonomi-clear';
-                        clearFiltersButton.textContent = 'Filtreyi Temizle';
-                        clearFiltersButton.title = 'Bu tablodaki tüm arama ve sütun filtrelerini temizle';
+                    const clearFiltersButton = tableSearchActions.querySelector('[data-kargonomi-clear-button]')
+                        || document.createElement('button');
+                    clearFiltersButton.type = 'button';
+                    clearFiltersButton.classList.add('btn', 'btn-sm', 'dt-kargonomi-clear');
+                    clearFiltersButton.textContent = 'Filtreyi Temizle';
+                    clearFiltersButton.title = 'Bu tablodaki tüm arama ve sütun filtrelerini temizle';
+                    if (clearFiltersButton.dataset.kargonomiBound !== 'true') {
+                        clearFiltersButton.dataset.kargonomiBound = 'true';
                         clearFiltersButton.addEventListener('click', () => {
                             const globalSearchInput = dataTable.table().container().querySelector('.dt-search input');
                             if (globalSearchInput) globalSearchInput.value = '';
@@ -310,9 +316,29 @@
                             });
                             dataTable.columns().search('').draw();
                         });
+                    }
 
-                        tableSearchActions.append(refreshButton, clearFiltersButton);
-                        searchCell.append(tableSearchActions);
+                    tableSearchActions.append(refreshButton, clearFiltersButton);
+
+                    const moveSearchActions = () => {
+                        const searchElement = dataTableContainer.querySelector('.dt-search');
+                        const searchCell = searchElement?.closest('.dt-layout-cell')
+                            || dataTableContainer.querySelector('.dt-layout-row .dt-layout-cell.dt-layout-end')
+                            || dataTableContainer.querySelector('.dt-layout-row .dt-layout-cell:last-child');
+                        if (!searchCell) return false;
+                        if (tableSearchActions.parentElement !== searchCell) {
+                            tableSearchActions.classList.remove('dt-kargonomi-search-actions-fallback');
+                            searchCell.append(tableSearchActions);
+                        }
+                        return true;
+                    };
+
+                    if (!moveSearchActions()) {
+                        const searchActionsObserver = new MutationObserver(() => {
+                            if (moveSearchActions()) searchActionsObserver.disconnect();
+                        });
+                        searchActionsObserver.observe(dataTableContainer, { childList: true, subtree: true });
+                        window.setTimeout(() => searchActionsObserver.disconnect(), 2000);
                     }
                 }
                 if (multiSelect) {

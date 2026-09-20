@@ -145,6 +145,13 @@
             }
         }
         <div class="table-scroll">
+            @if (canManage)
+            {
+                <div class="dt-kargonomi-search-actions dt-kargonomi-search-actions-fallback" data-kargonomi-search-actions>
+                    <button class="btn btn-sm dt-kargonomi-refresh" type="button" data-kargonomi-refresh-button>Kargo Durumlarını Güncelle</button>
+                    <button class="btn btn-sm dt-kargonomi-clear" type="button" data-kargonomi-clear-button>Filtreyi Temizle</button>
+                </div>
+            }
             <table class="order-kits-table student-order-table js-datatable"
                    data-datatable-responsive="false"
                    data-datatable-page-length="10"
