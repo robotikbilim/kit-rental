@@ -289,19 +289,44 @@
                         if (columnIndex === undefined) return;
 
                         const column = dataTable.column(columnIndex);
-                        const savedSearch = column.search();
-                        filter.value = savedSearch;
-                        if (filter instanceof HTMLSelectElement && filter.value !== savedSearch) {
-                            column.search('', {
-                                regex: true,
-                                smart: false,
-                                caseInsensitive: true
-                            }).draw();
-                        }
-
-                        const filterEvent = filter instanceof HTMLSelectElement ? 'change' : 'input';
-                        filter.addEventListener(filterEvent, () => {
-                            if (column.search() === filter.value) return;
+                        const isMultiSelect = filter instanceof HTMLSelectElement &&
+                            filter.multiple &&
+                            filter.dataset.columnFilterMulti === 'true';
+                        const filterOptions = filter instanceof HTMLSelectElement ? [...filter.options] : [];
+                        const multiFilter = isMultiSelect ? filter.closest('[data-multi-filter]') : null;
+                        const multiFilterToggle = multiFilter?.querySelector('[data-multi-filter-toggle]');
+                        const multiFilterMenu = multiFilter?.querySelector('[data-multi-filter-menu]');
+                        const multiFilterOptionInputs = multiFilter
+                            ? [...multiFilter.querySelectorAll('[data-multi-filter-option]')]
+                            : [];
+                        const updateMultiFilterUi = () => {
+                            if (!isMultiSelect || !multiFilterToggle) return;
+                            const selectedValues = selectedFilterValues();
+                            multiFilterOptionInputs.forEach((input) => {
+                                input.checked = selectedValues.includes(input.value);
+                            });
+                            const selectedLabels = multiFilterOptionInputs
+                                .filter((input) => input.checked && input.value)
+                                .map((input) => input.nextElementSibling?.textContent.trim())
+                                .filter(Boolean);
+                            multiFilterToggle.textContent = selectedLabels.length === 0
+                                ? 'Tümü'
+                                : selectedLabels.length === 1 ? selectedLabels[0] : `${selectedLabels.length} seçili`;
+                        };
+                        const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const selectedFilterValues = () => filter instanceof HTMLSelectElement && filter.multiple
+                            ? [...filter.selectedOptions].map((option) => option.value)
+                            : filter.value ? [filter.value] : [];
+                        const applyFilter = () => {
+                            const values = selectedFilterValues().filter(Boolean);
+                            if (isMultiSelect) {
+                                column.search(values.map(escapeRegex).join('|'), {
+                                    regex: true,
+                                    smart: false,
+                                    caseInsensitive: true
+                                }).draw();
+                                return;
+                            }
 
                             if (filter.dataset.columnFilterRegex === 'true') {
                                 column.search(filter.value, {
@@ -313,7 +338,87 @@
                             }
 
                             column.search(filter.value).draw();
+                        };
+                        const savedSearch = column.search();
+                        if (isMultiSelect) {
+                            const matchingOptions = filterOptions.filter((option) =>
+                                option.value && savedSearch.includes(escapeRegex(option.value)));
+                            filterOptions.forEach((option) => {
+                                option.selected = matchingOptions.includes(option);
+                            });
+                            if (!matchingOptions.length) {
+                                filterOptions[0].selected = true;
+                                if (savedSearch) column.search('').draw();
+                            }
+                        } else {
+                            filter.value = savedSearch;
+                            if (filter instanceof HTMLSelectElement && filter.value !== savedSearch) {
+                                column.search('', {
+                                    regex: true,
+                                    smart: false,
+                                    caseInsensitive: true
+                                }).draw();
+                            }
+                        }
+
+                        const filterEvent = filter instanceof HTMLSelectElement ? 'change' : 'input';
+                        let previousFilterValues = selectedFilterValues();
+                        filter.addEventListener(filterEvent, () => {
+                            if (isMultiSelect) {
+                                const allOption = filterOptions.find((option) => option.value === '');
+                                const selectedValues = selectedFilterValues();
+                                const allWasSelected = previousFilterValues.includes('');
+                                const allIsSelected = allOption?.selected === true;
+                                const hasSpecificSelection = selectedValues.some(Boolean);
+
+                                if (allOption && allIsSelected && hasSpecificSelection && !allWasSelected) {
+                                    filterOptions.forEach((option) => {
+                                        option.selected = option === allOption;
+                                    });
+                                } else if (allOption && allIsSelected && hasSpecificSelection && allWasSelected) {
+                                    allOption.selected = false;
+                                } else if (allOption && !allIsSelected && !hasSpecificSelection) {
+                                    allOption.selected = true;
+                                }
+
+                                const nextFilterValues = selectedFilterValues();
+                                updateMultiFilterUi();
+                                if (nextFilterValues.join('\u001f') === previousFilterValues.join('\u001f')) return;
+                                previousFilterValues = nextFilterValues;
+                                applyFilter();
+                                return;
+                            }
+
+                            if (column.search() === filter.value) return;
+                            applyFilter();
                         });
+
+                        if (isMultiSelect && multiFilterToggle && multiFilterMenu) {
+                            multiFilterToggle.addEventListener('click', (event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                const isOpen = multiFilterToggle.getAttribute('aria-expanded') === 'true';
+                                multiFilterToggle.setAttribute('aria-expanded', String(!isOpen));
+                                multiFilterMenu.hidden = isOpen;
+                            });
+                            multiFilterOptionInputs.forEach((input) => {
+                                input.addEventListener('change', () => {
+                                    const selectedValues = multiFilterOptionInputs
+                                        .filter((option) => option.checked)
+                                        .map((option) => option.value);
+                                    filterOptions.forEach((option) => {
+                                        option.selected = selectedValues.includes(option.value);
+                                    });
+                                    filter.dispatchEvent(new Event('change', { bubbles: true }));
+                                });
+                            });
+                            multiFilter.addEventListener('click', (event) => event.stopPropagation());
+                            document.addEventListener('click', () => {
+                                multiFilterToggle.setAttribute('aria-expanded', 'false');
+                                multiFilterMenu.hidden = true;
+                            });
+                            updateMultiFilterUi();
+                        }
                     });
                 }
             } catch (error) {
@@ -609,6 +714,43 @@
         event.preventDefault();
         event.stopPropagation();
         showPopup(trigger.dataset.inlineError, 'error');
+    });
+
+    document.addEventListener('click', async (event) => {
+        const trigger = event.target.closest?.('[data-kargonomi-barcode-url]');
+        if (!trigger) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (trigger.disabled || trigger.classList.contains('is-loading')) return;
+
+        const printWindow = window.open('', '_blank', 'popup,width=1000,height=800');
+        if (!printWindow) {
+            showPopup('Yazdırma penceresi açılamadı. Tarayıcı açılır pencere iznini kontrol edin.', 'error');
+            return;
+        }
+
+        trigger.disabled = true;
+        trigger.classList.add('is-loading');
+        try {
+            const response = await fetch(trigger.dataset.kargonomiBarcodeUrl, {
+                headers: { Accept: 'application/pdf, application/json' }
+            });
+            if (!response.ok) {
+                const problem = await response.json().catch(() => null);
+                throw new Error(problem?.message || 'Henüz kargo etiketi oluşmamış, lütfen tekrar deneyin.');
+            }
+
+            const pdf = await response.blob();
+            if (!pdf.size) throw new Error('Henüz kargo etiketi oluşmamış, lütfen tekrar deneyin.');
+            printWindow.location.href = URL.createObjectURL(pdf);
+            printWindow.focus();
+        } catch (error) {
+            printWindow.close();
+            showPopup(error instanceof Error ? error.message : 'Kargo etiketi alınamadı.', 'error');
+        } finally {
+            trigger.disabled = false;
+            trigger.classList.remove('is-loading');
+        }
     });
 
     document.querySelectorAll('form[data-auto-filter="true"]').forEach((form) => {

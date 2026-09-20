@@ -185,7 +185,7 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     {
         var result = await apiClient.GetKargonomiBarcodeAsync(shipmentId, cancellationToken);
         if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Data?.Base64))
-            return NotFound();
+            return NotFound(new { message = "Henüz kargo etiketi oluşmamış, lütfen tekrar deneyin." });
         try
         {
             return File(Convert.FromBase64String(result.Data.Base64), "application/pdf", $"kargonomi-{shipmentId:N}.pdf");

@@ -148,13 +148,23 @@
                         <th><input type="search" data-column-filter aria-label="Telefon sütununu filtrele" placeholder="Telefon filtrele" autocomplete="off" /></th>
                         <th><input type="search" data-column-filter aria-label="Fiziksel kit sütununu filtrele" placeholder="Kit filtrele" autocomplete="off" /></th>
                         <th>
-                            <select data-column-filter aria-label="Kargo durumu sütununu filtrele">
-                                <option value="">Tümü</option>
-                                @foreach (var status in shipmentFilterOptions)
-                                {
-                                    <option value="@status">@status</option>
-                                }
-                            </select>
+                            <div class="column-multi-filter" data-multi-filter>
+                                <button class="column-multi-filter-toggle" type="button" data-multi-filter-toggle aria-haspopup="listbox" aria-expanded="false" aria-label="Kargo durumu filtresini aç">Tümü</button>
+                                <div class="column-multi-filter-menu" data-multi-filter-menu role="group" aria-label="Kargo durumu seçenekleri" hidden>
+                                    <label><input type="checkbox" value="" data-multi-filter-option checked /> <span>Tümü</span></label>
+                                    @foreach (var status in shipmentFilterOptions)
+                                    {
+                                        <label><input type="checkbox" value="@status" data-multi-filter-option /> <span>@status</span></label>
+                                    }
+                                </div>
+                                <select multiple data-column-filter data-column-filter-multi="true" aria-label="Kargo durumu sütununu filtrele" hidden tabindex="-1">
+                                    <option value="">Tümü</option>
+                                    @foreach (var status in shipmentFilterOptions)
+                                    {
+                                        <option value="@status">@status</option>
+                                    }
+                                </select>
+                            </div>
                         </th>
                         <th><input type="search" data-column-filter aria-label="Takip numarası sütununu filtrele" placeholder="Takip no filtrele" autocomplete="off" /></th>
                         <th>
@@ -249,6 +259,14 @@
                                             : "Bu öğrenci için kargo gönderisi zaten başlatıldı.";
                                         <button class="icon-action icon-action-shipping" type="button" disabled aria-disabled="true" title="@shipmentActionTitle" aria-label="@($"{student.FullName} öğrencisini kargoya ver")">
                                             <i data-lucide="truck"></i><span class="visually-hidden">Kargoya Ver</span>
+                                        </button>
+                                    }
+                                    @if (shipment is not null && shipment.ExternalShipmentId.HasValue)
+                                    {
+                                        <button class="icon-action icon-action-label js-kargonomi-barcode" type="button"
+                                                data-kargonomi-barcode-url="@Url.Action("KargonomiBarcode", "Operations", new { id = Model.Id, shipmentId = shipment.Id })"
+                                                title="Kargo Etiketi Bastır" aria-label="@($"{student.FullName} kargo etiketini bastır")">
+                                            <i data-lucide="printer"></i><span class="visually-hidden">Kargo Etiketi Bastır</span>
                                         </button>
                                     }
                                 </div>
