@@ -98,7 +98,24 @@ public sealed class PublicController : CoreApiControllerBase
                 unit.QrCode, request.RequesterName, request.RequesterPhone, request.ReturnAddress,
                 request.Latitude, request.Longitude, request.ReturnReason,
                 request.DeliveryMethod), cancellationToken);
-        return Created($"/api/public/returns/{result.Id}", result);
+        return Created($"/api/public/returns/{result.Request.Id}", new
+        {
+            result.Request.Id,
+            result.Request.CustomerId,
+            result.Request.Status,
+            result.Request.Carrier,
+            result.Request.TrackingNumber,
+            result.Request.CreatedAt,
+            result.Request.ShippedAt,
+            result.Request.RequesterName,
+            result.Request.RequesterPhone,
+            result.Request.ReturnAddress,
+            result.Request.Latitude,
+            result.Request.Longitude,
+            result.Request.DeliveryMethod,
+            result.Request.Items,
+            Barcode = result.CourierBarcode
+        });
     }
 
     [AllowAnonymous]

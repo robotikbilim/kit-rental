@@ -533,6 +533,9 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Carrier).HasMaxLength(120);
         builder.Property(x => x.TrackingNumber).HasMaxLength(160);
+        builder.Property(x => x.ExternalStatus).HasMaxLength(120);
+        builder.Property(x => x.ExternalStatusLabel).HasMaxLength(160);
+        builder.Property(x => x.KargonomiBarcode).HasMaxLength(160);
         builder.Property(x => x.RequesterName).HasMaxLength(160);
         builder.Property(x => x.RequesterPhone).HasMaxLength(40);
         builder.Property(x => x.ReturnAddress).HasMaxLength(1000);
@@ -542,6 +545,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.HasIndex(x => new { x.Status, x.CreatedAt });
         builder.HasIndex(x => x.CreatedAt);
         builder.HasIndex(x => x.TrackingNumber).IsUnique().HasFilter("[TrackingNumber] IS NOT NULL");
+        builder.HasIndex(x => x.ExternalShipmentId);
         builder.OwnsMany(x => x.Items, items =>
         {
             items.ToTable("KitReturnItems");

@@ -5,6 +5,8 @@
     var message = ViewData["SuccessMessage"] as string ?? "Talebiniz operasyon ekibine iletildi.";
     var popupTitle = ViewData["PopupTitle"] as string;
     var popupMessage = ViewData["PopupMessage"] as string;
+    var courierBarcode = ViewData["CourierBarcode"] as string;
+    var courierTrackingNumber = ViewData["CourierTrackingNumber"] as string;
 }
 <div class="public-fault-shell">
     <section class="public-fault-card public-fault-success">
@@ -12,6 +14,14 @@
         <span class="eyebrow">ISLEM ALINDI</span>
         <h1>@title</h1>
         <p>@message</p>
+        @if (!string.IsNullOrWhiteSpace(courierBarcode))
+        {
+            <div class="public-kit-summary"><span>Kargo Barkodu</span><strong><code>@courierBarcode</code></strong></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(courierTrackingNumber))
+        {
+            <div class="public-kit-summary"><span>Kargo Takip Kodu</span><strong><code>@courierTrackingNumber</code></strong></div>
+        }
         <div class="public-kit-summary"><span>Okutulan urun</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
     </section>
 </div>

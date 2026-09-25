@@ -128,18 +128,25 @@ public sealed class KargonomiShipment
         status?.Trim().ToLowerInvariant() switch
     {
         "draft" => KargonomiShipmentState.Draft,
-        "ready" or "processing" or "prepared" => KargonomiShipmentState.Ready,
-        "shipped" or "in_transit" or "in-transit" or "on_the_way" => KargonomiShipmentState.InTransit,
-        "delivered" or "completed" => KargonomiShipmentState.Delivered,
-        "cancelled" or "canceled" => KargonomiShipmentState.Cancelled,
+        "ready" or "processing" or "prepared" or "webservice_order_creating" or
+            "webservice_order_created" or "webservice_checking_shipment" => KargonomiShipmentState.Ready,
+        "shipped" or "in_transit" or "in-transit" or "on_the_way" or
+            "webservice_shipment_started" => KargonomiShipmentState.InTransit,
+        "delivered" or "completed" or "webservice_shipment_delivered" => KargonomiShipmentState.Delivered,
+        "cancelled" or "canceled" or "request_for_cancellation" => KargonomiShipmentState.Cancelled,
+        "webservice_order_failed" or "webservice_shipment_not_delivered" or
+            "webservice_shipment_missing" => KargonomiShipmentState.Failed,
         _ => MapLabelState(statusLabel)
     };
 
     private static KargonomiShipmentState MapLabelState(string? statusLabel) => statusLabel?.Trim().ToLowerInvariant() switch
     {
-        "işleme hazır" => KargonomiShipmentState.Ready,
-        "teslim sürecinde" => KargonomiShipmentState.InTransit,
-        "teslim edildi" => KargonomiShipmentState.Delivered,
+        "işleme hazır" or "kargo siparişi oluşturuluyor" or "kargo siparişi oluşturuldu" or
+            "kargo kaydı kontrol ediliyor" => KargonomiShipmentState.Ready,
+        "teslim sürecinde" or "kargo teslim sürecinde" => KargonomiShipmentState.InTransit,
+        "teslim edildi" or "kargo teslim edildi" => KargonomiShipmentState.Delivered,
+        "kargo sipariş oluşturulamadı" or "kargo teslim edilemedi" or "kargo kayıp" => KargonomiShipmentState.Failed,
+        "kargo iptal edildi" or "iptal talebi alındı" => KargonomiShipmentState.Cancelled,
         _ => KargonomiShipmentState.Pending
     };
 }

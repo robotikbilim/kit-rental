@@ -47,7 +47,8 @@ public sealed record PortalFaultResponse(Guid Id, string Number, Guid ProductUni
     FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired, FaultOrigin Origin = FaultOrigin.Internal);
 public sealed record CustomerPortalDashboardResponse(string CustomerName, int TotalRentedKitCount,
     int ActiveKitCount, int InTransitKitCount, int PreparedKitCount, int OpenFaultCount, int CompletedFaultCount,
-    int ExpiredRentalKitCount, int ReturnProcessStartedKitCount, int ReturnedKitCount,
+    int ExpiredRentalKitCount, int ReturnAwaitingShipmentKitCount, int ReturnInTransitKitCount,
+    int ReturnFormCompletedKitCount,
     IReadOnlyCollection<PortalKitLocationResponse> KitLocations, int UnassignedKitCount = 0);
 public sealed record CustomerPortalRentalPeriodsResponse(string CustomerName,
     IReadOnlyCollection<PortalProductModelResponse> ProductModels,
@@ -76,8 +77,9 @@ public sealed record PortalKitReturnResponse(Guid Id, Guid CustomerId, string Cu
     string? RequesterName, string? RequesterPhone, string? ReturnAddress,
     double? Latitude, double? Longitude, KitReturnDeliveryMethod DeliveryMethod,
     IReadOnlyCollection<PortalKitReturnItemResponse> Items);
-public sealed record PublicKitReturnContextResponse(Guid ReturnId, string? RequesterName, string? RequesterPhone,
-    string? ReturnAddress, double? Latitude, double? Longitude,
+public sealed record PublicKitReturnContextResponse(Guid ReturnId, KitReturnStatus Status,
+    string? Carrier, string? TrackingNumber, string? ExternalStatus, string? ExternalStatusLabel,
+    string? RequesterName, string? RequesterPhone, string? ReturnAddress, double? Latitude, double? Longitude,
     KitReturnReason? ReturnReason, KitReturnDeliveryMethod DeliveryMethod);
 
 public sealed record OpenPortalFaultCommand(Guid CustomerId, Guid AssignmentId, string ReporterName,
@@ -89,6 +91,7 @@ public sealed record CreatePublicKitReturnCommand(string QrCode, string Requeste
     string RequesterPhone, string ReturnAddress,
     double? Latitude, double? Longitude, KitReturnReason? ReturnReason = null,
     KitReturnDeliveryMethod DeliveryMethod = KitReturnDeliveryMethod.PickupFromAddress);
+public sealed record PublicKitReturnResult(KitReturnRequest Request, string? CourierBarcode);
 public sealed record CreatePortalReturnCommand(Guid CustomerId, IReadOnlyCollection<Guid> AssignmentIds,
     Guid ActorId, string ActorDisplayName);
 public sealed record ShipPortalReturnCommand(Guid CustomerId, Guid ReturnId, string Carrier,

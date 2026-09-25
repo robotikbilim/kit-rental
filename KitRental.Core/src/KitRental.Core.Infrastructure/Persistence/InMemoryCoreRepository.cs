@@ -630,6 +630,14 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         lock (_gate) return Task.FromResult(_kitReturns.GetValueOrDefault(id));
     }
 
+    public Task<KitReturnRequest?> GetKitReturnRequestByExternalShipmentIdAsync(int externalShipmentId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult(_kitReturns.Values.SingleOrDefault(item =>
+            item.ExternalShipmentId == externalShipmentId));
+    }
+
     public Task<IReadOnlyCollection<KitReturnRequest>> GetKitReturnRequestsAsync(Guid? customerId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

@@ -110,7 +110,10 @@ Amaç: müşteri, sipariş, kargo, arıza, iade ve yönetim panosu use-case'leri
 
 ### Dashboard
 
-Müşteri sayısı, toplam fiziksel kit, açık sipariş, açık arıza ve bakımdaki kit sayısını hesaplar.
+`GET /api/dashboard` için toplam sipariş, sipariş öğrencileri, adres bekleyen öğrenciler,
+kargo gönderimi bekleyen öğrenciler, teslimat sürecindeki gönderiler, teslim edilen gönderiler,
+süresi dolmuş kiralama kitleri, iade formu bekleyen öğrenciler, kurye bekleyen iadeler ve inceleme bekleyen,
+onarımdaki, kargo bekleyen ve tamamlanmış arıza kayıtlarını hesaplar.
 
 ## ReportingService
 

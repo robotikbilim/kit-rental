@@ -1,3 +1,4 @@
+using KitRental.Core.Application.Kargonomi;
 using KitRental.Core.Application.Operations;
 using KitRental.Core.Application.Reporting;
 using Microsoft.AspNetCore.Authorization;
@@ -10,32 +11,37 @@ namespace KitRental.Core.Api.Controllers;
 [Authorize]
 public sealed class ReportingController : CoreApiControllerBase
 {
-    [Authorize(Roles = "SystemAdmin,OperationsManager")]
+    [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
     [HttpGet("dashboard")]
-    public async Task<IActionResult> GetDashboard([FromServices] OperationsService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetDashboard([FromServices] OperationsService service,
+        CancellationToken cancellationToken)
     {
         return Ok(await service.GetDashboardAsync(cancellationToken));
     }
 
-    [Authorize(Roles = "SystemAdmin,OperationsManager")]
-    [HttpPost("dashboard/kit-location-geocoding-jobs")]
-    public async Task<IActionResult> CreateKitLocationGeocodingJob(
-        [FromServices] KitLocationGeocodingService service,
-        [FromServices] IKitLocationGeocodingQueue queue,
+    [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
+    [HttpGet("returns")]
+    public async Task<IActionResult> GetReturns([FromServices] OperationsService service,
         CancellationToken cancellationToken)
     {
-        var plan = await service.GetMissingCoordinateQueuePlanAsync(cancellationToken);
-        if (!plan.IsConfigured || plan.CandidateCount == 0)
-            return Accepted(plan);
+        return Ok(await service.GetReturnsInProgressAsync(cancellationToken));
+    }
 
-        var enqueued = 0;
-        foreach (var candidateId in await service.GetMissingCoordinateCandidateIdsAsync(cancellationToken))
-        {
-            if (queue.TryEnqueue(candidateId))
-                enqueued++;
-        }
+    [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
+    [HttpGet("returns/table")]
+    public async Task<IActionResult> GetReturnsTable([FromServices] OperationsService service,
+        CancellationToken cancellationToken)
+    {
+        return Ok(await service.GetReturnsTableAsync(cancellationToken));
+    }
 
-        return Accepted(plan with { EnqueuedCount = enqueued });
+    [Authorize(Roles = "SystemAdmin,OperationsManager")]
+    [HttpGet("returns/{returnId:guid}/kargonomi-barcode")]
+    public async Task<IActionResult> GetReturnKargonomiBarcode(Guid returnId,
+        [FromServices] KargonomiShippingService service, CancellationToken cancellationToken)
+    {
+        var barcode = await service.GetReturnBarcodeAsync(returnId, cancellationToken);
+        return Ok(new { Base64 = barcode });
     }
 
     [Authorize(Roles = "SystemAdmin,Auditor")]

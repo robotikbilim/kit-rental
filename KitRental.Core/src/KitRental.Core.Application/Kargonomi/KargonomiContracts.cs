@@ -13,6 +13,16 @@ public sealed record KargonomiCreateShipmentRequest(
     string PackageBarcode,
     decimal PackageDesi);
 
+public sealed record KargonomiReturnShipmentRequest(
+    string SenderName,
+    string SenderPhone,
+    string SenderAddress,
+    int SenderStateId,
+    int SenderCityId,
+    string PackageContent,
+    string PackageBarcode,
+    decimal PackageDesi);
+
 public sealed record KargonomiShipmentSnapshot(
     int Id,
     string? Status,
@@ -42,6 +52,7 @@ public sealed record KargonomiCarrierQuote(int Id, string Name, string Slug, str
 public interface IKargonomiClient
 {
     Task<KargonomiShipmentSnapshot> CreateShipmentAsync(KargonomiCreateShipmentRequest request, CancellationToken cancellationToken);
+    Task<KargonomiShipmentSnapshot> CreateReturnShipmentAsync(KargonomiReturnShipmentRequest request, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KargonomiCarrierQuote>> GetPriceQuotesAsync(int shipmentId, CancellationToken cancellationToken);
     Task<KargonomiShipmentSnapshot> ConfirmShippingPriceAsync(int shipmentId, int providerId, CancellationToken cancellationToken);
     Task<KargonomiShipmentSnapshot> GetShipmentAsync(int shipmentId, CancellationToken cancellationToken);
@@ -91,8 +102,3 @@ public sealed record KargonomiShipmentListItemResponse(
     int Id, string BuyerName, string? BuyerPhone, string BuyerAddress, string? BuyerState, string? BuyerCity,
     string? TrackingNumber, string? Carrier, string? ExternalStatus, string StatusLabel, int PackageCount,
     DateTimeOffset? CreatedAt, DateTimeOffset? UpdatedAt);
-
-public sealed record KargonomiShipmentRefreshResponse(
-    int ShipmentCount,
-    int OrderShipmentCount,
-    int FaultShipmentCount);

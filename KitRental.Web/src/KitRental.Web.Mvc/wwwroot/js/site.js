@@ -242,55 +242,13 @@
                     },
                     columnDefs
                 });
-                const kargonomiRefreshUrl = table.dataset.datatableKargonomiRefreshUrl;
-                if (kargonomiRefreshUrl) {
+                const tableSearchActions = table.closest('.table-scroll')?.querySelector('[data-kargonomi-search-actions]');
+                if (tableSearchActions) {
                     const dataTableContainer = dataTable.table().container();
-                    const tableSearchActions = table.closest('.table-scroll')?.querySelector('[data-kargonomi-search-actions]')
-                        || document.createElement('div');
                     tableSearchActions.classList.add('dt-kargonomi-search-actions');
 
-                    const refreshButton = tableSearchActions.querySelector('[data-kargonomi-refresh-button]')
-                        || document.createElement('button');
-                    refreshButton.type = 'button';
-                    refreshButton.classList.add('btn', 'btn-sm', 'dt-kargonomi-refresh');
-                    refreshButton.textContent = 'Kargo Durumlarını Güncelle';
-                    refreshButton.title = 'Bu siparişteki Kargonomi gönderilerinin durumlarını güncelle';
-
-                    if (refreshButton.dataset.kargonomiBound !== 'true') {
-                        refreshButton.dataset.kargonomiBound = 'true';
-                        refreshButton.addEventListener('click', async () => {
-                            if (refreshButton.disabled) return;
-
-                            refreshButton.disabled = true;
-                            refreshButton.classList.add('is-loading');
-                            refreshButton.textContent = 'Güncelleniyor…';
-                            try {
-                                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-                                const headers = { Accept: 'application/json' };
-                                if (token) headers.RequestVerificationToken = token;
-
-                                const response = await fetch(kargonomiRefreshUrl, {
-                                    method: 'POST',
-                                    headers
-                                });
-                                const payload = await response.json().catch(() => null);
-                                if (!response.ok)
-                                    throw new Error(payload?.message || payload?.detail || 'Kargo durumları güncellenemedi.');
-
-                                if (payload?.message)
-                                    showPopup(payload.message, payload.success === false ? 'error' : 'success');
-                                window.setTimeout(() => window.location.reload(), 800);
-                            } catch (error) {
-                                refreshButton.disabled = false;
-                                refreshButton.classList.remove('is-loading');
-                                refreshButton.textContent = 'Kargo Durumlarını Güncelle';
-                                showPopup(error instanceof Error ? error.message : 'Kargo durumları güncellenemedi.', 'error');
-                            }
-                        });
-                    }
-
-                    const clearFiltersButton = tableSearchActions.querySelector('[data-kargonomi-clear-button]')
-                        || document.createElement('button');
+                    const clearFiltersButton = tableSearchActions.querySelector('[data-kargonomi-clear-button]');
+                    if (!clearFiltersButton) return;
                     clearFiltersButton.type = 'button';
                     clearFiltersButton.classList.add('btn', 'btn-sm', 'dt-kargonomi-clear');
                     clearFiltersButton.textContent = 'Filtreyi Temizle';
@@ -317,8 +275,6 @@
                             dataTable.columns().search('').draw();
                         });
                     }
-
-                    tableSearchActions.append(refreshButton, clearFiltersButton);
 
                     const moveSearchActions = () => {
                         const searchElement = dataTableContainer.querySelector('.dt-search');

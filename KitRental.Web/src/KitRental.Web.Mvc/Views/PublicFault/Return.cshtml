@@ -49,7 +49,11 @@
                 <div id="public-location-map" class="public-location-map"></div>
                 <span id="location-status">Konumumu bul ile pimi yakın noktaya getirin veya haritadan seçin.</span>
             </div>
-            <button class="primary-action" type="submit">İade Talebi Oluştur</button>
+            <button class="primary-action" id="return-submit-button" type="submit">@(Model.DeliveryMethod == 1 ? "Kurye Çağır" : "İade Talebi Oluştur")</button>
+            <div class="public-return-loading" id="return-loading-message" role="status" aria-live="polite" hidden>
+                <strong>Kargo Barkodu veya Takip Kodu Oluşturuluyor.</strong>
+                <span>Bu ekran, Kargo Barkodu ya da Kargo Takip Kodu oluşana kadar açık kalacaktır.</span>
+            </div>
         </form>
     </section>
 </div>
@@ -61,11 +65,31 @@
     (() => {
         const method = document.getElementById('return-delivery-method');
         const pickupFields = document.querySelectorAll('[data-return-pickup-field]');
+        const submitButton = document.getElementById('return-submit-button');
+        const form = document.getElementById('public-return-form');
+        const loadingMessage = document.getElementById('return-loading-message');
+        let isSubmitting = false;
         const sync = () => {
             const isDropoff = method?.value === '2';
             pickupFields.forEach((field) => { field.hidden = isDropoff; });
+            if (submitButton && !isSubmitting) submitButton.textContent = isDropoff ? 'İade Talebi Oluştur' : 'Kurye Çağır';
         };
         method?.addEventListener('change', sync);
+        form?.addEventListener('submit', (event) => {
+            if (event.defaultPrevented || method?.value !== '1') return;
+            if (isSubmitting) {
+                event.preventDefault();
+                return;
+            }
+            isSubmitting = true;
+            if (submitButton) {
+                submitButton.classList.add('is-loading');
+                submitButton.disabled = true;
+                submitButton.textContent = 'Kargo Kodu Oluşturuluyor...';
+            }
+            if (loadingMessage) loadingMessage.hidden = false;
+            document.body.classList.add('is-page-busy');
+        });
         sync();
     })();
 </script>

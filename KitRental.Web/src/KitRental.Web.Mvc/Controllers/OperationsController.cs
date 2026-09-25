@@ -9,36 +9,16 @@ namespace KitRental.Web.Mvc.Controllers;
 [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
 public sealed class OperationsController(KitRentalApiClient apiClient) : Controller
 {
-    public async Task<IActionResult> Dashboard(CancellationToken cancellationToken) =>
-        View(await apiClient.GetDashboardAsync(cancellationToken));
-
-    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
-    public async Task<IActionResult> UpdateKitLocations(CancellationToken cancellationToken)
+    public async Task<IActionResult> Dashboard(CancellationToken cancellationToken)
     {
-        var result = await apiClient.UpdateKitLocationsAsync(cancellationToken);
-        if (!result.IsSuccess)
-        {
-            TempData["Error"] = result.Error ?? "Kit konumları güncellenemedi.";
-            return RedirectToAction(nameof(Dashboard));
-        }
-
-        var data = result.Data!;
-        if (data.CandidateCount == 0)
-        {
-            TempData["Success"] = $"Kit konumları kontrol edildi. Adresi olan {data.AddressRecordCount} kayıt içinde konumu eksik kayıt bulunmadı.";
-            return RedirectToAction(nameof(Dashboard));
-        }
-
-        TempData[data.IsConfigured ? "Success" : "Error"] = data.IsConfigured
-            ? $"Kit konum güncellemesi arka plana alındı. Adresi olan {data.AddressRecordCount} kayıttan {data.CandidateCount} tanesinde konum eksik; {data.EnqueuedCount} kayıt kuyruğa eklendi."
-            : "Gemini yapılandırması eksik veya kapalı olduğu için kit konumları güncellenemedi.";
-        return RedirectToAction(nameof(Dashboard));
+        var dashboard = await apiClient.GetOperationsDashboardAsync(cancellationToken)
+            ?? new OperationsDashboardViewModel(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        return View(dashboard);
     }
 
     public async Task<IActionResult> Returns(CancellationToken cancellationToken)
     {
-        var dashboard = await apiClient.GetDashboardAsync(cancellationToken);
-        return View(dashboard?.ReturnsInProgress ?? []);
+        return View(await apiClient.GetReturnsTableAsync(cancellationToken) ?? []);
     }
 
     [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]
@@ -81,21 +61,28 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         return RedirectToAction(returnToReturns ? nameof(Returns) : nameof(Dashboard));
     }
 
-    public async Task<IActionResult> Inventory([FromQuery] InventoryFilterViewModel filter,
-        CancellationToken cancellationToken)
+    [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]
+    public async Task<IActionResult> ReturnKargonomiBarcode(Guid id, CancellationToken cancellationToken)
     {
-        filter.RentalExpiry = filter.RentalExpiry?.Trim().ToLowerInvariant();
-        if (filter.RentalExpiry is not ("expired" or "upcoming"))
-            filter.RentalExpiry = null;
-        if (filter.CreatedFrom.HasValue && filter.CreatedTo.HasValue && filter.CreatedFrom > filter.CreatedTo)
+        var result = await apiClient.GetReturnKargonomiBarcodeAsync(id, cancellationToken);
+        if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Data?.Base64))
+            return NotFound(new { message = result.Error ?? "Henüz kargo barkodu oluşmamış, lütfen tekrar deneyin." });
+        try
         {
-            ModelState.AddModelError(nameof(filter.CreatedTo), "Bitiş tarihi başlangıç tarihinden önce olamaz.");
-            filter.CreatedTo = null;
+            return File(Convert.FromBase64String(result.Data.Base64), "application/pdf", $"iade-kargonomi-{id:N}.pdf");
         }
-        var result = await apiClient.GetInventoryAsync(filter, cancellationToken)
-            ?? new InventoryPageViewModel(1, filter.PageSize, 0, 1, []);
-        return View(new InventoryScreenViewModel(result, filter,
-            await apiClient.GetProductModelsAsync(cancellationToken)));
+        catch (FormatException)
+        {
+            return Problem("Kargonomi barkod PDF'i geçersiz döndü.");
+        }
+    }
+
+    public async Task<IActionResult> Inventory(CancellationToken cancellationToken)
+    {
+        var allInventoryFilter = new InventoryFilterViewModel { Page = 1, PageSize = 5000 };
+        var result = await apiClient.GetInventoryAsync(allInventoryFilter, cancellationToken)
+            ?? new InventoryPageViewModel(1, allInventoryFilter.PageSize, 0, 1, []);
+        return View(new InventoryScreenViewModel(result));
     }
 
     public async Task<IActionResult> Orders(int? type, CancellationToken cancellationToken)
@@ -108,17 +95,6 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     [HttpGet]
     public async Task<IActionResult> KargonomiShipments(CancellationToken cancellationToken) =>
         View(await apiClient.GetKargonomiShipmentsAsync(cancellationToken));
-
-    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
-    public async Task<IActionResult> RefreshAllKargonomiShipments(CancellationToken cancellationToken)
-    {
-        var result = await apiClient.RefreshAllKargonomiShipmentsAsync(cancellationToken);
-        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
-            ? $"Kargonomi'deki {result.Data!.ShipmentCount} gönderi kontrol edildi; " +
-              $"{result.Data.OrderShipmentCount} sipariş ve {result.Data.FaultShipmentCount} arıza gönderisi güncellendi."
-            : result.Error ?? "Kargonomi gönderileri güncellenemedi.";
-        return RedirectToAction(nameof(KargonomiShipments));
-    }
 
     [HttpGet]
     public async Task<IActionResult> OrderDetails(Guid id, bool edit = false, CancellationToken cancellationToken = default)
@@ -200,50 +176,6 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
                 : $"{message} İlk hata: {firstFailure}";
         }
         return RedirectToAction(nameof(OrderDetails), new { id });
-    }
-
-    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
-    public async Task<IActionResult> RefreshKargonomiShipment(Guid id, Guid shipmentId,
-        CancellationToken cancellationToken)
-    {
-        var result = await apiClient.RefreshKargonomiShipmentAsync(shipmentId, cancellationToken);
-        TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
-            ? "Kargonomi gönderi durumu güncellendi."
-            : result.Error ?? "Kargonomi gönderi durumu güncellenemedi.";
-        return RedirectToAction(nameof(OrderDetails), new { id });
-    }
-
-    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
-    public async Task<IActionResult> RefreshOrderKargonomiShipments(Guid id,
-        CancellationToken cancellationToken)
-    {
-        var order = await apiClient.GetOrderDetailAsync(id, cancellationToken);
-        if (order is null)
-            return NotFound(new { message = "Sipariş bulunamadı." });
-
-        var shipments = order.KargonomiShipments
-            .Where(shipment => shipment.ExternalShipmentId.HasValue)
-            .ToArray();
-        var refreshedCount = 0;
-        var errors = new List<string>();
-
-        foreach (var shipment in shipments)
-        {
-            var result = await apiClient.RefreshKargonomiShipmentAsync(shipment.Id, cancellationToken);
-            if (result.IsSuccess)
-                refreshedCount++;
-            else
-                errors.Add(result.Error ?? "Kargonomi gönderi durumu güncellenemedi.");
-        }
-
-        var failedCount = errors.Count;
-        var message = shipments.Length == 0
-            ? "Güncellenecek Kargonomi gönderisi bulunamadı."
-            : failedCount == 0
-                ? $"{refreshedCount} kargo durumu güncellendi."
-                : $"{refreshedCount} kargo durumu güncellendi, {failedCount} kayıt güncellenemedi. İlk hata: {errors[0]}";
-
-        return Ok(new { success = failedCount == 0, message });
     }
 
     [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]

@@ -48,45 +48,37 @@ public sealed record AuditListItemViewModel(Guid Id, string ActorName, string Ac
 public sealed record AuditScreenViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<AuditListItemViewModel> Items, AuditFilterViewModel Filter,
     IReadOnlyCollection<UserApiResponse> Users);
-public sealed record DashboardViewModel(
-    int Customers,
-    int ProductUnits,
-    int RentedKits,
-    int AvailableKits,
-    int FaultyKits,
-    int RepairedAwaitingShipment,
-    int PreparingKits,
-    int KitsInTransit,
-    int KitsUnderInspection,
-    int UnitsInMaintenance,
-    int ActiveOrders,
-    int OrdersAwaitingApproval,
-    int OverdueOrders,
-    int SoldKits,
-    int CompletedPurchaseOrders,
-    IReadOnlyCollection<DashboardReturnViewModel> ReturnsInProgress,
-    IReadOnlyCollection<DashboardRentalExpiryViewModel> ExpiredRentalKits,
-    IReadOnlyCollection<DashboardRentalExpiryViewModel> ExpiringRentalKits,
-    IReadOnlyCollection<DashboardKitLocationViewModel> KitLocations);
-public sealed record DashboardReturnViewModel(Guid Id, string CustomerName, int Status, string? Carrier,
+public sealed record ReturnListItemViewModel(Guid Id, string CustomerName, int Status, string? Carrier,
     string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount, string? RequesterName = null,
     string? RequesterPhone = null, string? ReturnAddress = null,
     double? Latitude = null, double? Longitude = null, int DeliveryMethod = 1);
-public sealed record DashboardRentalExpiryViewModel(Guid ProductUnitId, string KitName, string SerialNumber,
-    string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
+public sealed record ReturnTableItemViewModel(Guid ProductUnitId, Guid AssignmentId, Guid? ReturnId,
+    Guid? StudentId, string CustomerName, string StudentName, string GuardianPhone,
+    string ProductModelName, string ProductModelSku, string SerialNumber, string OrderNumber,
+    DateOnly StartDate, DateOnly EndDate, int UnitStatus, int AssignmentStatus, int ReturnStatus,
+    string ReturnStateKey, string ReturnState, string? Carrier, string? TrackingNumber,
+    int? ExternalShipmentId, string? KargonomiStatus, string? KargonomiStatusLabel, string? KargonomiBarcode,
+    DateTimeOffset? ReturnCreatedAt, DateTimeOffset? ShippedAt, DateTimeOffset? ReceivedAt,
+    string? AddressLine, string? PublicAddressToken, string? RequesterName, string? RequesterPhone,
+    int DeliveryMethod);
+public sealed record OperationsDashboardViewModel(int TotalOrders, int TotalStudents,
+    int StudentsAwaitingAddress, int StudentsAwaitingShipment, int ShipmentsInTransit,
+    int ShipmentsDelivered, int ReturnPendingKitCount, int ReturnInTransitKitCount,
+    int ReturnCompletedKitCount,
+    int FaultsAwaitingReview, int FaultsInRepair, int FaultsAwaitingShipment,
+    int FaultsCompleted);
 public sealed record DashboardKitLocationViewModel(Guid ProductUnitId, Guid ProductModelId, string KitName,
     string KitSku, string SerialNumber, string RecipientName, string AddressLine,
     int Status, double? Latitude = null, double? Longitude = null, string LocationCategory = "active");
-public sealed record KitLocationGeocodingQueueResultViewModel(
-    int AddressRecordCount,
-    int CandidateCount,
-    int EnqueuedCount,
-    bool IsConfigured);
 public sealed record ProductUnitViewModel(Guid Id, Guid ProductModelId, string SerialNumber, string QrCode, int Status);
 public sealed record InventoryItemViewModel(Guid Id, Guid ProductModelId, string ProductModelName,
     string ProductModelSku, string SerialNumber, string QrCode, int Status, DateTimeOffset CreatedAt,
     string? CustomerName = null, string? OrderNumber = null, DateOnly? RentalEndDate = null,
-    int? DaysRemaining = null);
+    int? DaysRemaining = null, string? StudentName = null, string? GuardianPhone = null,
+    string? AddressLine = null, string? PublicAddressToken = null, string? ShipmentStatusLabel = null,
+    int? ShipmentState = null, string? TrackingNumber = null, string? Carrier = null,
+    DateTimeOffset? ShipmentUpdatedAt = null, string? ShipmentError = null, Guid? OrderId = null,
+    Guid? StudentId = null);
 public sealed record InventoryPageViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<InventoryItemViewModel> Items);
 public sealed class InventoryFilterViewModel
@@ -100,8 +92,7 @@ public sealed class InventoryFilterViewModel
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 20;
 }
-public sealed record InventoryScreenViewModel(InventoryPageViewModel Result, InventoryFilterViewModel Filter,
-    IReadOnlyCollection<ProductModelCatalogViewModel> ProductModels);
+public sealed record InventoryScreenViewModel(InventoryPageViewModel Result);
 public sealed record OrderViewModel(Guid Id, string OrderNumber, Guid CustomerId, int Type,
     PeriodViewModel? Period, int Status, IReadOnlyCollection<OrderLineViewModel> Lines);
 public sealed record PeriodViewModel(DateOnly StartDate, DateOnly EndDate);
@@ -557,8 +548,6 @@ public sealed record KargonomiShipmentListItemViewModel(int Id, string BuyerName
     string BuyerAddress, string? BuyerState, string? BuyerCity, string? TrackingNumber, string? Carrier,
     string? ExternalStatus, string StatusLabel, int PackageCount, DateTimeOffset? CreatedAt,
     DateTimeOffset? UpdatedAt);
-public sealed record KargonomiShipmentRefreshViewModel(int ShipmentCount, int OrderShipmentCount,
-    int FaultShipmentCount);
 public sealed class PrepareOrderKitsViewModel
 {
     public Guid OrderId { get; set; }
@@ -631,9 +620,12 @@ public sealed class PublicReturnFormViewModel : IValidatableObject
             yield return new ValidationResult("Adres zorunludur.", [nameof(ReturnAddress)]);
     }
 }
-public sealed record PublicKitReturnContextViewModel(Guid ReturnId, string? RequesterName, string? RequesterPhone,
-    string? ReturnAddress, double? Latitude, double? Longitude,
+public sealed record PublicKitReturnContextViewModel(Guid ReturnId, int Status, string? Carrier,
+    string? TrackingNumber, string? ExternalStatus, string? ExternalStatusLabel,
+    string? RequesterName, string? RequesterPhone, string? ReturnAddress, double? Latitude, double? Longitude,
     int? ReturnReason, int DeliveryMethod = 1);
+public sealed record PublicReturnStatusViewModel(string KitName, string SerialNumber,
+    string KargonomiStatus, string? Carrier, string? TrackingNumber);
 public sealed record PublicKitDeliveryContextViewModel(string? RecipientName, string? RecipientPhone,
     string? AddressLine, double? Latitude, double? Longitude);
 public sealed class PublicDeliveryFormViewModel
@@ -667,7 +659,8 @@ public sealed class PublicStudentAddressFormViewModel
 }
 public sealed record CustomerPortalDashboardViewModel(string CustomerName, int TotalRentedKitCount,
     int ActiveKitCount, int InTransitKitCount, int PreparedKitCount, int OpenFaultCount, int CompletedFaultCount,
-    int ExpiredRentalKitCount, int ReturnProcessStartedKitCount, int ReturnedKitCount,
+    int ExpiredRentalKitCount, int ReturnAwaitingShipmentKitCount, int ReturnInTransitKitCount,
+    int ReturnFormCompletedKitCount,
     IReadOnlyCollection<DashboardKitLocationViewModel> KitLocations, int UnassignedKitCount = 0);
 public sealed record CustomerPortalRentalPeriodsDataViewModel(string CustomerName,
     IReadOnlyCollection<PortalProductModelViewModel> ProductModels,
@@ -696,7 +689,7 @@ public sealed record PortalKitReturnViewModel(Guid Id, Guid CustomerId, string C
     string? Carrier, string? TrackingNumber, DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt,
     string? RequesterName, string? RequesterPhone, string? ReturnAddress,
     double? Latitude, double? Longitude, int DeliveryMethod,
-    IReadOnlyCollection<PortalKitReturnItemViewModel> Items);
+    IReadOnlyCollection<PortalKitReturnItemViewModel> Items, string? Barcode = null);
 public sealed class PortalRentalLineInputViewModel
 {
     [Required, Display(Name = "Eğitim kiti")] public Guid ProductModelId { get; set; }

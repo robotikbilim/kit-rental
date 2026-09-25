@@ -83,6 +83,8 @@ public interface ICoreRepository
     Task AddInspectionAsync(ReturnInspection inspection, CancellationToken cancellationToken);
     Task AddKitReturnRequestAsync(KitReturnRequest request, CancellationToken cancellationToken);
     Task<KitReturnRequest?> GetKitReturnRequestAsync(Guid id, CancellationToken cancellationToken);
+    Task<KitReturnRequest?> GetKitReturnRequestByExternalShipmentIdAsync(int externalShipmentId,
+        CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KitReturnRequest>> GetKitReturnRequestsAsync(Guid? customerId, CancellationToken cancellationToken);
     Task AddAuditEntryAsync(AuditEntry entry, CancellationToken cancellationToken);
     Task AddEmailDeliveryAsync(EmailDelivery delivery, CancellationToken cancellationToken);

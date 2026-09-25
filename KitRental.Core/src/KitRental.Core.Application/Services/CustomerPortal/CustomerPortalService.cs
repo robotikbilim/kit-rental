@@ -1,5 +1,6 @@
 ﻿using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Application.Common;
+using KitRental.Core.Application.Kargonomi;
 using KitRental.Core.Application.Operations;
 using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Customers;
@@ -13,7 +14,10 @@ using KitRental.SharedKernel;
 
 namespace KitRental.Core.Application.CustomerPortal;
 
-public sealed class CustomerPortalService(ICoreRepository repository, OperationsService operationsService)
+public sealed class CustomerPortalService(
+    ICoreRepository repository,
+    OperationsService operationsService,
+    KargonomiShippingService kargonomiShippingService)
 {
     private static readonly Guid PublicActorId = new("00000000-0000-0000-0000-000000000001");
     private const string CargoDropOffAddress = "Aras Kargo şubesine bırakılacak. İade kodu: 1234567890";
@@ -23,8 +27,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
     {
         var data = await LoadPortalKitDataAsync(customerId, cancellationToken);
         var today = TurkeyTime.Today();
-        var returnProcessStartedAssignmentIds = data.Returns
-            .Where(item => item.Status is KitReturnStatus.Requested or KitReturnStatus.InTransit)
+        var returnFormCompletedAssignmentIds = data.Returns
             .SelectMany(item => item.Items).Select(item => item.AssignmentId).ToHashSet();
         var returnedAssignmentIds = data.Returns.Where(item => item.Status == KitReturnStatus.Received)
             .SelectMany(item => item.Items).Select(item => item.AssignmentId).ToHashSet();
@@ -43,8 +46,8 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             data.Faults.Count(item => !IsCompletedFaultStatus(item.Status)),
             data.Faults.Count(item => IsCompletedFaultStatus(item.Status)),
             data.Kits.Count(item => item.AssignmentStatus == RentalAssignmentStatus.Active &&
-                item.EndDate < today && !returnProcessStartedAssignmentIds.Contains(item.AssignmentId)),
-            returnProcessStartedAssignmentIds.Count, returnedAssignmentIds.Count, data.KitLocations,
+                item.EndDate < today && !returnFormCompletedAssignmentIds.Contains(item.AssignmentId)),
+            0, 0, returnFormCompletedAssignmentIds.Count, data.KitLocations,
             currentKits.Count(item => string.IsNullOrWhiteSpace(item.AssignedStudentName)));
     }
 
@@ -634,7 +637,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         return request;
     }
 
-    public async Task<KitReturnRequest> CreatePublicKitReturnAsync(CreatePublicKitReturnCommand command,
+    public async Task<PublicKitReturnResult> CreatePublicKitReturnAsync(CreatePublicKitReturnCommand command,
         CancellationToken cancellationToken)
     {
         if (!command.ReturnReason.HasValue)
@@ -652,6 +655,9 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
         var activeReturns = await repository.GetKitReturnRequestsAsync(assignment.CustomerId, cancellationToken);
         var existingRequest = activeReturns.Where(item => item.Status != KitReturnStatus.Received)
             .FirstOrDefault(item => item.Items.Any(returnItem => returnItem.AssignmentId == assignment.Id));
+        if (existingRequest?.Status == KitReturnStatus.InTransit)
+            throw new ConflictException("kit_return.already_in_transit",
+                "Bu kit için iade kargosu zaten oluşturuldu. Mevcut kargo bilgilerini QR ekranından görüntüleyebilirsiniz.");
         var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
         var now = TurkeyTime.Now();
@@ -686,6 +692,9 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             order.Id, assignment.CustomerId, KitLocationEventSource.ReturnRequest, request.Id,
             command.RequesterName, command.RequesterPhone, returnAddress, latitude, longitude, now, PublicActorId),
             cancellationToken);
+        var courierBarcode = command.DeliveryMethod == KitReturnDeliveryMethod.PickupFromAddress
+            ? await kargonomiShippingService.StartForReturnAsync(request, unit, cancellationToken)
+            : null;
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), PublicActorId,
             nameof(KitReturnRequest), request.Id, isUpdate ? "PublicReturnUpdated" : "PublicReturnRequested", null,
             command.RequesterName.Trim(), now), cancellationToken);
@@ -696,7 +705,7 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
                 : $"{command.RequesterName.Trim()} iade talebi oluşturdu.",
             cancellationToken, now);
         await repository.SaveChangesAsync(cancellationToken);
-        return request;
+        return new PublicKitReturnResult(request, courierBarcode);
     }
 
     public async Task<KitReturnRequest> ReceiveKitReturnAsync(Guid returnId, Guid actorId,
@@ -792,7 +801,8 @@ public sealed class CustomerPortalService(ICoreRepository repository, Operations
             .FirstOrDefault(item => item.Items.Any(returnItem => returnItem.AssignmentId == assignment.Id));
         if (request is null) return null;
         var isDropOff = request.DeliveryMethod == KitReturnDeliveryMethod.DropOffToCargo;
-        return new PublicKitReturnContextResponse(request.Id, request.RequesterName, request.RequesterPhone,
+        return new PublicKitReturnContextResponse(request.Id, request.Status, request.Carrier, request.TrackingNumber,
+            request.ExternalStatus, request.ExternalStatusLabel, request.RequesterName, request.RequesterPhone,
             isDropOff ? null : request.ReturnAddress,
             request.Latitude, request.Longitude,
             request.ReturnReason, request.DeliveryMethod);

@@ -51,6 +51,31 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
         return ParseShipment(await SendAsync(HttpMethod.Post, "shipments", payload, cancellationToken));
     }
 
+    public async Task<KargonomiShipmentSnapshot> CreateReturnShipmentAsync(KargonomiReturnShipmentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var payload = new
+        {
+            shipment = new
+            {
+                sender_name = request.SenderName,
+                sender_email = options.SenderEmail,
+                sender_phone = ToKargonomiMobilePhone(request.SenderPhone, "İade gönderen telefon numarası"),
+                sender_address = request.SenderAddress,
+                sender_state_id = request.SenderStateId,
+                sender_city_id = request.SenderCityId,
+                warehouse_id = ParseNullableInt(options.WarehouseId),
+                buyer_name = options.SenderName,
+                buyer_phone = ToKargonomiMobilePhone(options.SenderPhone, "İade teslim alıcısı telefon numarası"),
+                buyer_address = options.SenderAddress,
+                buyer_state_id = options.SenderStateId,
+                buyer_city_id = options.SenderCityId,
+                packages = new[] { new { content = request.PackageContent, barcode = request.PackageBarcode, desi = request.PackageDesi } }
+            }
+        };
+        return ParseShipment(await SendAsync(HttpMethod.Post, "shipments", payload, cancellationToken));
+    }
+
     public async Task<IReadOnlyCollection<KargonomiCarrierQuote>> GetPriceQuotesAsync(int shipmentId,
         CancellationToken cancellationToken)
     {

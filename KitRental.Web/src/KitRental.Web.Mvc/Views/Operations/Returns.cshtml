@@ -1,15 +1,28 @@
-@model IReadOnlyCollection<DashboardReturnViewModel>
+@model IReadOnlyCollection<ReturnTableItemViewModel>
 @{
-    ViewData["Title"] = "Gelen Teslimat";
+    ViewData["Title"] = "İadeler";
+    Func<ReturnTableItemViewModel, string> getShipmentStatusLabel = item =>
+        string.IsNullOrWhiteSpace(item.KargonomiStatusLabel)
+            ? item.ExternalShipmentId.HasValue ? "Gönderi oluşturuldu" : "Başlatılmadı"
+            : item.KargonomiStatusLabel!.Trim();
+    var shipmentFilterOptions = Model
+        .Select(getShipmentStatusLabel)
+        .Append("Başlatılmadı")
+        .Append("Hata")
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(status => status, StringComparer.CurrentCultureIgnoreCase)
+        .ToArray();
 }
 
 <div class="page-heading">
     <div>
-        <span class="eyebrow">MÜŞTERİ İADELERİ</span>
-        <h1>Gelen Teslimat</h1>
-        <p class="block-muted">İade talebi oluşturulmuş ve teslim alma süreci tamamlanmamış kitleri takip edin.</p>
+        <span class="eyebrow">FİZİKSEL TAKİP</span>
+        <h1>İadeler</h1>
+        <p class="block-muted">Süresi dolan, iade süreci başlatılan ve tamamlanan kitleri envanter tablosu ile aynı düzende takip edin.</p>
     </div>
-    <a class="secondary-action" asp-action="Dashboard">Genel Bakışa Dön</a>
+    <div class="heading-actions">
+        <a class="secondary-action" asp-action="Dashboard">Genel Bakışa Dön</a>
+    </div>
 </div>
 
 @if (TempData["Success"] is string success) { <div class="alert success">@success</div> }
@@ -17,71 +30,122 @@
 
 @if (Model.Count == 0)
 {
-    <div class="empty">İade talebi oluşturulmuş aktif kit bulunmuyor.</div>
+    <div class="empty">İade sürecinde görüntülenecek kayıt bulunamadı.</div>
 }
 else
 {
-    <div class="table-wrap">
-        <table class="js-datatable">
+    <div class="table-scroll">
+        <table class="order-kits-table student-order-table inventory-order-table returns-order-table js-datatable"
+               data-datatable-responsive="false"
+               data-datatable-page-length="10"
+               data-datatable-column-filters="true">
             <thead>
-                <tr>
-                    <th>Müşteri</th>
-                    <th>Talep Eden</th>
-                    <th>Kit Sayısı</th>
-                    <th>Durum</th>
-                    <th>Konum</th>
-                    <th>Kargo</th>
-                    <th>Başlatılma</th>
+                <tr><th>Öğrenci</th><th>Telefon</th><th>Fiziksel Kit</th><th>İade Durumu</th><th>Kargo Durumu</th><th>Takip No</th><th>Adres</th><th>Adres Linki</th><th>İşlem</th></tr>
+                <tr class="column-filter-row" data-dt-order="disable">
+                    <th><input type="search" data-column-filter aria-label="Öğrenci sütununu filtrele" placeholder="Öğrenci filtrele" autocomplete="off" /></th>
+                    <th><input type="search" data-column-filter aria-label="Telefon sütununu filtrele" placeholder="Telefon filtrele" autocomplete="off" /></th>
+                    <th><input type="search" data-column-filter aria-label="Fiziksel kit sütununu filtrele" placeholder="Kit filtrele" autocomplete="off" /></th>
+                    <th>
+                        <select data-column-filter aria-label="İade durumu sütununu filtrele">
+                            <option value="">Tümü</option>
+                            <option>İade Bekleniyor</option>
+                            <option>Kargoda</option>
+                            <option>Tamamlanmış</option>
+                        </select>
+                    </th>
+                    <th>
+                        <div class="column-multi-filter" data-multi-filter>
+                            <button class="column-multi-filter-toggle" type="button" data-multi-filter-toggle aria-haspopup="listbox" aria-expanded="false" aria-label="Kargo durumu filtresini aç">Tümü</button>
+                            <div class="column-multi-filter-menu" data-multi-filter-menu role="group" aria-label="Kargo durumu seçenekleri" hidden>
+                                <label><input type="checkbox" value="" data-multi-filter-option checked /> <span>Tümü</span></label>
+                                @foreach (var status in shipmentFilterOptions)
+                                {
+                                    <label><input type="checkbox" value="@status" data-multi-filter-option /> <span>@status</span></label>
+                                }
+                            </div>
+                            <select multiple data-column-filter data-column-filter-multi="true" aria-label="Kargo durumu sütununu filtrele" hidden tabindex="-1">
+                                <option value="">Tümü</option>
+                                @foreach (var status in shipmentFilterOptions)
+                                {
+                                    <option value="@status">@status</option>
+                                }
+                            </select>
+                        </div>
+                    </th>
+                    <th><input type="search" data-column-filter aria-label="Takip numarası sütununu filtrele" placeholder="Takip no filtrele" autocomplete="off" /></th>
+                    <th>
+                        <select data-column-filter data-column-filter-regex="true" aria-label="Adres sütununu filtrele">
+                            <option value="">Tümü</option>
+                            <option value="\\S+">Adresi Girilenler</option>
+                            <option value="^\\s*$">Adresi Girilmeyenler</option>
+                        </select>
+                    </th>
+                    <th><input type="search" data-column-filter aria-label="Adres linki sütununu filtrele" placeholder="Adres linki filtrele" autocomplete="off" /></th>
                     <th></th>
                 </tr>
             </thead>
             <tbody>
-            @foreach (var item in Model)
-            {
-                var requester = item.RequesterName;
-                var mapUrl = item.Latitude.HasValue && item.Longitude.HasValue
-                    ? $"https://www.google.com/maps?q={item.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)},{item.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
-                    : null;
-                <tr>
-                    <td>@item.CustomerName</td>
-                    <td>
-                        @(string.IsNullOrWhiteSpace(requester) ? "-" : requester)
-                        @if (!string.IsNullOrWhiteSpace(item.RequesterPhone))
-                        {
-                            <a class="fault-phone" href="tel:@item.RequesterPhone">@item.RequesterPhone</a>
-                        }
-                        @if (!string.IsNullOrWhiteSpace(item.ReturnAddress))
-                        {
-                            <small class="block-muted">@item.ReturnAddress</small>
-                        }
-                        <small class="block-muted">Teslimat Şekli: @(item.DeliveryMethod == 2 ? "Kendim Bırakacağım" : "Adresimden Alınsın")</small>
-                        @if (item.DeliveryMethod == 2)
-                        {
-                            <small class="block-muted">"1234567890" İade Kodu ile herhangi bir Aras Kargo şubesine bırakabilir.</small>
-                        }
-                    </td>
-                    <td>@item.KitCount</td>
-                    <td>@(item.Status == 1 ? "İade Talebi Alındı" : "İade Yolda")</td>
-                    <td>
-                        @if (mapUrl is null)
-                        {
-                            <span>-</span>
-                        }
-                        else
-                        {
-                            <a class="table-action" href="@mapUrl" target="_blank" rel="noopener">Haritada Aç</a>
-                        }
-                    </td>
-                    <td>@(item.Carrier is null ? "-" : $"{item.Carrier} / {item.TrackingNumber}")</td>
-                    <td>@item.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</td>
-                    <td>
-                        <form asp-action="ReceiveReturn" asp-route-id="@item.Id" method="post" data-confirm="Bu iadeyi teslim alıp kiti yeniden kiralanabilir stoğa almak istiyor musunuz?">
-                            <input type="hidden" name="returnToReturns" value="true" />
-                            <button class="btn btn-primary" type="submit">İadeyi Kabul Et</button>
-                        </form>
-                    </td>
-                </tr>
-            }
+                @foreach (var item in Model)
+                {
+                    var hasAddress = !string.IsNullOrWhiteSpace(item.AddressLine);
+                    var shipmentStatusLabel = getShipmentStatusLabel(item);
+                    var addressUrl = string.IsNullOrWhiteSpace(item.PublicAddressToken)
+                        ? string.Empty
+                        : Url.Action("Index", "PublicStudentAddress", new { token = item.PublicAddressToken }, Context.Request.Scheme) ?? string.Empty;
+                    var isCompleted = item.ReturnStateKey == "completed";
+                    var statusClass = isCompleted ? "line-complete" : "line-pending";
+                    <tr>
+                        <td><strong class="student-name-truncate" title="@item.StudentName">@item.StudentName</strong></td>
+                        <td>@item.GuardianPhone</td>
+                        <td>
+                            <a class="student-kit-serial-truncate" title="@item.SerialNumber" asp-controller="PhysicalKits" asp-action="Details" asp-route-id="@item.ProductUnitId">@item.SerialNumber</a>
+                            <small class="block-muted">@item.ProductModelName · @item.ProductModelSku · @item.OrderNumber</small>
+                        </td>
+                        <td>
+                            <span class="@statusClass">@item.ReturnState</span>
+                            @if (item.ExternalShipmentId.HasValue)
+                            {
+                                <small class="block-muted">Kargo gönderisi oluşturuldu</small>
+                            }
+                            else if (item.ReturnStatus == 1)
+                            {
+                                <small class="block-muted">@(item.DeliveryMethod == 1 ? "Adresinden alınacak" : "Kargo şubesine bırakılacak")</small>
+                            }
+                        </td>
+                        <td>@shipmentStatusLabel</td>
+                        <td>@(item.TrackingNumber ?? "-")</td>
+                        <td>
+                            @if (hasAddress)
+                            {
+                                <span class="student-address-truncate" title="@item.AddressLine">@item.AddressLine</span>
+                            }
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrWhiteSpace(addressUrl))
+                            {
+                                <a class="student-public-link-truncate" href="@addressUrl" target="_blank" rel="noopener" title="@addressUrl">@addressUrl</a>
+                            }
+                        </td>
+                        <td>
+                            <div class="table-actions-compact student-shipment-actions">
+                                <a class="icon-action icon-action-neutral" asp-controller="PhysicalKits" asp-action="Details" asp-route-id="@item.ProductUnitId" title="Fiziksel kit detayını aç" aria-label="@item.SerialNumber fiziksel kit detayını aç">
+                                    <i data-lucide="eye"></i><span class="visually-hidden">Detay</span>
+                                </a>
+                                @if (item.ReturnId.HasValue && !isCompleted)
+                                {
+                                    <form asp-action="ReceiveReturn" asp-route-id="@item.ReturnId" method="post" data-confirm="Bu iadeyi teslim alıp kiti yeniden kullanılabilir stoğa almak istiyor musunuz?">
+                                        <input type="hidden" name="returnToReturns" value="true" />
+                                        <button class="icon-action icon-action-success" type="submit" title="İadeyi teslim al" aria-label="@item.SerialNumber iadesini teslim al"><i data-lucide="package-check"></i><span class="visually-hidden">İadeyi teslim al</span></button>
+                                    </form>
+                                }
+                                @if (item.ReturnId.HasValue && item.ExternalShipmentId.HasValue)
+                                {
+                                    <a class="icon-action icon-action-neutral" asp-action="ReturnKargonomiBarcode" asp-route-id="@item.ReturnId" target="_blank" rel="noopener" title="Kargo barkodunu yazdır" aria-label="@item.SerialNumber iade kargo barkodunu yazdır"><i data-lucide="printer"></i><span class="visually-hidden">Kargo barkodunu yazdır</span></a>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
             </tbody>
         </table>
     </div>

@@ -1,4 +1,5 @@
 using KitRental.Core.Application.CustomerPortal;
+using KitRental.Core.Application.Kargonomi;
 using KitRental.Core.Application.Inventory;
 using KitRental.Core.Application.Operations;
 using KitRental.Core.Application.PhysicalKits;
@@ -10,6 +11,9 @@ using KitRental.Security;
 using KitRental.SharedKernel;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
@@ -17,12 +21,22 @@ namespace KitRental.Core.IntegrationTests;
 
 public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory<Program>>
 {
+    private const string TestWebhookSecret = "integration-test-kargonomi-webhook-secret";
     private readonly WebApplicationFactory<Program> _factory;
     private readonly TokenService _tokens = new(new TokenOptions(
         "KitRental.Identity", "KitRental", "development-only-secret-change-before-production-2026", TimeSpan.FromHours(8)));
 
     public CustomerPortalApiTests(WebApplicationFactory<Program> factory) =>
-        _factory = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Testing"));
+        _factory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("Kargonomi:WebhookSecret", TestWebhookSecret);
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IKargonomiClient>();
+                services.AddScoped<IKargonomiClient, FakeKargonomiClient>();
+            });
+        });
 
     [Fact]
     public async Task CustomerPortalListsOwnKitBlocksRentalRequestAndCreatesFault()
@@ -211,7 +225,55 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             new PublicKitReturnRequest(token, "Ayse Test", "05321112233", "Iade Sokak 30 Kadikoy Istanbul",
                 null, null, KitReturnReason.EducationCompleted),
             cancellationToken);
-        Assert.Equal(KitReturnStatus.Requested, createdReturn.Status);
+        Assert.Equal(KitReturnStatus.InTransit, createdReturn.Status);
+        Assert.Equal("HepsiJet", createdReturn.Carrier);
+        Assert.StartsWith("RETURN-", createdReturn.TrackingNumber);
+        Assert.StartsWith("BARCODE-", createdReturn.Barcode);
+        var publicReturnContext = await publicClient.GetFromJsonAsync<PublicKitReturnContextResponse>(
+            $"/api/public/returns/context/{token}", cancellationToken);
+        Assert.Equal(KitReturnStatus.InTransit, publicReturnContext!.Status);
+        Assert.Equal("HepsiJet", publicReturnContext.Carrier);
+        Assert.Equal(createdReturn.TrackingNumber, publicReturnContext.TrackingNumber);
+
+        var returnTable = await admin.GetFromJsonAsync<ReturnTableWebhookRow[]>(
+            "/api/returns/table", cancellationToken);
+        var linkedReturn = Assert.Single(returnTable!, item => item.ReturnId == createdReturn.Id);
+        Assert.NotNull(linkedReturn.ExternalShipmentId);
+        Assert.Equal("Kargoda", linkedReturn.ReturnState);
+        var webhookPayload = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            shipment = new
+            {
+                id = linkedReturn.ExternalShipmentId!.Value,
+                shipping_provider_name = "HepsiJet",
+                shipping_webservice_tracking_code = "WEBHOOK-TRACKING",
+                shipping_webservice_barcode = "WEBHOOK-BARCODE",
+                status = "webservice_shipment_delivered",
+                status_label = "Kargo Teslim Edildi",
+                description = "Webhook test güncellemesi"
+            }
+        });
+        using var webhook = new HttpRequestMessage(HttpMethod.Post,
+            "/api/kargonomi/webhooks/shipment-updated")
+        {
+            Content = new StringContent(webhookPayload, System.Text.Encoding.UTF8, "application/json")
+        };
+        webhook.Headers.Add("X-Webhook-Signature", Convert.ToHexString(
+            System.Security.Cryptography.HMACSHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(TestWebhookSecret),
+                System.Text.Encoding.UTF8.GetBytes(webhookPayload))));
+        var webhookResponse = await admin.SendAsync(webhook, cancellationToken);
+        webhookResponse.EnsureSuccessStatusCode();
+
+        var refreshedReturnTable = await admin.GetFromJsonAsync<ReturnTableWebhookRow[]>(
+            "/api/returns/table", cancellationToken);
+        var refreshedReturn = Assert.Single(refreshedReturnTable!, item => item.ReturnId == createdReturn.Id);
+        Assert.Equal("WEBHOOK-TRACKING", refreshedReturn.TrackingNumber);
+        Assert.Equal("webservice_shipment_delivered", refreshedReturn.KargonomiStatus);
+        Assert.Equal("Kargo Teslim Edildi", refreshedReturn.KargonomiStatusLabel);
+        Assert.Equal("WEBHOOK-BARCODE", refreshedReturn.KargonomiBarcode);
+        Assert.Equal("Kargoda", refreshedReturn.ReturnState);
+
         var returnContext = await publicClient.GetFromJsonAsync<PublicKitDeliveryContextResponse>(
             $"/api/public/deliveries/context/{token}", cancellationToken);
         Assert.Equal("Iade Sokak 30 Kadikoy Istanbul", returnContext!.AddressLine);
@@ -221,22 +283,26 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
                 "Guncel Iade Sokak 40 Kadikoy Istanbul", 41.012345, 29.012345,
                 KitReturnReason.EducationCompleted),
             cancellationToken);
-        Assert.Equal(System.Net.HttpStatusCode.Created, duplicateReturn.StatusCode);
-        var latestContext = await publicClient.GetFromJsonAsync<PublicKitDeliveryContextResponse>(
-            $"/api/public/deliveries/context/{token}", cancellationToken);
-        Assert.Equal("Ayse Guncel", latestContext!.RecipientName);
-        Assert.Equal("Guncel Iade Sokak 40 Kadikoy Istanbul", latestContext.AddressLine);
-        Assert.Equal(41.012345, latestContext.Latitude);
-        Assert.Equal(29.012345, latestContext.Longitude);
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, duplicateReturn.StatusCode);
+        var currentReturnContext = await publicClient.GetFromJsonAsync<PublicKitReturnContextResponse>(
+            $"/api/public/returns/context/{token}", cancellationToken);
+        Assert.Equal("WEBHOOK-TRACKING", currentReturnContext!.TrackingNumber);
+        Assert.Equal("Iade Sokak 30 Kadikoy Istanbul", currentReturnContext.ReturnAddress);
 
-        var dashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
-        var dashboardReturn = Assert.Single(dashboard!.ReturnsInProgress, item => item.Id == createdReturn.Id);
-        Assert.Equal("Ayse Guncel", dashboardReturn.RequesterName);
-        Assert.Equal("0532 111 22 33", dashboardReturn.RequesterPhone);
-        Assert.Equal("Guncel Iade Sokak 40 Kadikoy Istanbul", dashboardReturn.ReturnAddress);
-        Assert.Equal(41.012345, dashboardReturn.Latitude);
-        Assert.Equal(29.012345, dashboardReturn.Longitude);
+        var returns = await admin.GetFromJsonAsync<ReturnListItemResponse[]>("/api/returns", cancellationToken);
+        var returnItem = Assert.Single(returns!, item => item.Id == createdReturn.Id);
+        Assert.Equal("Ayse Test", returnItem.RequesterName);
+        Assert.Equal("0532 111 22 33", returnItem.RequesterPhone);
+        Assert.Equal("Iade Sokak 30 Kadikoy Istanbul", returnItem.ReturnAddress);
+        Assert.Null(returnItem.Latitude);
+        Assert.Null(returnItem.Longitude);
         Assert.Equal(rental.AssignmentId, createdReturn.Items.Single().AssignmentId);
+
+        await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{createdReturn.Id}/receipts", new { }, cancellationToken);
+        var completedReturnTable = await admin.GetFromJsonAsync<ReturnTableWebhookRow[]>(
+            "/api/returns/table", cancellationToken);
+        var completedReturn = Assert.Single(completedReturnTable!, item => item.ReturnId == createdReturn.Id);
+        Assert.Equal("Tamamlanmış", completedReturn.ReturnState);
 
         var availableUnit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
             new CreateProductUnitRequest(model.Id, $"PQR-FREE-{Guid.NewGuid():N}", $"PQR-FREE-QR-{Guid.NewGuid():N}"),
@@ -253,7 +319,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     }
 
     [Fact]
-    public async Task PublicQrReceivesInTransitKitAndAddsDashboardLocation()
+    public async Task PublicQrReceivesInTransitKitAndAddsLocationHistory()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var admin = CreateClient(new TokenUser(Guid.NewGuid(), "admin-public-delivery@test.local", "SystemAdmin", null));
@@ -288,12 +354,6 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
                 "Ataturk Caddesi 12", 41.0438, 29.0094), cancellationToken);
         Assert.Equal(unit.Id, receipt.ProductUnitId);
         Assert.Equal(prepared.Kits.Single().AssignmentId, receipt.AssignmentId);
-
-        var dashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
-        var location = Assert.Single(dashboard!.KitLocations, item => item.ProductUnitId == unit.Id);
-        Assert.Equal("Ece Yilmaz", location.RecipientName);
-        Assert.Equal(41.0438, location.Latitude);
-        Assert.Equal(29.0094, location.Longitude);
 
         var detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
             $"/api/physical-kits/{unit.Id}", cancellationToken);
@@ -404,6 +464,10 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             "/api/customer-portal", cancellationToken);
         Assert.Equal(0, initialOverview!.ActiveKitCount);
         Assert.Equal(2, initialOverview.UnassignedKitCount);
+        Assert.Equal(0, initialOverview.ExpiredRentalKitCount);
+        Assert.Equal(0, initialOverview.ReturnAwaitingShipmentKitCount);
+        Assert.Equal(0, initialOverview.ReturnInTransitKitCount);
+        Assert.Equal(0, initialOverview.ReturnFormCompletedKitCount);
 
         var faultResponse = await customer.PostAsJsonAsync("/api/customer-portal/faults", new PortalFaultRequest(
             faultyRental.AssignmentId, "Aktif Kit Musterisi", "05320000000", "Test Sokak 2",
@@ -420,15 +484,15 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             "/api/customer-portal", cancellationToken);
         Assert.Equal(0, updatedOverview!.ActiveKitCount);
         Assert.Equal(1, updatedOverview.UnassignedKitCount);
+        Assert.Equal(0, updatedOverview.ExpiredRentalKitCount);
+        Assert.Equal(0, updatedOverview.ReturnAwaitingShipmentKitCount);
+        Assert.Equal(0, updatedOverview.ReturnInTransitKitCount);
+        Assert.Equal(1, updatedOverview.ReturnFormCompletedKitCount);
         var faultyLocation = Assert.Single(updatedOverview.KitLocations);
         Assert.Equal(faultyUnit.Id, faultyLocation.ProductUnitId);
         Assert.Equal("faulty", faultyLocation.LocationCategory);
         Assert.DoesNotContain(updatedOverview.KitLocations, item => item.ProductUnitId == returnedUnit.Id);
 
-        var dashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
-        var dashboardFaultyLocation = Assert.Single(dashboard!.KitLocations, item => item.ProductUnitId == faultyUnit.Id);
-        Assert.Equal("faulty", dashboardFaultyLocation.LocationCategory);
-        Assert.DoesNotContain(dashboard.KitLocations, item => item.ProductUnitId == returnedUnit.Id);
     }
 
     [Fact]
@@ -481,22 +545,11 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             new CreateProductModelRequest("İade Test Kiti", $"RET-{Guid.NewGuid():N}"), cancellationToken);
         var unit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
             new CreateProductUnitRequest(model.Id, $"RET-SN-{Guid.NewGuid():N}", $"RET-QR-{Guid.NewGuid():N}"), cancellationToken);
-        var expiringUnit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
-            new CreateProductUnitRequest(model.Id, $"EXP-SN-{Guid.NewGuid():N}", $"EXP-QR-{Guid.NewGuid():N}"), cancellationToken);
         var email = $"return-{Guid.NewGuid():N}@example.com";
         var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rentals",
             new RentPhysicalKitRequest("İade Müşterisi", email, "02120000000", "Test Sokak 1",
                 "34000", today.AddMonths(-2), today.AddDays(-1)), cancellationToken);
         var customer = CreateClient(new TokenUser(Guid.NewGuid(), email, "CustomerAccountManager", rental.CustomerId));
-        await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{expiringUnit.Id}/rentals",
-            new RentPhysicalKitRequest("Yaklaşan Kiralama", $"expiring-{Guid.NewGuid():N}@example.com", "02120000001",
-                "Test Sokak 2", "34000", today.AddDays(-10), today.AddDays(7)), cancellationToken);
-
-        var expiryDashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
-        Assert.Contains(expiryDashboard!.ExpiredRentalKits, x => x.ProductUnitId == unit.Id && x.DaysRemaining < 0);
-        Assert.Contains(expiryDashboard.ExpiringRentalKits,
-            x => x.ProductUnitId == expiringUnit.Id && x.DaysRemaining is >= 0 and <= 7);
-
         var created = await PostAsync<ReturnResponse>(customer, "/api/customer-portal/returns",
             new { assignmentIds = new[] { rental.AssignmentId } }, cancellationToken);
         Assert.Equal(KitReturnStatus.Requested, created.Status);
@@ -504,8 +557,8 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             new { carrier = "Test Kargo", trackingNumber = $"TK-{Guid.NewGuid():N}" }, cancellationToken);
         Assert.Equal(KitReturnStatus.InTransit, shipped.Status);
 
-        var dashboard = await admin.GetFromJsonAsync<DashboardResponse>("/api/dashboard", cancellationToken);
-        Assert.Contains(dashboard!.ReturnsInProgress, x => x.Id == created.Id && x.KitCount == 1);
+        var activeReturns = await admin.GetFromJsonAsync<ReturnListItemResponse[]>("/api/returns", cancellationToken);
+        Assert.Contains(activeReturns!, x => x.Id == created.Id && x.KitCount == 1);
         await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{created.Id}/receipts", new { }, cancellationToken);
 
         var units = (await admin.GetFromJsonAsync<PagedResponse<ProductUnitResponse>>("/api/product-units?pageSize=5000", cancellationToken))!.Items;
@@ -648,8 +701,12 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
     private sealed record PublicDeliveryResponse(Guid Id, Guid ProductUnitId, Guid AssignmentId);
     private sealed record ReturnResponse(Guid Id, KitReturnStatus Status);
     private sealed record PublicReturnResponse(Guid Id, KitReturnStatus Status,
-        IReadOnlyCollection<PublicReturnItemResponse> Items);
+        IReadOnlyCollection<PublicReturnItemResponse> Items, string? Carrier = null, string? TrackingNumber = null,
+        string? Barcode = null);
     private sealed record PublicReturnItemResponse(Guid AssignmentId, Guid ProductUnitId, Guid OrderId);
+    private sealed record ReturnTableWebhookRow(Guid? ReturnId, string? TrackingNumber,
+        int? ExternalShipmentId, string? KargonomiStatus, string? KargonomiStatusLabel,
+        string? KargonomiBarcode, string? ReturnState = null);
 }
 
 

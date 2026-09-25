@@ -164,6 +164,7 @@ GET  /api/faults
 POST /api/faults/{id}/status
 POST /api/return-inspections
 GET  /api/dashboard
+GET  /api/returns
 GET  /api/audit
 GET  /api/reports/inventory.csv
 ```

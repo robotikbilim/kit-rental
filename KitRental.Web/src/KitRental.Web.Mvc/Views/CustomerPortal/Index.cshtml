@@ -51,9 +51,9 @@
     </header>
     <div class="metrics portal-metrics">
         <a class="metric-card portal-metric-expired" asp-action="Returns" asp-route-state="pending" title="@Model.ExpiredRentalKitCount kiralama dönemi geçmiş, iade süreci başlatılmamış kit."><span>İade Beklenen Kitler</span><strong>@Model.ExpiredRentalKitCount</strong></a>
-        <a class="metric-card portal-metric-processing" asp-action="Returns" asp-route-state="processing" title="@Model.ReturnProcessStartedKitCount iade süreci başlatılmış kit."><span>İade Sürecindeki Kitler</span><strong>@Model.ReturnProcessStartedKitCount</strong></a>
-        <a class="metric-card portal-metric-returned" asp-action="Returns" asp-route-state="returned" title="@Model.ReturnedKitCount geçmişte kiralanmış ve iade edilmiş kit."><span>İade Edilen Kitler</span><strong>@Model.ReturnedKitCount</strong></a>
-        <div class="portal-metric-placeholder" aria-hidden="true"></div>
+        <div class="metric-card portal-metric-processing" title="Kargo bekleyen iadeler için hesaplama daha sonra eklenecek."><span>Kargo Bekleyen Kitler</span><strong>@Model.ReturnAwaitingShipmentKitCount</strong></div>
+        <div class="metric-card portal-metric-processing" title="Kargodaki iadeler için hesaplama daha sonra eklenecek."><span>Kargodaki Kitler</span><strong>@Model.ReturnInTransitKitCount</strong></div>
+        <a class="metric-card portal-metric-returned" asp-action="Returns" asp-route-state="all" title="@Model.ReturnFormCompletedKitCount iade formu doldurulmuş kit."><span>İadesi Tamamlanmış Kitler</span><strong>@Model.ReturnFormCompletedKitCount</strong></a>
     </div>
 </section>
 <section class="dashboard-group kit-map-section">

@@ -46,16 +46,9 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<EmailNotificationWorker>();
         services.AddScoped<EmailNotificationDispatcher>();
         services.AddScoped<IEmailNotificationService, QueuedEmailNotificationService>();
-        services.AddScoped<KitLocationGeocodingService>();
-        services.AddSingleton<IKitLocationGeocodingQueue, KitLocationGeocodingQueue>();
-        services.AddHostedService<KitLocationGeocodingWorker>();
-
         services.AddHttpClient("identity-notifications", client =>
             client.BaseAddress = new Uri(configuration["Notifications:IdentityBaseUrl"]
                 ?? "https://localhost:59592"));
-        services.AddHttpClient("gemini", client =>
-            client.BaseAddress = new Uri(configuration["Gemini:BaseUrl"]
-                ?? "https://generativelanguage.googleapis.com"));
         services.AddHttpClient<IKargonomiClient, KargonomiClient>();
 
         return services;

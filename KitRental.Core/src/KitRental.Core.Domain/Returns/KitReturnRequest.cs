@@ -36,6 +36,11 @@ public sealed class KitReturnRequest
     public KitReturnStatus Status { get; private set; }
     public string? Carrier { get; private set; }
     public string? TrackingNumber { get; private set; }
+    public int? ExternalShipmentId { get; private set; }
+    public string? ExternalStatus { get; private set; }
+    public string? ExternalStatusLabel { get; private set; }
+    public string? KargonomiBarcode { get; private set; }
+    public DateTimeOffset? ExternalUpdatedAt { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? ShippedAt { get; private set; }
     public DateTimeOffset? ReceivedAt { get; private set; }
@@ -104,6 +109,35 @@ public sealed class KitReturnRequest
             throw new DomainException("kit_return.invalid_shipment", "Kargo firması ve takip numarası zorunludur.");
         Carrier = carrier.Trim(); TrackingNumber = trackingNumber.Trim().ToUpperInvariant();
         ShippedAt = shippedAt; Status = KitReturnStatus.InTransit;
+    }
+
+    public void MarkKargonomiShipment(string carrier, string? trackingNumber, DateTimeOffset shippedAt)
+    {
+        if (Status != KitReturnStatus.Requested || string.IsNullOrWhiteSpace(carrier))
+            throw new DomainException("kit_return.invalid_shipment", "Kargo firması zorunludur.");
+        Carrier = carrier.Trim();
+        TrackingNumber = string.IsNullOrWhiteSpace(trackingNumber) ? null : trackingNumber.Trim().ToUpperInvariant();
+        ShippedAt = shippedAt; Status = KitReturnStatus.InTransit;
+    }
+
+    public void LinkExternalShipment(int externalShipmentId, string? carrier, string? trackingNumber,
+        string? barcode, string? externalStatus, string? externalStatusLabel, DateTimeOffset? updatedAt)
+    {
+        if (externalShipmentId <= 0)
+            throw new DomainException("kit_return.invalid_external_shipment", "Geçerli bir Kargonomi gönderi numarası zorunludur.");
+        ExternalShipmentId = externalShipmentId;
+        ApplyKargonomiUpdate(carrier, trackingNumber, barcode, externalStatus, externalStatusLabel, updatedAt);
+    }
+
+    public void ApplyKargonomiUpdate(string? carrier, string? trackingNumber, string? barcode,
+        string? externalStatus, string? externalStatusLabel, DateTimeOffset? updatedAt)
+    {
+        if (!string.IsNullOrWhiteSpace(carrier)) Carrier = carrier.Trim();
+        if (!string.IsNullOrWhiteSpace(trackingNumber)) TrackingNumber = trackingNumber.Trim().ToUpperInvariant();
+        if (!string.IsNullOrWhiteSpace(barcode)) KargonomiBarcode = barcode.Trim();
+        if (!string.IsNullOrWhiteSpace(externalStatus)) ExternalStatus = externalStatus.Trim();
+        if (!string.IsNullOrWhiteSpace(externalStatusLabel)) ExternalStatusLabel = externalStatusLabel.Trim();
+        if (updatedAt.HasValue) ExternalUpdatedAt = updatedAt;
     }
 
     public void Receive(DateTimeOffset receivedAt)

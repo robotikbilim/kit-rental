@@ -1,0 +1,20 @@
+@model PublicReturnStatusViewModel
+@{ ViewData["Title"] = "İade Kargo Durumu"; }
+<div class="public-fault-shell">
+    <section class="public-fault-card public-fault-success">
+        <span class="success-mark">OK</span>
+        <span class="eyebrow">İADE KARGO DURUMU</span>
+        <h1>İade kargonuz devam ediyor</h1>
+        <p>Bu kit için daha önce kurye çağrılmış. Admin panelden teslim alındı olarak işaretlenene kadar yeni iade formu açılmaz.</p>
+        <div class="public-kit-summary"><span>Okutulan ürün</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
+        <div class="public-kit-summary"><span>Kargo durumu</span><strong>@Model.KargonomiStatus</strong></div>
+        @if (!string.IsNullOrWhiteSpace(Model.Carrier))
+        {
+            <div class="public-kit-summary"><span>Kargo firması</span><strong>@Model.Carrier</strong></div>
+        }
+        <div class="public-kit-summary">
+            <span>Kargo takip kodu</span>
+            <strong><code>@(string.IsNullOrWhiteSpace(Model.TrackingNumber) ? "Henüz oluşmadı" : Model.TrackingNumber)</code></strong>
+        </div>
+    </section>
+</div>

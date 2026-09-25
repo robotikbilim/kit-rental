@@ -1,152 +1,104 @@
-@model DashboardViewModel
-@using System.Text.Json
+@model OperationsDashboardViewModel
 @{
     ViewData["Title"] = "Genel Bakış";
-    var urgentWorkCount = Model is null ? 0 :
-        Model.OrdersAwaitingApproval + Model.FaultyKits + Model.ExpiredRentalKits.Count + Model.ReturnsInProgress.Count;
-    var allKitLocations = Model is null
-        ? Array.Empty<DashboardKitLocationViewModel>()
-        : Model.KitLocations.ToArray();
-    var mapLocations = allKitLocations.Where(item => item.Latitude.HasValue && item.Longitude.HasValue).ToArray();
-    var missingLocationCount = allKitLocations.Length - mapLocations.Length;
-    var mapLocationsJson = JsonSerializer.Serialize(
-        mapLocations,
-        new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 }
-@section Head {
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-}
-<div class="page-heading dashboard-heading">
-    <div><span class="eyebrow">CANLI OPERASYON</span><h1>Bugün neyle ilgilenmelisiniz?</h1><p>Tüm kritik işleri önem sırasına göre tek ekrandan yönetin.</p></div>
-    <span class="status-dot"><partial name="_DashboardIcon" model="@("status")" /> Sistem çalışıyor</span>
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">YÖNETİM PANELİ</span>
+        <h1>Genel Bakış</h1>
+        <p class="block-muted">Sipariş, öğrenci adresi ve kargo durumlarını tek bakışta takip edin.</p>
+    </div>
 </div>
-@if (Model is null)
-{
-    <div class="empty">Core servisine ulaşılamadı.</div>
-}
-else
-{
-    @if (TempData["Success"] is string success) { <div class="alert success">@success</div> }
-    @if (TempData["Error"] is string error) { <div class="alert error">@error</div> }
-    <section class="attention-board">
-        <header class="attention-heading">
-            <div><span class="eyebrow">ÖNCELİKLİ İŞLER</span><h2>@(urgentWorkCount == 0 ? "Harika, bekleyen kritik iş yok" : $"{urgentWorkCount} iş sizi bekliyor")</h2></div>
-            <span class="attention-pulse">Canlı durum</span>
-        </header>
-        <div class="attention-grid">
-            <a class="attention-card priority-high" asp-action="Orders">
-                <span class="attention-icon"><partial name="_DashboardIcon" model="@("orders")" /></span><div><small>SİPARİŞ ONAYI</small><strong>@Model.OrdersAwaitingApproval</strong><p>Onayınızı bekleyen sipariş</p></div><b>İncele →</b>
-            </a>
-            <a class="attention-card priority-high" asp-action="Faults">
-                <span class="attention-icon"><partial name="_DashboardIcon" model="@("fault")" /></span><div><small>TEKNİK SERVİS</small><strong>@Model.FaultyKits</strong><p>İlgilenilmesi gereken arıza</p></div><b>Arızalara git →</b>
-            </a>
-            <a class="attention-card priority-medium" asp-action="Inventory" asp-route-status="5" asp-route-rentalExpiry="expired">
-                <span class="attention-icon"><partial name="_DashboardIcon" model="@("clock")" /></span><div><small>GECİKEN İADE</small><strong>@Model.ExpiredRentalKits.Count</strong><p>Süresi dolan kiralık kit</p></div><b>Listeyi aç →</b>
-            </a>
-            <a class="attention-card priority-medium" asp-action="Returns">
-                <span class="attention-icon"><partial name="_DashboardIcon" model="@("return")" /></span><div><small>GELEN TESLİMAT</small><strong>@Model.ReturnsInProgress.Count</strong><p>Devam eden müşteri iadesi</p></div><b>Kontrol et →</b>
-            </a>
-        </div>
-    </section>
-    <nav class="dashboard-shortcuts" aria-label="Hızlı işlemler">
-        @if (User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager"))
-        {
-            <a asp-action="CreateOrder"><partial name="_DashboardIcon" model="@("plus")" />Yeni sipariş</a>
-        }
-        <a asp-controller="PhysicalKits" asp-action="Lookup"><partial name="_DashboardIcon" model="@("scan")" />Kit sorgula</a>
-        <a asp-controller="Workshop" asp-action="Index"><partial name="_DashboardIcon" model="@("search")" />Komponent bul</a>
-        <a asp-action="Inventory"><partial name="_DashboardIcon" model="@("inventory")" />Envanteri aç</a>
-        <a asp-controller="SupplyNeeds" asp-action="Index"><partial name="_DashboardIcon" model="@("list")" />İhtiyaç listeleri</a>
-    </nav>
-    <section class="dashboard-group dashboard-group-general">
-        <header class="dashboard-group-heading">
-            <div><span class="eyebrow">GÜNLÜK OPERASYON</span><h2>Genel hızlı erişimler</h2></div>
-            <p>Bekleyen işleri ve hareket halindeki kitleri tek bakışta takip edin.</p>
-        </header>
-        <div class="metrics dashboard-metrics">
-            <a class="metric-card" asp-action="Orders"><span>Onay bekleyen sipariş</span><strong>@Model.OrdersAwaitingApproval</strong><small>Siparişlere git →</small></a>
-            <a class="metric-card" asp-action="Orders"><span>Aktif sipariş</span><strong>@Model.ActiveOrders</strong><small>Siparişlere git →</small></a>
-            <a class="metric-card" asp-action="Inventory" asp-route-status="3"><span>Hazırlanıyor</span><strong>@Model.PreparingKits</strong><small>Hazırlanan kitlere git →</small></a>
-            <a class="metric-card" asp-action="Inventory"><span>Kargodaki kit</span><strong>@Model.KitsInTransit</strong><small>Envantere git →</small></a>
-        </div>
-    </section>
 
-    <section class="dashboard-group dashboard-group-rentals" id="expired-rentals">
-        <header class="dashboard-group-heading">
-            <div><span class="eyebrow">KİRALAMA TAKİBİ</span><h2>Süresi dolan ve yaklaşan kitler</h2></div>
-            <p>Müşterideki aktif kitlerin teslim tarihlerini takip edin. Yaklaşan listesi önümüzdeki 7 günü kapsar.</p>
-        </header>
-        <div class="metrics dashboard-metrics">
-            <a class="metric-card metric-fault" asp-action="Inventory" asp-route-status="5" asp-route-rentalExpiry="expired"><span>Süresi dolan kit</span><strong>@Model.ExpiredRentalKits.Count</strong></a>
-            <a class="metric-card metric-repaired" asp-action="Inventory" asp-route-status="5" asp-route-rentalExpiry="upcoming"><span>Süresi yaklaşan kit</span><strong>@Model.ExpiringRentalKits.Count</strong></a>
-        </div>
-    </section>
+<section class="dashboard-group dashboard-group-general">
+    <header class="dashboard-group-heading">
+        <div><span class="eyebrow">SİPARİŞ VE KARGO ÖZETİ</span><h2>Güncel durum</h2></div>
+        <p>Siparişlerdeki öğrenci adresleri ve Kargonomi gönderi durumları.</p>
+    </header>
+    <div class="metrics dashboard-metrics">
+        <a class="metric-card" asp-action="Orders">
+            <span>Toplam Sipariş Sayısı</span>
+            <strong>@Model.TotalOrders</strong>
+            <small>Siparişlere git →</small>
+        </a>
+        <a class="metric-card" asp-action="Orders">
+            <span>Siparişlerdeki Toplam Öğrenci Sayısı</span>
+            <strong>@Model.TotalStudents</strong>
+            <small>Siparişlere git →</small>
+        </a>
+        <a class="metric-card metric-fault" asp-action="Orders">
+            <span>Siparişlerdeki Adresi Girilmemiş, Adresi Beklenen Kayıtların Sayısı</span>
+            <strong>@Model.StudentsAwaitingAddress</strong>
+            <small>Siparişlere git →</small>
+        </a>
+        <a class="metric-card metric-repaired" asp-action="Orders">
+            <span>Siparişlerdeki Adresi Girilmiş, Kargo Gönderimi Başlatılması Beklenen Kayıtların Sayısı</span>
+            <strong>@Model.StudentsAwaitingShipment</strong>
+            <small>Siparişlere git →</small>
+        </a>
+        <a class="metric-card metric-rented" asp-controller="Operations" asp-action="KargonomiShipments">
+            <span>Kargo Gönderimi Başlatılmış, Teslimat Sürecindeki Kayıtlar</span>
+            <strong>@Model.ShipmentsInTransit</strong>
+            <small>Kargonomi gönderilerine git →</small>
+        </a>
+        <a class="metric-card metric-available" asp-controller="Operations" asp-action="KargonomiShipments">
+            <span>Kargo Gönderimi Başlatılmış, Teslim Edildi Durumundaki Kayıtlar</span>
+            <strong>@Model.ShipmentsDelivered</strong>
+            <small>Kargonomi gönderilerine git →</small>
+        </a>
+    </div>
+</section>
 
-    <section class="dashboard-group dashboard-group-faults">
-        <header class="dashboard-group-heading">
-            <div><span class="eyebrow">TEKNİK SERVİS</span><h2>Arızalı kit hızlı gösterimleri</h2></div>
-            <p>Arıza, bakım ve yeniden gönderim bekleyen kitlerin güncel özeti.</p>
-        </header>
-        <div class="metrics dashboard-metrics">
-            <a class="metric-card metric-fault" asp-action="Faults"><span>Arızalı kit</span><strong>@Model.FaultyKits</strong><small>Arızalara git →</small></a>
-            <a class="metric-card metric-fault" asp-action="Inventory"><span>Bakımda</span><strong>@Model.UnitsInMaintenance</strong><small>Envantere git →</small></a>
-            <a class="metric-card metric-repaired" asp-action="Faults"><span>Onarıldı, kargo bekliyor</span><strong>@Model.RepairedAwaitingShipment</strong><small>Arıza geçmişine git →</small></a>
-        </div>
-    </section>
+<section class="dashboard-group dashboard-group-returns">
+    <header class="dashboard-group-heading">
+        <div><span class="eyebrow">İADE SÜRECİ</span><h2>İade durumu</h2></div>
+        <p>Süresi dolan kiralamalar ve iade sürecindeki kitler.</p>
+    </header>
+    <div class="metrics dashboard-metrics">
+        <a class="metric-card metric-fault" asp-action="Returns">
+            <span>İade Bekleniyor</span>
+            <strong>@Model.ReturnPendingKitCount</strong>
+            <small>İadelere git →</small>
+        </a>
+        <a class="metric-card metric-fault" asp-action="Returns">
+            <span>Kargoda</span>
+            <strong>@Model.ReturnInTransitKitCount</strong>
+            <small>İadelere git →</small>
+        </a>
+        <a class="metric-card metric-repaired" asp-action="Returns">
+            <span>İade Tamamlandı</span>
+            <strong>@Model.ReturnCompletedKitCount</strong>
+            <small>İadelere git →</small>
+        </a>
+    </div>
+</section>
 
-    <section class="dashboard-group dashboard-group-reports">
-        <header class="dashboard-group-heading">
-            <div><span class="eyebrow">FİLO ÖZETİ</span><h2>Rapor amaçlı gösterimler</h2></div>
-            <p>Kit kapasitesi ve müşteri portföyünün genel görünümü.</p>
-        </header>
-        <div class="metrics dashboard-metrics">
-            <a class="metric-card metric-rented" asp-action="Inventory" asp-route-status="5"><span>Şu anda kirada</span><strong>@Model.RentedKits</strong><small>Kiradaki kitlere git →</small></a>
-            <a class="metric-card metric-available" asp-action="Inventory" asp-route-status="1"><span>Kiralanabilir kit</span><strong>@Model.AvailableKits</strong><small>Hazır kitlere git →</small></a>
-            <a class="metric-card" asp-action="Inventory"><span>Toplam fiziksel kit</span><strong>@Model.ProductUnits</strong><small>Tüm kitlere git →</small></a>
-            <a class="metric-card" asp-action="Inventory" asp-route-status="12"><span>Satılan kit</span><strong>@Model.SoldKits</strong><small>Satış geçmişine git →</small></a>
-            <a class="metric-card" asp-action="Orders" asp-route-type="2"><span>Tamamlanan satış</span><strong>@Model.CompletedPurchaseOrders</strong><small>Satış siparişlerine git →</small></a>
-            <a class="metric-card" asp-controller="Customers" asp-action="Index"><span>Müşteri</span><strong>@Model.Customers</strong><small>Müşterilere git →</small></a>
-        </div>
-    </section>
-
-    <section class="dashboard-group kit-map-section">
-        <header class="dashboard-group-heading">
-            <div><span class="eyebrow">KIT KONUM HARITASI</span><h2>Türkiye genelinde kit dağılımı</h2></div>
-            <div class="heading-actions">
-                <p>Kitler teslim formundaki enlem ve boylam bilgisine göre yerleştirilir; haritayı yakınlaştırdıkça kümeler ayrılır.</p>
-                @if (User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager"))
-                {
-                    <form asp-action="UpdateKitLocations" method="post">
-                        @Html.AntiForgeryToken()
-                        <button type="submit" class="secondary-action" data-confirm="Son adresi olup konumu eksik olan kit kayıtları adreslerine göre güncellenecek. Devam edilsin mi?">
-                            <partial name="_DashboardIcon" model="@("map")" />Kit Konumlarını Güncelle
-                        </button>
-                    </form>
-                }
-            </div>
-        </header>
-        @if (allKitLocations.Length == 0)
-        {
-            <div class="empty">Enlem ve boylam bilgisi kaydedilmiş teslim edilmiş kit bulunmuyor.</div>
-        }
-        else
-        {
-            <div class="kit-map-filter-tools">
-                <small class="kit-map-missing-location">Konum bilgisi olmayan kit: @missingLocationCount</small>
-            </div>
-            <div class="kit-map-layout">
-                <div class="kit-map-panel">
-                    <div id="turkey-kit-map" class="turkey-kit-map" data-locations='@Html.Raw(mapLocationsJson)' data-detail-url-template='@Url.Action("Details", "PhysicalKits", new { id = "__id__" })'></div>
-                </div>
-            </div>
-        }
-    </section>
-}
-@section Scripts {
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-    <script src="~/js/turkey-kit-map.js" asp-append-version="true"></script>
-}
-
+<section class="dashboard-group dashboard-group-faults">
+    <header class="dashboard-group-heading">
+        <div><span class="eyebrow">ARIZA TAKİBİ</span><h2>Arıza Takibi</h2></div>
+        <p>Arıza kayıtlarının inceleme, onarım, kargo ve kapanış durumları.</p>
+    </header>
+    <div class="metrics dashboard-metrics">
+        <a class="metric-card metric-fault" asp-action="Faults">
+            <span>İnceleme Bekleyen Arıza Kayıtları</span>
+            <strong>@Model.FaultsAwaitingReview</strong>
+            <small>Arızalara git →</small>
+        </a>
+        <a class="metric-card metric-rented" asp-action="Faults">
+            <span>Onarımdaki Arızalar</span>
+            <strong>@Model.FaultsInRepair</strong>
+            <small>Arızalara git →</small>
+        </a>
+        <a class="metric-card metric-rented" asp-action="Faults">
+            <span>Kargo Bekleyen Arızalar</span>
+            <strong>@Model.FaultsAwaitingShipment</strong>
+            <small>Arızalara git →</small>
+        </a>
+        <a class="metric-card metric-available" asp-action="Faults">
+            <span>Tamamlanmış Arızalar</span>
+            <strong>@Model.FaultsCompleted</strong>
+            <small>Arızalara git →</small>
+        </a>
+    </div>
+</section>

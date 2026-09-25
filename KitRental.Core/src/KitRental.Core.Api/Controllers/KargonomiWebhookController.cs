@@ -42,6 +42,8 @@ public sealed class KargonomiWebhookController(IConfiguration configuration, Kar
                 ReadString(shipment, "status"),
                 ReadString(shipment, "status_label"),
                 ReadString(shipment, "shipping_webservice_tracking_code"),
+                ReadString(shipment, "shipping_provider_name"),
+                ReadString(shipment, "shipping_webservice_barcode"),
                 ReadString(shipment, "description"),
                 cancellationToken);
         }

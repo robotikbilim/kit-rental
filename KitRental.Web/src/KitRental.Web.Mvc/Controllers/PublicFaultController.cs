@@ -179,6 +179,15 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
         var kit = await apiClient.GetPublicFaultKitAsync(token, cancellationToken);
         if (kit is null) return View("LinkExpired");
         var returnContext = await apiClient.GetPublicKitReturnContextAsync(token, cancellationToken);
+        if (returnContext?.Status == 2)
+        {
+            var kargonomiStatus = string.IsNullOrWhiteSpace(returnContext.ExternalStatusLabel)
+                ? returnContext.ExternalStatus ?? "Kargo durumu bekleniyor"
+                : returnContext.ExternalStatusLabel;
+            return View("ReturnStatus", new PublicReturnStatusViewModel(
+                kit.KitName, kit.SerialNumber, kargonomiStatus,
+                returnContext.Carrier, returnContext.TrackingNumber));
+        }
         var deliveryContext = await apiClient.GetPublicKitDeliveryContextAsync(token, cancellationToken);
         var parsedAddress = ParseStoredAddress(returnContext?.ReturnAddress ?? deliveryContext?.AddressLine);
         return View(new PublicReturnFormViewModel
@@ -232,10 +241,19 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
             ModelState.AddModelError(string.Empty, result.Error ?? "Iade talebi olusturulamadi.");
             return View(model);
         }
-        ViewData["SuccessTitle"] = "Iade talebi kaydedildi";
-        ViewData["SuccessMessage"] = "Iade talebiniz operasyon ekibinin ekranina dustu.";
-        if (model.DeliveryMethod == 2)
+        if (model.DeliveryMethod == 1)
         {
+            var trackingNumber = result.Data?.TrackingNumber;
+            var barcode = result.Data?.Barcode;
+            ViewData["SuccessTitle"] = "Kurye Talebi Başarı ile Oluşturuldu.";
+            ViewData["SuccessMessage"] = "Gelen Kurye'ye bu sayfanın ekran görüntüsünü alıp gösterebilirsiniz.";
+            ViewData["CourierBarcode"] = barcode;
+            ViewData["CourierTrackingNumber"] = trackingNumber;
+        }
+        else
+        {
+            ViewData["SuccessTitle"] = "İade talebi kaydedildi";
+            ViewData["SuccessMessage"] = "İade talebiniz operasyon ekibinin ekranına düştü.";
             ViewData["PopupTitle"] = "İade Kodu";
             ViewData["PopupMessage"] = "\"1234567890\" İade Kodu ile herhangi bir Aras Kargo şubesine bırakabilirsiniz.";
         }

@@ -251,18 +251,6 @@ public sealed class OperationsController : CoreApiControllerBase
         Ok(await service.GetAllAsync(cancellationToken));
 
     [Authorize(Roles = "SystemAdmin,OperationsManager")]
-    [HttpPost("kargonomi/shipment-refreshes")]
-    public async Task<IActionResult> RefreshAllKargonomiShipments(
-        [FromServices] KargonomiShippingService service, CancellationToken cancellationToken) =>
-        Ok(await service.RefreshAllAsync(cancellationToken));
-
-    [Authorize(Roles = "SystemAdmin,OperationsManager")]
-    [HttpPost("kargonomi/shipments/{shipmentId:guid}/refresh")]
-    public async Task<IActionResult> RefreshKargonomiShipment(Guid shipmentId,
-        [FromServices] KargonomiShippingService service, CancellationToken cancellationToken) =>
-        Ok(await service.RefreshAsync(shipmentId, cancellationToken));
-
-    [Authorize(Roles = "SystemAdmin,OperationsManager")]
     [HttpGet("kargonomi/shipments/{shipmentId:guid}/barcode")]
     public async Task<IActionResult> GetKargonomiBarcode(Guid shipmentId,
         [FromServices] KargonomiShippingService service, CancellationToken cancellationToken)

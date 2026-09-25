@@ -352,6 +352,11 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
     public Task<KitReturnRequest?> GetKitReturnRequestAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.KitReturnRequests.Include(x => x.Items).SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
 
+    public Task<KitReturnRequest?> GetKitReturnRequestByExternalShipmentIdAsync(int externalShipmentId,
+        CancellationToken cancellationToken) =>
+        dbContext.KitReturnRequests.Include(x => x.Items)
+            .SingleOrDefaultAsync(x => x.ExternalShipmentId == externalShipmentId, cancellationToken);
+
     public async Task<IReadOnlyCollection<KitReturnRequest>> GetKitReturnRequestsAsync(Guid? customerId, CancellationToken cancellationToken)
     {
         var query = dbContext.KitReturnRequests.Include(x => x.Items).AsQueryable();

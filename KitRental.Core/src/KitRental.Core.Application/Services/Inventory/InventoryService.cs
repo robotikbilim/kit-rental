@@ -2,6 +2,7 @@ using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Application.Common;
 using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Inventory;
+using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Rentals;
 using KitRental.SharedKernel;
 
@@ -141,7 +142,7 @@ public sealed class InventoryService(
         CancellationToken cancellationToken)
     {
         var models = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(item => item.Id);
-        var rentalInfo = await GetActiveRentalInfoByUnitAsync(cancellationToken);
+        var rentalInfo = await GetRentalInfoByUnitAsync(cancellationToken);
         var expiryFilter = rentalExpiry?.Trim().ToLowerInvariant();
         var normalizedQuery = query?.Trim() ?? string.Empty;
         var items = (await repository.GetProductUnitsAsync(cancellationToken))
@@ -154,7 +155,10 @@ public sealed class InventoryService(
                 rentalInfo.TryGetValue(unit.Id, out var rental);
                 return new InventoryItemResponse(unit.Id, unit.ProductModelId, model.Name, model.Sku,
                     unit.SerialNumber, unit.QrCode, unit.Status, createdAt,
-                    rental?.CustomerName, rental?.OrderNumber, rental?.EndDate, rental?.DaysRemaining);
+                    rental?.CustomerName, rental?.OrderNumber, rental?.EndDate, rental?.DaysRemaining,
+                    rental?.StudentName, rental?.GuardianPhone, rental?.AddressLine, rental?.PublicAddressToken,
+                    rental?.ShipmentStatusLabel, rental?.ShipmentState, rental?.TrackingNumber, rental?.Carrier,
+                    rental?.ShipmentUpdatedAt, rental?.ShipmentError, rental?.OrderId, rental?.StudentId);
             })
             .Where(item => !productModelId.HasValue || item.ProductModelId == productModelId.Value)
             .Where(item => !status.HasValue || item.Status == status.Value)
@@ -175,39 +179,79 @@ public sealed class InventoryService(
             .ThenBy(item => item.SerialNumber)
             .ToArray();
 
-        var validPageSize = Math.Clamp(pageSize, 10, 100);
+        var validPageSize = Math.Clamp(pageSize, 10, 5000);
         var totalPages = Math.Max(1, (int)Math.Ceiling(items.Length / (double)validPageSize));
         var validPage = Math.Clamp(page, 1, totalPages);
         return new InventoryPageResponse(validPage, validPageSize, items.Length, totalPages,
             items.Skip((validPage - 1) * validPageSize).Take(validPageSize).ToArray());
     }
 
-    private async Task<IReadOnlyDictionary<Guid, ActiveRentalInfo>> GetActiveRentalInfoByUnitAsync(
+    private async Task<IReadOnlyDictionary<Guid, RentalInfo>> GetRentalInfoByUnitAsync(
         CancellationToken cancellationToken)
     {
         var customers = (await repository.GetCustomersAsync(cancellationToken)).ToDictionary(customer => customer.Id);
         var orders = await repository.GetOrdersAsync(null, cancellationToken);
+        var orderByLineId = orders
+            .SelectMany(order => order.Lines.Select(line => new { line.Id, Order = order }))
+            .ToDictionary(item => item.Id, item => item.Order);
+        var assignments = await repository.GetAssignmentsForOrdersAsync(orders.Select(order => order.Id).ToArray(),
+            cancellationToken);
+        var studentsByAssignmentId = (await repository.GetRentalCohortsAsync(null, cancellationToken))
+            .SelectMany(cohort => cohort.Students)
+            .Where(student => !student.IsDeleted && student.AssignmentId.HasValue && student.ProductUnitId.HasValue)
+            .ToDictionary(student => student.AssignmentId!.Value);
+        var shipmentsByStudent = (await repository.GetKargonomiShipmentsAsync(null, cancellationToken))
+            .GroupBy(shipment => (shipment.OrderId, shipment.StudentId))
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(shipment => shipment.UpdatedAt).First());
         var today = timeProvider.GetTurkeyToday();
-        var result = new Dictionary<Guid, ActiveRentalInfo>();
-        foreach (var order in orders)
-        {
-            foreach (var assignment in await repository.GetAssignmentsForOrderAsync(order.Id, cancellationToken))
+        return assignments
+            .Where(assignment => assignment.BlocksAvailability)
+            .Where(assignment => orderByLineId.ContainsKey(assignment.OrderLineId))
+            .Select(assignment =>
             {
-                if (assignment.Status != RentalAssignmentStatus.Active)
-                    continue;
-                var daysRemaining = order.Period!.Value.EndDate.DayNumber - today.DayNumber;
-                result[assignment.ProductUnitId] = new ActiveRentalInfo(
-                    customers.TryGetValue(assignment.CustomerId, out var customer) ? customer.Name : "Müşteri",
-                    order.OrderNumber,
-                    order.Period.Value.EndDate,
-                    daysRemaining);
-            }
-        }
-
-        return result;
+                var order = orderByLineId[assignment.OrderLineId];
+                studentsByAssignmentId.TryGetValue(assignment.Id, out var student);
+                var shipment = student is not null && student.OrderId.HasValue
+                    ? shipmentsByStudent.GetValueOrDefault((student.OrderId.Value, student.Id))
+                    : null;
+                var endDate = order.Period?.EndDate;
+                var daysRemaining = endDate.HasValue ? endDate.Value.DayNumber - today.DayNumber : (int?)null;
+                var shipmentLabel = shipment is null
+                    ? null
+                    : shipment.State == KargonomiShipmentState.Failed ? "Hata" : shipment.StatusLabel;
+                return new
+                {
+                    assignment.ProductUnitId,
+                    Info = new RentalInfo(
+                        customers.TryGetValue(order.CustomerId, out var customer) ? customer.Name : "Müşteri",
+                        order.OrderNumber,
+                        endDate,
+                        daysRemaining,
+                        student?.FullName,
+                        student?.GuardianPhone,
+                        student?.AddressLine,
+                        student?.PublicAddressToken,
+                        shipmentLabel,
+                        shipment is null ? null : (int)shipment.State,
+                        shipment?.TrackingNumber,
+                        shipment?.Carrier,
+                        shipment?.UpdatedAt,
+                        shipment?.LastError,
+                        student?.OrderId,
+                        student?.Id)
+                };
+            })
+            .GroupBy(item => item.ProductUnitId)
+            .ToDictionary(group => group.Key, group => group
+                .OrderByDescending(item => item.Info.StudentId.HasValue)
+                .ThenByDescending(item => item.Info.EndDate)
+                .First().Info);
     }
 
-    private sealed record ActiveRentalInfo(string CustomerName, string OrderNumber, DateOnly EndDate, int DaysRemaining);
+    private sealed record RentalInfo(string CustomerName, string OrderNumber, DateOnly? EndDate,
+        int? DaysRemaining, string? StudentName, string? GuardianPhone, string? AddressLine,
+        string? PublicAddressToken, string? ShipmentStatusLabel, int? ShipmentState, string? TrackingNumber,
+        string? Carrier, DateTimeOffset? ShipmentUpdatedAt, string? ShipmentError, Guid? OrderId, Guid? StudentId);
 
     public async Task<ProductUnitResponse> UpdateUnitAsync(UpdateProductUnitCommand command, CancellationToken cancellationToken)
     {

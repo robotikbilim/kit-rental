@@ -15,13 +15,21 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             : null;
     }
 
-    public Task<DashboardViewModel?> GetDashboardAsync(CancellationToken cancellationToken) =>
-        GetAsync<DashboardViewModel>("/core/api/dashboard", cancellationToken);
-
-    public Task<ApiCommandResult<KitLocationGeocodingQueueResultViewModel>> UpdateKitLocationsAsync(
+    public Task<IReadOnlyCollection<ReturnListItemViewModel>?> GetReturnsInProgressAsync(
         CancellationToken cancellationToken) =>
-        PostAsync<KitLocationGeocodingQueueResultViewModel>("/core/api/dashboard/kit-location-geocoding-jobs", new { },
-            cancellationToken);
+        GetAsync<IReadOnlyCollection<ReturnListItemViewModel>>("/core/api/returns", cancellationToken);
+
+    public Task<IReadOnlyCollection<ReturnTableItemViewModel>?> GetReturnsTableAsync(
+        CancellationToken cancellationToken) =>
+        GetAsync<IReadOnlyCollection<ReturnTableItemViewModel>>("/core/api/returns/table", cancellationToken);
+
+    public Task<ApiCommandResult<KargonomiBarcodeViewModel>> GetReturnKargonomiBarcodeAsync(Guid returnId,
+        CancellationToken cancellationToken) =>
+        SendAsync<KargonomiBarcodeViewModel>(HttpMethod.Get,
+            $"/core/api/returns/{returnId}/kargonomi-barcode", null, cancellationToken);
+
+    public Task<OperationsDashboardViewModel?> GetOperationsDashboardAsync(CancellationToken cancellationToken) =>
+        GetAsync<OperationsDashboardViewModel>("/core/api/dashboard", cancellationToken);
 
     public async Task<IReadOnlyCollection<ProductUnitViewModel>> GetProductUnitsAsync(CancellationToken cancellationToken) =>
         await GetPagedItemsAsync<ProductUnitViewModel>("/core/api/product-units?pageSize=5000", cancellationToken);
@@ -32,7 +40,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         var parameters = new List<string>
         {
             $"page={Math.Max(1, filter.Page)}",
-            $"pageSize={Math.Clamp(filter.PageSize, 10, 100)}"
+            $"pageSize={Math.Clamp(filter.PageSize, 10, 5000)}"
         };
         if (!string.IsNullOrWhiteSpace(filter.Query))
             parameters.Add($"query={Uri.EscapeDataString(filter.Query.Trim())}");
@@ -634,10 +642,6 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         PostAsync<KargonomiShipmentBatchViewModel>($"/core/api/orders/{orderId}/kargonomi/shipments",
             new { studentIds }, cancellationToken);
 
-    public Task<ApiCommandResult<KargonomiShipmentViewModel>> RefreshKargonomiShipmentAsync(Guid shipmentId,
-        CancellationToken cancellationToken) =>
-        PostAsync<KargonomiShipmentViewModel>($"/core/api/kargonomi/shipments/{shipmentId}/refresh", new { }, cancellationToken);
-
     public Task<ApiCommandResult<KargonomiBarcodeViewModel>> GetKargonomiBarcodeAsync(Guid shipmentId,
         CancellationToken cancellationToken) =>
         SendAsync<KargonomiBarcodeViewModel>(HttpMethod.Get,
@@ -646,10 +650,6 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
     public async Task<IReadOnlyCollection<KargonomiShipmentListItemViewModel>> GetKargonomiShipmentsAsync(
         CancellationToken cancellationToken) => await GetAsync<KargonomiShipmentListItemViewModel[]>(
             "/core/api/kargonomi/shipments", cancellationToken) ?? [];
-
-    public Task<ApiCommandResult<KargonomiShipmentRefreshViewModel>> RefreshAllKargonomiShipmentsAsync(
-        CancellationToken cancellationToken) => PostAsync<KargonomiShipmentRefreshViewModel>(
-            "/core/api/kargonomi/shipment-refreshes", new { }, cancellationToken);
 
     public Task<ApiCommandResult<OrderKitPreparationViewModel>> CreateOrderKitsAsync(Guid orderId,
         IReadOnlyCollection<PortalRentalLineInputViewModel> lines,

@@ -154,12 +154,12 @@ Shipments:
 - `KargonomiShippingService` creates one Kargonomi shipment per addressed student, resolves the stored `City / District - Address` text, selects and confirms the fixed Aras Kargo quote, and stores external IDs/status/errors per student.
 - When an order shipment attempt fails before its first database save, the same tracked shipment record is marked failed instead of creating a duplicate `OrderId + StudentId` row. Provider status, tracking, description, and error text are bounded to their persistence limits, and the operations result banner includes the first provider error so retryable failures remain actionable.
 - Kargonomi create-shipment requests normalize Turkish sender and recipient mobile numbers from `05xx`, `+905xx`, `00905xx`, or formatted variants to the provider-required 10-digit `5xxxxxxxxx` representation; invalid or non-mobile values return an actionable validation message before calling the provider.
-- Kargonomi statuses can be updated through `POST /api/kargonomi/webhooks/shipment-updated` or the authenticated refresh operation. The webhook validates the raw request body against the configured secret using the `X-Webhook-Signature` HMAC-SHA256 header, parses the documented nested `shipment` payload, and ignores duplicate events.
+- Kargonomi statuses are updated through `POST /api/kargonomi/webhooks/shipment-updated`. The webhook validates the raw request body against the configured secret using the `X-Webhook-Signature` HMAC-SHA256 header, parses the documented nested `shipment` payload, and updates matching order, fault, and return shipments; duplicate order/fault events remain ignored by their domain event history. Manual status-refresh endpoints and buttons are removed. The production callback URL is `https://atolye.et-edu.net/core/api/kargonomi/webhooks/shipment-updated`, registered in Kargonomi with event type `shipment.updated`.
 - Delivery status is displayed and recorded but does not automatically change the order's existing delivery/return confirmation flow.
 - Operations UI: order detail shows student and Kargonomi shipment information in one combined table. The admin navigation exposes a top-level `Kargonomi` menu with a `Gönderiler` submenu; `/Operations/KargonomiShipments` is independent of local orders and students, reads every page of the Kargonomi `GET /shipments` API, and lists all shipments in the connected Kargonomi account with recipient, address, package, carrier, tracking, status, and timestamp data.
-- The Kargonomi shipments list exposes `Tümünü Yenile` to system administrators and operations managers. `POST /api/kargonomi/shipment-refreshes` reads every page of the provider shipment list, synchronizes matching local order and fault shipment status/tracking histories, applies the same delivered fault-workflow transitions as the webhook, and then the MVC screen reloads the current provider table. This is the manual status-update path when Kargonomi does not provide a webhook secret.
-- Admin order details also expose `Kargo Durumlarını Güncelle` below the table's global search. MVC `POST /Operations/RefreshOrderKargonomiShipments` refreshes each existing Kargonomi shipment belonging to that order, continues after individual provider errors, and returns a summary for the table reload.
-- Core API registers `KargonomiClient` as the typed implementation of `IKargonomiClient`; Kargonomi service resolution depends on this interface mapping for list, create, refresh, barcode, and webhook-related operations.
+- The Kargonomi shipments list remains read-only for status display; shipment status changes arrive through the signed webhook.
+- Admin order details and `İadeler` no longer expose manual Kargonomi status-refresh actions; their displayed status/tracking values are updated by the signed webhook.
+- Core API registers `KargonomiClient` as the typed implementation of `IKargonomiClient`; Kargonomi service resolution depends on this interface mapping for list, create, barcode, and webhook-related operations.
 - Kargonomi GET requests honor the provider's `429 Too Many Requests` `Retry-After` response with bounded retries. This allows the all-shipments screen to read multi-page accounts without turning a temporary provider rate limit into an empty MVC list.
 - Kargonomi credentials, webhook secret, warehouse, and sender configuration are read from the `Kargonomi` configuration section and must be supplied through environment variables, user secrets, or deployment secrets; tracked appsettings keeps secrets empty.
 - Fault logistics use owned `FaultKargonomiShipment` records under each `FaultTicket`, with separate `ToWorkshop` and `ToCustomer` directions, recipient snapshot, external Kargonomi id/tracking state, and status history. `POST /api/faults/{faultTicketId}/kargonomi-shipments` creates the real Kargonomi shipment through the configured Aras quote; the existing signed webhook routes updates to either rental or fault shipments.
@@ -190,8 +190,7 @@ Rules:
 - Do not add current-location fields back onto `ProductUnit`.
 - Do not reintroduce `KitDeliveryReceipts` as a live domain/repository table.
 - The latest `KitLocationEvents` row for a `ProductUnitId`, ordered by `OccurredAt` then `Id`, is the current kit address.
-- `KitLocationEvents` rows without coordinates are resolved through the configured Gemini model from the admin dashboard `Kit Konumlarını Güncelle` action. The manual action returns immediately after queuing every address-filled `KitLocationEvent` with missing latitude/longitude; `KitLocationGeocodingWorker` drains the in-process queue one record at a time and rechecks each event before saving coordinates.
-- Gemini geocoding is configured under `Gemini` in Core API configuration. `Gemini:ApiKey` must be supplied through user secrets, environment variables, or deployment secret storage; it is intentionally empty in tracked `appsettings.json` and must never be committed.
+- `KitLocationEvents` coordinates are stored when a delivery, fault, or return form supplies valid latitude/longitude values; missing coordinates remain unavailable until a later form submission provides them.
 - Delivery form inserts a `KitLocationEvent` with source `DeliveryReceipt`.
 - Public fault creation inserts source `FaultReport`.
 - Public fault update inserts source `FaultUpdate`.
@@ -205,12 +204,9 @@ Rules:
 - Public QR fault form now includes required city/district dropdowns, prefills the address from the kit's latest delivery/fault/return location event (falling back to the current assignment and then the open fault address), preserves the selected city/district in the stored address prefix, and fills both dropdowns when reverse geocoding completes after `Konumumu Bul` or map selection.
 - Public QR return form uses the same city/district dropdown and address-prefix flow for pickup returns, restores the selections when an active return is reopened, and keeps city/district/address optional for drop-off returns.
 - The public QR landing screen offers only fault reporting and kit return; the user-facing `Kit Teslim Al` option is hidden because admins mark customer delivery automatically. The public delivery endpoint and MVC action still exist for internal compatibility.
-- Dashboard and portal maps read latest location events, with order delivery address as fallback for old kits with no event.
+- Customer portal maps read latest location events, with order delivery address as fallback for old kits with no event.
 - Physical kit detail uses assignment-specific latest location for rental history, and product-unit latest location for current location.
-- Operations dashboard rental expiry cards show only counts; clicking expired or upcoming counts opens the inventory list filtered by `rentalExpiry=expired` or `rentalExpiry=upcoming`.
 - Inventory supports a rental-expiry filter for active customer rentals and shows customer, order number, rental end date, and remaining/overdue days when rental information is present.
-- Operations dashboard no longer renders the return-delivery table inline; the `Gelen Teslimat` attention card opens `Operations/Returns`, which lists active kit return requests and allows receiving them.
-- Operations dashboard renders the kit location map as the final dashboard group after the summary/card sections.
 
 Migration status:
 
@@ -254,7 +250,6 @@ Core API routes:
 - `POST /api/orders/{orderId}/kargonomi/shipments/{studentId}`
 - `GET /api/orders/{orderId}/kargonomi/shipments`
 - `GET /api/kargonomi/shipments`
-- `POST /api/kargonomi/shipments/{id}/refresh`
 - `GET /api/kargonomi/shipments/{id}/barcode`
 - `POST /api/kargonomi/webhooks/shipment-updated` (secret header required)
 
@@ -270,7 +265,6 @@ Map UI is rendered in MVC views and powered by:
 
 - `KitRental.Web/src/KitRental.Web.Mvc/wwwroot/js/turkey-kit-map.js`
 - `KitRental.Web/src/KitRental.Web.Mvc/wwwroot/js/public-location.js`
-- `KitRental.Web/src/KitRental.Web.Mvc/Views/Operations/Dashboard.cshtml`
 - `KitRental.Web/src/KitRental.Web.Mvc/Views/CustomerPortal/Index.cshtml`
 
 Global MVC UI behavior:
@@ -293,17 +287,16 @@ Map location response rows include `ProductModelId`, `KitSku`, `Status`, and `Lo
 
 - `faulty`: open fault exists, or the unit is in maintenance/quarantine.
 - `returning`: an active assignment already has a non-received `KitReturnRequest`, matching the return-process cards.
-- `expired`: an active assignment is past its end date and still has no return request, matching the expired cards.
+- `expired`: an active assignment is past its end date and still has no return request, matching the customer portal expired-kit count.
 - `active`: all other active rental assignment map rows.
 
 Customer portal map filters are powered by `turkey-kit-map.js`.
 The customer portal map exposes status checkboxes for faulty, return-process, expired, and active kits; a serial-number search; and product-model checkboxes that are selected by default.
-The operations dashboard kit location map intentionally has no visible filters and shows every kit with coordinates.
 Product-model filter labels show the education set/product model name (`KitName`), not the stock code/SKU.
 Filter counts are calculated from all active rental map rows, not just rows with coordinates.
 Rows without latitude/longitude are not rendered as markers and are shown as a small "missing location" count near the map.
-Dashboard and customer portal maps no longer render regional side summaries; the map canvas uses the full map layout width.
-Dashboard and customer portal map canvases use a fixed desktop height.
+The customer portal map no longer renders regional side summaries; the map canvas uses the full map layout width.
+The customer portal map canvas uses a fixed desktop height.
 Turkey map overview starts closer in its default state and uses tight initial fit-to-markers padding.
 
 There are existing web UI changes in the working tree unrelated to the kit-location backend work; do not revert them unless explicitly requested.
@@ -319,7 +312,7 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Added repository methods for adding/listing kit location events.
 - Updated EF and in-memory repositories.
 - Updated public delivery, public fault create/update, and public return request flows to insert location events.
-- Updated operation dashboard, customer portal map, and physical kit details to read current location from latest location event.
+- Updated customer portal map and physical kit details to read current location from latest location event.
 - Added migration `20260812211046_ReplaceKitDeliveryReceiptsWithLocationEvents`.
 - Migration preserves old delivery receipt data by copying it into `KitLocationEvents` before dropping `KitDeliveryReceipts`.
 - Removed automatic address geocoding from public QR flows.
@@ -328,19 +321,19 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Added map filters for faulty kits, return-process kits, active kits, serial number, and product model.
 - Added a missing-location label under the map filters; map counts now include coordinate-less active rental rows while markers still require coordinates.
 - Split physical kit detail and lookup history into separate card groups for deliveries, faults, and return requests.
-- Added customer portal summary cards for expired rental kits, kits with started return flow, and returned kits.
-- Customer portal return counts now come from `KitReturnRequest` states and rental expiry counts from active assignments whose `EndDate` is before today.
+- Added customer portal summary cards for expired rental kits, return shipments awaiting dispatch, return shipments in transit, and kits with a completed return form.
+- Customer portal return-pending counts now come from active assignments whose `EndDate` is before today and have no `KitReturnRequest` item; the two shipment counters are intentionally fixed at zero until shipment-state calculation is added, and the completed-return-form count is based on unique assignments included in any `KitReturnRequest`.
 - Customer portal `Aktif Kitler` summary card now counts only healthy kits that still have an active assignment, are still in `WithCustomer`, and have no open fault.
-- Dashboard and customer portal maps now classify `faulty` only from open fault tickets, and kits whose returns were already received are removed from map rows.
+- Customer portal maps now classify `faulty` only from open fault tickets, and kits whose returns were already received are removed from map rows.
 - Added a dedicated customer portal `Returns` page with filters for pending, in-progress, and returned states, plus expired kits that have not started a return yet.
 - Added customer portal navigation entry for `İadeler`.
 - Customer portal expired-rental checks now use the app server local date (`DateTime.Today`) instead of UTC so locally expired kits appear immediately after midnight.
 - Customer portal returns filter now matches on a dedicated state key (`pending`/`processing`/`returned`) while the table keeps separate Turkish status labels for display.
 - Customer portal return semantics are assignment-based: on Wednesday, August 12, 2026, `pending` means an active rental ended before today and still has no return form, `processing` means a return request exists regardless of due date, and `returned` means warehouse/admin accepted the return back into available stock.
-- Admin dashboard now exposes `Iadeyi kabul et` for active return requests, and receiving a return is allowed from both `Requested` and `InTransit`.
+- Receiving a return is allowed from both `Requested` and `InTransit`.
 - Customer portal returns list status mapping now treats `KitReturnStatus.Requested` as `processing` / `İade Sürecinde` so the list matches the summary cards once a return form exists.
-- Map `returning` / `expired` categories now use the same assignment-based rules as the dashboard and customer portal cards, so the filters stay aligned.
-- Top map status filters on dashboard and customer portal now render as `col-md-3` items so the four status checkboxes share a single row on medium+ widths.
+- Map `returning` / `expired` categories now use the same assignment-based rules as the customer portal cards, so the filters stay aligned.
+- Top map status filters on the customer portal now render as `col-md-3` items so the four status checkboxes share a single row on medium+ widths.
 - Time-stamped operations and UI log/history displays are now standardized on Turkey time via shared helpers instead of mixing UTC and server-local conversions.
 - Fixed repository-wide Turkish text encoding issues in MVC/Core user-facing strings, API descriptions, and related test data by normalizing mojibake back to proper UTF-8 Turkish characters.
 - Verified with `dotnet build KitRental.slnx`.
@@ -380,7 +373,7 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Customer portal `Siparişler` list displays `Oluşturulma Tarihi` and sorts by `CreatedAt` descending by default.
 - Customer portal student-list detail supports auto-filtering by student text search, education kit, assignment state, and address state, and paginates filtered students with 20 records per page.
 - Customer portal `Kitler` list includes the assigned TACEV student name, guardian phone, and period when a kit is linked to a rental cohort student; student address is not shown in that list, though kit search still matches student fields.
-- Customer portal overview map no longer renders status, serial-number, or product-model filters; it always shows all customer kit markers with coordinates, while the admin dashboard map keeps its filters.
+- Customer portal overview map no longer renders status, serial-number, or product-model filters; it always shows all customer kit markers with coordinates.
 - Customer portal `Siparişler` list now shows `Düzenle` and `Sil` actions for unapproved rental cohorts. Editing can change the period name and rental date range before admin approval; if a pending order exists, its rental period and kit quantity lines are synchronized from the cohort student list. Deleting removes the unapproved cohort and its linked unapproved order, but remains blocked after kit assignment or approval.
 - Admin approval of a rental order linked to TACEV students no longer geocodes student addresses or stores separate student location coordinates from that flow.
 - Customer portal TACEV student Excel templates and import preview screens use only student name and guardian phone columns.
@@ -444,7 +437,6 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Customer portal order-period student rows no longer repeat assigned kit serial/QR under the student name; the same values remain in the assigned physical kit column as a link to the portal kit detail page, while delivery summary lines starting with `Teslim:` still display under the student name.
 - On admin order details, the `Siparişi Tamamla` control remains clickable when student addresses are missing, but it shows the popup warning `Eksik adres bilgisi olan kayıtlar var, önce adresleri doldurun.` instead of submitting the completion transition. Once every student has an address, the normal completion form is shown.
 - Admin order detail loads the complete combined student/kit/shipment list into DataTables and uses client-side pagination with 10 rows per page.
-- Admin dashboard now exposes `Kit Konumlarını Güncelle` for `SystemAdmin` and `OperationsManager`. It calls Core API `POST /api/dashboard/kit-location-geocoding-jobs`, which queues all address-filled `KitLocationEvents` missing latitude/longitude for the Core API background worker instead of geocoding synchronously during the MVC request.
 - Data migration `20260907143000_SeedRedKitFaultGuides` replaces red-kit fault-guide seed rows with active kit-specific troubleshooting entries for DHT11, LDR, PIR, Ultrasonik Sensör, POT, Buton, RGB LED, LED, LED / PWM, Buzzer, and LCD. The migration resolves the red-kit product model by SKU/name/image URL and removes matching legacy general seed titles before inserting the new list.
 - Core/Identity list-style GET endpoints now return a standard paged JSON envelope with `Page`, `PageSize`, `TotalCount`, `TotalPages`, and `Items`; MVC API client unwraps `Items` for existing dropdown, export, label, and list screens while sending explicit `pageSize` for whole-list support data.
 - API action method names were normalized away from generated underscore/number names to PascalCase C# method names. Test method names were also normalized to remove underscores.
@@ -452,6 +444,17 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Migration `20260907150000_AddListPaginationIndexes` adds indexes for frequently filtered/listed fields across customers, product models/units, rental orders/cohorts/assignments, kit locations, faults, fault guides, kit returns, components, and audit entries.
 
 ## Recent UI Behavior
+
+- Admin ve müşteri paneli sipariş detaylarındaki öğrenci DataTable kargo durumu çoklu filtre menüsü, tablo satırları azaldığında veya sonuç kalmadığında tablo tarafından kırpılmaz; seçenekler tablo yüksekliğinden bağımsız görünür ve menü içinde kaydırılabilir.
+
+- Admin `Operations/Returns` now uses `GET /api/returns/table` to list each rental kit separately in the inventory-style DataTable. Expired active rentals without a return request are classified as `İade Bekleniyor`, return requests with an `InTransit` status or an external shipment record as `Kargoda`, and received requests as `Tamamlanmış`; the table omits the customer column, keeps per-column filters/address links/physical-kit details/return receipt actions, filters `Kargo Durumu` with the same multi-select status menu as admin order details, and lays the detail, receive, and barcode icon actions side by side using the order-detail compact action layout.
+- Public QR return forms label the address-pickup submit action `Kurye Çağır`; while the synchronous Kargonomi request is pending, the form disables duplicate submission and shows a spinner until either the provider barcode or tracking code exists. The Core flow creates a reverse-direction Kargonomi shipment from the requester to the configured Robotik Bilim address, selects and confirms the HepsiJet quote, stores the resulting tracking code in the existing return `Carrier`/`TrackingNumber` fields, marks the return request `InTransit` with `ShippedAt`, and returns the provider barcode to the MVC success page. The page shows `Kurye Talebi Başarı ile Oluşturuldu.` plus the instruction to show a screenshot to the courier and renders the barcode and/or tracking code; the provider shipment ID remains separate for synchronization. Return-provider fields are added by migration `20260925132321_AddKargonomiReturnTracking`. Drop-off returns keep the existing Aras branch-code flow.
+- A public QR scan now detects an active `InTransit` return before rendering the return form. Until an administrator receives the return, the customer sees a read-only page with the current Kargonomi status, carrier, and tracking code; direct duplicate public-return submissions are rejected. After the admin receipt transition, the active return context no longer blocks the normal flow.
+- Admin operasyon dashboard eski kartlardan temizlendi. Yeni dashboard `GET /api/dashboard` üzerinden sipariş ve kargo özeti, `İade Bekleniyor`, `Kargoda` ve `İade Tamamlandı` iade kartları ile ayrı `Arıza Takibi` alanında inceleme bekleyen, onarımdaki, kargo bekleyen ve tamamlanmış arızalar için kartlar gösterir. Gelen iadeler ayrı `GET /api/returns` endpointinden okunur; kit-konum geocoding endpointi ve arka plan servisi kaldırılmıştır.
+
+- Admin `Envanter` sayfası, sipariş detayındaki öğrenci/kargo DataTable standardını kullanır; tüm oluşturulmuş fiziksel kitleri tek client-side tabloda gösterir ve öğrenci, telefon, fiziksel kit, kargo durumu, takip no, adres ve adres linki alanlarında aynı sütun filtrelerini kullanır. Atama bilgileri mevcut kiralama ataması, öğrenci adresi ve Kargonomi kayıtlarından doldurulur; kit kapsamı siparişe değil tüm envantere aittir.
+
+- Admin panel sol menüsü alt menüleri artık yalnızca ilgili ana menüye tıklanınca açar; hover veya focus ile kendiliğinden açılmaz. Tüm ana menü grupları ikonludur; `Katalog ve Üretim` için kitap-açık, `Yönetim` için ayarlar ikonu kullanılır.
 
 - Customer portal kit detail pages now show a current location/student card, chronological rental-history entries with student/address/period/date data, chronological fault log entries, and chronological return-process log entries for the selected physical kit.
 - Customer portal fault form data is server-enriched from the requested rental-period student assignment before rendering, so the selected assignment carries its own student and contact details instead of relying only on the aggregated kit summary.
@@ -465,7 +468,7 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Customer portal dashboard metric cards are grouped under `Genel Durum`, `Arıza Durumu`, and `İade Durumu` headings. `Genel Durum` now shows all non-returned student-assigned kits, Kargonomi-delivered kits in use, in-transit shipments, and assigned kits not yet in delivery; the existing links, fault/return counts, and responsive card layout remain intact.
 - Customer portal `Arıza Durumu` also shows temporary `Teknik Servis Yolunda` and `Öğrenci Yolunda` cards, both with a fixed value of `0`; their calculation rules are intentionally deferred.
 - Customer portal dashboard status groups no longer use white bordered `dashboard-group` panels; each group is rendered as a compact heading followed by one metric row so the status cards fit together without unnecessary vertical space.
-- The customer portal `İade Durumu` metric row includes an empty fourth grid cell on wider screens so its three cards align vertically with the four-card status rows above; the placeholder is hidden on very narrow screens.
+- The customer portal `İade Durumu` metric row shows `İade Beklenen Kitler`, `Kargo Bekleyen Kitler`, `Kargodaki Kitler`, and `İadesi Tamamlanmış Kitler`; the two shipment counters are currently fixed at zero.
 
 - The customer portal `RentalPeriods`, `Kits`, and `Returns` DataTable wrappers have no outer border or frame; the common table and cell styling remains unchanged.
 - The customer portal `Faults` table now follows the same client-side DataTables standard and no-frame wrapper as the other customer lists, including header filters, sorting, page-length and column-visibility menus, shared pagination, and compact icon-based detail actions.
@@ -487,7 +490,7 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - On pending-approval or approved rental orders, administrators can add a student from the student-table header. The new student is linked to the order's rental cohort, the first rental kit line quantity increases by one, the order and cohort student-count responses update automatically, and `OrderStudentAdded` / `StudentAddedToOrder` audit entries are recorded; later order states keep the add action hidden.
 - Admin order detail shows the assigned physical kit serial number as a one-line truncated link in the physical-kit column; selecting the serial opens that kit's detail page.
 - Admin order detail combined student table no longer displays a dedicated delivery-status column; delivery state remains part of the order-completion workflow but does not control table selection or expose a bulk-delivery action.
-- Admin order detail places `Kargonomi`, `Kargo Etiketi Yazdır`, and `QR Etiketlerini Yazdır` beside `Excel Olarak İndir` above the combined student/kit/shipment table. `Kargonomi` downloads an XLSX file with the 24 supplied template columns. The table shows shipment status, carrier/update time, tracking number, the student's real address text, public URL under the `Adres Linki` heading, and assigned kit serial; long values are truncated to one line with the full value available from the native title tooltip. Public URLs open in a new tab, and kit serial links open the physical-kit detail page. Its action column uses accessible icon-only trash, truck, and printer buttons for `Sil`, `Kargoya Ver`, and `Kargo Etiketi Bastır`. The printer action is present on every student row, stays disabled until Kargonomi has created an external shipment, requests the PDF label from Kargonomi for eligible rows, opens it in a print window, and shows a retry message when the label is not ready. The `Kargo Etiketi Yazdır` bulk action requires every selected row to have a created Kargonomi shipment, requests all selected labels, and opens them together in a print window. `Kargoya Ver` is enabled only when the address is complete and no successful shipment exists; every unavailable truck icon, including missing-address and already-started rows, uses the same muted gray disabled style, while failed shipments can be retried through the active button. The `Kargo Durumlarını Güncelle` button appears below `Tabloda Ara` next to `Filtreyi Temizle`; it refreshes every existing Kargonomi shipment in the current order through the provider, disables itself while the requests run, and reloads the table when the operation finishes. `Filtreyi Temizle` resets the global search, all column filters, and the Kargo Durumu multi-select. Global and per-column DataTables search cover the values rendered in the student, phone, assigned kit, shipment status, tracking number, address, and address-link columns.
+- Admin order detail places `Kargonomi`, `Kargo Etiketi Yazdır`, and `QR Etiketlerini Yazdır` beside `Excel Olarak İndir` above the combined student/kit/shipment table. `Kargonomi` downloads an XLSX file with the 24 supplied template columns. The table shows shipment status, carrier/update time, tracking number, the student's real address text, public URL under the `Adres Linki` heading, and assigned kit serial; long values are truncated to one line with the full value available from the native title tooltip. Public URLs open in a new tab, and kit serial links open the physical-kit detail page. Its action column uses accessible icon-only trash, truck, and printer buttons for `Sil`, `Kargoya Ver`, and `Kargo Etiketi Bastır`. The printer action is present on every student row, stays disabled until Kargonomi has created an external shipment, requests the PDF label from Kargonomi for eligible rows, opens it in a print window, and shows a retry message when the label is not ready. The `Kargo Etiketi Yazdır` bulk action requires every selected row to have a created Kargonomi shipment, requests all selected labels, and opens them together in a print window. `Kargoya Ver` is enabled only when the address is complete and no successful shipment exists; every unavailable truck icon, including missing-address and already-started rows, uses the same muted gray disabled style, while failed shipments can be retried through the active button. `Filtreyi Temizle` resets the global search, all column filters, and the Kargo Durumu multi-select. Global and per-column DataTables search cover the values rendered in the student, phone, assigned kit, shipment status, tracking number, address, and address-link columns.
 - Admin order detail combined-list heading is shown only as `ÖĞRENCİ LİSTESİ`, without a secondary title or description.
 - Admin order detail no longer shows a per-row or bulk `Teslim Et` action.
 - Admin order detail combined student table uses a narrow checkbox column and a wider student-name column.

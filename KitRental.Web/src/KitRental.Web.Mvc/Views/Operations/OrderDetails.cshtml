@@ -155,7 +155,6 @@
             @if (canManage)
             {
                 <div class="dt-kargonomi-search-actions dt-kargonomi-search-actions-fallback" data-kargonomi-search-actions>
-                    <button class="btn btn-sm dt-kargonomi-refresh" type="button" data-kargonomi-refresh-button>Kargo Durumlarını Güncelle</button>
                     <button class="btn btn-sm dt-kargonomi-clear" type="button" data-kargonomi-clear-button>Filtreyi Temizle</button>
                 </div>
             }
@@ -166,8 +165,7 @@
                    data-datatable-select="multi"
                    data-datatable-select-all-pages="true"
                    data-datatable-bulk-actions="@studentBulkActionIds"
-                   data-datatable-bulk-input="studentIds"
-                   data-datatable-kargonomi-refresh-url="@(canManage ? Url.Action("RefreshOrderKargonomiShipments", "Operations", new { id = Model.Id }) : null)">
+                   data-datatable-bulk-input="studentIds">
                 <thead>
                     <tr><th><span class="visually-hidden">Seç</span></th><th>Öğrenci</th><th>Telefon</th><th>Fiziksel Kit</th><th>Kargo Durumu</th><th>Takip No</th><th>Adres</th><th>Adres Linki</th><th>İşlem</th></tr>
                     <tr class="column-filter-row" data-dt-order="disable">

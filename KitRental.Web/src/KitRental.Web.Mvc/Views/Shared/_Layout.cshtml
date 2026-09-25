@@ -69,7 +69,7 @@
 
                         <div class="nav-group @(currentController == "Catalog" || currentController == "Manufacturing" || currentController == "Workshop" ? "is-active" : null)">
                             <button class="submenu-toggle" type="button" aria-expanded="false">
-                                Katalog ve Üretim <span aria-hidden="true"></span>
+                                <i data-lucide="book-open"></i>Katalog ve Üretim <span aria-hidden="true"></span>
                             </button>
                             <div class="submenu">
                                 <a asp-controller="Catalog" asp-action="Kits">Eğitim Kitleri</a>
@@ -79,12 +79,13 @@
                             </div>
                         </div>
 
-                        <div class="nav-group @(currentController == "SupplyNeeds" || (currentController == "Operations" && (currentAction == "Orders" || currentAction == "Faults" || currentAction == "FaultGuide")) ? "is-active" : null)">
+                        <div class="nav-group @(currentController == "SupplyNeeds" || (currentController == "Operations" && (currentAction == "Orders" || currentAction == "Returns" || currentAction == "Faults" || currentAction == "FaultGuide")) ? "is-active" : null)">
                             <button class="submenu-toggle" type="button" aria-expanded="false">
                                 <i data-lucide="workflow"></i>Operasyon <span aria-hidden="true"></span>
                             </button>
                             <div class="submenu">
-                                  <a asp-controller="Operations" asp-action="Orders">Siparişler</a>
+                                <a asp-controller="Operations" asp-action="Orders">Siparişler</a>
+                                <a asp-controller="Operations" asp-action="Returns">İadeler</a>
                                   @if (User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager"))
                                   {
                                       <a asp-controller="Operations" asp-action="CreatePurchaseOrder">Satın Alma Siparişi</a>
@@ -111,7 +112,7 @@
                         {
                             <div class="nav-group @(currentController == "Customers" || (currentController == "Operations" && currentAction == "EmailHistory") ? "is-active" : null)">
                                 <button class="submenu-toggle" type="button" aria-expanded="false">
-                                    Yönetim <span aria-hidden="true"></span>
+                                    <i data-lucide="settings-2"></i>Yönetim <span aria-hidden="true"></span>
                                 </button>
                                 <div class="submenu">
                                     <a asp-controller="Operations" asp-action="EmailHistory">E-posta Geçmişi</a>

@@ -96,7 +96,8 @@ Core `/api` grubunun tamamı Bearer authentication gerektirir.
 | `GET/POST /api/faults` | Liste: kapsamlı; oluşturma: giriş | Arıza kaydı |
 | `POST /api/faults/{id}/status` | Sistem/operasyon/servis | Servis durum değişikliği |
 | `POST /api/return-inspections` | Depo rolleri | İade kontrolünü tamamlama |
-| `GET /api/dashboard` | Operasyon rolleri | Yönetim sayaçları |
+| `GET /api/dashboard` | Operasyon rolleri | Sipariş, öğrenci adresi, kiralama, iade ve arıza özet kartları |
+| `GET /api/returns` | Operasyon rolleri | Teslim alınmayı bekleyen müşteri iadeleri |
 | `GET /api/audit` | `SystemAdmin`, `Auditor` | Audit geçmişi |
 | `GET /api/reports/inventory.csv` | Operasyon rolleri | Fiziksel envanter CSV'si |
 | `GET /health` | Anonim | Servis health durumu |
