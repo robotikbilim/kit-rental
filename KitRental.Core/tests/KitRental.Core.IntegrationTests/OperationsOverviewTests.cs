@@ -254,6 +254,65 @@ public sealed class OperationsOverviewTests
         Assert.Empty(await fixture.Operations.GetReturnsTableAsync(Token, orderId: Guid.NewGuid()));
     }
 
+    [Fact]
+    public async Task FaultDetailShowsHistoryOriginalKitAndAssignmentScopedCurrentAddress()
+    {
+        var fixture = await SeedAsync(new DateOnly(2026, 10, 1));
+        var unitId = fixture.Assignment.ProductUnitId;
+        var ticket = FaultTicket.Open(Guid.NewGuid(), "FAULT-DETAIL", fixture.Customer.Id, fixture.Order.Id,
+            fixture.Assignment.Id, unitId, "Sensör", FaultSeverity.High, "Sensör çalışmıyor", Now,
+            "Bildiren veli", "5550001122", "Arıza bildirim adresi");
+        ticket.MarkInvestigating(Actor, Now.AddMinutes(1), "Bağlantılar incelendi.");
+        ticket.Accept(Actor, Now.AddMinutes(2), "Kit değişimi gerekiyor.");
+        ticket.CreateKargonomiShipment(FaultKargonomiShipmentDirection.ToWorkshop, "Depo", "5550001122", "Depo adresi", Now);
+        await fixture.Repository.AddFaultTicketAsync(ticket, Token);
+        await fixture.Repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unitId,
+            fixture.Assignment.Id, fixture.Order.Id, fixture.Customer.Id, KitLocationEventSource.DeliveryReceipt,
+            null, "Güncel veli", "5550001133", "Güncel adres", null, null, Now.AddMinutes(3), Actor), Token);
+        // A later event on an unrelated historical assignment must not override this student's address.
+        await fixture.Repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unitId,
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), KitLocationEventSource.FaultUpdate,
+            null, "Başka veli", "5550001144", "Başka adres", null, null, Now.AddMinutes(4), Actor), Token);
+
+        var detail = await fixture.Operations.GetFaultDetailAsync(ticket.Id, Token);
+        Assert.Equal(unitId, detail.Kit.Id);
+        Assert.Equal("QR", detail.Kit.QrCode);
+        Assert.Equal("SERIAL", detail.Kit.SerialNumber);
+        Assert.Equal("Arıza bildirim adresi", detail.Fault.ReporterAddress);
+        Assert.Equal(fixture.Student.FullName, detail.ReportedStudentName);
+        var current = Assert.IsType<FaultKitAssignmentResponse>(detail.Kit.CurrentAssignment);
+        Assert.Equal(fixture.Student.FullName, current.StudentName);
+        Assert.Equal("Güncel adres", current.Address);
+        Assert.Equal("Güncel veli", current.ContactName);
+        Assert.Equal(new[] { "Kit değişimi gerekiyor.", "Bağlantılar incelendi." }, detail.History.Select(item => item.Note));
+        Assert.Single(detail.Fault.Shipments!);
+
+        var returned = NewReturn(fixture, Now.AddMinutes(5));
+        returned.Receive(Now.AddMinutes(6));
+        await fixture.Repository.AddKitReturnRequestAsync(returned, Token);
+        var afterReturn = await fixture.Operations.GetFaultDetailAsync(ticket.Id, Token);
+        Assert.Null(afterReturn.Kit.CurrentAssignment);
+        Assert.Equal(fixture.Student.FullName, afterReturn.ReportedStudentName);
+        Assert.Equal("Arıza bildirim adresi", afterReturn.Fault.ReporterAddress);
+    }
+
+    [Fact]
+    public async Task HistoricalFaultDoesNotLabelCurrentStudentAsOriginalReporter()
+    {
+        var fixture = await SeedAsync(new DateOnly(2026, 10, 1));
+        var oldFault = FaultTicket.Open(Guid.NewGuid(), "OLD-FAULT", Guid.NewGuid(), Guid.NewGuid(),
+            Guid.NewGuid(), fixture.Assignment.ProductUnitId, "Kit", FaultSeverity.Medium, "Eski arıza", Now.AddDays(-10),
+            "Eski veli", "5550001122", "Eski adres");
+        await fixture.Repository.AddFaultTicketAsync(oldFault, Token);
+        var detail = await fixture.Operations.GetFaultDetailAsync(oldFault.Id, Token);
+        Assert.Null(detail.ReportedStudentName);
+        Assert.Equal("Eski adres", detail.Fault.ReporterAddress);
+        var current = Assert.IsType<FaultKitAssignmentResponse>(detail.Kit.CurrentAssignment);
+        Assert.Equal(fixture.Assignment.Id, current.AssignmentId);
+        Assert.Equal(fixture.Student.FullName, current.StudentName);
+        Assert.Equal(fixture.Student.AddressLine, current.Address);
+    }
+
     private static KitReturnRequest NewReturn(Fixture fixture, DateTimeOffset createdAt) =>
         KitReturnRequest.Create(Guid.NewGuid(), fixture.Customer.Id, createdAt, Actor,
             [new KitReturnItem(Guid.NewGuid(), fixture.Assignment.Id, fixture.Assignment.ProductUnitId, fixture.Order.Id)]);

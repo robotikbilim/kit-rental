@@ -32,6 +32,11 @@ public sealed class SupportController : CoreApiControllerBase
                     User.GetCustomerId() ?? customerId, orderId, stage), cancellationToken));
     }
 
+    [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
+    [HttpGet("faults/{ticketId:guid}")]
+    public async Task<IActionResult> GetFaultDetail(Guid ticketId, [FromServices] OperationsService service,
+        CancellationToken cancellationToken) => Ok(await service.GetFaultDetailAsync(ticketId, cancellationToken));
+
     [Authorize(Roles = "SystemAdmin,OperationsManager,ServiceTechnician")]
     [HttpPost("faults/{ticketId:guid}/status-events")]
     public async Task<IActionResult> CreateFaultStatusEvent(Guid ticketId, FaultStatusRequest request, [FromServices] OperationsService service, CancellationToken cancellationToken)

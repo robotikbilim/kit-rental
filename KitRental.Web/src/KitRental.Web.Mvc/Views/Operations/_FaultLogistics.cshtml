@@ -1,0 +1,51 @@
+@model FaultViewModel
+@{
+    var canUpdateFaults = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager") || User.IsInRole("ServiceTechnician");
+}
+@if (canUpdateFaults)
+{
+    <partial name="_FaultStatusEditor" model="Model" />
+}
+<div class="ops-fault-shipment-grid">
+@foreach (var direction in new[] { 1, 2 })
+{
+    var shipment = Model.Shipments?.FirstOrDefault(value => value.Direction == direction);
+    var canStart = canUpdateFaults && (Model.Status is 9 or 12 or 13 or 14 or 15 or 16) &&
+        (shipment?.ExternalShipmentId is null || shipment.State is 2 or 6 or 7);
+    var title = direction == 1 ? "Arızalı kitin alınması" : "Yeni kitin gönderimi";
+    var action = direction == 1 ? "Kurye Gönder" : "Kargoya Gönder";
+    var defaultCarrier = direction == 1 ? "HepsiJet" : "Aras Kargo";
+    var carrier = shipment?.ExternalShipmentId is not null && !string.IsNullOrWhiteSpace(shipment.Carrier)
+        ? shipment.Carrier : defaultCarrier;
+    <details class="ops-fault-shipment-card ops-fault-disclosure @(direction == 1 ? "pickup" : "outbound")">
+        <summary aria-label="@($"{Model.Number} · {action} · {shipment?.StatusLabel ?? "Başlatılmadı"}")">
+            <span class="ops-fault-disclosure-title"><strong>@action</strong><small>@title</small></span>
+            <span class="ops-fault-disclosure-state"><span class="ops-shipment-state state-@(shipment?.State ?? 0)">@(shipment?.StatusLabel ?? "Başlatılmadı")</span>
+                @if (!string.IsNullOrWhiteSpace(shipment?.TrackingNumber)) { <small>Takip: @shipment.TrackingNumber</small> }
+            </span>
+        </summary>
+        <div class="ops-fault-disclosure-body">
+        <p class="ops-fault-route">@(direction == 1 ? "Veli adresi → Robotik Bilim deposu" : "Robotik Bilim deposu → Veli adresi")</p>
+        <div class="ops-fault-shipment-address"><strong>@(direction == 1 ? "Alınacak adres" : "Teslim adresi")</strong><span>@(direction == 2 && shipment is not null ? shipment.RecipientAddress : Model.ReporterAddress)</span></div>
+        @if (direction == 1 && shipment is not null) { <small class="block-muted">Teslim: @shipment.RecipientName · @shipment.RecipientAddress</small> }
+        <dl><div><dt>Kargo firması</dt><dd>@carrier</dd></div><div><dt>Takip numarası</dt><dd>@(shipment?.TrackingNumber ?? "Henüz oluşmadı")</dd></div></dl>
+        @if (shipment is not null) { <small class="block-muted">Son güncelleme: @shipment.UpdatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small> }
+        @if (!string.IsNullOrWhiteSpace(shipment?.LastError)) { <p class="error" role="alert">@shipment.LastError</p> }
+        <div class="ops-fault-shipment-buttons">
+            @if (canUpdateFaults)
+            {
+                <form asp-action="StartFaultKargonomiShipment" asp-route-id="@Model.Id" method="post" data-fault-shipment-form>
+                    <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+                    <input type="hidden" name="direction" value="@direction" />
+                    <button class="table-action" type="submit" disabled="@(!canStart)">@(shipment?.State == 6 ? $"{action} · Tekrar Dene" : action)</button>
+                </form>
+            }
+            <button type="button" class="table-action" disabled="@(shipment?.ExternalShipmentId is null)"
+                    data-kargonomi-barcode-url="@Url.Action("FaultKargonomiBarcode", new { id = Model.Id, shipmentId = shipment?.Id })"
+                    aria-label="@($"{Model.Number} {title} kargo etiketi")">Kargo Etiketi Yazdır</button>
+        </div>
+        </div>
+    </details>
+}
+</div>
+@if (Model.Status is 1 or 2 or 3) { <p class="block-muted">Kargo işlemleri arıza incelenip kabul edildiğinde açılır.</p> }

@@ -145,10 +145,7 @@
 .ops-data-table .fault-shipment-action :is(input,textarea) { width:100%; min-width:0; }
 .ops-data-region :is(input,select,button,a,summary):focus-visible { outline:2px solid var(--green); outline-offset:3px; }
 
-.ops-fault-logistics { padding:4px 6px 12px; }
-.ops-fault-logistics>header { display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px 20px; margin-bottom:12px; }
-.ops-fault-logistics>header span { font-size:12px; color:var(--muted); }
-.ops-fault-shipment-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:12px; }
+.ops-fault-shipment-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; gap:12px; }
 .ops-fault-shipment-card { border:1px solid var(--line); border-top:3px solid #b7791f; border-radius:10px; background:var(--card); min-width:0; }
 .ops-fault-shipment-card.outbound { border-top-color:var(--green); }
 .ops-fault-shipment-heading { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; }
@@ -198,6 +195,36 @@
 .ops-fault-status-footer>div { display:flex; flex-wrap:wrap; gap:8px; }
 .ops-fault-status-footer button:disabled { opacity:.5; cursor:not-allowed; }
 
+/* The fault list is an overview; all commands live on the detail page. */
+.ops-fault-detail-link { text-decoration:none; }
+.ops-fault-detail { display:grid; gap:20px; }
+.ops-fault-detail-heading { margin:0; gap:16px; flex-wrap:wrap; }
+.ops-fault-detail-heading h1 { overflow-wrap:anywhere; }
+.ops-fault-badges,.ops-fault-detail-links { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.ops-fault-detail-grid { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:20px; }
+.ops-fault-detail-card { min-width:0; padding:24px; border:1px solid var(--line); border-radius:14px; background:var(--card); }
+.ops-fault-detail-card h2 { margin:0 0 18px; font-size:19px; }
+.ops-fault-description,.ops-fault-timeline p { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.6; }
+.ops-fault-facts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; margin:20px 0; }
+.ops-fault-facts dt { color:var(--muted); font-size:12px; margin-bottom:6px; }
+.ops-fault-facts dd { margin:0; overflow-wrap:anywhere; line-height:1.5; }
+.ops-fault-fact-wide { grid-column:1/-1; }
+.ops-fault-current-facts { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.ops-fault-kit-identity { display:flex; align-items:center; gap:18px; }
+.ops-fault-kit-identity>div { min-width:0; }
+.ops-fault-qr { display:block; width:144px; height:144px; flex-shrink:0; }
+.ops-fault-serial { display:block; margin:10px 0; overflow-wrap:anywhere; font-weight:700; }
+.ops-fault-timeline { list-style:none; padding:0 0 0 18px; margin:0; border-left:2px solid var(--line); }
+.ops-fault-timeline li { padding:0 0 22px 6px; }
+.ops-fault-timeline li:last-child { padding-bottom:0; }
+.ops-fault-timeline-heading { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px 20px; }
+.ops-fault-timeline time { font-size:12px; color:var(--muted); }
+.ops-fault-timeline p { margin:8px 0 0; }
+.ops-fault-detail :is(a,button,summary,input,textarea):focus-visible { outline:2px solid var(--green); outline-offset:3px; }
+@media (min-width:901px) {
+    #operations-faults-table>tbody>tr>td { border-bottom:3px solid #64748b; }
+}
+
 @media (max-width:1000px) {
     .ops-column-filter-grid,.ops-fault-filters { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
@@ -221,9 +248,12 @@
     .ops-data-region table.ops-data-table tbody td:empty { display:none; }
     .ops-data-region table.ops-data-table tbody td[colspan]::before { display:none; }
     .ops-data-region table.ops-data-table tbody td[colspan] { padding:28px 12px!important; text-align:center!important; }
-    .ops-data-region table.ops-data-table tbody .ops-fault-logistics-row { margin-top:-14px; border-top:0; border-radius:0 0 12px 12px; }
-    .ops-data-region table.ops-data-table tbody .ops-fault-logistics-row td[colspan] { padding:0!important; text-align:left!important; }
-    .ops-fault-logistics { padding:6px 0; }
+    #operations-faults-table>tbody>tr { border-bottom:3px solid #64748b; }
+    .ops-fault-detail-grid { grid-template-columns:minmax(0,1fr); }
+    .ops-fault-current-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .ops-fault-detail-card { padding:18px; }
+    .ops-fault-detail :is(.secondary-action,.primary-action,.table-action,summary) { min-height:44px; }
+    .ops-fault-detail textarea { font-size:16px; }
     .ops-fault-shipment-grid { grid-template-columns:minmax(0,1fr); }
     .ops-fault-status-form { padding:14px; }
     .ops-fault-status-note textarea { font-size:16px; }
@@ -239,6 +269,8 @@
     .ops-datatable .dt-paging { width:100%; overflow-x:auto!important; justify-content:flex-start; }
 }
 @media (max-width:480px) {
+    .ops-fault-facts { grid-template-columns:minmax(0,1fr); }
+    .ops-fault-kit-identity { align-items:flex-start; flex-direction:column; }
     .ops-fault-disclosure>summary { gap:8px; padding:12px; flex-wrap:wrap; }
     .ops-fault-disclosure-state { flex-basis:100%; order:1; margin-left:0; }
     .ops-fault-status-footer>div { width:100%; }

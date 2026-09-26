@@ -187,6 +187,16 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             lines = model.Lines.Select(line => new { line.ProductModelId, line.Quantity }).ToArray()
         }, cancellationToken);
 
+    public async Task<FaultDetailViewModel?> GetFaultDetailAsync(Guid id, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/core/api/faults/{id}");
+        await AddAuthorizationAsync(request);
+        using var response = await client.SendAsync(request, cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<FaultDetailViewModel>(cancellationToken);
+    }
+
     public Task<FaultPageViewModel?> GetFaultsAsync(FaultFilterViewModel filter,
         CancellationToken cancellationToken)
     {

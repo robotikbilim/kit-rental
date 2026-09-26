@@ -1,0 +1,103 @@
+@model FaultDetailViewModel
+@using QRCoder
+@{
+    var fault = Model.Fault;
+    var kit = Model.Kit;
+    var current = kit.CurrentAssignment;
+    ViewData["Title"] = $"Arıza Detayı · {fault.Number}";
+    var reportUrl = Url.Action("Index", "PublicFault", new { qrCode = kit.QrCode }, Context.Request.Scheme)!;
+    var qrImage = Convert.ToBase64String(PngByteQRCodeHelper.GetQRCode(reportUrl, QRCodeGenerator.ECCLevel.Q, 8));
+    var canViewKitHistory = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager") || User.IsInRole("WarehouseStaff");
+    var severity = fault.Severity switch { 1 => "Düşük", 2 => "Orta", 3 => "Yüksek", 4 => "Kritik", _ => "—" };
+    var kitStatus = kit.Status switch
+    {
+        1 => "Kiralanabilir", 2 => "Rezerve", 3 => "Gönderim bekliyor", 4 => "Kargoya verildi",
+        5 => "Teslim edildi / kirada", 6 => "İade yolunda", 7 => "Kontrolde", 8 => "Serviste",
+        9 => "Karantina", 10 => "Kayıp", 11 => "Emekli", 12 => "Satıldı", _ => "Bilinmiyor"
+    };
+}
+<div class="ops-fault-detail">
+    <a class="back-link" asp-action="Faults">← Arıza kayıtları</a>
+    <header class="page-heading ops-fault-detail-heading">
+        <div><span class="eyebrow">ARIZA DETAYI</span><h1>@fault.Number</h1><p class="block-muted">@fault.CustomerName · @fault.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</p></div>
+        <div class="ops-fault-badges"><span class="fault-stage status-@fault.Status">@OperationsDisplay.FaultStatus(fault.Status)</span><span class="fault-severity severity-@fault.Severity">@severity önem</span></div>
+    </header>
+    @if (TempData["Success"] is string success) { <div class="success-banner" role="status">@success</div> }
+    @if (TempData["Error"] is string error) { <div class="error-banner" role="alert">@error</div> }
+
+    <div class="ops-fault-detail-grid">
+        <section class="ops-fault-detail-card" aria-labelledby="fault-information-title">
+            <h2 id="fault-information-title">Arıza bilgileri</h2>
+            <span class="fault-category">@fault.Category</span>
+            <p class="ops-fault-description">@fault.Description</p>
+            <dl class="ops-fault-facts">
+                <div><dt>Arızayı bildiren</dt><dd>@fault.ReporterName</dd></div>
+                <div><dt>Telefon</dt><dd>@if (!string.IsNullOrWhiteSpace(fault.ReporterPhone) && fault.ReporterPhone != "—") { <a href="tel:@fault.ReporterPhone">@fault.ReporterPhone</a> } else { <span>—</span> }</dd></div>
+                <div><dt>Kayıtla ilişkili öğrenci</dt><dd>@(Model.ReportedStudentName ?? "Öğrenci kaydı bulunamadı")</dd></div>
+                <div><dt>Sipariş</dt><dd>@if (fault.OrderId != Guid.Empty) { <a asp-action="OrderDetails" asp-route-id="@fault.OrderId">@(fault.OrderNumber ?? "Siparişi aç")</a> } else { <span>—</span> }</dd></div>
+                <div class="ops-fault-fact-wide"><dt>Arıza bildirimi / kargo işlem adresi</dt><dd>@fault.ReporterAddress</dd></div>
+            </dl>
+            @if (!string.IsNullOrWhiteSpace(fault.AttachmentUrl))
+            {
+                <a class="secondary-action" href="@fault.AttachmentUrl" target="_blank" rel="noopener">Arıza fotoğrafını / videosunu aç ↗</a>
+            }
+        </section>
+
+        <section class="ops-fault-detail-card" aria-labelledby="fault-kit-title">
+            <h2 id="fault-kit-title">İlgili fiziksel kit</h2>
+            <div class="ops-fault-kit-identity">
+                <a href="@reportUrl" target="_blank" rel="noopener" aria-label="Kitin QR sayfasını yeni sekmede aç"><img class="ops-fault-qr" src="data:image/png;base64,@qrImage" width="144" height="144" alt="@kit.SerialNumber QR kodu" /></a>
+                <div><strong>@kit.Name</strong><small class="block-muted">@kit.Sku</small>
+                    @if (canViewKitHistory) { <a class="ops-fault-serial" asp-controller="PhysicalKits" asp-action="Details" asp-route-id="@kit.Id" target="_blank" rel="noopener">@kit.SerialNumber ↗</a> }
+                    else { <strong class="ops-fault-serial">@kit.SerialNumber</strong> }
+                    <span class="fleet-status status-@kit.Status">@kitStatus</span>
+                </div>
+            </div>
+            <dl class="ops-fault-facts"><div class="ops-fault-fact-wide"><dt>QR kodu</dt><dd>@kit.QrCode</dd></div></dl>
+            <div class="ops-fault-detail-links">
+                @if (canViewKitHistory) { <a class="secondary-action" asp-controller="PhysicalKits" asp-action="Details" asp-route-id="@kit.Id" target="_blank" rel="noopener">Kit Detayı ve Geçmişi ↗</a> }
+                <a class="secondary-action" asp-action="FaultKitLabel" asp-route-id="@fault.Id" target="_blank" rel="noopener">QR Etiketi Yazdır</a>
+            </div>
+        </section>
+    </div>
+
+    <section class="ops-fault-detail-card" aria-labelledby="fault-location-title">
+        <h2 id="fault-location-title">Güncel öğrenci ve adres</h2>
+        @if (current is null)
+        {
+            <p class="block-muted">Bu kit için devam eden bir öğrenci / müşteri ataması bulunmuyor.</p>
+        }
+        else
+        {
+            <p class="block-muted">Kitin güncel atama bilgileri. Kurye ve kargo işlemleri yukarıdaki arıza bildirimi adresini kullanır.</p>
+            <dl class="ops-fault-facts ops-fault-current-facts">
+                <div><dt>Öğrenci</dt><dd>@(current.StudentName ?? "Öğrenci kaydı bulunamadı")</dd></div>
+                <div><dt>Müşteri</dt><dd>@current.CustomerName</dd></div>
+                <div><dt>İletişim kişisi</dt><dd>@(current.ContactName ?? "—")</dd></div>
+                <div><dt>Telefon</dt><dd>@if (!string.IsNullOrWhiteSpace(current.Phone)) { <a href="tel:@current.Phone">@current.Phone</a> } else { <span>—</span> }</dd></div>
+                <div class="ops-fault-fact-wide"><dt>Son kayıtlı adres</dt><dd>@(current.Address ?? "Adres bilgisi bulunmuyor")</dd></div>
+                <div><dt>Güncel sipariş</dt><dd>@if (current.OrderId != Guid.Empty) { <a asp-action="OrderDetails" asp-route-id="@current.OrderId">@current.OrderNumber</a> } else { <span>—</span> }</dd></div>
+                <div><dt>Adres kayıt zamanı</dt><dd>@(current.AddressUpdatedAt?.ToTurkeyTimeString("dd.MM.yyyy HH:mm") ?? "—")</dd></div>
+            </dl>
+        }
+    </section>
+
+    <section class="ops-fault-detail-card" aria-labelledby="fault-actions-title">
+        <h2 id="fault-actions-title">Arıza ve Kargo İşlemleri</h2>
+        <partial name="_FaultLogistics" model="fault" />
+    </section>
+
+    <section class="ops-fault-detail-card" aria-labelledby="fault-history-title">
+        <h2 id="fault-history-title">Arıza durum geçmişi ve notlar</h2>
+        <ol class="ops-fault-timeline">
+            @foreach (var entry in Model.History)
+            {
+                <li><div class="ops-fault-timeline-heading"><strong>@OperationsDisplay.FaultStatus(entry.Previous) → @OperationsDisplay.FaultStatus(entry.Current)</strong><time datetime="@entry.OccurredAt.ToString("O")">@entry.OccurredAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</time></div><p>@entry.Note</p></li>
+            }
+            <li><div class="ops-fault-timeline-heading"><strong>Arıza kaydı açıldı</strong><time datetime="@fault.OpenedAt.ToString("O")">@fault.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</time></div><p>@fault.ReporterName tarafından bildirildi.</p></li>
+        </ol>
+    </section>
+</div>
+@section Scripts {
+    <script src="~/js/fault-shipments.js" asp-append-version="true"></script>
+}

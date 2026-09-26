@@ -98,6 +98,15 @@ public sealed record FaultViewModel(Guid Id, string Number, Guid CustomerId, str
     string? SerialNumber = null, IReadOnlyCollection<FaultKargonomiShipmentViewModel>? Shipments = null);
 public sealed record FaultPageViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultViewModel> Items);
+public sealed record FaultDetailViewModel(FaultViewModel Fault, FaultKitContextViewModel Kit,
+    string? ReportedStudentName, IReadOnlyCollection<FaultStatusEventViewModel> History);
+public sealed record FaultKitContextViewModel(Guid Id, string Name, string Sku, string SerialNumber, string QrCode,
+    int Status, FaultKitAssignmentViewModel? CurrentAssignment);
+public sealed record FaultKitAssignmentViewModel(Guid AssignmentId, Guid OrderId, string OrderNumber,
+    string CustomerName, string? StudentName, string? ContactName, string? Phone, string? Address,
+    DateTimeOffset? AddressUpdatedAt);
+public sealed record FaultStatusEventViewModel(Guid Id, int Previous, int Current, DateTimeOffset OccurredAt,
+    Guid ActorId, string Note);
 public sealed record FaultGuideEntryViewModel(Guid Id, string Title, string Problem, string Solution,
     int DisplayOrder, bool IsActive, DateTimeOffset UpdatedAt, Guid? ProductModelId = null,
     string? ProductModelName = null);

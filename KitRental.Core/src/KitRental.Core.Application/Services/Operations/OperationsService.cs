@@ -65,6 +65,13 @@ public sealed record FaultListItemResponse(Guid Id, string Number, Guid Customer
     IReadOnlyCollection<FaultKargonomiShipmentResponse>? Shipments = null);
 public sealed record FaultKitLabelResponse(Guid Id, string KitName, string KitSku, string SerialNumber,
     string QrCode, string RecipientName, string RecipientPhone, string RecipientAddress);
+public sealed record FaultDetailResponse(FaultListItemResponse Fault, FaultKitContextResponse Kit,
+    string? ReportedStudentName, IReadOnlyCollection<FaultStatusEvent> History);
+public sealed record FaultKitContextResponse(Guid Id, string Name, string Sku, string SerialNumber, string QrCode,
+    ProductUnitStatus Status, FaultKitAssignmentResponse? CurrentAssignment);
+public sealed record FaultKitAssignmentResponse(Guid AssignmentId, Guid OrderId, string OrderNumber,
+    string CustomerName, string? StudentName, string? ContactName, string? Phone, string? Address,
+    DateTimeOffset? AddressUpdatedAt);
 public sealed record FaultPageResponse(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultListItemResponse> Items);
 public sealed record OrderKitResponse(Guid ProductUnitId, Guid AssignmentId, Guid ProductModelId,
@@ -1224,6 +1231,61 @@ public sealed class OperationsService(
             {
                 SerialNumber = units.TryGetValue(item.ProductUnitId, out var unit) ? unit.SerialNumber : null
             }).ToArray());
+    }
+
+    public async Task<FaultDetailResponse> GetFaultDetailAsync(Guid ticketId, CancellationToken cancellationToken)
+    {
+        var ticket = await repository.GetFaultTicketAsync(ticketId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
+        var unit = await repository.GetProductUnitAsync(ticket.ProductUnitId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Arızaya bağlı fiziksel kit bulunamadı.");
+        var model = await repository.GetProductModelAsync(unit.ProductModelId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Kit modeli bulunamadı.");
+        var customer = await repository.GetCustomerAsync(ticket.CustomerId, cancellationToken);
+        var order = await repository.GetOrderAsync(ticket.OrderId, cancellationToken);
+        var cohorts = await repository.GetRentalCohortsAsync(ticket.CustomerId, cancellationToken);
+        var reportedStudent = cohorts.SelectMany(cohort => cohort.Students)
+            .FirstOrDefault(student => student.AssignmentId == ticket.AssignmentId && student.OrderId == ticket.OrderId);
+        var fault = new FaultListItemResponse(ticket.Id, ticket.Number, ticket.CustomerId,
+            customer?.Name ?? "Müşteri", FirstNotEmpty(ticket.ReporterName, order?.DeliveryAddress.ContactName, customer?.Name) ?? "—",
+            FirstNotEmpty(ticket.ReporterPhone, order?.DeliveryAddress.Phone) ?? "—",
+            FirstNotEmpty(ticket.ReporterAddress, order?.DeliveryAddress.Line1) ?? "—",
+            ticket.Category, ticket.Severity, ticket.Description, ticket.Status, ticket.OpenedAt,
+            ticket.ApprovalStatus, ticket.Origin, ticket.AttachmentUrl, ticket.OrderId, order?.OrderNumber,
+            unit.Id, unit.SerialNumber, ticket.KargonomiShipments.OrderByDescending(shipment => shipment.CreatedAt)
+                .Select(KargonomiShippingService.MapFault).ToArray());
+
+        // Resolve the latest live assignment independently from the historical fault's assignment.
+        var assignment = (await repository.GetAssignmentsForProductUnitAsync(unit.Id, cancellationToken))
+            .Where(item => item.Status is RentalAssignmentStatus.Active or RentalAssignmentStatus.Reserved)
+            .OrderByDescending(item => item.CreatedAt).ThenByDescending(item => item.Id).FirstOrDefault();
+        FaultKitAssignmentResponse? current = null;
+        if (assignment is not null)
+        {
+            var returns = await repository.GetKitReturnRequestsAsync(assignment.CustomerId, cancellationToken);
+            var received = returns.Any(request => request.Status == KitReturnStatus.Received &&
+                request.Items.Any(item => item.AssignmentId == assignment.Id && item.ProductUnitId == unit.Id));
+            if (!received)
+            {
+                var currentOrder = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken);
+                var currentCustomer = assignment.CustomerId == ticket.CustomerId ? customer
+                    : await repository.GetCustomerAsync(assignment.CustomerId, cancellationToken);
+                var currentCohorts = assignment.CustomerId == ticket.CustomerId ? cohorts
+                    : await repository.GetRentalCohortsAsync(assignment.CustomerId, cancellationToken);
+                var student = currentCohorts.SelectMany(cohort => cohort.Students).FirstOrDefault(item =>
+                    !item.IsDeleted && item.OrderId == currentOrder?.Id &&
+                    (item.AssignmentId == assignment.Id || (!item.AssignmentId.HasValue && item.ProductUnitId == unit.Id)));
+                var location = await repository.GetLatestKitLocationEventForAssignmentAsync(unit.Id, assignment.Id, cancellationToken);
+                var address = currentOrder?.DeliveryAddress;
+                current = new(assignment.Id, currentOrder?.Id ?? Guid.Empty, currentOrder?.OrderNumber ?? "—",
+                    currentCustomer?.Name ?? "Müşteri", student?.FullName,
+                    FirstNotEmpty(location?.ContactName, student?.FullName, address?.ContactName),
+                    FirstNotEmpty(location?.ContactPhone, student?.GuardianPhone, address?.Phone),
+                    FirstNotEmpty(location?.AddressLine, student?.AddressLine, address?.Line1), location?.OccurredAt);
+            }
+        }
+        return new(fault, new(unit.Id, model.Name, model.Sku, unit.SerialNumber, unit.QrCode, unit.Status, current),
+            reportedStudent?.FullName, ticket.History.OrderByDescending(item => item.OccurredAt).ToArray());
     }
 
     public async Task<FaultKitLabelResponse> GetFaultKitLabelAsync(Guid ticketId, CancellationToken cancellationToken)

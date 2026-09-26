@@ -421,6 +421,18 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             await apiClient.GetProductModelsAsync(cancellationToken)));
     }
 
+    [HttpGet]
+    public async Task<IActionResult> FaultDetails(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var model = await apiClient.GetFaultDetailAsync(id, cancellationToken);
+            return model is null ? NotFound() : View(model);
+        }
+        catch (HttpRequestException) { return OperationsUnavailable(); }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested) { return OperationsUnavailable(); }
+    }
+
     public async Task<IActionResult> Faults([FromQuery] FaultFilterViewModel filter,
         CancellationToken cancellationToken)
     {

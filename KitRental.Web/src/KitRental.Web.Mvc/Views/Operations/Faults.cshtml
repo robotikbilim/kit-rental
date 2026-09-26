@@ -14,7 +14,6 @@
     };
     var firstItem = Model.Result.TotalCount == 0 ? 0 : (Model.Result.Page - 1) * Model.Result.PageSize + 1;
     var lastItem = Math.Min(Model.Result.Page * Model.Result.PageSize, Model.Result.TotalCount);
-    var canUpdateFaults = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager") || User.IsInRole("ServiceTechnician");
 }
 <div class="page-heading">
     <div><span class="eyebrow">SERVİS &amp; DESTEK</span><h1>Arıza Kayıtları</h1><p class="block-muted">Arızaları bildiren kişi, neden ve servis aşamasına göre takip edin.</p></div>
@@ -53,7 +52,7 @@ else
     @foreach (var item in Model.Result.Items)
     {
         <tr>
-            <td data-mobile-label="Kayıt"><strong>@item.Number</strong><small class="block-muted">@item.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>@if (item.OrderId != Guid.Empty) { <a asp-action="OrderDetails" asp-route-id="@item.OrderId">@item.OrderNumber</a> }
+            <td data-mobile-label="Kayıt"><a class="ops-fault-detail-link" asp-action="FaultDetails" asp-route-id="@item.Id" target="_blank" rel="noopener"><strong>@item.Number</strong></a><small class="block-muted">@item.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>@if (item.OrderId != Guid.Empty) { <a asp-action="OrderDetails" asp-route-id="@item.OrderId">@item.OrderNumber</a> }
                 @if (!string.IsNullOrWhiteSpace(item.SerialNumber)) { <small class="block-muted">Seri no: @item.SerialNumber</small> }
             </td>
             <td data-mobile-label="Kaynak"><span class="fault-stage status-@item.Origin">@OriginName(item.Origin)</span></td>
@@ -67,63 +66,14 @@ else
                 }
             </td>
             <td data-mobile-label="Önem"><span class="fault-severity severity-@item.Severity">@SeverityName(item.Severity)</span></td>
-            <td data-mobile-label="Durum"><span class="fault-stage status-@item.Status">@StatusName(item.Status)</span></td>
+            <td data-mobile-label="Durum"><span class="fault-stage status-@item.Status">@StatusName(item.Status)</span>
+                <small class="block-muted">Kurye: @(item.Shipments?.FirstOrDefault(shipment => shipment.Direction == 1)?.StatusLabel ?? "Başlatılmadı")</small>
+                <small class="block-muted">Gönderim: @(item.Shipments?.FirstOrDefault(shipment => shipment.Direction == 2)?.StatusLabel ?? "Başlatılmadı")</small>
+            </td>
             <td data-mobile-label="İşlem">
-                @if (!string.IsNullOrWhiteSpace(item.SerialNumber))
-                {
-                    <a class="table-action" asp-action="FaultKitLabel" asp-route-id="@item.Id" target="_blank" rel="noopener">QR Etiketi Yazdır</a>
-                }
+                <a class="table-action" asp-action="FaultDetails" asp-route-id="@item.Id" target="_blank" rel="noopener" aria-label="@(item.Number + " arıza detayını yeni sekmede aç")">Detayı Aç ↗</a>
             </td>
         </tr>
-        <tr class="ops-fault-logistics-row"><td colspan="7">
-            <section class="ops-fault-logistics" aria-label="@($"{item.Number} kargo süreçleri")">
-                @if (canUpdateFaults)
-                {
-                    <partial name="_FaultStatusEditor" model="item" />
-                }
-                <div class="ops-fault-shipment-grid">
-                @foreach (var direction in new[] { 1, 2 })
-                {
-                    var shipment = item.Shipments?.FirstOrDefault(value => value.Direction == direction);
-                    var canStart = canUpdateFaults && (item.Status is 9 or 12 or 13 or 14 or 15 or 16) &&
-                        (shipment?.ExternalShipmentId is null || shipment.State is 2 or 6 or 7);
-                    var title = direction == 1 ? "Arızalı kitin alınması" : "Yeni kitin gönderimi";
-                    var action = direction == 1 ? "Kurye Gönder" : "Kargoya Gönder";
-                    <details class="ops-fault-shipment-card ops-fault-disclosure @(direction == 1 ? "pickup" : "outbound")">
-                        <summary aria-label="@($"{item.Number} · {action} · {shipment?.StatusLabel ?? "Başlatılmadı"}")">
-                            <span class="ops-fault-disclosure-title"><strong>@action</strong><small>@title</small></span>
-                            <span class="ops-fault-disclosure-state"><span class="ops-shipment-state state-@(shipment?.State ?? 0)">@(shipment?.StatusLabel ?? "Başlatılmadı")</span>
-                                @if (!string.IsNullOrWhiteSpace(shipment?.TrackingNumber)) { <small>Takip: @shipment.TrackingNumber</small> }
-                            </span>
-                        </summary>
-                        <div class="ops-fault-disclosure-body">
-                        <p class="ops-fault-route">@(direction == 1 ? "Veli adresi → Robotik Bilim deposu" : "Robotik Bilim deposu → Veli adresi")</p>
-                        <div class="ops-fault-shipment-address"><strong>@(direction == 1 ? "Alınacak adres" : "Teslim adresi")</strong><span>@(direction == 2 && shipment is not null ? shipment.RecipientAddress : item.ReporterAddress)</span></div>
-                        @if (direction == 1 && shipment is not null) { <small class="block-muted">Teslim: @shipment.RecipientName · @shipment.RecipientAddress</small> }
-                        <dl><div><dt>Kargo firması</dt><dd>@(shipment?.Carrier ?? "—")</dd></div><div><dt>Takip numarası</dt><dd>@(shipment?.TrackingNumber ?? "Henüz oluşmadı")</dd></div></dl>
-                        @if (shipment is not null) { <small class="block-muted">Son güncelleme: @shipment.UpdatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small> }
-                        @if (!string.IsNullOrWhiteSpace(shipment?.LastError)) { <p class="error" role="alert">@shipment.LastError</p> }
-                        <div class="ops-fault-shipment-buttons">
-                            @if (canUpdateFaults)
-                            {
-                                <form asp-action="StartFaultKargonomiShipment" asp-route-id="@item.Id" method="post" data-fault-shipment-form>
-                                    <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
-                                    <input type="hidden" name="direction" value="@direction" />
-                                    <button class="table-action" type="submit" disabled="@(!canStart)">@(shipment?.State == 6 ? $"{action} · Tekrar Dene" : action)</button>
-                                </form>
-                            }
-                            <button type="button" class="table-action" disabled="@(shipment?.ExternalShipmentId is null)"
-                                    data-kargonomi-barcode-url="@Url.Action("FaultKargonomiBarcode", new { id = item.Id, shipmentId = shipment?.Id })"
-                                    aria-label="@($"{item.Number} {title} kargo etiketi")">Kargo Etiketi Yazdır</button>
-                        </div>
-                        @if (direction == 2) { <small class="block-muted">Eski kitin depoya gelmesi beklenmeden gönderilebilir. Seri no: @item.SerialNumber · Mevcut QR kodu korunur.</small> }
-                        </div>
-                    </details>
-                }
-                </div>
-                @if (item.Status is 1 or 2 or 3) { <p class="block-muted">Kargo işlemleri arıza incelenip kabul edildiğinde açılır.</p> }
-            </section>
-        </td></tr>
     }
     </tbody></table></div>
     <footer class="pagination-shell"><span>@firstItem–@lastItem / @Model.Result.TotalCount kayıt</span><nav class="pagination" aria-label="Arıza kayıtları sayfaları">
@@ -132,8 +82,3 @@ else
         @if (Model.Result.Page < Model.Result.TotalPages) { <a asp-action="Faults" asp-route-page="@(Model.Result.Page + 1)" asp-route-pageSize="@Model.Result.PageSize" asp-route-query="@Model.Filter.Query" asp-route-status="@Model.Filter.Status" asp-route-severity="@Model.Filter.Severity" asp-route-openedFrom="@Model.Filter.OpenedFrom" asp-route-openedTo="@Model.Filter.OpenedTo" asp-route-orderId="@Model.Filter.OrderId" asp-route-customerId="@Model.Filter.CustomerId" asp-route-stage="@Model.Filter.Stage">→</a> }
     </nav></footer>
 }
-
-@section Scripts {
-    <script src="~/js/fault-shipments.js" asp-append-version="true"></script>
-}
-

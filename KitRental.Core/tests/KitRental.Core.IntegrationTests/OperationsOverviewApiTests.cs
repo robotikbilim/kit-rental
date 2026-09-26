@@ -39,11 +39,25 @@ public sealed class OperationsOverviewApiTests : IClassFixture<WebApplicationFac
     [Theory]
     [InlineData("/api/operations/orders")]
     [InlineData("/api/dashboard")]
+    [InlineData("/api/faults/11111111-1111-1111-1111-111111111111")]
     public async Task CustomerCannotAccessAdminOperationalProjections(string path)
     {
         using var client = CreateClient("CustomerAdmin", Guid.NewGuid());
         var response = await client.GetAsync(path, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("SystemAdmin")]
+    [InlineData("OperationsManager")]
+    [InlineData("WarehouseStaff")]
+    [InlineData("ServiceTechnician")]
+    [InlineData("Auditor")]
+    public async Task FaultDetailReturnsNotFoundForMissingRecord(string role)
+    {
+        using var client = CreateClient(role);
+        var response = await client.GetAsync($"/api/faults/{Guid.NewGuid()}", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     private HttpClient CreateClient(string role, Guid? customerId = null)
