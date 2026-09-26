@@ -1,0 +1,37 @@
+@model OperationsOrderSummary
+<dialog class="student-edit-dialog order-period-dialog" id="order-period-dialog-@Model.Id"
+        aria-labelledby="order-period-dialog-title-@Model.Id">
+    <form class="student-edit-modal" asp-action="UpdateOrderRentalPeriod" asp-route-id="@Model.Id"
+          asp-route-returnToOrders="true" method="post">
+        <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+        <div asp-validation-summary="All" class="error"></div>
+        <header>
+            <div>
+                <span class="eyebrow">SİPARİŞ DÜZENLEME</span>
+                <h2 id="order-period-dialog-title-@Model.Id">Sipariş dönemini güncelle</h2>
+                <p class="block-muted">@Model.OrderNumber · @Model.CustomerName</p>
+            </div>
+            <button class="icon-action icon-action-neutral" type="button" data-dialog-close title="Kapat" aria-label="Pencereyi Kapat">
+                <i data-lucide="x"></i>
+            </button>
+        </header>
+        <div class="form-grid">
+            <div class="field wide">
+                <label for="order-period-name-@Model.Id">Sipariş dönemi</label>
+                <input id="order-period-name-@Model.Id" name="PeriodName" value="@Model.RentalPeriodName" required maxlength="200" />
+            </div>
+            <div class="field">
+                <label for="order-period-start-@Model.Id">Başlangıç tarihi</label>
+                <input id="order-period-start-@Model.Id" name="StartDate" type="date" value="@(Model.StartDate?.ToString("yyyy-MM-dd"))" required />
+            </div>
+            <div class="field">
+                <label for="order-period-end-@Model.Id">Bitiş tarihi</label>
+                <input id="order-period-end-@Model.Id" name="EndDate" type="date" value="@(Model.EndDate?.ToString("yyyy-MM-dd"))" required />
+            </div>
+        </div>
+        <footer>
+            <button class="secondary-action" type="button" data-dialog-close>Vazgeç</button>
+            <button class="primary-action" type="submit">Kaydet</button>
+        </footer>
+    </form>
+</dialog>

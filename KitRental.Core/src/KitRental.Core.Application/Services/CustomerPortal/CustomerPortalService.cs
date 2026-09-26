@@ -17,7 +17,8 @@ namespace KitRental.Core.Application.CustomerPortal;
 public sealed class CustomerPortalService(
     ICoreRepository repository,
     OperationsService operationsService,
-    KargonomiShippingService kargonomiShippingService)
+    KargonomiShippingService kargonomiShippingService,
+    OperationsOverviewService operationsOverviewService)
 {
     private static readonly Guid PublicActorId = new("00000000-0000-0000-0000-000000000001");
     private const string CargoDropOffAddress = "Aras Kargo şubesine bırakılacak. İade kodu: 1234567890";
@@ -26,6 +27,9 @@ public sealed class CustomerPortalService(
         CancellationToken cancellationToken)
     {
         var data = await LoadPortalKitDataAsync(customerId, cancellationToken);
+        var operations = await operationsOverviewService.GetDashboardAsync(customerId, cancellationToken);
+        // The admin customer selector must never be exposed to a customer account.
+        operations = operations with { Customers = [] };
         var today = TurkeyTime.Today();
         var returnFormCompletedAssignmentIds = data.Returns
             .SelectMany(item => item.Items).Select(item => item.AssignmentId).ToHashSet();
@@ -43,12 +47,13 @@ public sealed class CustomerPortalService(
         var preparedKitCount = assignedStudentKits.Length - deliveredKitCount - inTransitKitCount;
         return new CustomerPortalDashboardResponse(data.Customer.Name, assignedStudentKits.Length,
             deliveredKitCount, inTransitKitCount, preparedKitCount,
-            data.Faults.Count(item => !IsCompletedFaultStatus(item.Status)),
-            data.Faults.Count(item => IsCompletedFaultStatus(item.Status)),
+            operations.OpenFaultCount,
+            operations.FaultsCompleted,
             data.Kits.Count(item => item.AssignmentStatus == RentalAssignmentStatus.Active &&
                 item.EndDate < today && !returnFormCompletedAssignmentIds.Contains(item.AssignmentId)),
-            0, 0, returnFormCompletedAssignmentIds.Count, data.KitLocations,
-            currentKits.Count(item => string.IsNullOrWhiteSpace(item.AssignedStudentName)));
+            operations.ReturnPendingKitCount - operations.MissingReturnFormCount, operations.ReturnInTransitKitCount,
+            operations.ReturnCompletedKitCount, data.KitLocations,
+            currentKits.Count(item => string.IsNullOrWhiteSpace(item.AssignedStudentName)), operations);
     }
 
     public async Task<CustomerPortalKitsResponse> GetKitsPageAsync(Guid customerId,
@@ -65,7 +70,7 @@ public sealed class CustomerPortalService(
         return new CustomerPortalReturnsResponse(data.Customer.Name, data.Kits,
             MapFaults(data.Faults, data.Models, data.Units),
             await MapReturnsAsync(customerId, data.Models, data.Units, cancellationToken, data.Returns,
-                data.Customer));
+                data.Customer), await operationsService.GetReturnsTableAsync(cancellationToken, customerId));
     }
 
     public async Task<CustomerPortalFaultsResponse> GetFaultsPageAsync(Guid customerId,
@@ -90,13 +95,20 @@ public sealed class CustomerPortalService(
     }
 
     public async Task<CustomerPortalRentalPeriodsResponse> GetRentalPeriodsPageAsync(Guid customerId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, string? focus = null)
     {
         var customer = await GetCustomerAsync(customerId, cancellationToken);
         var models = await repository.GetProductModelsAsync(cancellationToken);
+        var progress = (await operationsOverviewService.GetCustomerOrderSummariesAsync(customerId, cancellationToken))
+            .ToDictionary(item => item.Id);
+        var cohorts = await MapRentalCohortsAsync(customerId, cancellationToken, models.ToDictionary(item => item.Id));
+        var linkedOrderIds = cohorts.Where(item => item.OrderId.HasValue).Select(item => item.OrderId!.Value).ToHashSet();
         return new CustomerPortalRentalPeriodsResponse(customer.Name, MapProductModels(customer, models),
-            await MapRentalCohortsAsync(customerId, cancellationToken,
-                models.ToDictionary(item => item.Id)));
+            cohorts.Select(cohort => cohort with { Progress = cohort.OrderId.HasValue ? progress.GetValueOrDefault(cohort.OrderId.Value) : null })
+                .Where(cohort => string.IsNullOrWhiteSpace(focus) ||
+                    (cohort.Progress is not null && OperationsWorkload.MatchesOrderFocus(cohort.Progress, focus))).ToArray(),
+            progress.Values.Where(order => !linkedOrderIds.Contains(order.Id) && OperationsWorkload.MatchesOrderFocus(order, focus))
+                .OrderByDescending(order => order.CreatedAt).ToArray());
     }
 
     public async Task<CustomerPortalRentalPeriodResponse> GetRentalPeriodPageAsync(Guid customerId, Guid periodId,
@@ -105,9 +117,10 @@ public sealed class CustomerPortalService(
         var customer = await GetCustomerAsync(customerId, cancellationToken);
         var cohort = await GetOwnedCohortAsync(customerId, periodId, cancellationToken);
         var models = await repository.GetProductModelsAsync(cancellationToken);
-        return new CustomerPortalRentalPeriodResponse(customer.Name, MapProductModels(customer, models),
-            await MapRentalCohortAsync(cohort, cancellationToken,
-                models.ToDictionary(item => item.Id)));
+        var mapped = await MapRentalCohortAsync(cohort, cancellationToken, models.ToDictionary(item => item.Id));
+        var progress = (await operationsOverviewService.GetCustomerOrderSummariesAsync(customerId, cancellationToken))
+            .FirstOrDefault(item => item.Id == mapped.OrderId);
+        return new CustomerPortalRentalPeriodResponse(customer.Name, MapProductModels(customer, models), mapped with { Progress = progress });
     }
 
     public async Task<CustomerPortalKitDetailResponse> GetKitDetailAsync(Guid customerId, Guid productUnitId,
@@ -337,7 +350,7 @@ public sealed class CustomerPortalService(
         .ToArray();
 
     private static bool IsCompletedFaultStatus(FaultStatus status) =>
-        status is FaultStatus.Resolved or FaultStatus.RemoteResolved or FaultStatus.Rejected or FaultStatus.Closed;
+        !OperationsWorkload.IsOpenFault(status);
 
     private static bool IsDeliveredShipment(PortalKitResponse shipment) =>
         shipment.ShipmentState == KargonomiShipmentState.Delivered ||
@@ -782,7 +795,8 @@ public sealed class CustomerPortalService(
                 customers.TryGetValue(request.CustomerId, out var requestCustomer) ? requestCustomer.Name : "Müşteri",
                 request.Status, request.Carrier, request.TrackingNumber, request.CreatedAt, request.ShippedAt,
                 request.RequesterName, request.RequesterPhone,
-                request.ReturnAddress, request.Latitude, request.Longitude, request.DeliveryMethod, items));
+                request.ReturnAddress, request.Latitude, request.Longitude, request.DeliveryMethod, items,
+                OperationsWorkload.ReturnState(request), request.ExternalStatusLabel, request.ReceivedAt));
         }
         return result;
     }
@@ -1146,7 +1160,12 @@ public sealed class CustomerPortalService(
             unit?.SerialNumber ?? "-", ticket.Category, ticket.Severity, ticket.Description, ticket.Status,
             ticket.OpenedAt, ticket.History.OrderBy(item => item.OccurredAt).Select(item =>
                 new PortalFaultStatusResponse(item.Previous, item.Current, item.OccurredAt, item.Note)).ToArray(),
-            ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress, ticket.ApprovalStatus, ticket.Origin);
+            ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress, ticket.ApprovalStatus, ticket.Origin,
+            new[] { "review", "repair", "shipment", "completed" }.FirstOrDefault(stage => OperationsWorkload.MatchesFaultStage(ticket.Status, stage)) ?? "other",
+            OperationsWorkload.IsOpenFault(ticket.Status),
+            ticket.KargonomiShipments.OrderByDescending(item => item.CreatedAt).Select(item =>
+                new PortalFaultShipmentResponse((int)item.Direction, item.Carrier, item.TrackingNumber,
+                    item.StatusLabel, (int)item.State, item.RecipientAddress, item.UpdatedAt)).ToArray());
 
     private sealed record PortalLinkedStudent(Guid StudentId, Guid? AssignmentId, Guid? ProductUnitId, string FullName,
         string GuardianPhone, string AddressLine, string CohortName, bool StudentOrderLocked, Guid? OrderId);

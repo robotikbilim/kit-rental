@@ -25,11 +25,11 @@ public sealed class SupportController : CoreApiControllerBase
 
     [Authorize]
     [HttpGet("faults")]
-    public async Task<IActionResult> GetFaults(string? query, FaultStatus? status, FaultSeverity? severity, DateOnly? openedFrom, DateOnly? openedTo, int? page, int? pageSize, [FromServices] OperationsService service, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetFaults(string? query, FaultStatus? status, FaultSeverity? severity, DateOnly? openedFrom, DateOnly? openedTo, int? page, int? pageSize, Guid? customerId, Guid? orderId, string? stage, [FromServices] OperationsService service, CancellationToken cancellationToken)
     {
         return Ok(await service.GetFaultPageAsync(
                 new FaultPageQuery(query, status, severity, openedFrom, openedTo, page ?? 1, pageSize ?? 20,
-                    User.GetCustomerId()), cancellationToken));
+                    User.GetCustomerId() ?? customerId, orderId, stage), cancellationToken));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,ServiceTechnician")]

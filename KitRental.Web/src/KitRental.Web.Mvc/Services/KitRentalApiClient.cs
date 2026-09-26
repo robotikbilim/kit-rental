@@ -20,16 +20,28 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         GetAsync<IReadOnlyCollection<ReturnListItemViewModel>>("/core/api/returns", cancellationToken);
 
     public Task<IReadOnlyCollection<ReturnTableItemViewModel>?> GetReturnsTableAsync(
-        CancellationToken cancellationToken) =>
-        GetAsync<IReadOnlyCollection<ReturnTableItemViewModel>>("/core/api/returns/table", cancellationToken);
+        CancellationToken cancellationToken, OperationsReturnFilter? filter = null) =>
+        GetAsync<IReadOnlyCollection<ReturnTableItemViewModel>>(
+            $"/core/api/returns/table?customerId={filter?.CustomerId}&orderId={filter?.OrderId}&state={Uri.EscapeDataString(filter?.State ?? string.Empty)}", cancellationToken);
 
     public Task<ApiCommandResult<KargonomiBarcodeViewModel>> GetReturnKargonomiBarcodeAsync(Guid returnId,
         CancellationToken cancellationToken) =>
         SendAsync<KargonomiBarcodeViewModel>(HttpMethod.Get,
             $"/core/api/returns/{returnId}/kargonomi-barcode", null, cancellationToken);
 
-    public Task<OperationsDashboardViewModel?> GetOperationsDashboardAsync(CancellationToken cancellationToken) =>
-        GetAsync<OperationsDashboardViewModel>("/core/api/dashboard", cancellationToken);
+    public Task<OperationsDashboardViewModel?> GetOperationsDashboardAsync(CancellationToken cancellationToken, Guid? customerId = null) =>
+        GetAsync<OperationsDashboardViewModel>($"/core/api/dashboard?customerId={customerId}", cancellationToken);
+
+    public Task<OperationsOrderPage?> GetOperationsOrdersAsync(OperationsOrderFilter filter, CancellationToken cancellationToken) =>
+        GetAsync<OperationsOrderPage>("/core/api/operations/orders" + Microsoft.AspNetCore.Http.QueryString.Create(
+            new Dictionary<string, string?>
+            {
+                ["customerId"] = filter.CustomerId?.ToString(), ["query"] = filter.Query,
+                ["type"] = filter.Type?.ToString(), ["status"] = filter.Status?.ToString(),
+                ["focus"] = filter.Focus, ["endsFrom"] = filter.EndsFrom?.ToString("yyyy-MM-dd"),
+                ["endsTo"] = filter.EndsTo?.ToString("yyyy-MM-dd"), ["sort"] = filter.Sort,
+                ["page"] = filter.Page.ToString(), ["pageSize"] = filter.PageSize.ToString()
+            }), cancellationToken);
 
     public async Task<IReadOnlyCollection<ProductUnitViewModel>> GetProductUnitsAsync(CancellationToken cancellationToken) =>
         await GetPagedItemsAsync<ProductUnitViewModel>("/core/api/product-units?pageSize=5000", cancellationToken);
@@ -185,6 +197,9 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         };
         if (!string.IsNullOrWhiteSpace(filter.Query))
             parameters.Add($"query={Uri.EscapeDataString(filter.Query.Trim())}");
+        if (filter.CustomerId.HasValue) parameters.Add($"customerId={filter.CustomerId}");
+        if (filter.OrderId.HasValue) parameters.Add($"orderId={filter.OrderId}");
+        if (!string.IsNullOrWhiteSpace(filter.Stage)) parameters.Add($"stage={Uri.EscapeDataString(filter.Stage)}");
         if (filter.Status.HasValue)
             parameters.Add($"status={filter.Status.Value}");
         if (filter.Severity.HasValue)
@@ -400,9 +415,9 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         GetAsync<CustomerPortalDashboardViewModel>("/core/api/customer-portal", cancellationToken);
 
     public Task<CustomerPortalRentalPeriodsDataViewModel?> GetCustomerPortalRentalPeriodsPageAsync(
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken, string? focus = null) =>
         GetAsync<CustomerPortalRentalPeriodsDataViewModel>(
-            "/core/api/customer-portal/rental-periods/context", cancellationToken);
+            $"/core/api/customer-portal/rental-periods/context?focus={Uri.EscapeDataString(focus ?? string.Empty)}", cancellationToken);
 
     public Task<CustomerPortalRentalPeriodDataViewModel?> GetCustomerPortalRentalPeriodPageAsync(Guid periodId,
         CancellationToken cancellationToken) =>
@@ -669,11 +684,18 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => PostAsync<FaultViewModel>($"/core/api/faults/{faultId}/status-events",
             new { status, note }, cancellationToken);
 
+    public Task<ApiCommandResult<KargonomiBarcodeViewModel>> GetFaultKargonomiBarcodeAsync(Guid faultId,
+        Guid shipmentId, CancellationToken cancellationToken) =>
+        SendAsync<KargonomiBarcodeViewModel>(HttpMethod.Get,
+            $"/core/api/faults/{faultId}/kargonomi-shipments/{shipmentId}/barcode", null, cancellationToken);
+
+    public Task<PhysicalKitLabelViewModel?> GetFaultKitLabelAsync(Guid faultId, CancellationToken cancellationToken) =>
+        GetAsync<PhysicalKitLabelViewModel>($"/core/api/faults/{faultId}/kit-label", cancellationToken);
+
     public Task<ApiCommandResult<FaultKargonomiShipmentViewModel>> StartFaultKargonomiShipmentAsync(Guid faultId,
-        int direction, string recipientName, string recipientPhone, string recipientAddress,
-        CancellationToken cancellationToken) => PostAsync<FaultKargonomiShipmentViewModel>(
+        int direction, CancellationToken cancellationToken) => PostAsync<FaultKargonomiShipmentViewModel>(
             $"/core/api/faults/{faultId}/kargonomi-shipments",
-            new { direction, recipientName, recipientPhone, recipientAddress }, cancellationToken);
+            new { direction }, cancellationToken);
 
     public async Task<IReadOnlyCollection<EmailDeliveryViewModel>> GetEmailDeliveriesAsync(
         CancellationToken cancellationToken) =>

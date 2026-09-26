@@ -23,39 +23,7 @@
 </div>
 @if (TempData["Success"] is string message) { <div class="success-banner">@message</div> }
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
-<section class="customer-dashboard-group">
-    <header class="dashboard-group-heading">
-        <h2>Genel Durum</h2>
-    </header>
-    <div class="metrics portal-metrics">
-        <a class="metric-card portal-metric-active" asp-action="Kits" title="@Model.TotalRentedKitCount öğrenciye atanmış kit."><span>Tüm Kitler</span><strong>@Model.TotalRentedKitCount</strong></a>
-        <a class="metric-card portal-metric-active" asp-action="Kits" title="@Model.ActiveKitCount kargo durumu teslim edilmiş kit."><span>Kullanımdaki Kitler</span><strong>@Model.ActiveKitCount</strong></a>
-        <a class="metric-card portal-metric-processing" asp-action="Kits" title="@Model.InTransitKitCount kargo durumu teslimat sürecinde olan kit."><span>Gönderimdeki Kitler</span><strong>@Model.InTransitKitCount</strong></a>
-        <a class="metric-card portal-metric-prepared" asp-action="Kits" title="@Model.PreparedKitCount öğrenciye atanmış, kargo gönderimi başlatılmamış kit."><span>Hazırlanan Kitler</span><strong>@Model.PreparedKitCount</strong></a>
-    </div>
-</section>
-<section class="customer-dashboard-group">
-    <header class="dashboard-group-heading">
-        <h2>Arıza Durumu</h2>
-    </header>
-    <div class="metrics portal-metrics">
-        <a class="metric-card portal-metric-faults" asp-action="Faults" asp-route-state="open" title="@Model.OpenFaultCount servis işlemi bekleyen aktif arıza kaydı."><span>Açık Arıza Kayıtları</span><strong>@Model.OpenFaultCount</strong></a>
-        <a class="metric-card portal-metric-closed" asp-action="Faults" asp-route-state="completed" title="@Model.CompletedFaultCount arıza süreci tamamlanmış kayıt."><span>Kapanmış Arıza Kayıtları</span><strong>@Model.CompletedFaultCount</strong></a>
-        <a class="metric-card portal-metric-processing" asp-action="Faults" title="Teknik servise gönderilmiş arıza kayıtları; hesaplama daha sonra eklenecek."><span>Teknik Servis Yolunda</span><strong>0</strong></a>
-        <a class="metric-card portal-metric-processing" asp-action="Faults" title="Öğrenciye gönderilmiş arıza kayıtları; hesaplama daha sonra eklenecek."><span>Öğrenci Yolunda</span><strong>0</strong></a>
-    </div>
-</section>
-<section class="customer-dashboard-group">
-    <header class="dashboard-group-heading">
-        <h2>İade Durumu</h2>
-    </header>
-    <div class="metrics portal-metrics">
-        <a class="metric-card portal-metric-expired" asp-action="Returns" asp-route-state="pending" title="@Model.ExpiredRentalKitCount kiralama dönemi geçmiş, iade süreci başlatılmamış kit."><span>İade Beklenen Kitler</span><strong>@Model.ExpiredRentalKitCount</strong></a>
-        <div class="metric-card portal-metric-processing" title="Kargo bekleyen iadeler için hesaplama daha sonra eklenecek."><span>Kargo Bekleyen Kitler</span><strong>@Model.ReturnAwaitingShipmentKitCount</strong></div>
-        <div class="metric-card portal-metric-processing" title="Kargodaki iadeler için hesaplama daha sonra eklenecek."><span>Kargodaki Kitler</span><strong>@Model.ReturnInTransitKitCount</strong></div>
-        <a class="metric-card portal-metric-returned" asp-action="Returns" asp-route-state="all" title="@Model.ReturnFormCompletedKitCount iade formu doldurulmuş kit."><span>İadesi Tamamlanmış Kitler</span><strong>@Model.ReturnFormCompletedKitCount</strong></a>
-    </div>
-</section>
+<partial name="_PortalOperationsDashboard" model="Model.Operations!" />
 <section class="dashboard-group kit-map-section">
     <header class="dashboard-group-heading">
         <div><span class="eyebrow">KİT KONUM HARİTASI</span><h2>Türkiye genelinde kit dağılımı</h2></div>

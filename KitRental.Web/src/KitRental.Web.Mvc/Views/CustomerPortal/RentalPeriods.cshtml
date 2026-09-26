@@ -4,23 +4,16 @@
     string ApprovalLabel(PortalRentalCohortViewModel cohort) => cohort.OrderStatus switch
     {
         null => "Sipariş oluşturulmadı",
+        1 => "Taslak",
         2 => "Onaylanmamış",
         14 => "Onaylanmamış",
         15 => "Onaylanmamış",
         _ => "Onaylanmış"
     };
-    string DetailLabel(PortalRentalCohortViewModel cohort) => cohort.OrderStatus switch
-    {
-        null => "Öğrenci listesi hazırlanıyor",
-        2 => "Admin onayı bekliyor",
-        3 => "Admin tarafından onaylandı",
-        4 => "Kit hazırlığı başladı",
-        6 => "Teslimat yolunda",
-        7 or 8 or 13 => "Tamamlandı",
-        _ => "Sipariş işlemde"
-    };
+    string DetailLabel(PortalRentalCohortViewModel cohort) => cohort.OrderStatus.HasValue
+        ? OperationsDisplay.OrderStatus(cohort.OrderStatus.Value) : "Öğrenci listesi hazırlanıyor";
     string StatusClass(PortalRentalCohortViewModel cohort) => cohort.OrderStatus is null ? "status-1" :
-        cohort.OrderStatus is 2 or 14 or 15 ? "status-2" : "status-3";
+        cohort.OrderStatus is 1 or 2 or 14 or 15 ? "status-2" : "status-3";
 }
 
 <div class="portal-heading portal-kits-heading">
@@ -34,6 +27,11 @@
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 
 <section class="portal-kit-list-shell">
+    <form method="get" class="portal-progress-filter">
+        <label for="portal-order-focus">İlerleme durumu</label>
+        <select id="portal-order-focus" name="focus"><option value="">Tüm siparişler</option>@foreach (var focus in OperationsDisplay.FocusOptions) { <option value="@focus.Key" selected="@(ViewData["OrderFocus"] as string == focus.Key)">@focus.Value</option> }</select>
+        <button class="secondary-action" type="submit">Filtrele</button><a asp-action="RentalPeriods">Filtreyi temizle</a>
+    </form>
     <div class="section-heading">
         <div><span class="eyebrow">SİPARİŞ LİSTESİ</span><h2>Oluşturulan siparişler</h2></div>
         <div class="rental-period-heading-actions">
@@ -79,12 +77,12 @@
     </dialog>
     @if (Model.TotalCount == 0)
     {
-        <div class="empty">@(Model.PeriodName is null && Model.ApprovalStatus is null ? "Henüz sipariş dönemi oluşturulmadı." : "Filtrelerle eşleşen sipariş dönemi bulunamadı.")</div>
+        <div class="empty">@(Model.PeriodName is null && Model.ApprovalStatus is null && string.IsNullOrWhiteSpace(ViewData["OrderFocus"] as string) ? "Henüz sipariş dönemi oluşturulmadı." : "Filtrelerle eşleşen sipariş bulunamadı.")</div>
     }
-    else
+    else if (Model.Cohorts.Count > 0)
     {
         <div class="table-scroll portal-kit-table-wrap portal-table-no-frame">
-            <table class="portal-kit-table portal-orders-table js-datatable" data-datatable-responsive="false" data-datatable-page-length="10" data-datatable-column-filters="true">
+            <table class="portal-kit-table portal-orders-table js-datatable" data-datatable-state-save="false" data-datatable-responsive="false" data-datatable-page-length="10" data-datatable-column-filters="true">
                 <thead>
                     <tr>
                         <th>Sipariş dönemi</th>
@@ -117,7 +115,15 @@
                         <td data-mobile-label="Sipariş no"><span class="@(cohort.OrderNumber is null ? "block-muted" : null)">@(cohort.OrderNumber ?? "Sipariş numarası oluşmadı")</span></td>
                         <td data-mobile-label="Öğrenci">@cohort.StudentCount</td>
                         <td data-mobile-label="Atanmış kit">@cohort.AssignedKitCount</td>
-                        <td data-mobile-label="Onay durumu"><span class="fault-stage @StatusClass(cohort)">@ApprovalLabel(cohort)</span><small class="block-muted">@DetailLabel(cohort)</small></td>
+                        <td data-mobile-label="Onay durumu"><span class="fault-stage @StatusClass(cohort)">@ApprovalLabel(cohort)</span><small class="block-muted">@DetailLabel(cohort)</small>
+                            @if (cohort.Progress is not null)
+                            {
+                                <small class="block-muted">@cohort.Progress.ShipmentInTransitCount kargoda · @cohort.Progress.ShipmentDeliveredCount teslim edildi</small>
+                                <small class="block-muted">@cohort.Progress.AwaitingShipmentCount gönderim bekliyor · @cohort.Progress.ShipmentReadyCount kargo kabulü bekliyor</small>
+                                @if (cohort.Progress.ShipmentFailedCount > 0) { <span class="portal-alert">@cohort.Progress.ShipmentFailedCount kargo hatası</span> }
+                                @if (cohort.Progress.IsOverdue) { <span class="portal-alert">Kiralama süresi geçti</span> }
+                            }
+                        </td>
                         <td data-mobile-label="İşlemler">
                             <div class="portal-table-actions portal-order-actions">
                                 <a class="icon-action icon-action-list" asp-action="RentalPeriod" asp-route-id="@cohort.Id"
@@ -151,5 +157,12 @@
                 </tbody>
             </table>
         </div>
+    }
+    @foreach (var order in Model.StandaloneOrders ?? [])
+    {
+        <details class="portal-shipment-card">
+            <summary><strong>@order.OrderNumber · @OperationsDisplay.OrderStatus(order.Status)</strong><small>@order.KitDescription</small></summary>
+            <partial name="_OrderProgress" model="order" />
+        </details>
     }
 </section>

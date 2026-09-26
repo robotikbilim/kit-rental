@@ -1,0 +1,22 @@
+@model OperationsOrderSummary
+<section class="portal-order-progress" aria-label="@($"{Model.OrderNumber} ilerleme durumu")">
+    <header><strong>@Model.OrderNumber · @OperationsDisplay.OrderStatus(Model.Status)</strong>
+        @if (Model.IsOverdue) { <span class="portal-alert">Kiralama süresi geçti</span> }
+        else if (Model.IsEndingSoon) { <span class="badge">Kiralama 7 gün içinde bitiyor</span> }
+    </header>
+    <dl>
+        <div><dt>Kit hazırlığı</dt><dd>@Model.AssignedKitCount / @Model.RequestedKitCount kit</dd></div>
+        <div><dt>Adres bekleyen</dt><dd>@Model.MissingAddressCount öğrenci</dd></div>
+        <div><dt>Gönderim bekleyen</dt><dd>@Model.AwaitingShipmentCount</dd></div>
+        <div><dt>Kargo kabulü bekleyen</dt><dd>@Model.ShipmentReadyCount</dd></div>
+        <div><dt>Kargoda</dt><dd>@Model.ShipmentInTransitCount</dd></div>
+        <div><dt>Teslim edildi</dt><dd>@Model.ShipmentDeliveredCount</dd></div>
+        <div><dt>Kargo hatası</dt><dd>@Model.ShipmentFailedCount</dd></div>
+        <div><dt>Aktif kiralanan kit</dt><dd>@Model.ActiveKitCount</dd></div>
+        <div><dt>Açık arıza</dt><dd>@Model.OpenFaultCount</dd></div>
+        <div><dt>İade bekleyen</dt><dd>@Model.PendingReturnCount</dd></div>
+        <div><dt>İade kargosunda</dt><dd>@Model.InTransitReturnCount</dd></div>
+        <div><dt>İadesi tamamlandı</dt><dd>@Model.CompletedReturnCount</dd></div>
+    </dl>
+    <small>Gönderi teslimatı ve depo iade kabulü, sipariş durumundan ayrı takip edilir.</small>
+</section>

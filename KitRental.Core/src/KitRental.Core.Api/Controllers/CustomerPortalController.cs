@@ -57,8 +57,8 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
     [HttpGet("customer-portal/rental-periods/context")]
     public async Task<IActionResult> GetCustomerPortalRentalPeriodsContext(
-        [FromServices] CustomerPortalService service, CancellationToken cancellationToken) =>
-        Ok(await service.GetRentalPeriodsPageAsync(GetRequiredCustomerId(), cancellationToken));
+        [FromServices] CustomerPortalService service, CancellationToken cancellationToken, string? focus = null) =>
+        Ok(await service.GetRentalPeriodsPageAsync(GetRequiredCustomerId(), cancellationToken, focus));
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
     [HttpGet("customer-portal/rental-periods/{periodId:guid}/context")]

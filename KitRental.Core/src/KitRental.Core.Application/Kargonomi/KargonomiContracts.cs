@@ -51,6 +51,7 @@ public sealed record KargonomiCarrierQuote(int Id, string Name, string Slug, str
 
 public interface IKargonomiClient
 {
+    KargonomiReturnDestination GetReturnDestination();
     Task<KargonomiShipmentSnapshot> CreateShipmentAsync(KargonomiCreateShipmentRequest request, CancellationToken cancellationToken);
     Task<KargonomiShipmentSnapshot> CreateReturnShipmentAsync(KargonomiReturnShipmentRequest request, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KargonomiCarrierQuote>> GetPriceQuotesAsync(int shipmentId, CancellationToken cancellationToken);
@@ -60,6 +61,8 @@ public interface IKargonomiClient
     Task<string> GetBarcodeAsync(int shipmentId, CancellationToken cancellationToken);
     Task<(int StateId, int CityId)> ResolveLocationAsync(string address, CancellationToken cancellationToken);
 }
+
+public sealed record KargonomiReturnDestination(string Name, string Phone, string Address);
 
 public sealed record KargonomiShipmentResponse(
     Guid Id,

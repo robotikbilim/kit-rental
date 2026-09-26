@@ -1,0 +1,32 @@
+.portal-metrics { grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); }
+.portal-metrics .metric-card small { display:block; color:var(--muted); font-size:12px; line-height:1.5; }
+.portal-progress-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 18px; }
+.portal-progress-tabs a { padding:9px 12px; border:1px solid var(--line); border-radius:8px; color:inherit; text-decoration:none; }
+.portal-progress-tabs a.active { border-color:var(--green); background:color-mix(in srgb,var(--green) 9%,var(--card)); font-weight:700; }
+.portal-progress-filter { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:12px 0 20px; }
+.portal-progress-filter select { border:1px solid var(--line); border-radius:8px; padding:9px 12px; max-width:100%; }
+.portal-shipment-pair { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); align-items:start; gap:12px; margin:12px 0; }
+.portal-kit-table .portal-shipment-pair { grid-template-columns:minmax(0,1fr); }
+.portal-shipment-card { border:1px solid var(--line); border-radius:10px; background:var(--card); min-width:0; white-space:normal; overflow-wrap:anywhere; }
+.portal-shipment-card summary { cursor:pointer; padding:12px; }
+.portal-shipment-card summary strong { font-size:13px; }
+.portal-shipment-card summary :is(span,small) { display:block; margin-top:6px; }
+.portal-shipment-card .badge { color:var(--text,#234); background:color-mix(in srgb,var(--green) 9%,var(--card)); white-space:normal; }
+.portal-shipment-body { padding:12px; border-top:1px solid var(--line); font-size:13px; }
+.portal-shipment-body dt { color:var(--muted); font-size:12px; }
+.portal-shipment-body dd { font-weight:600; margin-bottom:10px; }
+.portal-order-progress { margin:18px 0; padding:18px; border:1px solid var(--line); border-radius:12px; background:var(--card); }
+.portal-order-progress header { display:flex; flex-wrap:wrap; justify-content:space-between; gap:10px; }
+.portal-order-progress dl { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:12px; margin:18px 0; }
+.portal-order-progress dl>div { padding:12px; background:color-mix(in srgb,var(--green) 4%,var(--card)); border-radius:8px; }
+.portal-order-progress dt { color:var(--muted); font-size:12px; font-weight:500; }
+.portal-order-progress dd { font-size:18px; font-weight:700; margin:6px 0 0; }
+.portal-order-progress small { color:var(--muted); }
+.portal-progress-tabs a:focus-visible,.portal-shipment-card summary:focus-visible { outline:2px solid var(--green); outline-offset:3px; }
+@media(max-width:600px) {
+    .portal-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .portal-progress-tabs a,.portal-progress-filter :is(select,button),.portal-shipment-card summary { min-height:44px; }
+    .portal-progress-filter select { font-size:16px; flex:1; }
+    .portal-order-progress { padding:12px; }
+    .portal-order-progress dl { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}

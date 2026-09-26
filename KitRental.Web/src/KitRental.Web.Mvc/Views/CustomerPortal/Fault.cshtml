@@ -1,9 +1,10 @@
 @model PortalFaultViewModel
 @{ ViewData["Title"] = $"Arıza {Model.Number}"; }
-@functions { string StatusName(int value) => value switch { 1 => "Kayıt açıldı", 2 => "İnceleniyor", 3 => "Bilgi bekleniyor", 4 => "Kit bekleniyor", 5 => "Eski servis süreci", 6 => "Eski kargo süreci", 7 => "Eski çözüldü", 8 => "Tamamlandı", 9 => "Kabul edildi", 10 => "Reddedildi", 11 => "Uzaktan destekle çözüldü", 12 => "Kargo bekliyor", 13 => "Atölyeye kargolandı", 14 => "Atölyeye geldi", 15 => "Arıza giderildi", _ => "İşlemde" }; }
+@functions { string StatusName(int value) => OperationsDisplay.FaultStatus(value); }
 <a class="back-link" asp-action="Faults">← Arıza kayıtlarıma dön</a>
 <div class="fault-detail-hero"><div><span class="eyebrow">@Model.Number</span><h1>@Model.KitName</h1><p><strong>@Model.SerialNumber</strong> · @Model.Category</p></div><span class="fault-stage status-@Model.Status">@StatusName(Model.Status)</span></div>
 <section class="detail-section"><span class="eyebrow">BİLDİRİLEN SORUN</span><h2>Arıza açıklaması</h2><p class="fault-description">@Model.Description</p><small>@Model.OpenedAt.ToTurkeyTimeString("dd MMMM yyyy HH:mm") tarihinde oluşturuldu.</small></section>
+<section class="detail-section"><h2>Kargo süreçleri</h2><p>Eski kitin alınması ve yeni kitin gönderimi ayrı takip edilir. Seri numarası ve QR kodu korunur.</p><partial name="_FaultShipments" model="Model" /></section>
 <section class="detail-section"><span class="eyebrow">SÜREÇ TAKİBİ</span><h2>Servis zaman çizelgesi</h2><div class="service-timeline">
     <article class="done"><i></i><div><strong>Kayıt açıldı</strong><span>Arıza bildiriminiz servis ekibine iletildi.</span><small>@Model.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small></div></article>
     @foreach (var evt in Model.History) { <article class="done"><i></i><div><strong>@StatusName(evt.Current)</strong><span>@evt.Note</span><small>@evt.OccurredAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small></div></article> }

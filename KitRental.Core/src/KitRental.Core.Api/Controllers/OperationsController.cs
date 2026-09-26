@@ -229,14 +229,25 @@ public sealed class OperationsController : CoreApiControllerBase
     [HttpPost("faults/{faultTicketId:guid}/kargonomi-shipments")]
     public async Task<IActionResult> StartFaultKargonomiShipment(Guid faultTicketId, FaultKargonomiShipmentStartRequest request,
         [FromServices] KargonomiShippingService service, CancellationToken cancellationToken) =>
-        Ok(await service.StartForFaultAsync(faultTicketId, request.Direction, request.RecipientName,
-            request.RecipientPhone, request.RecipientAddress, cancellationToken));
+        Ok(await service.StartForFaultAsync(faultTicketId, request.Direction, cancellationToken));
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
     [HttpGet("faults/{faultTicketId:guid}/kargonomi-shipments")]
     public async Task<IActionResult> GetFaultKargonomiShipments(Guid faultTicketId,
         [FromServices] KargonomiShippingService service, CancellationToken cancellationToken) =>
         Ok(await service.GetForFaultAsync(faultTicketId, cancellationToken));
+
+    [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
+    [HttpGet("faults/{faultTicketId:guid}/kargonomi-shipments/{shipmentId:guid}/barcode")]
+    public async Task<IActionResult> GetFaultKargonomiBarcode(Guid faultTicketId, Guid shipmentId,
+        [FromServices] KargonomiShippingService service, CancellationToken cancellationToken) =>
+        Ok(new { base64 = await service.GetFaultBarcodeAsync(faultTicketId, shipmentId, cancellationToken) });
+
+    [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
+    [HttpGet("faults/{faultTicketId:guid}/kit-label")]
+    public async Task<IActionResult> GetFaultKitLabel(Guid faultTicketId,
+        [FromServices] OperationsService service, CancellationToken cancellationToken) =>
+        Ok(await service.GetFaultKitLabelAsync(faultTicketId, cancellationToken));
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
     [HttpGet("orders/{orderId:guid}/kargonomi/shipments")]

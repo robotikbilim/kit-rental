@@ -6,8 +6,9 @@
     string StateName(string value) => value switch
     {
         "pending" => "İade Bekleniyor",
-        "processing" => "İade Sürecinde",
-        "returned" => "İade Edildi",
+        "in-transit" => "Kargoda",
+        "completed" => "İade Tamamlandı",
+        "missing-form" => "İade Formu Eksik",
         _ => "Tümü"
     };
 
@@ -23,6 +24,8 @@
 </div>
 
 <section class="portal-kit-list-shell">
+    <nav class="portal-progress-tabs" aria-label="İade aşaması">@foreach (var state in new[] { "all", "pending", "in-transit", "completed", "missing-form" }) { <a asp-action="Returns" asp-route-state="@state" class="@(Model.State == state ? "active" : null)">@StateName(state)</a> }</nav>
+    <p class="block-muted">Kargo firması teslim bildirse bile, iade depo tarafından teslim alınana kadar Kargoda görünür.</p>
     <div class="portal-kit-result-heading" aria-live="polite">
         <div><strong>@Model.TotalCount</strong> iade kaydı bulundu</div>
         @if (Model.TotalCount != Model.TotalKitCount)
@@ -34,14 +37,15 @@
     @if (Model.Returns.Count > 0)
     {
         <div class="table-scroll portal-kit-table-wrap portal-table-no-frame">
-            <table class="portal-kit-table js-datatable" data-datatable-responsive="false" data-datatable-page-length="10" data-datatable-column-filters="true">
+            <table class="portal-kit-table js-datatable" data-datatable-state-save="false" data-datatable-responsive="false" data-datatable-page-length="10" data-datatable-column-filters="true">
                 <thead>
-                    <tr><th>Kit</th><th>Seri numarası</th><th>Kiralama dönemi</th><th>Durum</th><th>Arıza</th><th><span class="visually-hidden">İşlemler</span></th></tr>
+                    <tr><th>Kit</th><th>Seri numarası</th><th>Kiralama dönemi</th><th>İade durumu</th><th>Kargo ve takip</th><th>Arıza</th><th><span class="visually-hidden">İşlemler</span></th></tr>
                     <tr class="column-filter-row" data-dt-order="disable">
                         <th><input type="search" data-column-filter placeholder="Kit filtrele" aria-label="Kit sütununu filtrele" autocomplete="off" /></th>
                         <th><input type="search" data-column-filter placeholder="Seri no filtrele" aria-label="Seri numarası sütununu filtrele" autocomplete="off" /></th>
                         <th><input type="search" data-column-filter placeholder="Dönem filtrele" aria-label="Kiralama dönemi sütununu filtrele" autocomplete="off" /></th>
                         <th><input type="search" data-column-filter placeholder="Durum filtrele" aria-label="Durum sütununu filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter placeholder="Kargo / takip no" aria-label="Kargo veya takip numarası filtrele" autocomplete="off" /></th>
                         <th><input type="search" data-column-filter placeholder="Arıza filtrele" aria-label="Arıza sütununu filtrele" autocomplete="off" /></th>
                         <th></th>
                     </tr>
@@ -53,7 +57,13 @@
                         <td data-mobile-label="Kit"><div class="table-kit"><div><strong>@item.KitName</strong><small>@item.KitSku · @item.OrderNumber</small></div></div></td>
                         <td data-mobile-label="Seri numarası"><a class="student-kit-serial-truncate" title="@item.SerialNumber" asp-action="Kit" asp-route-id="@item.ProductUnitId" target="_blank" rel="noopener">@item.SerialNumber</a></td>
                         <td data-mobile-label="Kiralama dönemi"><span class="portal-kit-period">@item.StartDate.ToString("dd.MM.yyyy")<small>@item.EndDate.ToString("dd.MM.yyyy") tarihine kadar</small></span></td>
-                        <td data-mobile-label="Durum"><span class="badge order-status-@item.ReturnStatus">@item.ReturnState</span></td>
+                        <td data-mobile-label="İade durumu"><span class="badge order-status-@item.ReturnStatus">@item.ReturnState</span>
+                            @if (item.ReceivedAt.HasValue) { <small class="block-muted">Depo teslimi: @item.ReceivedAt.Value.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small> }
+                            else if (item.ReturnId is null) { <small class="block-muted">İade formu bekleniyor</small> }
+                        </td>
+                        <td data-mobile-label="Kargo ve takip"><strong>@(item.KargonomiStatusLabel ?? (item.ReturnStateKey == "in-transit" ? "Kargoda" : "Başlatılmadı"))</strong><small class="block-muted">@(item.Carrier ?? "—")</small><span>@(item.TrackingNumber ?? "Takip numarası henüz oluşmadı")</span>
+                            @if (item.ShippedAt.HasValue) { <small class="block-muted">Gönderim: @item.ShippedAt.Value.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small> }
+                        </td>
                         <td data-mobile-label="Arıza">@if (item.OpenFaultCount > 0) { <span class="portal-alert">@item.OpenFaultCount açık arıza</span> } else { <span class="portal-no-fault">Arıza yok</span> }</td>
                         <td data-mobile-label="İşlemler">
                             <div class="portal-table-actions">

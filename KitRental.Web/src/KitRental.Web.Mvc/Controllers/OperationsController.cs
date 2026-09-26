@@ -9,16 +9,23 @@ namespace KitRental.Web.Mvc.Controllers;
 [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
 public sealed class OperationsController(KitRentalApiClient apiClient) : Controller
 {
-    public async Task<IActionResult> Dashboard(CancellationToken cancellationToken)
+    public async Task<IActionResult> Dashboard(Guid? customerId, CancellationToken cancellationToken)
     {
-        var dashboard = await apiClient.GetOperationsDashboardAsync(cancellationToken)
-            ?? new OperationsDashboardViewModel(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-        return View(dashboard);
+        var dashboard = await apiClient.GetOperationsDashboardAsync(cancellationToken, customerId);
+        return dashboard is null ? OperationsUnavailable() : View(dashboard);
     }
 
-    public async Task<IActionResult> Returns(CancellationToken cancellationToken)
+    public async Task<IActionResult> Returns([FromQuery] OperationsReturnFilter filter, CancellationToken cancellationToken)
     {
-        return View(await apiClient.GetReturnsTableAsync(cancellationToken) ?? []);
+        var items = await apiClient.GetReturnsTableAsync(cancellationToken, filter);
+        if (items is null) return OperationsUnavailable();
+        return View(new OperationsReturnsScreen(items, filter, items.FirstOrDefault()?.OrderNumber));
+    }
+
+    private ViewResult OperationsUnavailable()
+    {
+        Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        return View("OperationsUnavailable");
     }
 
     [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]
@@ -52,12 +59,13 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> ReceiveReturn(Guid id, bool returnToReturns = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, string? returnUrl = null)
     {
         var result = await apiClient.ReceiveKitReturnAsync(id, cancellationToken);
         TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
             ? "İade teslim alındı; kitler yeniden kullanılabilir stoka eklendi."
             : result.Error ?? "İade teslim alınamadı.";
+        if (returnToReturns && Url.IsLocalUrl(returnUrl)) return LocalRedirect(returnUrl!);
         return RedirectToAction(returnToReturns ? nameof(Returns) : nameof(Dashboard));
     }
 
@@ -85,11 +93,15 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         return View(new InventoryScreenViewModel(result));
     }
 
-    public async Task<IActionResult> Orders(int? type, CancellationToken cancellationToken)
+    public async Task<IActionResult> Orders([FromQuery] OperationsOrderFilter filter, CancellationToken cancellationToken)
     {
-        var orders = await apiClient.GetOrdersAsync(cancellationToken);
-        ViewBag.OrderType = type;
-        return View(type is 1 or 2 ? orders.Where(item => item.Type == type).ToArray() : orders);
+        if (filter.EndsFrom > filter.EndsTo)
+        {
+            ModelState.AddModelError(nameof(filter.EndsTo), "Bitiş aralığının son günü ilk günden önce olamaz.");
+            filter.EndsTo = null;
+        }
+        var result = await apiClient.GetOperationsOrdersAsync(filter, cancellationToken);
+        return result is null ? OperationsUnavailable() : View(new OperationsOrdersScreen(result, filter));
     }
 
     [HttpGet]
@@ -106,13 +118,14 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
     public async Task<IActionResult> UpdateOrderRentalPeriod(Guid id, OrderRentalPeriodInputViewModel model,
-        bool returnToOrders = false, CancellationToken cancellationToken = default)
+        bool returnToOrders = false, CancellationToken cancellationToken = default, string? returnUrl = null)
     {
         if (!ModelState.IsValid || model.EndDate <= model.StartDate)
         {
             TempData["Error"] = model.EndDate <= model.StartDate
                 ? "Bitiş tarihi başlangıç tarihinden sonra olmalıdır."
                 : "Dönem adı, başlangıç ve bitiş tarihi zorunludur.";
+            if (returnToOrders && Url.IsLocalUrl(returnUrl)) return LocalRedirect(returnUrl!);
             return RedirectToAction(returnToOrders ? nameof(Orders) : nameof(OrderDetails),
                 returnToOrders ? null : new { id });
         }
@@ -121,6 +134,7 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
             ? "Sipariş dönemi ve kiralama tarihleri güncellendi."
             : result.Error ?? "Sipariş dönemi güncellenemedi.";
+        if (returnToOrders && Url.IsLocalUrl(returnUrl)) return LocalRedirect(returnUrl!);
         return RedirectToAction(returnToOrders ? nameof(Orders) : nameof(OrderDetails),
             returnToOrders ? null : new { id });
     }
@@ -415,8 +429,8 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             ModelState.AddModelError(nameof(filter.OpenedTo), "Bitiş tarihi başlangıç tarihinden önce olamaz.");
             filter.OpenedTo = null;
         }
-        var result = await apiClient.GetFaultsAsync(filter, cancellationToken)
-            ?? new FaultPageViewModel(1, filter.PageSize, 0, 1, []);
+        var result = await apiClient.GetFaultsAsync(filter, cancellationToken);
+        if (result is null) return OperationsUnavailable();
         return View(new FaultScreenViewModel(result, filter));
     }
 
@@ -596,23 +610,48 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager,ServiceTechnician")]
-    public async Task<IActionResult> UpdateFault(Guid id, int status, string? note, CancellationToken cancellationToken)
+    public async Task<IActionResult> UpdateFault(Guid id, int status, string? note, CancellationToken cancellationToken, string? returnUrl = null)
     {
         var result = await apiClient.ChangeFaultStatusAsync(id, status, note, cancellationToken);
         TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
             ? "Arıza süreci güncellendi; müşteri portalına yansıtıldı." : result.Error;
+        if (Url.IsLocalUrl(returnUrl)) return LocalRedirect(returnUrl!);
         return RedirectToAction(nameof(Faults));
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager,ServiceTechnician")]
-    public async Task<IActionResult> StartFaultKargonomiShipment(Guid id, int direction, string recipientName,
-        string recipientPhone, string recipientAddress, CancellationToken cancellationToken)
+    public async Task<IActionResult> StartFaultKargonomiShipment(Guid id, int direction,
+        CancellationToken cancellationToken, string? returnUrl = null)
     {
-        var result = await apiClient.StartFaultKargonomiShipmentAsync(id, direction, recipientName,
-            recipientPhone, recipientAddress, cancellationToken);
+        var result = await apiClient.StartFaultKargonomiShipmentAsync(id, direction, cancellationToken);
         TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
-            ? "Arıza Kargonomi gönderisi başlatıldı." : result.Error;
+            ? direction == 1 ? "Arıza adresinden Robotik Bilim deposuna kurye talebi oluşturuldu."
+                : "Aynı seri numarası ve QR koduyla yeni kit gönderimi başlatıldı." : result.Error;
+        if (Url.IsLocalUrl(returnUrl)) return LocalRedirect(returnUrl!);
         return RedirectToAction(nameof(Faults));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> FaultKargonomiBarcode(Guid id, Guid shipmentId, CancellationToken cancellationToken)
+    {
+        var result = await apiClient.GetFaultKargonomiBarcodeAsync(id, shipmentId, cancellationToken);
+        if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Data?.Base64))
+            return NotFound(new { message = result.Error ?? "Henüz kargo etiketi oluşmamış, lütfen tekrar deneyin." });
+        try
+        {
+            return File(Convert.FromBase64String(result.Data.Base64), "application/pdf", $"ariza-kargo-{shipmentId:N}.pdf");
+        }
+        catch (FormatException)
+        {
+            return Problem("Kargonomi barkod PDF'i geçersiz döndü.");
+        }
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> FaultKitLabel(Guid id, CancellationToken cancellationToken)
+    {
+        var label = await apiClient.GetFaultKitLabelAsync(id, cancellationToken);
+        return label is null ? NotFound() : View(label);
     }
 
     private string BuildStudentAddressUrl(string token) =>

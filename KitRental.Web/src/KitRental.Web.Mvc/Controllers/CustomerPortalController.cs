@@ -14,7 +14,12 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
         var portal = await apiClient.GetCustomerPortalDashboardAsync(cancellationToken);
-        return portal is null ? Forbid() : View(portal);
+        if (portal?.Operations is null)
+        {
+            Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            return View("PortalUnavailable");
+        }
+        return View(portal);
     }
 
     [HttpGet]
@@ -22,10 +27,11 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
 
     [HttpGet]
     public async Task<IActionResult> RentalPeriods(string? periodName, string? approvalStatus, int page = 1,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, string? focus = null)
     {
-        var portal = await apiClient.GetCustomerPortalRentalPeriodsPageAsync(cancellationToken);
+        var portal = await apiClient.GetCustomerPortalRentalPeriodsPageAsync(cancellationToken, focus);
         if (portal is null) return Forbid();
+        ViewData["OrderFocus"] = focus;
         return View(BuildRentalCohortsPage(portal, new RentalCohortInputViewModel
         {
             StartDate = DateOnly.FromDateTime(DateTime.Today),
@@ -94,10 +100,19 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             .OrderByDescending(item => item.CreatedAt)
             .ThenBy(item => item.Name)
             .ToArray();
-        var totalCount = filteredList.Length;
+        var standalone = (portal.StandaloneOrders ?? []).Where(order =>
+            (normalizedPeriodName is null || string.Equals(order.RentalPeriodName, normalizedPeriodName, StringComparison.CurrentCultureIgnoreCase)) &&
+            (normalizedApprovalStatus switch
+            {
+                "not-created" => false,
+                "unapproved" => order.Status is 1 or 2 or 14 or 15,
+                "approved" => order.Status is not (1 or 2 or 14 or 15),
+                _ => true
+            })).ToArray();
+        var totalCount = filteredList.Length + standalone.Length;
 
         return new RentalCohortsPageViewModel(portal.CustomerName, filteredList, form, periodNameOptions,
-            normalizedPeriodName, normalizedApprovalStatus, 1, Math.Max(10, totalCount), totalCount);
+            normalizedPeriodName, normalizedApprovalStatus, 1, Math.Max(10, totalCount), totalCount, standalone);
     }
 
     private static string? NormalizeRentalPeriodApprovalStatus(string? approvalStatus)
@@ -474,8 +489,8 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         if (portal is null) return Forbid();
 
         var normalizedQuery = query?.Trim() ?? string.Empty;
-        var normalizedStatus = status is >= 1 and <= 15 ? status : null;
-        var normalizedState = state is "open" or "completed" ? state : "all";
+        var normalizedStatus = status is >= 1 and <= 16 ? status : null;
+        var normalizedState = state is "open" or "completed" or "review" or "repair" or "shipment" ? state : "all";
         var allFaults = portal.Faults
             .OrderByDescending(item => item.OpenedAt)
             .ThenBy(item => item.Number)
@@ -494,9 +509,9 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         if (normalizedStatus.HasValue)
             filteredFaults = filteredFaults.Where(item => item.Status == normalizedStatus.Value);
         if (normalizedState == "open")
-            filteredFaults = filteredFaults.Where(item => item.Status is not (8 or 10));
-        if (normalizedState == "completed")
-            filteredFaults = filteredFaults.Where(item => item.Status is 8 or 10);
+            filteredFaults = filteredFaults.Where(item => item.IsOpen);
+        else if (normalizedState != "all")
+            filteredFaults = filteredFaults.Where(item => item.Stage == normalizedState);
 
         var filtered = filteredFaults.ToArray();
         return View(new PortalFaultsPageViewModel(portal.CustomerName, normalizedQuery, normalizedStatus,
@@ -566,65 +581,24 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         if (portal is null) return Forbid();
 
         var normalizedQuery = query?.Trim() ?? string.Empty;
-        var normalizedState = state is "all" or "pending" or "processing" or "returned" ? state : "all";
-        var normalizedPageSize = pageSize is 10 or 25 or 50 ? pageSize : 10;
-        var today = KitRental.SharedKernel.TurkeyTime.Today();
+        var normalizedState = state switch { "processing" => "in-transit", "returned" => "completed",
+            "pending" or "in-transit" or "completed" or "missing-form" => state, _ => "all" };
+        if (portal.OperationalReturns is null)
+        {
+            Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            return View("PortalUnavailable");
+        }
         var faultLookup = portal.Faults
             .GroupBy(item => item.ProductUnitId)
-            .ToDictionary(group => group.Key, group => group.Count(item => item.Status is not (8 or 10)));
-        var returnLookup = portal.Returns
-            .SelectMany(request => request.Items.Select(item => new
-            {
-                item.AssignmentId,
-                RequestId = request.Id,
-                request.Status,
-                request.CreatedAt
-            }))
-            .GroupBy(item => item.AssignmentId)
-            .ToDictionary(group => group.Key,
-                group => group.OrderByDescending(item => item.CreatedAt).First());
-
-        var allReturns = portal.Kits
-            .Where(item =>
-                (item.AssignmentStatus == 2 && item.EndDate < today && !returnLookup.ContainsKey(item.AssignmentId)) ||
-                returnLookup.ContainsKey(item.AssignmentId))
-            .Select(item =>
-            {
-                returnLookup.TryGetValue(item.AssignmentId, out var currentReturn);
-                var returnState = currentReturn is null
-                    ? "pending"
-                    : currentReturn.Status switch
-                    {
-                        1 => "processing",
-                        2 => "processing",
-                        3 => "returned",
-                        _ => "pending"
-                    };
-                var stateLabel = returnState switch
-                {
-                    "processing" => "İade Sürecinde",
-                    "returned" => "İade Edildi",
-                    _ => "İade Bekleniyor"
-                };
-                return new PortalReturnListItemViewModel(
-                    item.ProductUnitId,
-                    item.AssignmentId,
-                    currentReturn?.RequestId,
-                    item.KitName,
-                    item.KitSku,
-                    item.SerialNumber,
-                    item.OrderNumber,
-                    item.StartDate,
-                    item.EndDate,
-                    (int)item.UnitStatus,
-                    (int)item.AssignmentStatus,
-                    currentReturn is null ? 0 : currentReturn.Status,
-                    faultLookup.TryGetValue(item.ProductUnitId, out var openFaultCount) ? openFaultCount : 0,
-                    returnState,
-                    stateLabel,
-                    item.StudentOrderLocked);
-            })
-            .Where(item => normalizedState == "all" || item.ReturnStateKey == normalizedState)
+            .ToDictionary(group => group.Key, group => group.Count(item => item.IsOpen));
+        var allReturns = portal.OperationalReturns
+            .Where(item => normalizedState == "all" || (normalizedState == "missing-form"
+                ? item.ReturnStateKey == "pending" && item.ReturnId is null : item.ReturnStateKey == normalizedState))
+            .Select(item => new PortalReturnListItemViewModel(item.ProductUnitId, item.AssignmentId, item.ReturnId,
+                item.ProductModelName, item.ProductModelSku, item.SerialNumber, item.OrderNumber, item.StartDate, item.EndDate,
+                item.UnitStatus, item.AssignmentStatus, item.ReturnStatus, faultLookup.GetValueOrDefault(item.ProductUnitId),
+                item.ReturnStateKey, item.ReturnState, Carrier: item.Carrier, TrackingNumber: item.TrackingNumber,
+                KargonomiStatusLabel: item.KargonomiStatusLabel, ShippedAt: item.ShippedAt, ReceivedAt: item.ReceivedAt))
             .Where(item => normalizedQuery.Length == 0 ||
                 item.KitName.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
                 item.KitSku.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||

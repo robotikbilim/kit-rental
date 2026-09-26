@@ -13,11 +13,20 @@ public sealed class ReportingController : CoreApiControllerBase
 {
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
     [HttpGet("dashboard")]
-    public async Task<IActionResult> GetDashboard([FromServices] OperationsService service,
+    public async Task<IActionResult> GetDashboard(Guid? customerId, [FromServices] OperationsOverviewService service,
         CancellationToken cancellationToken)
     {
-        return Ok(await service.GetDashboardAsync(cancellationToken));
+        return Ok(await service.GetDashboardAsync(customerId, cancellationToken));
     }
+
+    [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
+    [HttpGet("operations/orders")]
+    public async Task<IActionResult> GetOperationsOrders(Guid? customerId, string? query, int? type,
+        int? status, string? focus, DateOnly? endsFrom, DateOnly? endsTo, string? sort,
+        int? page, int? pageSize,
+        [FromServices] OperationsOverviewService service, CancellationToken cancellationToken) =>
+        Ok(await service.GetOrdersAsync(new OperationsOrderQuery(customerId, query, type, status,
+            focus, endsFrom, endsTo, sort, page ?? 1, pageSize ?? 20), cancellationToken));
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
     [HttpGet("returns")]
@@ -29,10 +38,10 @@ public sealed class ReportingController : CoreApiControllerBase
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
     [HttpGet("returns/table")]
-    public async Task<IActionResult> GetReturnsTable([FromServices] OperationsService service,
+    public async Task<IActionResult> GetReturnsTable(Guid? customerId, Guid? orderId, string? state, [FromServices] OperationsService service,
         CancellationToken cancellationToken)
     {
-        return Ok(await service.GetReturnsTableAsync(cancellationToken));
+        return Ok(await service.GetReturnsTableAsync(cancellationToken, customerId, orderId, state));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager")]

@@ -15,31 +15,69 @@ public sealed class KargonomiShippingService(
     TimeProvider timeProvider)
 {
     private static readonly Guid SystemActorId = new("00000000-0000-0000-0000-000000000002");
+    private static readonly SemaphoreSlim[] FaultShipmentGates = Enumerable.Range(0, 64)
+        .Select(_ => new SemaphoreSlim(1, 1)).ToArray();
 
     public async Task<FaultKargonomiShipmentResponse> StartForFaultAsync(Guid faultTicketId,
-        FaultKargonomiShipmentDirection direction, string recipientName, string recipientPhone,
-        string recipientAddress, CancellationToken cancellationToken)
+        FaultKargonomiShipmentDirection direction, CancellationToken cancellationToken)
+    {
+        var gate = FaultShipmentGates[(int)((uint)faultTicketId.GetHashCode() % (uint)FaultShipmentGates.Length)];
+        await gate.WaitAsync(cancellationToken);
+        try { return await StartFaultShipmentCoreAsync(faultTicketId, direction, cancellationToken); }
+        finally { gate.Release(); }
+    }
+
+    private async Task<FaultKargonomiShipmentResponse> StartFaultShipmentCoreAsync(Guid faultTicketId,
+        FaultKargonomiShipmentDirection direction, CancellationToken cancellationToken)
     {
         var ticket = await repository.GetFaultTicketAsync(faultTicketId, cancellationToken)
             ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
-        var existing = ticket.KargonomiShipments.SingleOrDefault(item => item.Direction == direction && item.State != KargonomiShipmentState.Failed);
-        if (existing is not null) return MapFault(existing);
-        var shipment = ticket.CreateKargonomiShipment(direction, recipientName, recipientPhone, recipientAddress, timeProvider.GetUtcNow());
+        var existing = ticket.KargonomiShipments.Where(item => item.Direction == direction && item.State != KargonomiShipmentState.Cancelled)
+            .OrderByDescending(item => item.CreatedAt).FirstOrDefault();
+        if (existing?.ExternalShipmentId is not null && existing.State is not (KargonomiShipmentState.Failed or KargonomiShipmentState.Draft))
+            return MapFault(existing);
+        ticket.EnsureCanStartShipment(direction);
+        if (string.IsNullOrWhiteSpace(ticket.ReporterName) || string.IsNullOrWhiteSpace(ticket.ReporterPhone) ||
+            string.IsNullOrWhiteSpace(ticket.ReporterAddress))
+            throw new ConflictException("fault_kargonomi.contact_required", "Arıza kaydındaki ad, telefon ve adres bilgileri eksiksiz olmalıdır.");
+        var toWorkshop = direction == FaultKargonomiShipmentDirection.ToWorkshop;
+        var destination = toWorkshop ? client.GetReturnDestination()
+            : new KargonomiReturnDestination(ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress);
+        var unit = await repository.GetProductUnitAsync(ticket.ProductUnitId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Arızaya bağlı fiziksel kit bulunamadı.");
+        var shipment = existing ?? ticket.CreateKargonomiShipment(direction, destination.Name, destination.Phone, destination.Address, timeProvider.GetUtcNow());
         try
         {
-            var location = await client.ResolveLocationAsync(recipientAddress, cancellationToken);
-            var created = await client.CreateShipmentAsync(new KargonomiCreateShipmentRequest(
-                recipientName, recipientPhone, recipientAddress, location.StateId, location.CityId,
-                $"Arıza kiti {ticket.Number}", ticket.Number, 1), cancellationToken);
-            var quotes = await client.GetPriceQuotesAsync(created.Id, cancellationToken);
-            var aras = quotes.FirstOrDefault(item => item.Slug.Equals("aras", StringComparison.OrdinalIgnoreCase) || item.Name.Contains("Aras", StringComparison.OrdinalIgnoreCase));
-            if (aras is null) throw new ConflictException("kargonomi.aras_quote_missing", "Aras Kargo için uygun fiyat teklifi bulunamadı.");
-            var confirmed = await client.ConfirmShippingPriceAsync(created.Id, aras.Id, cancellationToken);
-            shipment.MarkCreated(confirmed.Id, confirmed.Status, confirmed.StatusLabel ?? "Hazır", confirmed.TrackingNumber, timeProvider.GetUtcNow());
-            if (direction == FaultKargonomiShipmentDirection.ToWorkshop)
-                ticket.MarkWorkshopShipmentInTransit(SystemActorId, timeProvider.GetTurkeyNow(), "Kargonomi ile atölyeye gönderildi.");
-            else
-                ticket.MarkCustomerShipmentInTransit(SystemActorId, timeProvider.GetTurkeyNow(), "Kargonomi ile müşteriye geri gönderildi.");
+            if (!shipment.ExternalShipmentId.HasValue)
+            {
+                var location = await client.ResolveLocationAsync(toWorkshop ? ticket.ReporterAddress : shipment.RecipientAddress, cancellationToken);
+                var created = toWorkshop
+                    ? await client.CreateReturnShipmentAsync(new KargonomiReturnShipmentRequest(
+                        ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress, location.StateId, location.CityId,
+                        $"Arızalı kit {ticket.Number} / {unit.SerialNumber}", $"{ticket.Number}-{direction}", 1), cancellationToken)
+                    : await client.CreateShipmentAsync(new KargonomiCreateShipmentRequest(
+                    shipment.RecipientName, shipment.RecipientPhone, shipment.RecipientAddress, location.StateId, location.CityId,
+                    $"Arıza kiti {ticket.Number} / {unit.SerialNumber}", $"{ticket.Number}-{direction}", 1), cancellationToken);
+                shipment.MarkCreated(created.Id, "draft", "Onay bekliyor", created.TrackingNumber, timeProvider.GetUtcNow(),
+                    toWorkshop ? "HepsiJet" : "Aras Kargo");
+                // Retain the provider ID before quote/confirmation so a retry uses the same shipment.
+                await repository.SaveChangesAsync(cancellationToken);
+            }
+            var externalId = shipment.ExternalShipmentId!.Value;
+            var quotes = await client.GetPriceQuotesAsync(externalId, cancellationToken);
+            var carrierSlug = toWorkshop ? "hepsijet" : "aras";
+            var quote = quotes.FirstOrDefault(item =>
+                (item.Slug.Equals(carrierSlug, StringComparison.OrdinalIgnoreCase) || item.Name.Contains(carrierSlug, StringComparison.OrdinalIgnoreCase)) &&
+                !(item.Price?.Contains("Hizmet Dışı", StringComparison.OrdinalIgnoreCase) ?? false));
+            if (quote is null) throw new ConflictException("kargonomi.quote_missing", $"{(toWorkshop ? "HepsiJet" : "Aras Kargo")} için uygun fiyat teklifi bulunamadı.");
+            var confirmed = await client.ConfirmShippingPriceAsync(externalId, quote.Id, cancellationToken);
+            shipment.MarkCreated(confirmed.Id, confirmed.Status, confirmed.StatusLabel ?? "Hazır", confirmed.TrackingNumber,
+                timeProvider.GetUtcNow(), confirmed.Carrier ?? quote.Name);
+            if (toWorkshop && ticket.Status is FaultStatus.Accepted or FaultStatus.AwaitingWorkshopShipment)
+                ticket.MarkWorkshopShipmentInTransit(SystemActorId, timeProvider.GetTurkeyNow(), "Arıza adresinden Robotik Bilim deposuna kurye gönderildi.");
+            else if (!toWorkshop && ticket.Status != FaultStatus.CustomerShipmentInTransit)
+                ticket.MarkCustomerShipmentInTransit(SystemActorId, timeProvider.GetTurkeyNow(), $"{unit.SerialNumber} seri numarası ve mevcut QR kodu korunarak arıza adresine kit gönderildi.");
+            ApplyFaultDeliveryTransition(ticket, shipment);
             await repository.SaveChangesAsync(cancellationToken);
             return MapFault(shipment);
         }
@@ -55,6 +93,17 @@ public sealed class KargonomiShippingService(
     {
         var ticket = await repository.GetFaultTicketAsync(faultTicketId, cancellationToken) ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
         return ticket.KargonomiShipments.Select(MapFault).ToArray();
+    }
+
+    public async Task<string> GetFaultBarcodeAsync(Guid faultTicketId, Guid shipmentId, CancellationToken cancellationToken)
+    {
+        var ticket = await repository.GetFaultTicketAsync(faultTicketId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
+        var shipment = ticket.KargonomiShipments.SingleOrDefault(item => item.Id == shipmentId)
+            ?? throw new ResourceNotFoundException("Bu arızaya ait kargo bulunamadı.");
+        if (!shipment.ExternalShipmentId.HasValue)
+            throw new ConflictException("fault_kargonomi.not_created", "Henüz kargo etiketi oluşmamış, lütfen tekrar deneyin.");
+        return await client.GetBarcodeAsync(shipment.ExternalShipmentId.Value, cancellationToken);
     }
 
     public async Task<string?> StartForReturnAsync(KitReturnRequest request, ProductUnit unit,
@@ -127,7 +176,7 @@ public sealed class KargonomiShippingService(
         await repository.SaveChangesAsync(cancellationToken);
     }
 
-    private static FaultKargonomiShipmentResponse MapFault(FaultKargonomiShipment shipment) =>
+    internal static FaultKargonomiShipmentResponse MapFault(FaultKargonomiShipment shipment) =>
         new(shipment.Id, shipment.FaultTicketId, shipment.Direction, shipment.ExternalShipmentId, shipment.RecipientName,
             shipment.RecipientAddress, shipment.TrackingNumber, shipment.Carrier, shipment.StatusLabel, shipment.State,
             shipment.LastError, shipment.UpdatedAt);
@@ -260,9 +309,12 @@ public sealed class KargonomiShippingService(
         if (shipment.Direction == FaultKargonomiShipmentDirection.ToWorkshop &&
             ticket.Status == FaultStatus.WorkshopShipmentInTransit)
             ticket.MarkWorkshopReceived(SystemActorId, timeProvider.GetTurkeyNow(), "Atölye kargosu teslim edildi.");
-        else if (shipment.Direction == FaultKargonomiShipmentDirection.ToCustomer &&
-            ticket.Status == FaultStatus.CustomerShipmentInTransit)
-            ticket.Close(SystemActorId, timeProvider.GetTurkeyNow(), "Onarılan kit müşteriye teslim edildi.");
+        // Either leg may finish first. Do not close the fault while collection is still outstanding.
+        if (ticket.Status == FaultStatus.CustomerShipmentInTransit &&
+            ticket.KargonomiShipments.Any(item => item.Direction == FaultKargonomiShipmentDirection.ToCustomer && item.State == KargonomiShipmentState.Delivered) &&
+            (ticket.KargonomiShipments.Any(item => item.Direction == FaultKargonomiShipmentDirection.ToWorkshop && item.State == KargonomiShipmentState.Delivered) ||
+             ticket.History.Any(item => item.Current == FaultStatus.WorkshopReceived)))
+            ticket.Close(SystemActorId, timeProvider.GetTurkeyNow(), "Yeni kit veliye teslim edildi ve arızalı kit depoya alındı.");
     }
 
     private static KargonomiShipmentListItemResponse MapListItem(KargonomiShipmentListSnapshot item) =>

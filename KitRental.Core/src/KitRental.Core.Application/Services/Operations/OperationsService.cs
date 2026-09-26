@@ -1,4 +1,4 @@
-﻿using KitRental.Core.Application.Abstractions;
+using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Application.Common;
 using KitRental.Core.Application.Inventory;
 using KitRental.Core.Domain.Auditing;
@@ -56,11 +56,15 @@ public sealed record SaveFaultGuideEntryCommand(Guid? Id, string Title, string P
 public sealed record InspectionItemCommand(string Name, bool IsPresent, bool IsDamaged, string Note);
 public sealed record CompleteInspectionCommand(Guid OrderId, Guid ProductUnitId, IReadOnlyCollection<InspectionItemCommand> Items, decimal DamageCharge, ProductUnitStatus Outcome, Guid ActorId);
 public sealed record FaultPageQuery(string? Query, FaultStatus? Status, FaultSeverity? Severity,
-    DateOnly? OpenedFrom, DateOnly? OpenedTo, int Page = 1, int PageSize = 20, Guid? CustomerId = null);
+    DateOnly? OpenedFrom, DateOnly? OpenedTo, int Page = 1, int PageSize = 20, Guid? CustomerId = null, Guid? OrderId = null, string? Stage = null);
 public sealed record FaultListItemResponse(Guid Id, string Number, Guid CustomerId, string CustomerName,
     string ReporterName, string ReporterPhone, string ReporterAddress, string Category, FaultSeverity Severity, string Description,
     FaultStatus Status, DateTimeOffset OpenedAt, FaultApprovalStatus ApprovalStatus, FaultOrigin Origin,
-    string? AttachmentUrl = null);
+    string? AttachmentUrl = null, Guid OrderId = default, string? OrderNumber = null,
+    Guid ProductUnitId = default, string? SerialNumber = null,
+    IReadOnlyCollection<FaultKargonomiShipmentResponse>? Shipments = null);
+public sealed record FaultKitLabelResponse(Guid Id, string KitName, string KitSku, string SerialNumber,
+    string QrCode, string RecipientName, string RecipientPhone, string RecipientAddress);
 public sealed record FaultPageResponse(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultListItemResponse> Items);
 public sealed record OrderKitResponse(Guid ProductUnitId, Guid AssignmentId, Guid ProductModelId,
@@ -100,13 +104,7 @@ public sealed record ReturnTableItemResponse(Guid ProductUnitId, Guid Assignment
     int? ExternalShipmentId, string? KargonomiStatus, string? KargonomiStatusLabel, string? KargonomiBarcode,
     DateTimeOffset? ReturnCreatedAt, DateTimeOffset? ShippedAt, DateTimeOffset? ReceivedAt,
     string? AddressLine, string? PublicAddressToken, string? RequesterName, string? RequesterPhone,
-    int DeliveryMethod);
-public sealed record OperationsDashboardResponse(int TotalOrders, int TotalStudents,
-    int StudentsAwaitingAddress, int StudentsAwaitingShipment, int ShipmentsInTransit,
-    int ShipmentsDelivered, int ReturnPendingKitCount, int ReturnInTransitKitCount,
-    int ReturnCompletedKitCount,
-    int FaultsAwaitingReview, int FaultsInRepair, int FaultsAwaitingShipment,
-    int FaultsCompleted);
+    int DeliveryMethod, Guid OrderId = default);
 
 public sealed class OperationsService(
     ICoreRepository repository,
@@ -320,90 +318,6 @@ public sealed class OperationsService(
 
     public Task<IReadOnlyCollection<RentalOrder>> GetOrdersAsync(Guid? customerId, CancellationToken cancellationToken) =>
         repository.GetOrdersAsync(customerId, cancellationToken);
-
-    public async Task<OperationsDashboardResponse> GetDashboardAsync(CancellationToken cancellationToken)
-    {
-        var orders = await repository.GetOrdersAsync(null, cancellationToken);
-        var orderIds = orders.Select(item => item.Id).ToHashSet();
-        var students = (await repository.GetRentalCohortsAsync(null, cancellationToken))
-            .SelectMany(item => item.Students)
-            .Where(item => !item.IsDeleted && item.OrderId.HasValue && orderIds.Contains(item.OrderId.Value))
-            .ToArray();
-        var shipments = (await repository.GetKargonomiShipmentsForOrdersAsync(orderIds, cancellationToken))
-            .GroupBy(item => (item.OrderId, item.StudentId))
-            .ToDictionary(group => group.Key, group => group.OrderByDescending(item => item.UpdatedAt).First());
-
-        var studentsAwaitingShipment = students.Count(student =>
-            student.HasAddress &&
-            (!shipments.TryGetValue((student.OrderId!.Value, student.Id), out var shipment) ||
-             shipment.State == KargonomiShipmentState.Failed));
-        var shipmentsInTransit = shipments.Values.Count(item => item.State == KargonomiShipmentState.InTransit);
-        var shipmentsDelivered = shipments.Values.Count(item => item.State == KargonomiShipmentState.Delivered);
-
-        var rentalOrders = orders.Where(item => item.Type == OrderType.Rental).ToArray();
-        var rentalOrderIds = rentalOrders.Select(item => item.Id).ToArray();
-        var assignments = await repository.GetAssignmentsForOrdersAsync(rentalOrderIds, cancellationToken);
-        var orderByLineId = rentalOrders.SelectMany(order => order.Lines
-                .Select(line => new { line.Id, Order = order }))
-            .ToDictionary(item => item.Id, item => item.Order);
-        var returnRequests = await repository.GetKitReturnRequestsAsync(null, cancellationToken);
-        var returnedAssignmentIds = returnRequests
-            .Where(item => item.Status == KitReturnStatus.Received)
-            .SelectMany(item => item.Items)
-            .Select(item => item.AssignmentId)
-            .ToHashSet();
-        var returnFormAssignmentIds = returnRequests
-            .SelectMany(item => item.Items)
-            .Select(item => item.AssignmentId)
-            .ToHashSet();
-        var expiredAssignments = assignments
-            .Where(item => item.Status == RentalAssignmentStatus.Active &&
-                orderByLineId.TryGetValue(item.OrderLineId, out var order) &&
-                order.Period!.Value.EndDate < TurkeyTime.Today() &&
-                !returnedAssignmentIds.Contains(item.Id))
-            .ToArray();
-        var returnPendingAssignmentIds = expiredAssignments
-            .Select(item => item.Id)
-            .Where(item => !returnFormAssignmentIds.Contains(item))
-            .Concat(returnRequests
-                .Where(item => item.Status == KitReturnStatus.Requested && !item.ExternalShipmentId.HasValue)
-                .SelectMany(item => item.Items)
-                .Select(item => item.AssignmentId))
-            .Distinct()
-            .ToHashSet();
-        var returnInTransitAssignmentIds = returnRequests
-            .Where(item => item.Status == KitReturnStatus.InTransit || item.ExternalShipmentId.HasValue)
-            .SelectMany(item => item.Items)
-            .Select(item => item.AssignmentId)
-            .ToHashSet();
-        var returnCompletedKitCount = returnRequests
-            .Where(item => item.Status == KitReturnStatus.Received)
-            .SelectMany(item => item.Items)
-            .Select(item => item.AssignmentId)
-            .Distinct()
-            .Count();
-        var faultTickets = await repository.GetFaultTicketsAsync(null, cancellationToken);
-        var faultsAwaitingReview = faultTickets.Count(item => item.Status == FaultStatus.Open);
-        var faultsInRepair = faultTickets.Count(item =>
-            item.Status is FaultStatus.InService or FaultStatus.WorkshopReceived);
-        var faultsAwaitingShipment = faultTickets.Count(item => item.Status == FaultStatus.AwaitingWorkshopShipment);
-        var faultsCompleted = faultTickets.Count(item => item.Status is FaultStatus.Resolved or FaultStatus.Closed);
-
-        return new OperationsDashboardResponse(
-            orders.Count,
-            students.Length,
-            students.Count(student => !student.HasAddress),
-            studentsAwaitingShipment,
-            shipmentsInTransit,
-            shipmentsDelivered,
-            returnPendingAssignmentIds.Count,
-            returnInTransitAssignmentIds.Count,
-            returnCompletedKitCount,
-            faultsAwaitingReview,
-            faultsInRepair,
-            faultsAwaitingShipment,
-            faultsCompleted);
-    }
 
     public async Task<OrderDetailResponse> GetOrderDetailAsync(Guid orderId, CancellationToken cancellationToken)
     {
@@ -1247,7 +1161,10 @@ public sealed class OperationsService(
     {
         var customers = (await repository.GetCustomersAsync(cancellationToken)).ToDictionary(item => item.Id);
         var orders = (await repository.GetOrdersAsync(null, cancellationToken)).ToDictionary(item => item.Id);
-        var items = (await repository.GetFaultTicketsAsync(null, cancellationToken)).Select(ticket =>
+        var tickets = (await repository.GetFaultTicketsAsync(query.CustomerId, cancellationToken))
+            .Where(ticket => (!query.OrderId.HasValue || ticket.OrderId == query.OrderId) &&
+                OperationsWorkload.MatchesFaultStage(ticket.Status, query.Stage));
+        var items = tickets.Select(ticket =>
         {
             customers.TryGetValue(ticket.CustomerId, out var customer);
             orders.TryGetValue(ticket.OrderId, out var order);
@@ -1264,7 +1181,9 @@ public sealed class OperationsService(
             return new FaultListItemResponse(ticket.Id, ticket.Number, ticket.CustomerId,
                 customer?.Name ?? "Müşteri", reporterName, reporterPhone, reporterAddress, ticket.Category, ticket.Severity,
                 ticket.Description, ticket.Status, ticket.OpenedAt, ticket.ApprovalStatus, ticket.Origin,
-                ticket.AttachmentUrl);
+                ticket.AttachmentUrl, ticket.OrderId, order?.OrderNumber, ticket.ProductUnitId,
+                Shipments: ticket.KargonomiShipments.OrderByDescending(shipment => shipment.CreatedAt)
+                    .Select(KargonomiShippingService.MapFault).ToArray());
         });
 
         if (query.CustomerId.HasValue)
@@ -1296,8 +1215,27 @@ public sealed class OperationsService(
         var ordered = items.OrderByDescending(item => item.OpenedAt).ToArray();
         var totalPages = Math.Max(1, (int)Math.Ceiling(ordered.Length / (double)pageSize));
         page = Math.Min(page, totalPages);
+        var pageItems = ordered.Skip((page - 1) * pageSize).Take(pageSize).ToArray();
+        var units = (await repository.GetProductUnitsByIdsAsync(
+            pageItems.Select(item => item.ProductUnitId).Distinct().ToArray(), cancellationToken))
+            .ToDictionary(unit => unit.Id);
         return new FaultPageResponse(page, pageSize, ordered.Length, totalPages,
-            ordered.Skip((page - 1) * pageSize).Take(pageSize).ToArray());
+            pageItems.Select(item => item with
+            {
+                SerialNumber = units.TryGetValue(item.ProductUnitId, out var unit) ? unit.SerialNumber : null
+            }).ToArray());
+    }
+
+    public async Task<FaultKitLabelResponse> GetFaultKitLabelAsync(Guid ticketId, CancellationToken cancellationToken)
+    {
+        var ticket = await repository.GetFaultTicketAsync(ticketId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
+        var unit = await repository.GetProductUnitAsync(ticket.ProductUnitId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Arızaya bağlı fiziksel kit bulunamadı.");
+        var model = await repository.GetProductModelAsync(unit.ProductModelId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Kit modeli bulunamadı.");
+        return new(unit.Id, model.Name, model.Sku, unit.SerialNumber, unit.QrCode,
+            ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress);
     }
 
     public async Task<FaultTicket> ChangeFaultStatusAsync(Guid ticketId, FaultStatus status, Guid actorId, string? note, CancellationToken cancellationToken)
@@ -1378,10 +1316,11 @@ public sealed class OperationsService(
     }
 
     public async Task<IReadOnlyCollection<ReturnTableItemResponse>> GetReturnsTableAsync(
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, Guid? customerId = null, Guid? orderId = null, string? state = null)
     {
-        var orders = (await repository.GetOrdersAsync(null, cancellationToken))
-            .Where(item => item.Type == OrderType.Rental && item.Period.HasValue)
+        var orders = (await repository.GetOrdersAsync(customerId, cancellationToken))
+            .Where(item => item.Type == OrderType.Rental && item.Period.HasValue &&
+                (!orderId.HasValue || item.Id == orderId.Value))
             .ToArray();
         var orderIds = orders.Select(item => item.Id).ToHashSet();
         var orderByLineId = orders
@@ -1389,15 +1328,18 @@ public sealed class OperationsService(
             .ToDictionary(item => item.Id, item => item.Order);
         var customers = (await repository.GetCustomersAsync(cancellationToken)).ToDictionary(item => item.Id);
         var models = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(item => item.Id);
-        var units = (await repository.GetProductUnitsAsync(cancellationToken)).ToDictionary(item => item.Id);
-        var assignments = await repository.GetAssignmentsForOrdersAsync(orderIds, cancellationToken);
-        var studentsByAssignmentId = (await repository.GetRentalCohortsAsync(null, cancellationToken))
+        var assignments = (await repository.GetAssignmentsForOrdersAsync(orderIds, cancellationToken))
+            .Where(item => item.Status != RentalAssignmentStatus.Cancelled).ToArray();
+        var units = (await repository.GetProductUnitsByIdsAsync(
+            assignments.Select(item => item.ProductUnitId).Distinct().ToArray(), cancellationToken))
+            .ToDictionary(item => item.Id);
+        var studentsByAssignmentId = (await repository.GetRentalCohortsAsync(customerId, cancellationToken))
             .SelectMany(cohort => cohort.Students
                 .Where(student => !student.IsDeleted && student.AssignmentId.HasValue)
                 .Select(student => new { AssignmentId = student.AssignmentId!.Value, Student = student }))
             .GroupBy(item => item.AssignmentId)
             .ToDictionary(group => group.Key, group => group.First().Student);
-        var latestReturnByAssignment = (await repository.GetKitReturnRequestsAsync(null, cancellationToken))
+        var latestReturnByAssignment = (await repository.GetKitReturnRequestsAsync(customerId, cancellationToken))
             .SelectMany(request => request.Items.Select(item => new { Request = request, Item = item }))
             .GroupBy(item => item.Item.AssignmentId)
             .ToDictionary(group => group.Key,
@@ -1417,17 +1359,15 @@ public sealed class OperationsService(
 
             latestReturnByAssignment.TryGetValue(assignment.Id, out var currentReturn);
             if (currentReturn is null &&
-                (assignment.Status != RentalAssignmentStatus.Active || period.EndDate >= today))
+                (assignment.Status != RentalAssignmentStatus.Active || period.EndDate >= today ||
+                 !OperationsWorkload.IsOperational(order.Status)))
                 continue;
 
             studentsByAssignmentId.TryGetValue(assignment.Id, out var student);
             var returnStatus = currentReturn is null ? 0 : (int)currentReturn.Request.Status;
-            var returnStateKey = currentReturn?.Request.Status == KitReturnStatus.Received
-                ? "completed"
-                : currentReturn?.Request.Status == KitReturnStatus.InTransit ||
-                    currentReturn?.Request.ExternalShipmentId.HasValue == true
-                    ? "in-transit"
-                    : "pending";
+            var returnStateKey = OperationsWorkload.ReturnState(currentReturn?.Request);
+            if (!string.IsNullOrWhiteSpace(state) && state != returnStateKey &&
+                !(state == "missing-form" && currentReturn is null)) continue;
             var returnState = returnStateKey switch
             {
                 "completed" => "Tamamlanmış",
@@ -1471,7 +1411,7 @@ public sealed class OperationsService(
                 student?.PublicAddressToken,
                 request?.RequesterName,
                 request?.RequesterPhone,
-                request is null ? (int)KitReturnDeliveryMethod.PickupFromAddress : (int)request.DeliveryMethod));
+                request is null ? (int)KitReturnDeliveryMethod.PickupFromAddress : (int)request.DeliveryMethod, order.Id));
         }
 
         return result

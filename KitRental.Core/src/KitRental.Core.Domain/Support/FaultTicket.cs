@@ -65,6 +65,15 @@ public sealed class FaultTicket
         return shipment;
     }
 
+    public void EnsureCanStartShipment(FaultKargonomiShipmentDirection direction)
+    {
+        var allowed = (direction is FaultKargonomiShipmentDirection.ToWorkshop or FaultKargonomiShipmentDirection.ToCustomer) &&
+            (Status is FaultStatus.Accepted or FaultStatus.AwaitingWorkshopShipment or FaultStatus.WorkshopShipmentInTransit
+                or FaultStatus.WorkshopReceived or FaultStatus.Repaired or FaultStatus.CustomerShipmentInTransit);
+        if (!allowed)
+            throw new DomainException("fault.invalid_shipment_stage", "Kargo işlemi için arızanın incelenip kabul edilmiş ve uzaktan çözülmemiş olması gerekir.");
+    }
+
     public static FaultTicket Open(Guid id, string number, Guid customerId, Guid orderId, Guid assignmentId,
         Guid productUnitId, string category, FaultSeverity severity, string description, DateTimeOffset openedAt,
         string? reporterName = null, string? reporterPhone = null, string? reporterAddress = null,
@@ -115,7 +124,7 @@ public sealed class FaultTicket
         MoveTo(FaultStatus.AwaitingWorkshopShipment, actorId, now, note, FaultStatus.Accepted);
 
     public void MarkWorkshopShipmentInTransit(Guid actorId, DateTimeOffset now, string note) =>
-        MoveTo(FaultStatus.WorkshopShipmentInTransit, actorId, now, note, FaultStatus.AwaitingWorkshopShipment);
+        MoveTo(FaultStatus.WorkshopShipmentInTransit, actorId, now, note, FaultStatus.Accepted, FaultStatus.AwaitingWorkshopShipment);
 
     public void MarkWorkshopReceived(Guid actorId, DateTimeOffset now, string note) =>
         MoveTo(FaultStatus.WorkshopReceived, actorId, now, note, FaultStatus.WorkshopShipmentInTransit);
@@ -124,7 +133,8 @@ public sealed class FaultTicket
         MoveTo(FaultStatus.Repaired, actorId, now, note, FaultStatus.WorkshopReceived);
 
     public void MarkCustomerShipmentInTransit(Guid actorId, DateTimeOffset now, string note) =>
-        MoveTo(FaultStatus.CustomerShipmentInTransit, actorId, now, note, FaultStatus.Repaired);
+        MoveTo(FaultStatus.CustomerShipmentInTransit, actorId, now, note, FaultStatus.Accepted,
+            FaultStatus.AwaitingWorkshopShipment, FaultStatus.WorkshopShipmentInTransit, FaultStatus.WorkshopReceived, FaultStatus.Repaired);
 
     public void Close(Guid actorId, DateTimeOffset now, string note) =>
         MoveTo(FaultStatus.Closed, actorId, now, note, FaultStatus.Repaired, FaultStatus.RemoteResolved, FaultStatus.CustomerShipmentInTransit);

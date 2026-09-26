@@ -1,104 +1,84 @@
 @model OperationsDashboardViewModel
 @{
-    ViewData["Title"] = "Genel Bakış";
+    ViewData["Title"] = "Operasyon Merkezi";
+    var customerName = Model.Customers.FirstOrDefault(x => x.Id == Model.CustomerId)?.Name ?? "Tüm müşteriler";
+    var headlineMetrics = new[]
+    {
+        new OperationsMetricViewModel("Siparişler", Model.TotalOrders, "Tüm dönemleri incele", "Orders", CustomerId: Model.CustomerId, Icon: "clipboard-list"),
+        new OperationsMetricViewModel("Aktif kiralanan kitler", Model.ActiveKitCount, "Aktif kiralama ataması", "Orders", "focus", "active", Model.CustomerId, "blue", "package"),
+        new OperationsMetricViewModel("Açık arızalar", Model.OpenFaultCount, "Servis sürecini takip et", "Faults", "stage", "open", Model.CustomerId, "amber", "wrench"),
+        new OperationsMetricViewModel("İade bekleyen kitler", Model.ReturnPendingKitCount, "İade veya kargo başlangıcı bekliyor", "Returns", "state", "pending", Model.CustomerId, "rose", "rotate-ccw")
+    };
+    var shipmentMetrics = new[]
+    {
+        new OperationsMetricViewModel("Adres bekleyen", Model.StudentsAwaitingAddress, "Öğrenci kaydı", "Orders", "focus", "address", Model.CustomerId, "amber"),
+        new OperationsMetricViewModel("Gönderim bekleyen", Model.StudentsAwaitingShipment, "Adresi hazır öğrenci", "Orders", "focus", "shipment", Model.CustomerId),
+        new OperationsMetricViewModel("Kargo kabulü bekleyen", Model.ShipmentsReady, "Oluşturulan / hazır gönderi", "Orders", "focus", "ready", Model.CustomerId),
+        new OperationsMetricViewModel("Kargoda", Model.ShipmentsInTransit, "Taşıma sürecindeki gönderi", "Orders", "focus", "in-transit", Model.CustomerId, "blue"),
+        new OperationsMetricViewModel("Teslim edildi", Model.ShipmentsDelivered, "Kargonomi teslimat kaydı", "Orders", "focus", "delivered", Model.CustomerId, "green")
+    };
+    var faultMetrics = new[]
+    {
+        new OperationsMetricViewModel("İnceleme / bilgi bekleyen", Model.FaultsAwaitingReview, "Arıza kaydı", "Faults", "stage", "review", Model.CustomerId, "amber"),
+        new OperationsMetricViewModel("Onarım sürecinde", Model.FaultsInRepair, "Kabul edilen / atölyedeki kayıt", "Faults", "stage", "repair", Model.CustomerId),
+        new OperationsMetricViewModel("Kargo bekleyen", Model.FaultsAwaitingShipment, "Atölyeye veya müşteriye gönderilecek", "Faults", "stage", "shipment", Model.CustomerId),
+        new OperationsMetricViewModel("Çözümlenen", Model.FaultsCompleted, "Uzaktan çözüm ve kapanan kayıtlar", "Faults", "stage", "completed", Model.CustomerId, "green")
+    };
+    var returnMetrics = new[]
+    {
+        new OperationsMetricViewModel("İade formu eksik", Model.MissingReturnFormCount, "Süresi dolmuş aktif kit", "Returns", "state", "missing-form", Model.CustomerId, "rose"),
+        new OperationsMetricViewModel("İade bekleniyor", Model.ReturnPendingKitCount, "İade / kargo başlangıcı bekleyen kit", "Returns", "state", "pending", Model.CustomerId, "amber"),
+        new OperationsMetricViewModel("İade kargoda", Model.ReturnInTransitKitCount, "Gönderisi başlatılan kit", "Returns", "state", "in-transit", Model.CustomerId, "blue"),
+        new OperationsMetricViewModel("İade tamamlandı", Model.ReturnCompletedKitCount, "Robotik Bilim tarafından teslim alındı", "Returns", "state", "completed", Model.CustomerId, "green")
+    };
 }
+<div class="ops-workspace">
+    <header class="ops-hero">
+        <div><span class="eyebrow">ROBOTİK BİLİM · KİRALAMA OPERASYONU</span><h1>Operasyon Merkezi</h1><p>Siparişten teslimata, arızadan iadeye bütün süreç.</p></div>
+        <form method="get" class="ops-customer-filter">
+            <label for="dashboard-customer">Müşteri</label>
+            <select id="dashboard-customer" name="customerId"><option value="">Tüm müşteriler</option>@foreach (var customer in Model.Customers) { <option value="@customer.Id" selected="@(customer.Id == Model.CustomerId)">@customer.Name</option> }</select>
+            <button class="secondary-action" type="submit">Görüntüle</button>
+        </form>
+    </header>
+    <div class="ops-context"><span><b>@customerName</b> · @Model.TotalStudents öğrenci kaydı</span><span>Son görünüm: @Model.GeneratedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</span></div>
+    <div class="ops-metrics ops-metrics-4">@foreach (var metric in headlineMetrics) { <partial name="_OperationsMetric" model="metric" /> }</div>
 
-<div class="page-heading">
-    <div>
-        <span class="eyebrow">YÖNETİM PANELİ</span>
-        <h1>Genel Bakış</h1>
-        <p class="block-muted">Sipariş, öğrenci adresi ve kargo durumlarını tek bakışta takip edin.</p>
-    </div>
+    <section class="ops-section">
+        <header class="ops-section-heading"><div><span class="eyebrow">ÖNCE BUNLARA BAKIN</span><h2>İşlem öncelikleri</h2></div><a asp-action="Orders" asp-route-customerId="@Model.CustomerId">Tüm siparişler →</a></header>
+        <div class="ops-priorities">
+            <a class="ops-priority ops-tone-rose" asp-action="Orders" asp-route-focus="overdue" asp-route-customerId="@Model.CustomerId"><i data-lucide="calendar-clock"></i><span><b>@Model.OverdueOrders siparişin süresi geçti</b><small>Aktif kitlerin iadesini takip edin</small></span><span aria-hidden="true">→</span></a>
+            <a class="ops-priority ops-tone-amber" asp-action="Orders" asp-route-focus="shipment-failed" asp-route-customerId="@Model.CustomerId"><i data-lucide="truck"></i><span><b>@Model.ShipmentsFailed gönderide hata var</b><small>Siparişi açıp hata ve adresi kontrol edin</small></span><span aria-hidden="true">→</span></a>
+            <a class="ops-priority" asp-action="Orders" asp-route-focus="approval" asp-route-customerId="@Model.CustomerId"><i data-lucide="clipboard-check"></i><span><b>@Model.PendingApprovalOrders sipariş onay bekliyor</b><small>Talebi inceleyip hazırlığı başlatın</small></span><span aria-hidden="true">→</span></a>
+            <a class="ops-priority ops-tone-blue" asp-action="Orders" asp-route-focus="ending-soon" asp-route-customerId="@Model.CustomerId"><i data-lucide="calendar-days"></i><span><b>@Model.EndingSoonOrders dönem yakında bitiyor</b><small>Bugün dahil önümüzdeki 7 gün</small></span><span aria-hidden="true">→</span></a>
+        </div>
+        @if (Model.PriorityOrders.Count == 0)
+        {
+            <div class="ops-empty"><i data-lucide="circle-check"></i><strong>Öncelik listesi temiz</strong><p>Seçili müşteri kapsamında öncelik gerektiren sipariş bulunmuyor.</p></div>
+        }
+        else
+        {
+            <div class="ops-priority-orders">
+            @foreach (var order in Model.PriorityOrders)
+            {
+                <a class="ops-order-preview" asp-action="OrderDetails" asp-route-id="@order.Id">
+                    <span><b>@order.OrderNumber</b><small>@order.CustomerName · @(order.RentalPeriodName ?? "Sipariş")</small></span>
+                    <span class="ops-preview-signals">
+                        @if (order.IsOverdue) { <span class="ops-pill ops-tone-rose">Dönem sona erdi</span> }
+                        @if (order.ShipmentFailedCount > 0) { <span class="ops-pill ops-tone-rose">@order.ShipmentFailedCount kargo hatası</span> }
+                        @if (order.Status == 2) { <span class="ops-pill ops-tone-amber">Onay bekliyor</span> }
+                        @if (order.MissingAddressCount > 0) { <span class="ops-pill">@order.MissingAddressCount adres eksik</span> }
+                        @if (order.OpenFaultCount > 0) { <span class="ops-pill ops-tone-amber">@order.OpenFaultCount açık arıza</span> }
+                        @if (order.PendingReturnCount > 0) { <span class="ops-pill">@order.PendingReturnCount iade bekliyor</span> }
+                        @if (order.IsEndingSoon) { <span class="ops-pill ops-tone-blue">Bitiş: @order.EndDate?.ToString("dd.MM.yyyy")</span> }
+                    </span><i data-lucide="arrow-up-right" aria-hidden="true"></i>
+                </a>
+            }
+            </div>
+            <p class="ops-footnote">En fazla 8 sipariş; süresi geçenler, kargo hataları ve onay bekleyenler önce gösterilir.</p>
+        }
+    </section>
+    <section class="ops-section"><header class="ops-section-heading"><div><span class="eyebrow">01 · HAZIRLIK VE TESLİMAT</span><h2>Sipariş ve kargo</h2></div></header><div class="ops-metrics ops-metrics-5">@foreach (var metric in shipmentMetrics) { <partial name="_OperationsMetric" model="metric" /> }</div><p class="ops-footnote">Bekleyen işlemler taslak, reddedilen ve iptal siparişleri kapsamaz. Gönderim bekleyenlere başarısız denemeler dahildir. Teslimat sayıları Kargonomi kayıtlarına dayanır.</p></section>
+    <section class="ops-section"><header class="ops-section-heading"><div><span class="eyebrow">02 · TESLİMAT SONRASI</span><h2>Arıza takibi</h2></div><a asp-action="Faults" asp-route-customerId="@Model.CustomerId">Tüm arızalar →</a></header><div class="ops-metrics ops-metrics-4">@foreach (var metric in faultMetrics) { <partial name="_OperationsMetric" model="metric" /> }</div><p class="ops-footnote">Açık arızalara taşıma aşamasındaki kayıtlar da dahildir. Reddedilen arızalar çözümlenen sayısına dahil değildir.</p></section>
+    <section class="ops-section"><header class="ops-section-heading"><div><span class="eyebrow">03 · DÖNEM SONU</span><h2>İade takibi</h2></div><a asp-action="Returns" asp-route-customerId="@Model.CustomerId">Tüm iadeler →</a></header><div class="ops-metrics ops-metrics-4">@foreach (var metric in returnMetrics) { <partial name="_OperationsMetric" model="metric" /> }</div><p class="ops-footnote">İade sayıları kit bazındadır. Formu eksik kitler, iade bekleyenlerin içindedir. Siparişin tamamlanması kitlerin iade alındığı anlamına gelmez.</p></section>
 </div>
-
-<section class="dashboard-group dashboard-group-general">
-    <header class="dashboard-group-heading">
-        <div><span class="eyebrow">SİPARİŞ VE KARGO ÖZETİ</span><h2>Güncel durum</h2></div>
-        <p>Siparişlerdeki öğrenci adresleri ve Kargonomi gönderi durumları.</p>
-    </header>
-    <div class="metrics dashboard-metrics">
-        <a class="metric-card" asp-action="Orders">
-            <span>Toplam Sipariş Sayısı</span>
-            <strong>@Model.TotalOrders</strong>
-            <small>Siparişlere git →</small>
-        </a>
-        <a class="metric-card" asp-action="Orders">
-            <span>Siparişlerdeki Toplam Öğrenci Sayısı</span>
-            <strong>@Model.TotalStudents</strong>
-            <small>Siparişlere git →</small>
-        </a>
-        <a class="metric-card metric-fault" asp-action="Orders">
-            <span>Siparişlerdeki Adresi Girilmemiş, Adresi Beklenen Kayıtların Sayısı</span>
-            <strong>@Model.StudentsAwaitingAddress</strong>
-            <small>Siparişlere git →</small>
-        </a>
-        <a class="metric-card metric-repaired" asp-action="Orders">
-            <span>Siparişlerdeki Adresi Girilmiş, Kargo Gönderimi Başlatılması Beklenen Kayıtların Sayısı</span>
-            <strong>@Model.StudentsAwaitingShipment</strong>
-            <small>Siparişlere git →</small>
-        </a>
-        <a class="metric-card metric-rented" asp-controller="Operations" asp-action="KargonomiShipments">
-            <span>Kargo Gönderimi Başlatılmış, Teslimat Sürecindeki Kayıtlar</span>
-            <strong>@Model.ShipmentsInTransit</strong>
-            <small>Kargonomi gönderilerine git →</small>
-        </a>
-        <a class="metric-card metric-available" asp-controller="Operations" asp-action="KargonomiShipments">
-            <span>Kargo Gönderimi Başlatılmış, Teslim Edildi Durumundaki Kayıtlar</span>
-            <strong>@Model.ShipmentsDelivered</strong>
-            <small>Kargonomi gönderilerine git →</small>
-        </a>
-    </div>
-</section>
-
-<section class="dashboard-group dashboard-group-returns">
-    <header class="dashboard-group-heading">
-        <div><span class="eyebrow">İADE SÜRECİ</span><h2>İade durumu</h2></div>
-        <p>Süresi dolan kiralamalar ve iade sürecindeki kitler.</p>
-    </header>
-    <div class="metrics dashboard-metrics">
-        <a class="metric-card metric-fault" asp-action="Returns">
-            <span>İade Bekleniyor</span>
-            <strong>@Model.ReturnPendingKitCount</strong>
-            <small>İadelere git →</small>
-        </a>
-        <a class="metric-card metric-fault" asp-action="Returns">
-            <span>Kargoda</span>
-            <strong>@Model.ReturnInTransitKitCount</strong>
-            <small>İadelere git →</small>
-        </a>
-        <a class="metric-card metric-repaired" asp-action="Returns">
-            <span>İade Tamamlandı</span>
-            <strong>@Model.ReturnCompletedKitCount</strong>
-            <small>İadelere git →</small>
-        </a>
-    </div>
-</section>
-
-<section class="dashboard-group dashboard-group-faults">
-    <header class="dashboard-group-heading">
-        <div><span class="eyebrow">ARIZA TAKİBİ</span><h2>Arıza Takibi</h2></div>
-        <p>Arıza kayıtlarının inceleme, onarım, kargo ve kapanış durumları.</p>
-    </header>
-    <div class="metrics dashboard-metrics">
-        <a class="metric-card metric-fault" asp-action="Faults">
-            <span>İnceleme Bekleyen Arıza Kayıtları</span>
-            <strong>@Model.FaultsAwaitingReview</strong>
-            <small>Arızalara git →</small>
-        </a>
-        <a class="metric-card metric-rented" asp-action="Faults">
-            <span>Onarımdaki Arızalar</span>
-            <strong>@Model.FaultsInRepair</strong>
-            <small>Arızalara git →</small>
-        </a>
-        <a class="metric-card metric-rented" asp-action="Faults">
-            <span>Kargo Bekleyen Arızalar</span>
-            <strong>@Model.FaultsAwaitingShipment</strong>
-            <small>Arızalara git →</small>
-        </a>
-        <a class="metric-card metric-available" asp-action="Faults">
-            <span>Tamamlanmış Arızalar</span>
-            <strong>@Model.FaultsCompleted</strong>
-            <small>Arızalara git →</small>
-        </a>
-    </div>
-</section>

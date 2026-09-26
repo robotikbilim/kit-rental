@@ -1,0 +1,7 @@
+@{ ViewData["Title"] = "Veriler yüklenemedi"; }
+<div class="ops-empty" role="alert">
+    <i data-lucide="cloud-off"></i>
+    <h1>Operasyon verileri yüklenemedi</h1>
+    <p>Güncel kayıtlara şu anda ulaşılamıyor. Sayfayı yenileyerek tekrar deneyin.</p>
+    <a class="primary-action" href="@(Context.Request.Path + Context.Request.QueryString)">Tekrar dene</a>
+</div>

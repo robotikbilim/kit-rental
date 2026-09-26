@@ -1,0 +1,37 @@
+@model OperationsDashboardViewModel
+@{
+    var groups = new (string Title, OperationsMetricViewModel[] Cards)[]
+    {
+        ("Sipariş ve Kargo", [
+            new("Adres Bekleyen", Model.StudentsAwaitingAddress, "Adresi eksik öğrenci kayıtları", "RentalPeriods", "focus", "address"),
+            new("Gönderim Bekleyen", Model.StudentsAwaitingShipment, "Adresi hazır; yeniden denemeler dahil", "RentalPeriods", "focus", "shipment"),
+            new("Kargoda", Model.ShipmentsInTransit, "Taşıma sürecindeki gönderiler", "RentalPeriods", "focus", "in-transit"),
+            new("Teslim Edildi", Model.ShipmentsDelivered, "Kargo firmasının teslimat kayıtları", "RentalPeriods", "focus", "delivered")]),
+        ("Arıza Durumu", [
+            new("Açık Arızalar", Model.OpenFaultCount, "Taşıma aşamasındakiler dahil", "Faults", "state", "open"),
+            new("Onarım Sürecinde", Model.FaultsInRepair, "Kabul edilen ve servisteki kayıtlar", "Faults", "state", "repair"),
+            new("Kargo Bekleyen", Model.FaultsAwaitingShipment, "Gönderim aşamasını bekleyen kayıtlar", "Faults", "state", "shipment"),
+            new("Çözümlenen", Model.FaultsCompleted, "Uzaktan çözülenler dahil; reddedilenler hariç", "Faults", "state", "completed")]),
+        ("İade Durumu", [
+            new("İade Bekleyen Kitler", Model.ReturnPendingKitCount, "İade veya kargo başlangıcı bekleniyor", "Returns", "state", "pending"),
+            new("Kargodaki İadeler", Model.ReturnInTransitKitCount, "Depo teslim alana kadar takip edilir", "Returns", "state", "in-transit"),
+            new("İadesi Tamamlanan Kitler", Model.ReturnCompletedKitCount, "Depo tarafından teslim alındı", "Returns", "state", "completed"),
+            new("İade Formu Eksik", Model.MissingReturnFormCount, "İade bekleyen kitlerin içindedir", "Returns", "state", "missing-form")])
+    };
+}
+<p class="block-muted">Son görünüm: @Model.GeneratedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm") · @Model.TotalStudents öğrenci</p>
+@foreach (var group in groups)
+{
+    <section class="customer-dashboard-group">
+        <header class="dashboard-group-heading"><h2>@group.Title</h2></header>
+        <div class="metrics portal-metrics">
+        @foreach (var card in group.Cards)
+        {
+            var route = new Dictionary<string, string>();
+            if (card.FilterName is not null) { route[card.FilterName] = card.FilterValue ?? ""; }
+            <a class="metric-card portal-metric-active" asp-action="@card.Action" asp-all-route-data="route"><span>@card.Label</span><strong>@card.Count</strong><small>@card.Description</small></a>
+        }
+        </div>
+    </section>
+}
+<p class="block-muted">Siparişin tamamlanması, kargo teslimatı veya kit iadesinin tamamlandığı anlamına gelmez. Gönderiler kargo firmasının, iadeler deponun teslim alma kayıtlarına göre gösterilir.</p>

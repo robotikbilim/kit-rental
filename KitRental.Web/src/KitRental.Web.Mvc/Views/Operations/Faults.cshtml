@@ -1,15 +1,7 @@
 @model FaultScreenViewModel
 @{
     ViewData["Title"] = "Arızalar";
-    string StatusName(int value) => value switch
-    {
-        1 => "Kayıt geldi", 2 => "İnceleniyor", 3 => "Müşteri bilgisi bekleniyor",
-        4 => "Kit bekleniyor", 5 => "Onarım aşamasında", 6 => "Eski kargo süreci",
-        7 => "Eski çözüldü", 8 => "Tamamlandı", 9 => "Kabul edildi", 10 => "Reddedildi",
-        11 => "Uzaktan destekle çözüldü", 12 => "Kargo bekliyor", 13 => "Atölyeye kargolandı",
-        14 => "Atölyeye geldi", 15 => "Arıza giderildi",
-        _ => "İşlemde"
-    };
+    string StatusName(int value) => OperationsDisplay.FaultStatus(value);
     string SeverityName(int value) => value switch
     {
         1 => "Düşük", 2 => "Orta", 3 => "Yüksek", 4 => "Kritik", _ => "-"
@@ -27,16 +19,26 @@
 <div class="page-heading">
     <div><span class="eyebrow">SERVİS &amp; DESTEK</span><h1>Arıza Kayıtları</h1><p class="block-muted">Arızaları bildiren kişi, neden ve servis aşamasına göre takip edin.</p></div>
 </div>
+<nav class="ops-scope-nav" aria-label="Arıza kapsamı">
+    <a asp-action="Dashboard" asp-route-customerId="@Model.Filter.CustomerId">Operasyon merkezi</a>
+    @if (Model.Filter.OrderId.HasValue) { <strong>@(Model.Result.Items.FirstOrDefault()?.OrderNumber ?? "Seçili sipariş")</strong><a asp-action="OrderDetails" asp-route-id="@Model.Filter.OrderId">Sipariş detayına dön</a><a asp-action="Returns" asp-route-orderId="@Model.Filter.OrderId" asp-route-customerId="@Model.Filter.CustomerId">Siparişin iadeleri</a> }
+    else if (Model.Filter.CustomerId.HasValue) { <strong>@(Model.Result.Items.FirstOrDefault()?.CustomerName ?? "Seçili müşteri")</strong> }
+    <a asp-action="Faults">Tüm arızalar</a>
+</nav>
 @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 
-<form method="get" class="fault-filter-form" data-auto-filter="true">
+<form method="get" class="fault-filter-form ops-fault-filters" role="search" aria-label="Tüm arıza kayıtlarında ara">
+    <input type="hidden" name="customerId" value="@Model.Filter.CustomerId" />
+    <input type="hidden" name="orderId" value="@Model.Filter.OrderId" />
+    <div class="field"><label for="fault-stage">İşlem grubu</label><select id="fault-stage" name="stage"><option value="">Tüm gruplar</option>@foreach (var stage in OperationsDisplay.FaultStages) { <option value="@stage.Key" selected="@(stage.Key == Model.Filter.Stage)">@stage.Value</option> }</select></div>
     <div class="field fault-search"><label for="Query">Kayıt, kişi, telefon veya neden</label><input id="Query" name="Query" value="@Model.Filter.Query" placeholder="Hızlı ara..." /></div>
-    <div class="field"><label for="Status">Durum</label><select id="Status" name="Status"><option value="">Tüm durumlar</option>@foreach (var status in new[] { 1, 2, 9, 10, 11, 12, 13, 14, 15, 8, 3, 4, 5, 6, 7 }) { <option value="@status" selected="@(Model.Filter.Status == status)">@StatusName(status)</option> }</select></div>
+    <div class="field"><label for="Status">Durum</label><select id="Status" name="Status"><option value="">Tüm durumlar</option>@foreach (var status in new[] { 1, 2, 9, 10, 11, 12, 13, 14, 15, 16, 8, 3, 4, 5, 6, 7 }) { <option value="@status" selected="@(Model.Filter.Status == status)">@StatusName(status)</option> }</select></div>
     <div class="field"><label for="Severity">Önem</label><select id="Severity" name="Severity"><option value="">Tüm önem seviyeleri</option>@for (var severity = 1; severity <= 4; severity++) { <option value="@severity" selected="@(Model.Filter.Severity == severity)">@SeverityName(severity)</option> }</select></div>
     <div class="field"><label for="OpenedFrom">Başlangıç</label><input id="OpenedFrom" name="OpenedFrom" type="date" value="@Model.Filter.OpenedFrom?.ToString("yyyy-MM-dd")" /></div>
     <div class="field"><label for="OpenedTo">Bitiş</label><input id="OpenedTo" name="OpenedTo" type="date" value="@Model.Filter.OpenedTo?.ToString("yyyy-MM-dd")" /></div>
-    <div class="field"><label for="PageSize">Sayfa boyutu</label><select id="PageSize" name="PageSize">@foreach (var size in new[] { 10, 20, 50, 100 }) { <option value="@size" selected="@(Model.Filter.PageSize == size)">@size</option> }</select></div>
+    <div class="field"><label for="PageSize">Gösterilecek Satır</label><select id="PageSize" name="PageSize">@foreach (var size in new[] { 10, 20, 50, 100 }) { <option value="@size" selected="@(Model.Result.PageSize == size)">@size</option> }</select></div>
+<div class="ops-filter-actions"><button class="primary-action" type="submit">Filtrele</button><a class="secondary-action" asp-action="Faults" asp-route-orderId="@Model.Filter.OrderId" asp-route-customerId="@Model.Filter.CustomerId">Filtreleri temizle</a></div>
 </form>
 <div asp-validation-summary="All" class="error"></div>
 
@@ -46,14 +48,17 @@
 }
 else
 {
-    <div class="table-scroll"><table class="fault-table js-datatable" data-datatable-server="true"><thead><tr><th>Kayıt</th><th>Kaynak</th><th>Bildiren kişi</th><th>Arıza nedeni</th><th>Önem</th><th>Durum</th><th>Aksiyon</th></tr></thead><tbody>
+    <div class="ops-result-heading"><strong>@Model.Result.TotalCount Arıza Kaydı</strong><span>En yeni kayıtlar önce · Filtreler tüm kayıtlarda uygulanır</span></div>
+    <div class="table-scroll ops-data-region"><table id="operations-faults-table" class="fault-table ops-data-table" aria-label="Arıza kayıtları" data-datatable="false"><thead><tr><th>Kayıt</th><th>Kaynak</th><th>Bildiren Kişi</th><th>Arıza Nedeni</th><th>Önem</th><th>Durum</th><th>İşlem</th></tr></thead><tbody>
     @foreach (var item in Model.Result.Items)
     {
         <tr>
-            <td><strong>@item.Number</strong><small class="block-muted">@item.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small></td>
-            <td><span class="fault-stage status-@item.Origin">@OriginName(item.Origin)</span></td>
-            <td><strong>@item.ReporterName</strong><a class="fault-phone" href="tel:@item.ReporterPhone">@item.ReporterPhone</a><small class="block-muted">@item.ReporterAddress</small><small class="block-muted">@item.CustomerName</small></td>
-            <td><span class="fault-category">@item.Category</span><p>@item.Description</p>
+            <td data-mobile-label="Kayıt"><strong>@item.Number</strong><small class="block-muted">@item.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>@if (item.OrderId != Guid.Empty) { <a asp-action="OrderDetails" asp-route-id="@item.OrderId">@item.OrderNumber</a> }
+                @if (!string.IsNullOrWhiteSpace(item.SerialNumber)) { <small class="block-muted">Seri no: @item.SerialNumber</small> }
+            </td>
+            <td data-mobile-label="Kaynak"><span class="fault-stage status-@item.Origin">@OriginName(item.Origin)</span></td>
+            <td data-mobile-label="Bildiren Kişi"><strong>@item.ReporterName</strong><a class="fault-phone" href="tel:@item.ReporterPhone">@item.ReporterPhone</a><small class="block-muted">@item.ReporterAddress</small><small class="block-muted">@item.CustomerName</small></td>
+            <td data-mobile-label="Arıza Nedeni"><span class="fault-category">@item.Category</span><p>@item.Description</p>
                 @if (!string.IsNullOrWhiteSpace(item.AttachmentUrl))
                 {
                     var attachmentUrl = item.AttachmentUrl!;
@@ -61,43 +66,74 @@ else
                     <a href="@attachmentUrl" target="_blank" rel="noopener" class="table-action">@(isVideo ? "Videoyu aç" : "Fotoğrafı aç")</a>
                 }
             </td>
-            <td><span class="fault-severity severity-@item.Severity">@SeverityName(item.Severity)</span></td>
-            <td><span class="fault-stage status-@item.Status">@StatusName(item.Status)</span></td>
-            <td>
-                @if (canUpdateFaults && item.Status is not (8 or 10))
+            <td data-mobile-label="Önem"><span class="fault-severity severity-@item.Severity">@SeverityName(item.Severity)</span></td>
+            <td data-mobile-label="Durum"><span class="fault-stage status-@item.Status">@StatusName(item.Status)</span></td>
+            <td data-mobile-label="İşlem">
+                @if (!string.IsNullOrWhiteSpace(item.SerialNumber))
                 {
-                    <form class="fault-update-form" asp-action="UpdateFault" asp-route-id="@item.Id" method="post">
-                        <select name="status" aria-label="Arıza aksiyonu">
-                            <option value="2">İncelemeye al</option><option value="9">Arızayı kabul et</option>
-                            <option value="10">Arızayı reddet</option><option value="11">Uzaktan destekle çözüldü</option>
-                            <option value="12">Kargo bekliyor</option><option value="13">Atölyeye kargolandı</option>
-                            <option value="14">Atölyeye geldi</option><option value="15">Arıza giderildi</option>
-                            <option value="8">Kargo teslim edildi / kapat</option>
-                        </select>
-                        <input name="note" placeholder="Süreç notu (isteğe bağlı)" />
-                        <button class="table-action" type="submit">Güncelle</button>
-                    </form>
-                    @if (item.Status is 12 or 15)
-                    {
-                        <details class="fault-shipment-action"><summary class="table-action">@(item.Status == 12 ? "Atölyeye Kargola" : "Müşteriye Kargola")</summary>
-                            <form asp-action="StartFaultKargonomiShipment" asp-route-id="@item.Id" method="post">
-                                <input type="hidden" name="direction" value="@(item.Status == 12 ? 1 : 2)" />
-                                <input name="recipientName" required value="@(item.Status == 15 ? item.ReporterName : "Robotik Bilim Atölye")" placeholder="Alıcı adı" />
-                                <input name="recipientPhone" required value="@(item.Status == 15 ? item.ReporterPhone : "")" placeholder="Alıcı telefonu" />
-                                <textarea name="recipientAddress" required placeholder="Alıcı adresi">@(item.Status == 15 ? item.ReporterAddress : "")</textarea>
-                                <button class="table-action" type="submit">Kargoyu Başlat</button>
-                            </form>
-                        </details>
-                    }
+                    <a class="table-action" asp-action="FaultKitLabel" asp-route-id="@item.Id" target="_blank" rel="noopener">QR Etiketi Yazdır</a>
                 }
             </td>
         </tr>
+        <tr class="ops-fault-logistics-row"><td colspan="7">
+            <section class="ops-fault-logistics" aria-label="@($"{item.Number} kargo süreçleri")">
+                @if (canUpdateFaults)
+                {
+                    <partial name="_FaultStatusEditor" model="item" />
+                }
+                <div class="ops-fault-shipment-grid">
+                @foreach (var direction in new[] { 1, 2 })
+                {
+                    var shipment = item.Shipments?.FirstOrDefault(value => value.Direction == direction);
+                    var canStart = canUpdateFaults && (item.Status is 9 or 12 or 13 or 14 or 15 or 16) &&
+                        (shipment?.ExternalShipmentId is null || shipment.State is 2 or 6 or 7);
+                    var title = direction == 1 ? "Arızalı kitin alınması" : "Yeni kitin gönderimi";
+                    var action = direction == 1 ? "Kurye Gönder" : "Kargoya Gönder";
+                    <details class="ops-fault-shipment-card ops-fault-disclosure @(direction == 1 ? "pickup" : "outbound")">
+                        <summary aria-label="@($"{item.Number} · {action} · {shipment?.StatusLabel ?? "Başlatılmadı"}")">
+                            <span class="ops-fault-disclosure-title"><strong>@action</strong><small>@title</small></span>
+                            <span class="ops-fault-disclosure-state"><span class="ops-shipment-state state-@(shipment?.State ?? 0)">@(shipment?.StatusLabel ?? "Başlatılmadı")</span>
+                                @if (!string.IsNullOrWhiteSpace(shipment?.TrackingNumber)) { <small>Takip: @shipment.TrackingNumber</small> }
+                            </span>
+                        </summary>
+                        <div class="ops-fault-disclosure-body">
+                        <p class="ops-fault-route">@(direction == 1 ? "Veli adresi → Robotik Bilim deposu" : "Robotik Bilim deposu → Veli adresi")</p>
+                        <div class="ops-fault-shipment-address"><strong>@(direction == 1 ? "Alınacak adres" : "Teslim adresi")</strong><span>@(direction == 2 && shipment is not null ? shipment.RecipientAddress : item.ReporterAddress)</span></div>
+                        @if (direction == 1 && shipment is not null) { <small class="block-muted">Teslim: @shipment.RecipientName · @shipment.RecipientAddress</small> }
+                        <dl><div><dt>Kargo firması</dt><dd>@(shipment?.Carrier ?? "—")</dd></div><div><dt>Takip numarası</dt><dd>@(shipment?.TrackingNumber ?? "Henüz oluşmadı")</dd></div></dl>
+                        @if (shipment is not null) { <small class="block-muted">Son güncelleme: @shipment.UpdatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small> }
+                        @if (!string.IsNullOrWhiteSpace(shipment?.LastError)) { <p class="error" role="alert">@shipment.LastError</p> }
+                        <div class="ops-fault-shipment-buttons">
+                            @if (canUpdateFaults)
+                            {
+                                <form asp-action="StartFaultKargonomiShipment" asp-route-id="@item.Id" method="post" data-fault-shipment-form>
+                                    <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+                                    <input type="hidden" name="direction" value="@direction" />
+                                    <button class="table-action" type="submit" disabled="@(!canStart)">@(shipment?.State == 6 ? $"{action} · Tekrar Dene" : action)</button>
+                                </form>
+                            }
+                            <button type="button" class="table-action" disabled="@(shipment?.ExternalShipmentId is null)"
+                                    data-kargonomi-barcode-url="@Url.Action("FaultKargonomiBarcode", new { id = item.Id, shipmentId = shipment?.Id })"
+                                    aria-label="@($"{item.Number} {title} kargo etiketi")">Kargo Etiketi Yazdır</button>
+                        </div>
+                        @if (direction == 2) { <small class="block-muted">Eski kitin depoya gelmesi beklenmeden gönderilebilir. Seri no: @item.SerialNumber · Mevcut QR kodu korunur.</small> }
+                        </div>
+                    </details>
+                }
+                </div>
+                @if (item.Status is 1 or 2 or 3) { <p class="block-muted">Kargo işlemleri arıza incelenip kabul edildiğinde açılır.</p> }
+            </section>
+        </td></tr>
     }
     </tbody></table></div>
     <footer class="pagination-shell"><span>@firstItem–@lastItem / @Model.Result.TotalCount kayıt</span><nav class="pagination" aria-label="Arıza kayıtları sayfaları">
-        @if (Model.Result.Page > 1) { <a asp-action="Faults" asp-route-page="@(Model.Result.Page - 1)" asp-route-pageSize="@Model.Result.PageSize" asp-route-query="@Model.Filter.Query" asp-route-status="@Model.Filter.Status" asp-route-severity="@Model.Filter.Severity" asp-route-openedFrom="@Model.Filter.OpenedFrom" asp-route-openedTo="@Model.Filter.OpenedTo">←</a> }
-        @for (var pageNumber = Math.Max(1, Model.Result.Page - 2); pageNumber <= Math.Min(Model.Result.TotalPages, Model.Result.Page + 2); pageNumber++) { <a class="@(pageNumber == Model.Result.Page ? "active" : null)" asp-action="Faults" asp-route-page="@pageNumber" asp-route-pageSize="@Model.Result.PageSize" asp-route-query="@Model.Filter.Query" asp-route-status="@Model.Filter.Status" asp-route-severity="@Model.Filter.Severity" asp-route-openedFrom="@Model.Filter.OpenedFrom" asp-route-openedTo="@Model.Filter.OpenedTo">@pageNumber</a> }
-        @if (Model.Result.Page < Model.Result.TotalPages) { <a asp-action="Faults" asp-route-page="@(Model.Result.Page + 1)" asp-route-pageSize="@Model.Result.PageSize" asp-route-query="@Model.Filter.Query" asp-route-status="@Model.Filter.Status" asp-route-severity="@Model.Filter.Severity" asp-route-openedFrom="@Model.Filter.OpenedFrom" asp-route-openedTo="@Model.Filter.OpenedTo">→</a> }
+        @if (Model.Result.Page > 1) { <a asp-action="Faults" asp-route-page="@(Model.Result.Page - 1)" asp-route-pageSize="@Model.Result.PageSize" asp-route-query="@Model.Filter.Query" asp-route-status="@Model.Filter.Status" asp-route-severity="@Model.Filter.Severity" asp-route-openedFrom="@Model.Filter.OpenedFrom" asp-route-openedTo="@Model.Filter.OpenedTo" asp-route-orderId="@Model.Filter.OrderId" asp-route-customerId="@Model.Filter.CustomerId" asp-route-stage="@Model.Filter.Stage">←</a> }
+        @for (var pageNumber = Math.Max(1, Model.Result.Page - 2); pageNumber <= Math.Min(Model.Result.TotalPages, Model.Result.Page + 2); pageNumber++) { <a class="@(pageNumber == Model.Result.Page ? "active" : null)" asp-action="Faults" asp-route-page="@pageNumber" asp-route-pageSize="@Model.Result.PageSize" asp-route-query="@Model.Filter.Query" asp-route-status="@Model.Filter.Status" asp-route-severity="@Model.Filter.Severity" asp-route-openedFrom="@Model.Filter.OpenedFrom" asp-route-openedTo="@Model.Filter.OpenedTo" asp-route-orderId="@Model.Filter.OrderId" asp-route-customerId="@Model.Filter.CustomerId" asp-route-stage="@Model.Filter.Stage">@pageNumber</a> }
+        @if (Model.Result.Page < Model.Result.TotalPages) { <a asp-action="Faults" asp-route-page="@(Model.Result.Page + 1)" asp-route-pageSize="@Model.Result.PageSize" asp-route-query="@Model.Filter.Query" asp-route-status="@Model.Filter.Status" asp-route-severity="@Model.Filter.Severity" asp-route-openedFrom="@Model.Filter.OpenedFrom" asp-route-openedTo="@Model.Filter.OpenedTo" asp-route-orderId="@Model.Filter.OrderId" asp-route-customerId="@Model.Filter.CustomerId" asp-route-stage="@Model.Filter.Stage">→</a> }
     </nav></footer>
+}
+
+@section Scripts {
+    <script src="~/js/fault-shipments.js" asp-append-version="true"></script>
 }
 

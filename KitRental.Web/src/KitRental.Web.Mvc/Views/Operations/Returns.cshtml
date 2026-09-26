@@ -1,11 +1,11 @@
-@model IReadOnlyCollection<ReturnTableItemViewModel>
+@model OperationsReturnsScreen
 @{
     ViewData["Title"] = "İadeler";
     Func<ReturnTableItemViewModel, string> getShipmentStatusLabel = item =>
         string.IsNullOrWhiteSpace(item.KargonomiStatusLabel)
             ? item.ExternalShipmentId.HasValue ? "Gönderi oluşturuldu" : "Başlatılmadı"
             : item.KargonomiStatusLabel!.Trim();
-    var shipmentFilterOptions = Model
+    var shipmentFilterOptions = Model.Items
         .Select(getShipmentStatusLabel)
         .Append("Başlatılmadı")
         .Append("Hata")
@@ -18,25 +18,41 @@
     <div>
         <span class="eyebrow">FİZİKSEL TAKİP</span>
         <h1>İadeler</h1>
-        <p class="block-muted">Süresi dolan, iade süreci başlatılan ve tamamlanan kitleri envanter tablosu ile aynı düzende takip edin.</p>
+        <p class="block-muted">Süresi dolan kiralamaların ve başlatılan iadelerin kit bazında takibini yapın.</p>
     </div>
     <div class="heading-actions">
-        <a class="secondary-action" asp-action="Dashboard">Genel Bakışa Dön</a>
+        <a class="secondary-action" asp-action="Dashboard" asp-route-customerId="@Model.Filter.CustomerId">Operasyon Merkezi</a>
     </div>
 </div>
+
+<nav class="ops-scope-nav" aria-label="İade kapsamı">
+    @if (Model.Filter.OrderId.HasValue) { <strong>@(Model.OrderNumber ?? "Seçili sipariş")</strong><a asp-action="OrderDetails" asp-route-id="@Model.Filter.OrderId">Sipariş detayına dön</a><a asp-action="Faults" asp-route-orderId="@Model.Filter.OrderId" asp-route-customerId="@Model.Filter.CustomerId">Siparişin arızaları</a> }
+    else if (Model.Filter.CustomerId.HasValue) { <strong>@(Model.Items.FirstOrDefault()?.CustomerName ?? "Seçili müşteri")</strong> }
+    <a asp-action="Orders" asp-route-customerId="@Model.Filter.CustomerId">Siparişler</a><a asp-action="Returns">Tüm iadeler</a>
+</nav>
+<nav class="ops-return-filters" aria-label="İade durumu filtresi">
+    @foreach (var option in new Dictionary<string, string> { [""] = "Tümü", ["missing-form"] = "İade formu eksik", ["pending"] = "İade bekleniyor", ["in-transit"] = "Kargoda", ["completed"] = "Tamamlandı" })
+    {
+        <a class="@((Model.Filter.State ?? "") == option.Key ? "active" : null)" asp-action="Returns" asp-route-state="@option.Key" asp-route-orderId="@Model.Filter.OrderId" asp-route-customerId="@Model.Filter.CustomerId">@option.Value</a>
+    }
+</nav>
+<p class="block-muted">@Model.Items.Count kit · İade formu eksik kitler, iade bekleyenler içinde de yer alır.</p>
 
 @if (TempData["Success"] is string success) { <div class="alert success">@success</div> }
 @if (TempData["Error"] is string error) { <div class="alert error">@error</div> }
 
-@if (Model.Count == 0)
+@if (Model.Items.Count == 0)
 {
     <div class="empty">İade sürecinde görüntülenecek kayıt bulunamadı.</div>
 }
 else
 {
-    <div class="table-scroll">
-        <table class="order-kits-table student-order-table inventory-order-table returns-order-table js-datatable"
+    <div class="table-scroll ops-data-region">
+        <table id="operations-returns-table" class="order-kits-table student-order-table inventory-order-table returns-order-table ops-data-table js-datatable"
+               aria-label="Kit iadeleri"
+               data-operations-table="true"
                data-datatable-responsive="false"
+               data-datatable-state-save="false"
                data-datatable-page-length="10"
                data-datatable-column-filters="true">
             <thead>
@@ -76,8 +92,8 @@ else
                     <th>
                         <select data-column-filter data-column-filter-regex="true" aria-label="Adres sütununu filtrele">
                             <option value="">Tümü</option>
-                            <option value="\\S+">Adresi Girilenler</option>
-                            <option value="^\\s*$">Adresi Girilmeyenler</option>
+                            <option value="\S+">Adresi Girilenler</option>
+                            <option value="^\s*$">Adresi Girilmeyenler</option>
                         </select>
                     </th>
                     <th><input type="search" data-column-filter aria-label="Adres linki sütununu filtrele" placeholder="Adres linki filtrele" autocomplete="off" /></th>
@@ -85,7 +101,7 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var item in Model)
+                @foreach (var item in Model.Items)
                 {
                     var hasAddress = !string.IsNullOrWhiteSpace(item.AddressLine);
                     var shipmentStatusLabel = getShipmentStatusLabel(item);
@@ -96,12 +112,12 @@ else
                     var statusClass = isCompleted ? "line-complete" : "line-pending";
                     <tr>
                         <td><strong class="student-name-truncate" title="@item.StudentName">@item.StudentName</strong></td>
-                        <td>@item.GuardianPhone</td>
+                        <td><a href="tel:@item.GuardianPhone">@item.GuardianPhone</a></td>
                         <td>
                             <a class="student-kit-serial-truncate" title="@item.SerialNumber" asp-controller="PhysicalKits" asp-action="Details" asp-route-id="@item.ProductUnitId">@item.SerialNumber</a>
-                            <small class="block-muted">@item.ProductModelName · @item.ProductModelSku · @item.OrderNumber</small>
+                            <small class="block-muted">@item.ProductModelName · @item.ProductModelSku</small><a asp-action="OrderDetails" asp-route-id="@item.OrderId">@item.OrderNumber</a><small class="block-muted">@item.CustomerName</small>
                         </td>
-                        <td>
+                        <td data-search="@item.ReturnState">
                             <span class="@statusClass">@item.ReturnState</span>
                             @if (item.ExternalShipmentId.HasValue)
                             {
@@ -131,14 +147,14 @@ else
                                 <a class="icon-action icon-action-neutral" asp-controller="PhysicalKits" asp-action="Details" asp-route-id="@item.ProductUnitId" title="Fiziksel kit detayını aç" aria-label="@item.SerialNumber fiziksel kit detayını aç">
                                     <i data-lucide="eye"></i><span class="visually-hidden">Detay</span>
                                 </a>
-                                @if (item.ReturnId.HasValue && !isCompleted)
+                                @if (item.ReturnId.HasValue && !isCompleted && (User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager") || User.IsInRole("WarehouseStaff")))
                                 {
                                     <form asp-action="ReceiveReturn" asp-route-id="@item.ReturnId" method="post" data-confirm="Bu iadeyi teslim alıp kiti yeniden kullanılabilir stoğa almak istiyor musunuz?">
-                                        <input type="hidden" name="returnToReturns" value="true" />
+                                        <input type="hidden" name="returnToReturns" value="true" /><input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
                                         <button class="icon-action icon-action-success" type="submit" title="İadeyi teslim al" aria-label="@item.SerialNumber iadesini teslim al"><i data-lucide="package-check"></i><span class="visually-hidden">İadeyi teslim al</span></button>
                                     </form>
                                 }
-                                @if (item.ReturnId.HasValue && item.ExternalShipmentId.HasValue)
+                                @if (item.ReturnId.HasValue && item.ExternalShipmentId.HasValue && (User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager")))
                                 {
                                     <a class="icon-action icon-action-neutral" asp-action="ReturnKargonomiBarcode" asp-route-id="@item.ReturnId" target="_blank" rel="noopener" title="Kargo barkodunu yazdır" aria-label="@item.SerialNumber iade kargo barkodunu yazdır"><i data-lucide="printer"></i><span class="visually-hidden">Kargo barkodunu yazdır</span></a>
                                 }

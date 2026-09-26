@@ -28,15 +28,29 @@
         Model.StartDate.HasValue && Model.EndDate.HasValue;
     var canAddOrderStudent = !isPurchase && canManage && Model.RentalCohortId.HasValue && (Model.Status is 2 or 3);
     var openRentalPeriodDialog = ViewData["OpenOrderPeriodDialog"] is true;
-    string OrderStatus(int status) => status switch { 2 => "İnceleme / onay bekliyor", 3 => "Onaylandı", 4 => "Hazırlanıyor", 5 => "Kargoya hazır", 6 => "Kargoya verildi", 13 => "Tamamlandı", _ => "İşlemde" };
 }
 <div class="order-detail-heading">
     <div><a class="back-link" asp-action="Orders">← Siparişlere dön</a><span class="eyebrow">@(isPurchase ? "SATIN ALMA" : "KİRALAMA") · @Model.OrderNumber</span><h1>@Model.CustomerName</h1><p>@(isPurchase ? "Satın alma siparişi" : $"{Model.StartDate:dd.MM.yyyy} — {Model.EndDate:dd.MM.yyyy}")</p></div>
-    <div class="order-detail-status"><span class="badge order-status-@Model.Status">@OrderStatus(Model.Status)</span><strong>@Model.Kits.Count / @requestedCount</strong><small>fiziksel kit oluşturuldu</small></div>
+    <div class="order-detail-status"><span class="badge order-status-@Model.Status">@OperationsDisplay.OrderStatus(Model.Status)</span><strong>@Model.Kits.Count / @requestedCount</strong><small>fiziksel kit oluşturuldu</small></div>
 </div>
 @if (TempData["Success"] is string success) { <div class="success-banner">@success</div> }
 @if (TempData["Error"] is string error) { <div class="error-banner">@error</div> }
 
+<nav class="ops-scope-nav" aria-label="Sipariş işlemleri">
+    <a asp-action="Dashboard" asp-route-customerId="@Model.CustomerId">Müşterinin genel durumu</a>
+    @if (!isPurchase) { <a href="#student-addresses" class="active">Öğrenci ve kargo</a> }
+    <a asp-action="Faults" asp-route-orderId="@Model.Id" asp-route-customerId="@Model.CustomerId">Bu siparişin arızaları</a>
+    @if (!isPurchase) { <a asp-action="Returns" asp-route-orderId="@Model.Id" asp-route-customerId="@Model.CustomerId">Bu siparişin iadeleri</a> }
+</nav>
+@if (!isPurchase)
+{
+    <div class="ops-detail-summary">
+        <a href="#student-addresses"><span>Öğrenci</span><strong>@Model.Students.Count</strong><small>Siparişe bağlı öğrenci kaydı</small></a>
+        <a href="#student-addresses"><span>Adres bekleyen</span><strong>@Model.Students.Count(x => !x.HasAddress)</strong><small>Adres bağlantısını öğrenciyle paylaşın</small></a>
+        <a href="#student-addresses"><span>Kargoda</span><strong>@shipmentsByStudentId.Values.Count(x => x.State == 4)</strong><small>Kargonomi taşıma aşamasında</small></a>
+        <a href="#student-addresses"><span>Teslim edildi</span><strong>@shipmentsByStudentId.Values.Count(x => x.State == 5)</strong><small>Kargonomi teslimat kaydı</small></a>
+    </div>
+}
 <section class="detail-section order-request-lines">
     <div class="section-heading"><div><span class="eyebrow">TALEP LİSTESİ</span><h2>İstenen kitler ve manuel oluşturma</h2><p>@(isPurchase ? "Hazır kitler önce ayrılır; eksik miktar bileşen stoktan üretilir." : "Fiziksel kitler öğrenci listesindeki seçimlerden oluşturulur ve rezerve edilir.")</p></div></div>
     <div class="order-line-cards">
@@ -151,14 +165,11 @@
                       data-datatable-bulk-disabled-title="Sadece henüz fiziksel kit atanmamış öğrenciler seçilebilir."></form>
             }
         }
-        <div class="table-scroll">
-            @if (canManage)
-            {
-                <div class="dt-kargonomi-search-actions dt-kargonomi-search-actions-fallback" data-kargonomi-search-actions>
-                    <button class="btn btn-sm dt-kargonomi-clear" type="button" data-kargonomi-clear-button>Filtreyi Temizle</button>
-                </div>
-            }
-            <table class="order-kits-table student-order-table js-datatable"
+        <div class="table-scroll ops-data-region">
+            <table id="order-students-table" class="order-kits-table student-order-table ops-data-table js-datatable"
+                   aria-label="Sipariş öğrencileri, kitleri ve gönderileri"
+                   data-operations-table="true"
+                   data-datatable-state-save="false"
                    data-datatable-responsive="false"
                    data-datatable-page-length="10"
                    data-datatable-column-filters="true"
@@ -215,7 +226,7 @@
                     <tr data-select-value="@student.Id" data-has-kit="@student.HasKitAssignment.ToString().ToLowerInvariant()" data-can-ship="@canStartShipment.ToString().ToLowerInvariant()" data-has-kargonomi-shipment="@hasKargonomiShipment.ToString().ToLowerInvariant()" data-can-create-kit="@((Model.Status == 3 && !student.HasKitAssignment).ToString().ToLowerInvariant())">
                         <td></td>
                         <td><strong class="student-name-truncate" title="@student.FullName">@student.FullName</strong></td>
-                        <td>@student.GuardianPhone</td>
+                        <td><a href="tel:@student.GuardianPhone">@student.GuardianPhone</a></td>
                         <td>
                             @if (!string.IsNullOrWhiteSpace(student.AssignedKitSerialNumber))
                             {
@@ -226,7 +237,7 @@
                                 <span class="line-pending">Atanmadı</span>
                             }
                         </td>
-                        <td>
+                        <td data-search="@(shipment is null ? "Başlatılmadı" : shipment.State == 6 ? "Hata" : shipment.StatusLabel)">
                             @if (shipment is null)
                             {
                                 <span class="line-pending">Başlatılmadı</span>

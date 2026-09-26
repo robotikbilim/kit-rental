@@ -1,17 +1,9 @@
 @model PortalFaultsPageViewModel
 @{
-    ViewData["Title"] = "Arizalar";
+    ViewData["Title"] = "Arızalar";
 }
 @functions {
-    string StatusName(int value) => value switch
-    {
-        1 => "Kayıt açıldı", 2 => "İnceleniyor", 3 => "Bilgi bekleniyor",
-        4 => "Kit bekleniyor", 5 => "Eski servis süreci", 6 => "Eski kargo süreci",
-        7 => "Eski çözüldü", 8 => "Tamamlandı", 9 => "Kabul edildi", 10 => "Reddedildi",
-        11 => "Uzaktan destekle çözüldü", 12 => "Kargo bekliyor", 13 => "Atölyeye kargolandı",
-        14 => "Atölyeye geldi", 15 => "Arıza giderildi",
-        _ => "Islemde"
-    };
+    string StatusName(int value) => OperationsDisplay.FaultStatus(value);
     string OriginName(int value) => value switch
     {
         2 => "Public Form",
@@ -23,14 +15,15 @@
 
 <div class="portal-heading portal-kits-heading">
     <div>
-        <span class="eyebrow">SERVIS TAKIBI</span>
-        <h1>Ariza Kayitlari</h1>
-        <p>@Model.CustomerName hesabina ait ariza kayitlarini arayin, filtreleyin ve servis durumunu takip edin.</p>
+        <span class="eyebrow">SERVİS TAKİBİ</span>
+        <h1>Arıza Kayıtları</h1>
+        <p>@Model.CustomerName hesabına ait arıza kayıtlarını ve iki yönlü kargo süreçlerini takip edin.</p>
     </div>
     <div class="recipe-actions"><a class="primary-action" asp-action="Kits">Arıza bildirilecek kiti seçin</a></div>
 </div>
 
 <section class="portal-kit-list-shell">
+    <nav class="portal-progress-tabs" aria-label="Arıza aşaması"><a asp-action="Faults" class="@(Model.State == "all" ? "active" : null)">Tümü</a>@foreach (var stage in OperationsDisplay.FaultStages) { <a asp-action="Faults" asp-route-state="@stage.Key" class="@(Model.State == stage.Key ? "active" : null)">@stage.Value</a> }</nav>
     <div class="portal-kit-result-heading" aria-live="polite">
         <div><strong>@Model.TotalCount</strong> ariza kaydi bulundu</div>
         @if (Model.TotalCount != Model.TotalFaultCount)
@@ -42,7 +35,7 @@
     @if (Model.Faults.Count > 0)
     {
         <div class="table-scroll portal-kit-table-wrap portal-table-no-frame">
-            <table class="portal-kit-table js-datatable" data-datatable-responsive="false" data-datatable-page-length="10" data-datatable-column-filters="true">
+            <table class="portal-kit-table js-datatable" data-datatable-state-save="false" data-datatable-responsive="false" data-datatable-page-length="10" data-datatable-column-filters="true">
                 <thead>
                     <tr><th>Kayıt</th><th>Kaynak</th><th>Kit</th><th>Bildirim</th><th>Durum</th><th><span class="visually-hidden">İşlemler</span></th></tr>
                     <tr class="column-filter-row" data-dt-order="disable">
@@ -62,7 +55,7 @@
                         <td data-mobile-label="Kaynak"><span class="fault-stage status-@fault.Origin">@OriginName(fault.Origin)</span></td>
                         <td data-mobile-label="Kit"><strong>@fault.KitName</strong><small class="block-muted">@fault.SerialNumber</small></td>
                         <td data-mobile-label="Bildirim"><span class="fault-category">@fault.Category</span><p>@fault.Description</p></td>
-                        <td data-mobile-label="Durum"><span class="fault-stage status-@fault.Status">@StatusName(fault.Status)</span></td>
+                        <td data-mobile-label="Durum"><span class="fault-stage status-@fault.Status">@StatusName(fault.Status)</span><partial name="_FaultShipments" model="fault" /></td>
                         <td data-mobile-label="İşlemler">
                             <a class="icon-action icon-action-list" asp-action="Fault" asp-route-id="@fault.Id" title="Arıza Detayı" aria-label="Arıza detayını aç">
                                 <i data-lucide="list"></i><span class="visually-hidden">Detay</span>

@@ -26,6 +26,9 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
     private readonly KargonomiOptions options = configuration.GetSection("Kargonomi").Get<KargonomiOptions>() ?? new();
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    public KargonomiReturnDestination GetReturnDestination() =>
+        new(options.SenderName, options.SenderPhone, options.SenderAddress);
+
     public async Task<KargonomiShipmentSnapshot> CreateShipmentAsync(KargonomiCreateShipmentRequest request,
         CancellationToken cancellationToken)
     {

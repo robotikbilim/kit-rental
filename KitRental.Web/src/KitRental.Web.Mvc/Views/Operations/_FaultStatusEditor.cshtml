@@ -1,0 +1,50 @@
+@model FaultViewModel
+@{
+    // Keep these manual actions aligned with FaultTicket workflow transitions.
+    (int Status, string Label, string Description)[] actions = Model.Status switch
+    {
+        1 => [(2, "İncelemeye al", "Arıza için inceleme sürecini başlatın.")],
+        2 => [(9, "Arızayı kabul et", "Uzaktan destek ve kit gönderimi işlemlerini açın."),
+              (10, "Arızayı reddet", "İnceleme sonucunda arıza kaydını reddedin.")],
+        9 => [(11, "Uzaktan destekle çözüldü", "Kit gönderimine gerek kalmadan sorun çözüldü."),
+              (12, "Kargo sürecine geç", "Kitin alınması ve yeni kit gönderimi için kargo aşamasına geçin."),
+              (13, "Atölyeye gönderildi", "Sistem dışında gönderilmiş kitin durumunu kaydedin. Bu işlem kargo oluşturmaz.")],
+        12 => [(13, "Atölyeye gönderildi", "Sistem dışında gönderilmiş kitin durumunu kaydedin. Kurye çağırmak için Kurye Gönder alanını kullanın.")],
+        13 => [(14, "Atölyeye teslim alındı", "Arızalı kitin atölyeye ulaştığını kaydedin.")],
+        14 => [(15, "Arıza giderildi", "Kitin onarımının tamamlandığını kaydedin.")],
+        15 or 16 => [(8, "Arıza kaydını tamamla", "Servis ve teslimat işlemleri tamamlandıysa kaydı kapatın. Kargo takip durumları değişmez.")],
+        11 => [(8, "Arıza kaydını tamamla", "Uzaktan çözülen arıza kaydını kapatın.")],
+        _ => []
+    };
+    var noteId = $"fault-note-{Model.Id:N}";
+}
+@if (actions.Length > 0)
+{
+    <details class="ops-fault-status-editor ops-fault-disclosure" data-fault-status-editor>
+        <summary><span class="ops-fault-disclosure-title"><strong>Arıza Durumunu Güncelle</strong><small>Bu aşamada yapılabilecek işlemleri görüntüle</small></span></summary>
+        <form class="ops-fault-status-form" asp-action="UpdateFault" asp-route-id="@Model.Id" method="post" data-fault-status-form aria-label="@($"{Model.Number} arıza durumunu güncelle")">
+            <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+            <fieldset class="ops-fault-status-options">
+                <legend>Yapılacak işlemi seçin</legend>
+                <div class="ops-fault-status-options-grid">
+                @foreach (var action in actions)
+                {
+                    <label class="ops-fault-status-option @(action.Status == 10 ? "is-rejection" : "")">
+                        <input type="radio" name="status" value="@action.Status" required data-action-label="@action.Label" />
+                        <span><strong>@action.Label</strong><small>@action.Description</small></span>
+                    </label>
+                }
+                </div>
+            </fieldset>
+            <div class="ops-fault-status-note">
+                <label for="@noteId">Süreç notu <span>(isteğe bağlı)</span></label>
+                <textarea id="@noteId" name="note" rows="3" placeholder="İnceleme sonucu veya yapılan işlemi yazın…" aria-describedby="@(noteId)-help"></textarea>
+                <small id="@(noteId)-help">Bu not müşteri portalında görünür. Boş bırakırsanız işleme uygun bir not otomatik eklenir.</small>
+            </div>
+            <footer class="ops-fault-status-footer">
+                <span data-fault-status-preview aria-live="polite">Kaydetmeden önce bir işlem seçin.</span>
+                <div><button class="secondary-action" type="button" data-fault-status-cancel>Vazgeç</button><button class="primary-action" type="submit" data-fault-status-save>Durumu Kaydet</button></div>
+            </footer>
+        </form>
+    </details>
+}

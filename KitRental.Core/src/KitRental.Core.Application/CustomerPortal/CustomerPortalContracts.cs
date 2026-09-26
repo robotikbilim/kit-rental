@@ -4,6 +4,7 @@ using KitRental.Core.Domain.Orders;
 using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Support;
+using KitRental.Core.Application.Operations;
 
 namespace KitRental.Core.Application.CustomerPortal;
 
@@ -26,7 +27,8 @@ public sealed record PortalRentalCohortResponse(Guid Id, Guid CustomerId, string
     IReadOnlyCollection<PortalRentalCohortStudentResponse> Students,
     IReadOnlyCollection<PortalUnassignedCohortKitResponse> UnassignedKits,
     string? OrderNumber = null, RentalOrderStatus? OrderStatus = null, bool IsApproved = false,
-    IReadOnlyCollection<PortalKargonomiShipmentResponse>? KargonomiShipments = null);
+    IReadOnlyCollection<PortalKargonomiShipmentResponse>? KargonomiShipments = null,
+    OperationsOrderSummary? Progress = null);
 public sealed record PortalKitResponse(Guid ProductUnitId, Guid AssignmentId, Guid OrderId, string OrderNumber,
     string KitName, string KitSku, string? ImageUrl, string SerialNumber, string QrCode, ProductUnitStatus UnitStatus,
     RentalAssignmentStatus AssignmentStatus, DateOnly StartDate, DateOnly EndDate, int OpenFaultCount,
@@ -44,20 +46,26 @@ public sealed record PortalFaultResponse(Guid Id, string Number, Guid ProductUni
     string Category, FaultSeverity Severity, string Description, FaultStatus Status, DateTimeOffset OpenedAt,
     IReadOnlyCollection<PortalFaultStatusResponse> History,
     string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "",
-    FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired, FaultOrigin Origin = FaultOrigin.Internal);
+    FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired, FaultOrigin Origin = FaultOrigin.Internal,
+    string Stage = "", bool IsOpen = false, IReadOnlyCollection<PortalFaultShipmentResponse>? Shipments = null);
+public sealed record PortalFaultShipmentResponse(int Direction, string Carrier, string? TrackingNumber,
+    string StatusLabel, int State, string RecipientAddress, DateTimeOffset UpdatedAt);
 public sealed record CustomerPortalDashboardResponse(string CustomerName, int TotalRentedKitCount,
     int ActiveKitCount, int InTransitKitCount, int PreparedKitCount, int OpenFaultCount, int CompletedFaultCount,
     int ExpiredRentalKitCount, int ReturnAwaitingShipmentKitCount, int ReturnInTransitKitCount,
     int ReturnFormCompletedKitCount,
-    IReadOnlyCollection<PortalKitLocationResponse> KitLocations, int UnassignedKitCount = 0);
+    IReadOnlyCollection<PortalKitLocationResponse> KitLocations, int UnassignedKitCount = 0,
+    OperationsDashboardResponse? Operations = null);
 public sealed record CustomerPortalRentalPeriodsResponse(string CustomerName,
     IReadOnlyCollection<PortalProductModelResponse> ProductModels,
-    IReadOnlyCollection<PortalRentalCohortResponse> RentalCohorts);
+    IReadOnlyCollection<PortalRentalCohortResponse> RentalCohorts,
+    IReadOnlyCollection<OperationsOrderSummary>? StandaloneOrders = null);
 public sealed record CustomerPortalRentalPeriodResponse(string CustomerName,
     IReadOnlyCollection<PortalProductModelResponse> ProductModels, PortalRentalCohortResponse RentalCohort);
 public sealed record CustomerPortalKitsResponse(string CustomerName, IReadOnlyCollection<PortalKitResponse> Kits);
 public sealed record CustomerPortalReturnsResponse(string CustomerName, IReadOnlyCollection<PortalKitResponse> Kits,
-    IReadOnlyCollection<PortalFaultResponse> Faults, IReadOnlyCollection<PortalKitReturnResponse> Returns);
+    IReadOnlyCollection<PortalFaultResponse> Faults, IReadOnlyCollection<PortalKitReturnResponse> Returns,
+    IReadOnlyCollection<ReturnTableItemResponse>? OperationalReturns = null);
 public sealed record CustomerPortalFaultsResponse(string CustomerName,
     IReadOnlyCollection<PortalFaultResponse> Faults);
 public sealed record PortalKitRentalHistoryResponse(string StudentName, string Address, string PeriodName,
@@ -76,7 +84,8 @@ public sealed record PortalKitReturnResponse(Guid Id, Guid CustomerId, string Cu
     string? Carrier, string? TrackingNumber, DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt,
     string? RequesterName, string? RequesterPhone, string? ReturnAddress,
     double? Latitude, double? Longitude, KitReturnDeliveryMethod DeliveryMethod,
-    IReadOnlyCollection<PortalKitReturnItemResponse> Items);
+    IReadOnlyCollection<PortalKitReturnItemResponse> Items, string ReturnStateKey = "pending",
+    string? ExternalStatusLabel = null, DateTimeOffset? ReceivedAt = null);
 public sealed record PublicKitReturnContextResponse(Guid ReturnId, KitReturnStatus Status,
     string? Carrier, string? TrackingNumber, string? ExternalStatus, string? ExternalStatusLabel,
     string? RequesterName, string? RequesterPhone, string? ReturnAddress, double? Latitude, double? Longitude,

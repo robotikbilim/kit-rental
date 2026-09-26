@@ -10,8 +10,7 @@
 @{
     ViewData["Title"] = Model.Kit.KitName;
     string UnitStatus(int value) => value switch { 1 => "Hazır", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimat yolunda", 5 => "Kullanımınızda", 6 => "Geri gönderiliyor", 7 => "Kontrolde", 8 => "Serviste", _ => "İşlemde" };
-    string FaultStatus(int value) => value switch { 1 => "Kayıt açıldı", 2 => "İnceleniyor", 3 => "Bilgi bekleniyor", 4 => "Kit bekleniyor", 5 => "Eski servis süreci", 6 => "Eski kargo süreci", 7 => "Eski çözüldü", 8 => "Tamamlandı", 9 => "Kabul edildi", 10 => "Reddedildi", 11 => "Uzaktan destekle çözüldü", 12 => "Kargo bekliyor", 13 => "Atölyeye kargolandı", 14 => "Atölyeye geldi", 15 => "Arıza giderildi", _ => "İşlemde" };
-    string ReturnStatus(int value) => value switch { 1 => "Talep oluşturuldu", 2 => "Kargoda", 3 => "Teslim alındı", _ => "İşlemde" };
+    string FaultStatus(int value) => OperationsDisplay.FaultStatus(value);
     var currentAddress = Model.CurrentLocation?.AddressLine ?? Model.Kit.AssignedStudentAddressLine;
 }
 <a class="back-link" asp-action="Index">← Kitlerime dön</a>
@@ -57,6 +56,6 @@ else
 </section>
 
 <section class="portal-section"><div class="section-heading"><div><span class="eyebrow">İADE GÜNLÜĞÜ</span><h2>Bu kitteki iade süreçleri</h2></div><b>@Model.Returns.Count süreç</b></div>
-@if(Model.Returns.Count == 0){<div class="empty">Bu kit için başlatılmış bir iade süreci bulunmuyor.</div>}else{<div class="portal-log-list">@foreach(var item in Model.Returns){<article class="portal-log-item"><i data-lucide="rotate-ccw"></i><div><div class="portal-log-meta"><span>@item.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</span><span class="fault-stage status-@item.Status">@ReturnStatus(item.Status)</span></div><h3>@(item.RequesterName ?? "İade talebi")</h3><p>@(item.ReturnAddress ?? "Adres bilgisi belirtilmedi.")</p>@if(!string.IsNullOrWhiteSpace(item.TrackingNumber)){<small class="portal-log-subline">@item.Carrier · @item.TrackingNumber</small>}</div></article>}</div>}
+@if(Model.Returns.Count == 0){<div class="empty">Bu kit için başlatılmış bir iade süreci bulunmuyor.</div>}else{<div class="portal-log-list">@foreach(var item in Model.Returns){<article class="portal-log-item"><i data-lucide="rotate-ccw"></i><div><div class="portal-log-meta"><span>@item.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</span><span class="fault-stage status-@item.Status">@OperationsDisplay.ReturnState(item.ReturnStateKey)</span></div><h3>@(item.RequesterName ?? "İade talebi")</h3><p>@(item.ReturnAddress ?? "Adres bilgisi belirtilmedi.")</p>@if(!string.IsNullOrWhiteSpace(item.TrackingNumber)){<small class="portal-log-subline">@item.Carrier · @item.TrackingNumber · @item.ExternalStatusLabel</small>}</div></article>}</div>}
 </section>
 

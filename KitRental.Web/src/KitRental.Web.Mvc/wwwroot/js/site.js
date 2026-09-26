@@ -95,6 +95,8 @@
 
             const tableRegion = table.closest('.table-scroll,.table-wrap,.unit-table-wrap,.portal-kit-table-wrap')?.parentElement;
             const serverPaged = table.dataset.datatableServer === 'true' || Boolean(tableRegion?.querySelector(':scope > .pagination-shell'));
+            const operationsTable = table.dataset.operationsTable === 'true' && Boolean(window.KitRentalOperationsTables);
+            const operationsContext = operationsTable ? window.KitRentalOperationsTables.prepare(table) : null;
             const responsive = table.dataset.datatableResponsive !== 'false';
             const multiSelect = table.dataset.datatableSelect === 'multi' && Boolean(window.DataTable?.render?.select);
             const selectAllPages = multiSelect && !serverPaged && table.dataset.datatableSelectAllPages === 'true';
@@ -185,7 +187,7 @@
                         const filteredCount = filteredRows.count();
                         const selectedFilteredCount = dataTable.rows({ search: 'applied', page: 'all', selected: true }).count();
                         if (filteredCount > 0 && selectedFilteredCount === filteredCount)
-                            filteredRows.deselect();
+                            (operationsTable ? dataTable.rows({ selected: true }) : filteredRows).deselect();
                         else
                             filteredRows.select();
                     }
@@ -219,24 +221,25 @@
                         headerCheckbox: 'select-page'
                     } : false,
                     autoWidth: false,
+                    ordering: !(operationsTable && serverPaged),
                     deferRender: true,
-                    stateSave: !serverPaged,
+                    stateSave: !serverPaged && table.dataset.datatableStateSave !== 'false',
                     pageLength: Number(table.dataset.datatablePageLength || 25),
-                    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Tümü']],
+                    lengthMenu: operationsTable ? [10, 25, 50, 100] : [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Tümü']],
                     paging: !serverPaged,
                     info: !serverPaged,
                     lengthChange: !serverPaged,
                     order: [],
                     layout: selectionButtons.length ? {
                         top2Start: utilityButtons.length ? { buttons: utilityButtons } : null,
-                        top2End: 'search',
+                        top2End: operationsTable ? null : 'search',
                         topStart: { buttons: { name: 'selection', buttons: selectionButtons } },
                         topEnd: null,
                         bottomStart: serverPaged ? null : 'info',
                         bottomEnd: serverPaged ? null : 'paging'
                     } : {
                         topStart: utilityButtons.length ? { buttons: utilityButtons } : null,
-                        topEnd: 'search',
+                        topEnd: operationsTable ? null : 'search',
                         bottomStart: serverPaged ? null : 'info',
                         bottomEnd: serverPaged ? null : 'paging'
                     },
@@ -310,7 +313,9 @@
                     const updateSelectionUi = () => {
                         const selectedRows = dataTable.rows({ selected: true }).nodes().toArray();
                         const selectedCount = selectedRows.length;
-                        selectionCount.textContent = `${selectedCount} satır seçildi`;
+                        const hiddenSelectedCount = operationsTable
+                            ? dataTable.rows({ selected: true, search: 'removed' }).count() : 0;
+                        selectionCount.textContent = `${selectedCount} satır seçildi${hiddenSelectedCount ? ` · ${hiddenSelectedCount} seçim filtre dışında` : ''}`;
                         selectionCount.classList.toggle('d-none', selectedCount === 0);
 
                         if (window.DataTable.Buttons) {
@@ -344,7 +349,7 @@
                     dataTable.on('select deselect draw', updateSelectionUi);
                     updateSelectionUi();
                 }
-                if (table.dataset.datatableColumnFilters === 'true') {
+                if (table.dataset.datatableColumnFilters === 'true' && !operationsTable) {
                     table.querySelectorAll('thead .column-filter-row [data-column-filter]').forEach((filter) => {
                         const columnIndex = filter.closest('th')?.cellIndex;
                         if (columnIndex === undefined) return;
@@ -482,6 +487,7 @@
                         }
                     });
                 }
+                if (operationsTable) window.KitRentalOperationsTables.setup(dataTable, table, operationsContext);
             } catch (error) {
                 table.dataset.dataTableReady = 'false';
                 table.classList.add('datatable-error');

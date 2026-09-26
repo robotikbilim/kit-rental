@@ -1,0 +1,96 @@
+@model OperationsOrderSummary
+@{
+    var canManageOrders = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager");
+}
+<tr>
+    <td data-label="Sipariş / müşteri">
+        <a class="ops-order-number" asp-action="OrderDetails" asp-route-id="@Model.Id">@Model.OrderNumber</a>
+        <strong class="block-muted">@Model.CustomerName</strong>
+        <small>@(Model.Type == 2 ? "Satın alma" : "Kiralama") · @Model.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy")</small>
+        <small class="ops-kit-description">@Model.KitDescription</small>
+    </td>
+    <td data-label="Dönem ve durum">
+        <strong>@(Model.RentalPeriodName ?? (Model.Type == 2 ? "Satın alma" : "Kiralama dönemi"))</strong>
+        @if (Model.EndDate.HasValue)
+        {
+            <small>@Model.StartDate?.ToString("dd.MM.yyyy") — @Model.EndDate?.ToString("dd.MM.yyyy")</small>
+        }
+        <span class="ops-pill">@OperationsDisplay.OrderStatus(Model.Status)</span>
+        @if (Model.IsOverdue)
+        {
+            <span class="ops-pill ops-tone-rose">Süresi geçti · @Model.ActiveKitCount aktif kiralama</span>
+        }
+        else if (Model.IsEndingSoon)
+        {
+            <span class="ops-pill ops-tone-amber">7 gün içinde bitiyor</span>
+        }
+    </td>
+    <td data-label="Kit hazırlığı">
+        <strong>@Model.AssignedKitCount / @Model.RequestedKitCount kit</strong>
+        <progress max="@Math.Max(1, Model.RequestedKitCount)" value="@Model.AssignedKitCount"
+                  aria-label="@($"{Model.OrderNumber}: {Model.RequestedKitCount} kitin {Model.AssignedKitCount} adedi hazır")"></progress>
+        <small>@Model.StudentCount öğrenci</small>
+        @if (Model.ActiveKitCount > 0)
+        {
+            <small class="ops-text-blue">@Model.ActiveKitCount aktif kiralama</small>
+        }
+    </td>
+    <td data-label="Adres ve kargo">
+        @if (Model.StudentCount == 0)
+        {
+            <small>Öğrenci gönderisi yok</small>
+        }
+        else
+        {
+            <div class="ops-shipping-summary">
+            @if (Model.MissingAddressCount > 0)
+            {
+                <a class="ops-text-amber" asp-action="OrderDetails" asp-route-id="@Model.Id"
+                   asp-fragment="student-addresses">@Model.MissingAddressCount adres eksik</a>
+            }
+            @if (Model.AwaitingShipmentCount > 0)
+            {
+                <small>@Model.AwaitingShipmentCount gönderim bekliyor</small>
+            }
+            @if (Model.ShipmentReadyCount > 0)
+            {
+                <small>@Model.ShipmentReadyCount kargo kabulü bekliyor</small>
+            }
+            @if (Model.ShipmentInTransitCount > 0)
+            {
+                <small class="ops-text-blue">@Model.ShipmentInTransitCount kargoda</small>
+            }
+            <small class="ops-text-green">@Model.ShipmentDeliveredCount / @Model.StudentCount teslim edildi</small>
+            @if (Model.ShipmentFailedCount > 0)
+            {
+                <a class="ops-pill ops-tone-rose" asp-action="OrderDetails" asp-route-id="@Model.Id"
+                   asp-fragment="student-addresses">@Model.ShipmentFailedCount gönderi hatası</a>
+            }
+            </div>
+        }
+    </td>
+    <td data-label="Arıza / iade">
+        <a asp-action="Faults" asp-route-orderId="@Model.Id" asp-route-customerId="@Model.CustomerId"
+           asp-route-stage="open" class="@(Model.OpenFaultCount > 0 ? "ops-text-amber" : "block-muted")">@Model.OpenFaultCount açık arıza</a>
+        @if (Model.Type == 1)
+        {
+            <a asp-action="Returns" asp-route-orderId="@Model.Id" asp-route-customerId="@Model.CustomerId">@(Model.PendingReturnCount + Model.InTransitReturnCount) iade sürecinde</a>
+            <small>@Model.CompletedReturnCount iade tamamlandı</small>
+        }
+    </td>
+    <td data-label="İşlem">
+        <div class="order-row-actions">
+            <a class="icon-action icon-action-neutral" asp-action="OrderDetails" asp-route-id="@Model.Id"
+               title="Sipariş detayını aç" aria-label="@($"{Model.OrderNumber} sipariş detayını aç")">
+                <i data-lucide="arrow-up-right"></i>
+            </a>
+            @if (canManageOrders && Model.Type == 1 && !string.IsNullOrWhiteSpace(Model.RentalPeriodName))
+            {
+                <button class="icon-action icon-action-edit" type="button" data-dialog-open="order-period-dialog-@Model.Id"
+                        title="Dönemi düzenle" aria-label="@($"{Model.OrderNumber} dönemini düzenle")">
+                    <i data-lucide="pencil"></i>
+                </button>
+            }
+        </div>
+    </td>
+</tr>

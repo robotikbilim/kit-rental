@@ -1,0 +1,26 @@
+@model PhysicalKitLabelViewModel
+@using QRCoder
+@{
+    ViewData["Title"] = "Arıza Kit QR Etiketi";
+    var reportUrl = $"{Context.Request.Scheme}://{Context.Request.Host}{Url.Action("Index", "PublicFault", new { qrCode = Model.QrCode })}";
+    var qrImage = Convert.ToBase64String(PngByteQRCodeHelper.GetQRCode(reportUrl, QRCodeGenerator.ECCLevel.Q, 8));
+    var serialPrefix = $"{Model.KitSku}-";
+    var printedSerial = Model.SerialNumber.StartsWith(serialPrefix, StringComparison.OrdinalIgnoreCase)
+        ? Model.SerialNumber[serialPrefix.Length..] : Model.SerialNumber;
+}
+<div class="labels-page">
+    <header class="labels-heading print-hidden">
+        <div><h1>Kit QR Etiketi</h1><p>@Model.SerialNumber seri numaralı kitin mevcut QR kodu. XP-470B için 60×30 mm etiket çıktısı alın.</p></div>
+        <button class="primary-action" type="button" onclick="window.print()">QR Etiketi Yazdır</button>
+    </header>
+    <section class="label-grid">
+        <article class="kit-label">
+            <img src="data:image/png;base64,@qrImage" alt="@Model.SerialNumber QR kodu" />
+            <div class="kit-label-copy">
+                <span>Robotik Bilim</span><strong>@Model.KitName</strong><small>@Model.KitSku</small><code>@printedSerial</code>
+                <div class="label-recipient"><strong>@Model.RecipientName</strong><span>@Model.RecipientPhone</span></div>
+                <small class="qr-value">Arıza bildirimi veya iade için okutun</small>
+            </div>
+        </article>
+    </section>
+</div>

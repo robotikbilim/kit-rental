@@ -34,6 +34,11 @@
     }
 </section>
 
+@if (Model.Cohort.Progress is not null)
+{
+    <partial name="_OrderProgress" model="Model.Cohort.Progress" />
+}
+
 @if (!studentsLocked)
 {
     <dialog class="student-edit-dialog" id="student-create-dialog" aria-labelledby="student-create-title" data-auto-open="@(openCreateStudentDialog.ToString().ToLowerInvariant())">

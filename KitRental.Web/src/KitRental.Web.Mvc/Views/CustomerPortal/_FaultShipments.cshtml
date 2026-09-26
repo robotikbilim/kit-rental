@@ -1,0 +1,21 @@
+@model PortalFaultViewModel
+<div class="portal-shipment-pair">
+@foreach (var direction in new[] { 1, 2 })
+{
+    var shipment = Model.Shipments?.FirstOrDefault(item => item.Direction == direction);
+    <details class="portal-shipment-card">
+        <summary><strong>@(direction == 1 ? "Arızalı kitin alınması" : "Yeni kitin gönderimi")</strong><span class="badge">@(shipment?.StatusLabel ?? "Başlatılmadı")</span>
+            @if (!string.IsNullOrWhiteSpace(shipment?.TrackingNumber)) { <small>Takip: @shipment.TrackingNumber</small> }
+        </summary>
+        <div class="portal-shipment-body">
+            <p>@(direction == 1 ? "Veli adresi → Robotik Bilim deposu" : "Robotik Bilim deposu → Veli adresi")</p>
+            <dl><dt>Kargo firması</dt><dd>@(shipment?.Carrier ?? "—")</dd><dt>Takip numarası</dt><dd>@(shipment?.TrackingNumber ?? "Henüz oluşmadı")</dd></dl>
+            @if (shipment is not null)
+            {
+                <p>Teslim adresi: @shipment.RecipientAddress</p>
+                <small>Son güncelleme: @shipment.UpdatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>
+            }
+        </div>
+    </details>
+}
+</div>

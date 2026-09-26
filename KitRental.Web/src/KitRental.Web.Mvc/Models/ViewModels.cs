@@ -1,4 +1,4 @@
-﻿using KitRental.Web.Mvc.Branding;
+using KitRental.Web.Mvc.Branding;
 using System.ComponentModel.DataAnnotations;
 
 namespace KitRental.Web.Mvc.Models;
@@ -60,13 +60,7 @@ public sealed record ReturnTableItemViewModel(Guid ProductUnitId, Guid Assignmen
     int? ExternalShipmentId, string? KargonomiStatus, string? KargonomiStatusLabel, string? KargonomiBarcode,
     DateTimeOffset? ReturnCreatedAt, DateTimeOffset? ShippedAt, DateTimeOffset? ReceivedAt,
     string? AddressLine, string? PublicAddressToken, string? RequesterName, string? RequesterPhone,
-    int DeliveryMethod);
-public sealed record OperationsDashboardViewModel(int TotalOrders, int TotalStudents,
-    int StudentsAwaitingAddress, int StudentsAwaitingShipment, int ShipmentsInTransit,
-    int ShipmentsDelivered, int ReturnPendingKitCount, int ReturnInTransitKitCount,
-    int ReturnCompletedKitCount,
-    int FaultsAwaitingReview, int FaultsInRepair, int FaultsAwaitingShipment,
-    int FaultsCompleted);
+    int DeliveryMethod, Guid OrderId = default);
 public sealed record DashboardKitLocationViewModel(Guid ProductUnitId, Guid ProductModelId, string KitName,
     string KitSku, string SerialNumber, string RecipientName, string AddressLine,
     int Status, double? Latitude = null, double? Longitude = null, string LocationCategory = "active");
@@ -99,7 +93,9 @@ public sealed record PeriodViewModel(DateOnly StartDate, DateOnly EndDate);
 public sealed record OrderLineViewModel(Guid Id, Guid ProductModelId, int Quantity);
 public sealed record FaultViewModel(Guid Id, string Number, Guid CustomerId, string CustomerName,
     string ReporterName, string ReporterPhone, string ReporterAddress, string Category, int Severity, string Description, int Status,
-    DateTimeOffset OpenedAt, int ApprovalStatus = 0, int Origin = 1, string? AttachmentUrl = null);
+    DateTimeOffset OpenedAt, int ApprovalStatus = 0, int Origin = 1, string? AttachmentUrl = null,
+    Guid OrderId = default, string? OrderNumber = null, Guid ProductUnitId = default,
+    string? SerialNumber = null, IReadOnlyCollection<FaultKargonomiShipmentViewModel>? Shipments = null);
 public sealed record FaultPageViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultViewModel> Items);
 public sealed record FaultGuideEntryViewModel(Guid Id, string Title, string Problem, string Solution,
@@ -121,6 +117,9 @@ public sealed record FaultGuidePageViewModel(IReadOnlyCollection<FaultGuideEntry
     Guid? SelectedProductModelId = null);
 public sealed class FaultFilterViewModel
 {
+    public Guid? CustomerId { get; set; }
+    public Guid? OrderId { get; set; }
+    public string? Stage { get; set; }
     public string? Query { get; set; }
     public int? Status { get; set; }
     public int? Severity { get; set; }
@@ -366,7 +365,8 @@ public sealed record PortalRentalCohortViewModel(Guid Id, Guid CustomerId, strin
     IReadOnlyCollection<PortalRentalCohortStudentViewModel> Students,
     IReadOnlyCollection<PortalUnassignedCohortKitViewModel> UnassignedKits,
     string? OrderNumber = null, int? OrderStatus = null, bool IsApproved = false,
-    IReadOnlyCollection<PortalKargonomiShipmentViewModel>? KargonomiShipments = null);
+    IReadOnlyCollection<PortalKargonomiShipmentViewModel>? KargonomiShipments = null,
+    OperationsOrderSummary? Progress = null);
 public sealed record PortalKitViewModel(Guid ProductUnitId, Guid AssignmentId, Guid OrderId, string OrderNumber,
     string KitName, string KitSku, string? ImageUrl, string SerialNumber, string QrCode, int UnitStatus, int AssignmentStatus,
     DateOnly StartDate, DateOnly EndDate, int OpenFaultCount, bool HasDeliveryForm,
@@ -564,7 +564,10 @@ public sealed record PortalFaultViewModel(Guid Id, string Number, Guid ProductUn
     string Category, int Severity, string Description, int Status, DateTimeOffset OpenedAt,
     IReadOnlyCollection<PortalFaultStatusViewModel> History,
     string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "", int ApprovalStatus = 0,
-    int Origin = 1);
+    int Origin = 1, string Stage = "", bool IsOpen = false,
+    IReadOnlyCollection<PortalFaultShipmentViewModel>? Shipments = null);
+public sealed record PortalFaultShipmentViewModel(int Direction, string Carrier, string? TrackingNumber,
+    string StatusLabel, int State, string RecipientAddress, DateTimeOffset UpdatedAt);
 public sealed record PublicFaultKitViewModel(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
 public sealed record PublicFormAccessTokenViewModel(string Token, DateTimeOffset ExpiresAt);
 public sealed record PublicKitActionViewModel(string QrCode, string KitName, string SerialNumber, string AccessToken = "");
@@ -661,17 +664,20 @@ public sealed record CustomerPortalDashboardViewModel(string CustomerName, int T
     int ActiveKitCount, int InTransitKitCount, int PreparedKitCount, int OpenFaultCount, int CompletedFaultCount,
     int ExpiredRentalKitCount, int ReturnAwaitingShipmentKitCount, int ReturnInTransitKitCount,
     int ReturnFormCompletedKitCount,
-    IReadOnlyCollection<DashboardKitLocationViewModel> KitLocations, int UnassignedKitCount = 0);
+    IReadOnlyCollection<DashboardKitLocationViewModel> KitLocations, int UnassignedKitCount = 0,
+    OperationsDashboardViewModel? Operations = null);
 public sealed record CustomerPortalRentalPeriodsDataViewModel(string CustomerName,
     IReadOnlyCollection<PortalProductModelViewModel> ProductModels,
-    IReadOnlyCollection<PortalRentalCohortViewModel> RentalCohorts);
+    IReadOnlyCollection<PortalRentalCohortViewModel> RentalCohorts,
+    IReadOnlyCollection<OperationsOrderSummary>? StandaloneOrders = null);
 public sealed record CustomerPortalRentalPeriodDataViewModel(string CustomerName,
     IReadOnlyCollection<PortalProductModelViewModel> ProductModels, PortalRentalCohortViewModel RentalCohort);
 public sealed record CustomerPortalKitsDataViewModel(string CustomerName,
     IReadOnlyCollection<PortalKitViewModel> Kits);
 public sealed record CustomerPortalReturnsDataViewModel(string CustomerName,
     IReadOnlyCollection<PortalKitViewModel> Kits, IReadOnlyCollection<PortalFaultViewModel> Faults,
-    IReadOnlyCollection<PortalKitReturnViewModel> Returns);
+    IReadOnlyCollection<PortalKitReturnViewModel> Returns,
+    IReadOnlyCollection<ReturnTableItemViewModel>? OperationalReturns = null);
 public sealed record CustomerPortalFaultsDataViewModel(string CustomerName,
     IReadOnlyCollection<PortalFaultViewModel> Faults);
 public sealed record PortalFaultFormContextViewModel(Guid AssignmentId, string KitName, string SerialNumber,
@@ -679,7 +685,8 @@ public sealed record PortalFaultFormContextViewModel(Guid AssignmentId, string K
 public sealed record PortalReturnListItemViewModel(Guid ProductUnitId, Guid AssignmentId, Guid? ReturnId,
     string KitName, string KitSku, string SerialNumber, string OrderNumber, DateOnly StartDate, DateOnly EndDate,
     int UnitStatus, int AssignmentStatus, int ReturnStatus, int OpenFaultCount, string ReturnStateKey,
-    string ReturnState, bool StudentOrderLocked = false);
+    string ReturnState, bool StudentOrderLocked = false, string? Carrier = null, string? TrackingNumber = null,
+    string? KargonomiStatusLabel = null, DateTimeOffset? ShippedAt = null, DateTimeOffset? ReceivedAt = null);
 public sealed record PortalReturnsPageViewModel(string CustomerName, string Query, string State, int Page,
     int PageSize, int TotalCount, int TotalKitCount, int TotalPages, int FirstItem, int LastItem,
     IReadOnlyCollection<PortalReturnListItemViewModel> Returns);
@@ -689,7 +696,8 @@ public sealed record PortalKitReturnViewModel(Guid Id, Guid CustomerId, string C
     string? Carrier, string? TrackingNumber, DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt,
     string? RequesterName, string? RequesterPhone, string? ReturnAddress,
     double? Latitude, double? Longitude, int DeliveryMethod,
-    IReadOnlyCollection<PortalKitReturnItemViewModel> Items, string? Barcode = null);
+    IReadOnlyCollection<PortalKitReturnItemViewModel> Items, string? Barcode = null,
+    string ReturnStateKey = "pending", string? ExternalStatusLabel = null, DateTimeOffset? ReceivedAt = null);
 public sealed class PortalRentalLineInputViewModel
 {
     [Required, Display(Name = "Eğitim kiti")] public Guid ProductModelId { get; set; }
@@ -741,7 +749,7 @@ public sealed class RentalCohortStudentInputViewModel
 public sealed record RentalCohortsPageViewModel(string CustomerName,
     IReadOnlyCollection<PortalRentalCohortViewModel> Cohorts, RentalCohortInputViewModel Form,
     IReadOnlyCollection<string> PeriodNameOptions, string? PeriodName, string? ApprovalStatus,
-    int Page, int PageSize, int TotalCount)
+    int Page, int PageSize, int TotalCount, IReadOnlyCollection<OperationsOrderSummary>? StandaloneOrders = null)
 {
     public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)PageSize));
     public int FirstItem => TotalCount == 0 ? 0 : ((Page - 1) * PageSize) + 1;

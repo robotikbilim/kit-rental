@@ -50,11 +50,12 @@ public sealed class FaultKargonomiShipment
     }
 
     public void MarkCreated(int externalShipmentId, string? status, string statusLabel, string? trackingNumber,
-        DateTimeOffset occurredAt)
+        DateTimeOffset occurredAt, string? carrier = null)
     {
         if (externalShipmentId <= 0) throw new DomainException("fault_kargonomi.external_id_required", "Kargonomi gönderi kimliği zorunludur.");
         ExternalShipmentId = externalShipmentId; ExternalStatus = Clean(status); StatusLabel = Clean(statusLabel) ?? "Hazır";
         TrackingNumber = Clean(trackingNumber); State = MapState(status); UpdatedAt = occurredAt; LastError = null;
+        Carrier = Clean(carrier) ?? Carrier;
     }
 
     public void ApplyUpdate(string? status, string? statusLabel, string? trackingNumber, DateTimeOffset occurredAt, string? description)
@@ -71,7 +72,7 @@ public sealed class FaultKargonomiShipment
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static KargonomiShipmentState MapState(string? status) => status?.Trim().ToLowerInvariant() switch
     {
-        "draft" => KargonomiShipmentState.Draft, "ready" or "processing" or "prepared" => KargonomiShipmentState.Ready,
+        "draft" => KargonomiShipmentState.Draft, "ready" or "confirmed" or "processing" or "prepared" => KargonomiShipmentState.Ready,
         "shipped" or "in_transit" or "in-transit" or "on_the_way" => KargonomiShipmentState.InTransit,
         "delivered" or "completed" => KargonomiShipmentState.Delivered,
         "cancelled" or "canceled" => KargonomiShipmentState.Cancelled, _ => KargonomiShipmentState.Pending
