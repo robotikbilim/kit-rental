@@ -11,6 +11,9 @@
 {
     var shipment = Model.Shipments?.FirstOrDefault(value => value.Direction == direction && value.State != 7);
     var hasExternalShipmentId = shipment?.ExternalShipmentId is not null;
+    var existingShipmentConfirmation = hasExternalShipmentId
+        ? $"Bu arıza kaydı için [{shipment?.StatusLabel ?? "Bilinmiyor"}] durumunda zaten bir gönderi başlatılmış. Yeni gönderi başlatıp gönderiyi güncellemek ister misiniz?"
+        : null;
     var canStart = canUpdateFaults && (Model.Status is 9 or 12 or 13 or 14 or 15 or 16) &&
         (hasExternalShipmentId || direction == 2 || shipment?.State is 2 or 6 or 7);
     var canPrintLabel = shipment is not null && shipment.ExternalShipmentId is > 0 &&
@@ -37,13 +40,12 @@
         <div class="ops-fault-shipment-buttons">
             @if (canUpdateFaults)
             {
-                <form asp-action="StartFaultKargonomiShipment" asp-route-id="@Model.Id" method="post" data-fault-shipment-form>
+                <form asp-action="StartFaultKargonomiShipment" asp-route-id="@Model.Id" method="post" data-fault-shipment-form data-confirm="@existingShipmentConfirmation">
                     <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
                     <input type="hidden" name="direction" value="@direction" />
                     <input type="hidden" name="startNewShipment" value="false" data-start-new-shipment />
                     <button class="table-action" type="submit" disabled="@(!canStart)"
-                            data-existing-shipment="@(hasExternalShipmentId ? "true" : "false")"
-                            data-shipment-status="@(shipment?.StatusLabel ?? "Başlatılmadı")">@(shipment?.State == 6 ? $"{action} · Tekrar Dene" : action)</button>
+                            data-existing-shipment="@(hasExternalShipmentId ? "true" : "false")">@(shipment?.State == 6 ? $"{action} · Tekrar Dene" : action)</button>
                 </form>
                 @if (direction == 1 && Model.Status == 13)
                 {

@@ -25,6 +25,7 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
 {
     private readonly KargonomiOptions options = configuration.GetSection("Kargonomi").Get<KargonomiOptions>() ?? new();
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private const string DefaultReverseShipmentSenderTaxNumber = "11111111111";
 
     public KargonomiReturnDestination GetReturnDestination() =>
         new(options.SenderName, options.SenderPhone, KargonomiAddressSanitizer.Clean(options.SenderAddress));
@@ -63,6 +64,8 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
             {
                 sender_name = request.SenderName,
                 sender_email = options.SenderEmail,
+                // Reverse shipments omit warehouse_id, so Kargonomi requires sender_tax_number.
+                sender_tax_number = DefaultReverseShipmentSenderTaxNumber,
                 sender_phone = ToKargonomiMobilePhone(request.SenderPhone, "İade gönderen telefon numarası"),
                 sender_address = KargonomiAddressSanitizer.Clean(request.SenderAddress),
                 sender_state_id = request.SenderStateId,
