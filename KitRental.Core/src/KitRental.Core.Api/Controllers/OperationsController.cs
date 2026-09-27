@@ -229,7 +229,7 @@ public sealed class OperationsController : CoreApiControllerBase
     [HttpPost("faults/{faultTicketId:guid}/kargonomi-shipments")]
     public async Task<IActionResult> StartFaultKargonomiShipment(Guid faultTicketId, FaultKargonomiShipmentStartRequest request,
         [FromServices] KargonomiShippingService service, CancellationToken cancellationToken) =>
-        Ok(await service.StartForFaultAsync(faultTicketId, request.Direction, cancellationToken));
+        Ok(await service.StartForFaultAsync(faultTicketId, request.Direction, cancellationToken, request.StartNewShipment));
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff,ServiceTechnician,Auditor")]
     [HttpGet("faults/{faultTicketId:guid}/kargonomi-shipments")]

@@ -19,27 +19,30 @@ public sealed class KargonomiShippingService(
         .Select(_ => new SemaphoreSlim(1, 1)).ToArray();
 
     public async Task<FaultKargonomiShipmentResponse> StartForFaultAsync(Guid faultTicketId,
-        FaultKargonomiShipmentDirection direction, CancellationToken cancellationToken)
+        FaultKargonomiShipmentDirection direction, CancellationToken cancellationToken, bool startNewShipment = false)
     {
         var gate = FaultShipmentGates[(int)((uint)faultTicketId.GetHashCode() % (uint)FaultShipmentGates.Length)];
         await gate.WaitAsync(cancellationToken);
-        try { return await StartFaultShipmentCoreAsync(faultTicketId, direction, cancellationToken); }
+        try { return await StartFaultShipmentCoreAsync(faultTicketId, direction, cancellationToken, startNewShipment); }
         finally { gate.Release(); }
     }
 
     private async Task<FaultKargonomiShipmentResponse> StartFaultShipmentCoreAsync(Guid faultTicketId,
-        FaultKargonomiShipmentDirection direction, CancellationToken cancellationToken)
+        FaultKargonomiShipmentDirection direction, CancellationToken cancellationToken, bool startNewShipment)
     {
         var ticket = await repository.GetFaultTicketAsync(faultTicketId, cancellationToken)
             ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
         var existing = ticket.KargonomiShipments.Where(item => item.Direction == direction && item.State != KargonomiShipmentState.Cancelled)
             .OrderByDescending(item => item.CreatedAt).FirstOrDefault();
-        if (direction == FaultKargonomiShipmentDirection.ToCustomer && existing?.ExternalShipmentId is not null &&
+        if (!startNewShipment && direction == FaultKargonomiShipmentDirection.ToCustomer && existing?.ExternalShipmentId is not null &&
             existing.State is not (KargonomiShipmentState.Failed or KargonomiShipmentState.Draft))
             throw new ConflictException("fault_kargonomi.already_created",
                 "Bu arıza kaydı için Kargonomi gönderisi zaten oluşturulmuş. Yeni bir gönderi oluşturulmadı.");
-        if (existing?.ExternalShipmentId is not null && existing.State is not (KargonomiShipmentState.Failed or KargonomiShipmentState.Draft))
+        if (!startNewShipment && existing?.ExternalShipmentId is not null && existing.State is not (KargonomiShipmentState.Failed or KargonomiShipmentState.Draft))
             return MapFault(existing);
+        if (startNewShipment && existing?.ExternalShipmentId is null)
+            throw new ConflictException("fault_kargonomi.no_existing_shipment",
+                "Yeni gönderi başlatmak için bu yönde daha önce oluşturulmuş bir gönderi bulunmalıdır.");
         ticket.EnsureCanStartShipment(direction);
         if (string.IsNullOrWhiteSpace(ticket.ReporterName) || string.IsNullOrWhiteSpace(ticket.ReporterPhone) ||
             string.IsNullOrWhiteSpace(ticket.ReporterAddress))
@@ -50,7 +53,9 @@ public sealed class KargonomiShippingService(
         destination = destination with { Address = KargonomiAddressSanitizer.Clean(destination.Address) };
         var unit = await repository.GetProductUnitAsync(ticket.ProductUnitId, cancellationToken)
             ?? throw new ResourceNotFoundException("Arızaya bağlı fiziksel kit bulunamadı.");
-        var shipment = existing ?? ticket.CreateKargonomiShipment(direction, destination.Name, destination.Phone, destination.Address, timeProvider.GetUtcNow());
+        var shipment = existing is null || startNewShipment
+            ? ticket.CreateKargonomiShipment(direction, destination.Name, destination.Phone, destination.Address, timeProvider.GetUtcNow())
+            : existing;
         try
         {
             if (!shipment.ExternalShipmentId.HasValue)

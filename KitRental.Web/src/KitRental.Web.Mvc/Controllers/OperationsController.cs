@@ -634,10 +634,10 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager,ServiceTechnician")]
-    public async Task<IActionResult> StartFaultKargonomiShipment(Guid id, int direction,
+    public async Task<IActionResult> StartFaultKargonomiShipment(Guid id, int direction, bool startNewShipment,
         CancellationToken cancellationToken, string? returnUrl = null)
     {
-        var result = await apiClient.StartFaultKargonomiShipmentAsync(id, direction, cancellationToken);
+        var result = await apiClient.StartFaultKargonomiShipmentAsync(id, direction, startNewShipment, cancellationToken);
         TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
             ? direction == 1 ? "Arıza adresinden Robotik Bilim deposuna kurye talebi oluşturuldu."
                 : "Aynı seri numarası ve QR koduyla yeni kit gönderimi başlatıldı." : result.Error;

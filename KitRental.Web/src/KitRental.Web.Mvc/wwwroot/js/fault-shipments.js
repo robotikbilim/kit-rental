@@ -1,8 +1,17 @@
 document.querySelectorAll('[data-fault-shipment-form]').forEach((form) => {
     form.addEventListener('submit', (event) => {
         if (form.dataset.submitting === 'true') { event.preventDefault(); return; }
-        form.dataset.submitting = 'true';
         const button = form.querySelector('button[type="submit"]');
+        const startNewInput = form.querySelector('[data-start-new-shipment]');
+        if (button.dataset.existingShipment === 'true') {
+            const status = button.dataset.shipmentStatus || 'Bilinmiyor';
+            if (!window.confirm(`Bu arıza kaydı için [${status}] durumunda zaten bir gönderi başlatılmış. Yeni gönderi başlatıp gönderiyi güncellemek ister misiniz?`)) {
+                event.preventDefault();
+                return;
+            }
+            startNewInput.value = 'true';
+        }
+        form.dataset.submitting = 'true';
         button.disabled = true;
         button.textContent = 'Kargo oluşturuluyor…';
         form.setAttribute('aria-busy', 'true');

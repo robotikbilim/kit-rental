@@ -707,9 +707,9 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         GetAsync<PhysicalKitLabelViewModel>($"/core/api/faults/{faultId}/kit-label", cancellationToken);
 
     public Task<ApiCommandResult<FaultKargonomiShipmentViewModel>> StartFaultKargonomiShipmentAsync(Guid faultId,
-        int direction, CancellationToken cancellationToken) => PostAsync<FaultKargonomiShipmentViewModel>(
+        int direction, bool startNewShipment, CancellationToken cancellationToken) => PostAsync<FaultKargonomiShipmentViewModel>(
             $"/core/api/faults/{faultId}/kargonomi-shipments",
-            new { direction }, cancellationToken);
+            new { direction, startNewShipment }, cancellationToken);
 
     public async Task<IReadOnlyCollection<EmailDeliveryViewModel>> GetEmailDeliveriesAsync(
         CancellationToken cancellationToken) =>
