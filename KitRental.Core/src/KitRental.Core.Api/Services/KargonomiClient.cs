@@ -16,6 +16,7 @@ public sealed class KargonomiOptions
     public string SenderName { get; set; } = "Robotik Bilim";
     public string SenderEmail { get; set; } = "admin@robotikbilim.com.tr";
     public string SenderPhone { get; set; } = string.Empty;
+    public string SenderTaxNumber { get; set; } = string.Empty;
     public string SenderAddress { get; set; } = string.Empty;
     public int SenderStateId { get; set; }
     public int SenderCityId { get; set; }
@@ -25,7 +26,6 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
 {
     private readonly KargonomiOptions options = configuration.GetSection("Kargonomi").Get<KargonomiOptions>() ?? new();
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private const string DefaultReverseShipmentSenderTaxNumber = "11111111111";
 
     public KargonomiReturnDestination GetReturnDestination() =>
         new(options.SenderName, options.SenderPhone, KargonomiAddressSanitizer.Clean(options.SenderAddress));
@@ -64,8 +64,8 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
             {
                 sender_name = request.SenderName,
                 sender_email = options.SenderEmail,
-                // Reverse shipments omit warehouse_id, so Kargonomi requires sender_tax_number.
-                sender_tax_number = DefaultReverseShipmentSenderTaxNumber,
+                // Reverse shipments omit warehouse_id, so Kargonomi requires the configured sender identity.
+                sender_tax_number = GetSenderTaxNumber(options.SenderTaxNumber),
                 sender_phone = ToKargonomiMobilePhone(request.SenderPhone, "İade gönderen telefon numarası"),
                 sender_address = KargonomiAddressSanitizer.Clean(request.SenderAddress),
                 sender_state_id = request.SenderStateId,
@@ -237,6 +237,27 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
     }
 
     private static string Normalize(string value) => value.Trim().ToUpperInvariant().Replace('İ', 'I');
+    private static string GetSenderTaxNumber(string? value)
+    {
+        var digits = new string((value ?? string.Empty).Where(char.IsAsciiDigit).ToArray());
+        if (digits.Length is < 10 or > 11 || (digits.Length == 11 && !HasValidTurkishIdentityChecksum(digits)))
+            throw new ConflictException("kargonomi.sender_tax_number_invalid",
+                "Kargonomi gönderici numarası, göndericiye ait 10 haneli vergi numarası veya kontrol basamakları geçerli 11 haneli T.C. kimlik numarası olarak yapılandırılmalıdır.");
+
+        return digits;
+    }
+
+    private static bool HasValidTurkishIdentityChecksum(string value)
+    {
+        if (value.Length != 11 || value[0] == '0') return false;
+        var digits = value.Select(character => character - '0').ToArray();
+        var oddPositionSum = digits[0] + digits[2] + digits[4] + digits[6] + digits[8];
+        var evenPositionSum = digits[1] + digits[3] + digits[5] + digits[7];
+        var tenthDigit = ((oddPositionSum * 7 - evenPositionSum) % 10 + 10) % 10;
+        var eleventhDigit = digits.Take(10).Sum() % 10;
+        return digits[9] == tenthDigit && digits[10] == eleventhDigit;
+    }
+
     private static string ToKargonomiMobilePhone(string value, string fieldName)
     {
         var digits = new string(value.Where(char.IsDigit).ToArray());
