@@ -50,8 +50,9 @@ public sealed class FaultShipmentTests
         Assert.Equal(2, row.Shipments!.Count);
 
         // Repeated clicks reuse each independent leg.
-        foreach (var direction in directions)
-            await fixture.Shipping.StartForFaultAsync(fixture.Ticket.Id, direction, Token);
+        await fixture.Shipping.StartForFaultAsync(fixture.Ticket.Id, FaultKargonomiShipmentDirection.ToWorkshop, Token);
+        await Assert.ThrowsAsync<ConflictException>(() => fixture.Shipping.StartForFaultAsync(
+            fixture.Ticket.Id, FaultKargonomiShipmentDirection.ToCustomer, Token));
         Assert.Single(fixture.Client.OutboundRequests);
         Assert.Single(fixture.Client.ReturnRequests);
     }
@@ -79,7 +80,7 @@ public sealed class FaultShipmentTests
         Assert.Equal("IN", fixture.Ticket.KargonomiShipments.Single(item => item.Id == pickup.Id).TrackingNumber);
         Assert.Equal("OUT", fixture.Ticket.KargonomiShipments.Single(item => item.Id == outbound.Id).TrackingNumber);
         var historyCount = fixture.Ticket.History.Count;
-        await fixture.Shipping.ApplyFaultWebhookAsync(outbound.ExternalShipmentId.Value, "delivered", "Teslim edildi", "OUT", null, Token);
+        await fixture.Shipping.ApplyFaultWebhookAsync(outbound.ExternalShipmentId!.Value, "delivered", "Teslim edildi", "OUT", null, Token);
         Assert.Equal(historyCount, fixture.Ticket.History.Count);
     }
 

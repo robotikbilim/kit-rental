@@ -10,8 +10,13 @@
 @foreach (var direction in new[] { 1, 2 })
 {
     var shipment = Model.Shipments?.FirstOrDefault(value => value.Direction == direction);
+    var hasExternalShipmentId = shipment?.ExternalShipmentId is not null;
     var canStart = canUpdateFaults && (Model.Status is 9 or 12 or 13 or 14 or 15 or 16) &&
-        (shipment?.ExternalShipmentId is null || shipment.State is 2 or 6 or 7);
+        (direction == 2
+            ? !hasExternalShipmentId
+            : !hasExternalShipmentId || shipment?.State is 2 or 6 or 7);
+    var canPrintLabel = shipment is not null && shipment.ExternalShipmentId is > 0 &&
+        (shipment.State is 3 or 4 or 5);
     var title = direction == 1 ? "Arızalı kitin alınması" : "Yeni kitin gönderimi";
     var action = direction == 1 ? "Kurye Gönder" : "Kargoya Gönder";
     var defaultCarrier = direction == 1 ? "HepsiJet" : "Aras Kargo";
@@ -37,12 +42,28 @@
                 <form asp-action="StartFaultKargonomiShipment" asp-route-id="@Model.Id" method="post" data-fault-shipment-form>
                     <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
                     <input type="hidden" name="direction" value="@direction" />
-                    <button class="table-action" type="submit" disabled="@(!canStart)">@(shipment?.State == 6 ? $"{action} · Tekrar Dene" : action)</button>
+                    <button class="table-action" type="submit" disabled="@(!canStart)"
+                            title="@(direction == 2 && hasExternalShipmentId ? "Bu arıza için kargo gönderisi zaten oluşturuldu." : null)">@(shipment?.State == 6 ? $"{action} · Tekrar Dene" : action)</button>
                 </form>
+                @if (direction == 1 && Model.Status == 13)
+                {
+                    <form asp-action="UpdateFault" asp-route-id="@Model.Id" method="post" data-fault-received-form>
+                        <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+                        <input type="hidden" name="status" value="14" />
+                        <input type="hidden" name="note" value="Arızalı kit iade koduyla veya elden atölyeye teslim alındı." />
+                        <button class="table-action" type="submit">Kit İade Kodu Ya da Elden Teslim Alındı</button>
+                    </form>
+                }
             }
-            <button type="button" class="table-action" disabled="@(shipment?.ExternalShipmentId is null)"
+            <button type="button" class="table-action" disabled="@(!canPrintLabel)"
                     data-kargonomi-barcode-url="@Url.Action("FaultKargonomiBarcode", new { id = Model.Id, shipmentId = shipment?.Id })"
+                    title="@(canPrintLabel ? "Kargo etiketini yazdır" : "Etiket, kargo gönderisi başlatıldıktan sonra kullanılabilir.")"
                     aria-label="@($"{Model.Number} {title} kargo etiketi")">Kargo Etiketi Yazdır</button>
+            @if (direction == 2)
+            {
+                <a class="table-action" asp-controller="Operations" asp-action="FaultKitLabel" asp-route-id="@Model.Id"
+                   target="_blank" rel="noopener" aria-label="@($"{Model.Number} kit QR etiketini yazdır")">QR Etiketini Yazdır</a>
+            }
         </div>
         </div>
     </details>

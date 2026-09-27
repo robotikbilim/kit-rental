@@ -44,6 +44,14 @@ public sealed class SupportController : CoreApiControllerBase
         return Ok(await service.ChangeFaultStatusAsync(ticketId, request.Status, User.GetRequiredUserId(), request.Note, cancellationToken));
     }
 
+    [Authorize(Roles = "SystemAdmin,OperationsManager,ServiceTechnician")]
+    [HttpPost("faults/{ticketId:guid}/notes")]
+    public async Task<IActionResult> CreateFaultNote(Guid ticketId, FaultNoteRequest request,
+        [FromServices] OperationsService service, CancellationToken cancellationToken)
+    {
+        return Ok(await service.AddFaultNoteAsync(ticketId, User.GetRequiredUserId(), request.Note, cancellationToken));
+    }
+
     [Authorize(Roles = "SystemAdmin,OperationsManager")]
     [HttpGet("fault-guides")]
     public async Task<IActionResult> GetFaultGuides(int? page, int? pageSize, [FromServices] OperationsService service, CancellationToken cancellationToken)

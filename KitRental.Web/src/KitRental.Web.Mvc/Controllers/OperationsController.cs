@@ -622,11 +622,13 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager,ServiceTechnician")]
-    public async Task<IActionResult> UpdateFault(Guid id, int status, string? note, CancellationToken cancellationToken, string? returnUrl = null)
+    public async Task<IActionResult> UpdateFault(Guid id, int? status, string? note, CancellationToken cancellationToken, string? returnUrl = null)
     {
-        var result = await apiClient.ChangeFaultStatusAsync(id, status, note, cancellationToken);
+        var result = status.HasValue
+            ? await apiClient.ChangeFaultStatusAsync(id, status.Value, note, cancellationToken)
+            : await apiClient.AddFaultNoteAsync(id, note, cancellationToken);
         TempData[result.IsSuccess ? "Success" : "Error"] = result.IsSuccess
-            ? "Arıza süreci güncellendi; müşteri portalına yansıtıldı." : result.Error;
+            ? status.HasValue ? "Arıza süreci güncellendi; müşteri portalına yansıtıldı." : "Arıza notu eklendi; müşteri portalına yansıtıldı." : result.Error;
         if (Url.IsLocalUrl(returnUrl)) return LocalRedirect(returnUrl!);
         return RedirectToAction(nameof(Faults));
     }

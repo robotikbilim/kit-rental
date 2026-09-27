@@ -34,6 +34,10 @@ public sealed class KargonomiShippingService(
             ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
         var existing = ticket.KargonomiShipments.Where(item => item.Direction == direction && item.State != KargonomiShipmentState.Cancelled)
             .OrderByDescending(item => item.CreatedAt).FirstOrDefault();
+        if (direction == FaultKargonomiShipmentDirection.ToCustomer && existing?.ExternalShipmentId is not null &&
+            existing.State is not (KargonomiShipmentState.Failed or KargonomiShipmentState.Draft))
+            throw new ConflictException("fault_kargonomi.already_created",
+                "Bu arıza kaydı için Kargonomi gönderisi zaten oluşturulmuş. Yeni bir gönderi oluşturulmadı.");
         if (existing?.ExternalShipmentId is not null && existing.State is not (KargonomiShipmentState.Failed or KargonomiShipmentState.Draft))
             return MapFault(existing);
         ticket.EnsureCanStartShipment(direction);
@@ -43,6 +47,7 @@ public sealed class KargonomiShippingService(
         var toWorkshop = direction == FaultKargonomiShipmentDirection.ToWorkshop;
         var destination = toWorkshop ? client.GetReturnDestination()
             : new KargonomiReturnDestination(ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress);
+        destination = destination with { Address = KargonomiAddressSanitizer.Clean(destination.Address) };
         var unit = await repository.GetProductUnitAsync(ticket.ProductUnitId, cancellationToken)
             ?? throw new ResourceNotFoundException("Arızaya bağlı fiziksel kit bulunamadı.");
         var shipment = existing ?? ticket.CreateKargonomiShipment(direction, destination.Name, destination.Phone, destination.Address, timeProvider.GetUtcNow());

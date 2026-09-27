@@ -676,7 +676,7 @@ public sealed class CustomerPortalService(
         var now = TurkeyTime.Now();
         var returnAddress = command.DeliveryMethod == KitReturnDeliveryMethod.DropOffToCargo
             ? CargoDropOffAddress
-            : command.ReturnAddress;
+            : KargonomiAddressSanitizer.Clean(command.ReturnAddress);
         var latitude = command.DeliveryMethod != KitReturnDeliveryMethod.DropOffToCargo &&
             CoordinatesAreValid(command.Latitude, command.Longitude)
                 ? command.Latitude

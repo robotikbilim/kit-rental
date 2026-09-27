@@ -27,7 +27,7 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public KargonomiReturnDestination GetReturnDestination() =>
-        new(options.SenderName, options.SenderPhone, options.SenderAddress);
+        new(options.SenderName, options.SenderPhone, KargonomiAddressSanitizer.Clean(options.SenderAddress));
 
     public async Task<KargonomiShipmentSnapshot> CreateShipmentAsync(KargonomiCreateShipmentRequest request,
         CancellationToken cancellationToken)
@@ -39,13 +39,13 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
                 sender_name = options.SenderName,
                 sender_email = options.SenderEmail,
                 sender_phone = ToKargonomiMobilePhone(options.SenderPhone, "Gönderici telefon numarası"),
-                sender_address = options.SenderAddress,
+                sender_address = KargonomiAddressSanitizer.Clean(options.SenderAddress),
                 sender_state_id = options.SenderStateId,
                 sender_city_id = options.SenderCityId,
                 warehouse_id = ParseNullableInt(options.WarehouseId),
                 buyer_name = request.BuyerName,
                 buyer_phone = ToKargonomiMobilePhone(request.BuyerPhone, "Alıcı telefon numarası"),
-                buyer_address = request.BuyerAddress,
+                buyer_address = KargonomiAddressSanitizer.Clean(request.BuyerAddress),
                 buyer_state_id = request.BuyerStateId,
                 buyer_city_id = request.BuyerCityId,
                 packages = new[] { new { content = request.PackageContent, barcode = request.PackageBarcode, desi = request.PackageDesi } }
@@ -64,13 +64,14 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
                 sender_name = request.SenderName,
                 sender_email = options.SenderEmail,
                 sender_phone = ToKargonomiMobilePhone(request.SenderPhone, "İade gönderen telefon numarası"),
-                sender_address = request.SenderAddress,
+                sender_address = KargonomiAddressSanitizer.Clean(request.SenderAddress),
                 sender_state_id = request.SenderStateId,
                 sender_city_id = request.SenderCityId,
-                warehouse_id = ParseNullableInt(options.WarehouseId),
+                // Kargonomi uses warehouse_id to replace sender address fields from the warehouse record.
+                // Reverse shipments must keep the selected fault/return address as the courier pickup.
                 buyer_name = options.SenderName,
                 buyer_phone = ToKargonomiMobilePhone(options.SenderPhone, "İade teslim alıcısı telefon numarası"),
-                buyer_address = options.SenderAddress,
+                buyer_address = KargonomiAddressSanitizer.Clean(options.SenderAddress),
                 buyer_state_id = options.SenderStateId,
                 buyer_city_id = options.SenderCityId,
                 packages = new[] { new { content = request.PackageContent, barcode = request.PackageBarcode, desi = request.PackageDesi } }

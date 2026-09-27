@@ -23,5 +23,5 @@ public static class TimeProviderTurkeyExtensions
         TurkeyTime.Convert(timeProvider.GetUtcNow());
 
     public static DateOnly GetTurkeyToday(this TimeProvider timeProvider) =>
-        TurkeyTime.Today();
+        DateOnly.FromDateTime(timeProvider.GetTurkeyNow().DateTime);
 }

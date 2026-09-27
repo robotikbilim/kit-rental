@@ -694,6 +694,10 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) => PostAsync<FaultViewModel>($"/core/api/faults/{faultId}/status-events",
             new { status, note }, cancellationToken);
 
+    public Task<ApiCommandResult<FaultViewModel>> AddFaultNoteAsync(Guid faultId, string? note,
+        CancellationToken cancellationToken) => PostAsync<FaultViewModel>($"/core/api/faults/{faultId}/notes",
+            new { note }, cancellationToken);
+
     public Task<ApiCommandResult<KargonomiBarcodeViewModel>> GetFaultKargonomiBarcodeAsync(Guid faultId,
         Guid shipmentId, CancellationToken cancellationToken) =>
         SendAsync<KargonomiBarcodeViewModel>(HttpMethod.Get,

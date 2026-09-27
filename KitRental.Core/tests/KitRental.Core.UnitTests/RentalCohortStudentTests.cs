@@ -69,7 +69,7 @@ public sealed class RentalCohortStudentTests
         cohort.UpdateStudent(student.Id, "Mehmet Kaya", "05440000000", student.AddressLine, student.ProductModelId);
 
         Assert.Equal("Mehmet Kaya", student.FullName);
-        Assert.Equal("05440000000", student.GuardianPhone);
+        Assert.Equal("0544 000 00 00", student.GuardianPhone);
         Assert.Equal("Test Sokak 1", student.AddressLine);
     }
 

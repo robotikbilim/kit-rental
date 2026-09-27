@@ -43,7 +43,7 @@
                     <span asp-validation-for="District" class="error"></span>
                 </div>
             </div>
-            <div class="field" data-return-pickup-field><label asp-for="ReturnAddress"></label><textarea asp-for="ReturnAddress" rows="3" autocomplete="street-address" placeholder="Kargo alınacak açık adresi yazın."></textarea><span asp-validation-for="ReturnAddress" class="error"></span></div>
+            <div class="field" data-return-pickup-field><label asp-for="ReturnAddress"></label><textarea asp-for="ReturnAddress" data-kargonomi-address rows="3" autocomplete="street-address" placeholder="Kargo alınacak açık adresi yazın."></textarea><span asp-validation-for="ReturnAddress" class="error"></span><small class="block-muted" data-kargonomi-address-warning role="status" aria-live="polite" hidden>Kargonomi bazı görünmeyen, emoji veya desteklenmeyen karakterleri kabul etmeyebilir. Bu karakterler gönderi hazırlanırken otomatik ayıklanır; Türkçe adresinizi yazabilirsiniz.</small></div>
             <div class="public-location-box" data-return-pickup-field>
                 <button class="secondary-action" id="use-location" type="button">Konumumu Bul</button>
                 <div id="public-location-map" class="public-location-map"></div>
@@ -60,6 +60,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="~/js/turkey-address-dropdowns.js" asp-append-version="true"></script>
 <script src="~/js/public-student-address.js" asp-append-version="true"></script>
+<script src="~/js/public-kargonomi-address.js" asp-append-version="true"></script>
 <script src="~/js/public-location.js" asp-append-version="true"></script>
 <script>
     (() => {

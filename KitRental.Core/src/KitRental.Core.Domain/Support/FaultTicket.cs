@@ -97,6 +97,13 @@ public sealed class FaultTicket
         _history.Add(new FaultStatusEvent(Guid.NewGuid(), previous, next, now, actorId, note.Trim()));
     }
 
+    public void AddNote(Guid actorId, DateTimeOffset now, string note)
+    {
+        if (actorId == Guid.Empty || string.IsNullOrWhiteSpace(note))
+            throw new DomainException("fault.note_required", "Arıza notu boş bırakılamaz.");
+        _history.Add(new FaultStatusEvent(Guid.NewGuid(), Status, Status, now, actorId, note.Trim()));
+    }
+
     public void MarkInvestigating(Guid actorId, DateTimeOffset now, string note) =>
         MoveTo(FaultStatus.Investigating, actorId, now, note, FaultStatus.Open);
 

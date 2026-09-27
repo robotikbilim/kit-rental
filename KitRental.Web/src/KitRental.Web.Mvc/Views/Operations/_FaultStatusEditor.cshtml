@@ -18,33 +18,33 @@
     };
     var noteId = $"fault-note-{Model.Id:N}";
 }
-@if (actions.Length > 0)
-{
-    <details class="ops-fault-status-editor ops-fault-disclosure" data-fault-status-editor>
-        <summary><span class="ops-fault-disclosure-title"><strong>Arıza Durumunu Güncelle</strong><small>Bu aşamada yapılabilecek işlemleri görüntüle</small></span></summary>
-        <form class="ops-fault-status-form" asp-action="UpdateFault" asp-route-id="@Model.Id" method="post" data-fault-status-form aria-label="@($"{Model.Number} arıza durumunu güncelle")">
-            <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+<details class="ops-fault-status-editor ops-fault-disclosure" data-fault-status-editor>
+    <summary><span class="ops-fault-disclosure-title"><strong>Arıza Durumunu Güncelle</strong><small>Durumu değiştirebilir veya yalnızca not ekleyebilirsiniz</small></span></summary>
+    <form class="ops-fault-status-form" asp-action="UpdateFault" asp-route-id="@Model.Id" method="post" data-fault-status-form aria-label="@($"{Model.Number} arıza durumunu güncelle veya not ekle")">
+        <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+        @if (actions.Length > 0)
+        {
             <fieldset class="ops-fault-status-options">
-                <legend>Yapılacak işlemi seçin</legend>
+                <legend>Durum değişikliği <span>(isteğe bağlı)</span></legend>
                 <div class="ops-fault-status-options-grid">
                 @foreach (var action in actions)
                 {
                     <label class="ops-fault-status-option @(action.Status == 10 ? "is-rejection" : "")">
-                        <input type="radio" name="status" value="@action.Status" required data-action-label="@action.Label" />
+                        <input type="radio" name="status" value="@action.Status" data-action-label="@action.Label" />
                         <span><strong>@action.Label</strong><small>@action.Description</small></span>
                     </label>
                 }
                 </div>
             </fieldset>
-            <div class="ops-fault-status-note">
-                <label for="@noteId">Süreç notu <span>(isteğe bağlı)</span></label>
-                <textarea id="@noteId" name="note" rows="3" placeholder="İnceleme sonucu veya yapılan işlemi yazın…" aria-describedby="@(noteId)-help"></textarea>
-                <small id="@(noteId)-help">Bu not müşteri portalında görünür. Boş bırakırsanız işleme uygun bir not otomatik eklenir.</small>
-            </div>
-            <footer class="ops-fault-status-footer">
-                <span data-fault-status-preview aria-live="polite">Kaydetmeden önce bir işlem seçin.</span>
-                <div><button class="secondary-action" type="button" data-fault-status-cancel>Vazgeç</button><button class="primary-action" type="submit" data-fault-status-save>Durumu Kaydet</button></div>
-            </footer>
-        </form>
-    </details>
-}
+        }
+        <div class="ops-fault-status-note">
+            <label for="@noteId">Süreç notu</label>
+            <textarea id="@noteId" name="note" rows="3" placeholder="İnceleme sonucu veya yapılan işlemi yazın…" aria-describedby="@(noteId)-help"></textarea>
+            <small id="@(noteId)-help">Bu not müşteri portalında görünür. Durum seçmeden kaydederseniz mevcut durum korunur.</small>
+        </div>
+        <footer class="ops-fault-status-footer">
+            <span data-fault-status-preview aria-live="polite">Durum seçin veya not girin.</span>
+            <div><button class="secondary-action" type="button" data-fault-status-cancel>Vazgeç</button><button class="primary-action" type="submit" data-fault-status-save disabled>Kaydet</button></div>
+        </footer>
+    </form>
+</details>

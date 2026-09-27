@@ -569,7 +569,8 @@ public sealed class OperationsService(
     {
         var (cohort, student) = await GetStudentByAddressTokenAsync(command.Token, cancellationToken);
         var now = timeProvider.GetTurkeyNow();
-        cohort.UpdateStudentAddressByToken(command.Token, command.AddressLine, command.Latitude, command.Longitude,
+        var address = KargonomiAddressSanitizer.Clean(command.AddressLine);
+        cohort.UpdateStudentAddressByToken(command.Token, address, command.Latitude, command.Longitude,
             now);
         var order = student.OrderId.HasValue
             ? await repository.GetOrderAsync(student.OrderId.Value, cancellationToken)
@@ -987,6 +988,7 @@ public sealed class OperationsService(
         double? latitude, double? longitude, string? attachmentUrl,
         CancellationToken cancellationToken)
     {
+        reporterAddress = KargonomiAddressSanitizer.Clean(reporterAddress);
         var unit = await repository.GetProductUnitByQrCodeAsync(qrCode, cancellationToken)
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
         var ticket = await repository.GetFaultTicketAsync(faultId, cancellationToken)
@@ -1013,19 +1015,20 @@ public sealed class OperationsService(
     public async Task<FaultTicket> OpenPublicFaultAsync(OpenPublicFaultCommand command,
         CancellationToken cancellationToken)
     {
+        var reporterAddress = KargonomiAddressSanitizer.Clean(command.ReporterAddress);
         var unit = await repository.GetProductUnitByQrCodeAsync(command.QrCode, cancellationToken)
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
         var existing = await repository.GetOpenFaultTicketAsync(unit.Id, cancellationToken);
         if (existing is not null)
         {
             existing.UpdatePublicDetails("Son kullanıcı bildirimi", command.Description, command.ReporterName,
-                command.ReporterPhone, command.ReporterAddress,
+                command.ReporterPhone, reporterAddress,
                 CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Latitude : null,
                 CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null, command.AttachmentUrl);
             var now = timeProvider.GetTurkeyNow();
             await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id,
                 existing.AssignmentId, existing.OrderId, existing.CustomerId, KitLocationEventSource.FaultUpdate,
-                existing.Id, command.ReporterName, command.ReporterPhone, command.ReporterAddress,
+                existing.Id, command.ReporterName, command.ReporterPhone, reporterAddress,
                 CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Latitude : null,
                 CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null, now, PublicActorId),
                 cancellationToken);
@@ -1044,14 +1047,14 @@ public sealed class OperationsService(
         var ticket = await OpenFaultAsync(new OpenFaultCommand(assignment.CustomerId, order.Id, assignment.Id, unit.Id,
             "Son kullanici bildirimi", FaultSeverity.Medium, command.Description,
             PublicActorId, command.ReporterName, command.ReporterPhone,
-                command.ReporterAddress,
+                reporterAddress,
                 CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Latitude : null,
             CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null, FaultOrigin.PublicForm,
             command.AttachmentUrl),
             cancellationToken);
         await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id, assignment.Id,
             order.Id, assignment.CustomerId, KitLocationEventSource.FaultReport, ticket.Id, command.ReporterName,
-            command.ReporterPhone, command.ReporterAddress,
+            command.ReporterPhone, reporterAddress,
             CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Latitude : null,
             CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null,
             timeProvider.GetTurkeyNow(), PublicActorId),
@@ -1078,12 +1081,12 @@ public sealed class OperationsService(
         var now = timeProvider.GetTurkeyNow();
         var actorId = PublicActorId;
         var recipientName = command.RecipientName.Trim();
-        var fullAddress = command.AddressLine.Trim();
+        var fullAddress = KargonomiAddressSanitizer.Clean(command.AddressLine);
         unit.ConfirmDeliveryTo(actorId, now, recipientName, fullAddress);
         if (assignment.Status == RentalAssignmentStatus.Reserved) assignment.Activate();
         var locationEvent = KitLocationEvent.Create(Guid.NewGuid(), unit.Id, assignment.Id,
             order.Id, assignment.CustomerId, KitLocationEventSource.DeliveryReceipt, null,
-            command.RecipientName, command.RecipientPhone, command.AddressLine,
+            command.RecipientName, command.RecipientPhone, fullAddress,
             CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Latitude : null,
             CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null, now, actorId);
         await repository.AddKitLocationEventAsync(locationEvent, cancellationToken);
@@ -1330,6 +1333,24 @@ public sealed class OperationsService(
         await AddActivityAsync(ticket.ProductUnitId, ticket.AssignmentId, ticket.OrderId, null, actorId,
             actorId.ToString(), "Arıza durumu güncellendi", note, cancellationToken);
         await AuditAsync(actorId, nameof(FaultTicket), ticket.Id, "StatusChanged", previous.ToString(), ticket.Status.ToString(), cancellationToken);
+        return ticket;
+    }
+
+    public async Task<FaultTicket> AddFaultNoteAsync(Guid ticketId, Guid actorId, string? note,
+        CancellationToken cancellationToken)
+    {
+        var ticket = await repository.GetFaultTicketAsync(ticketId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Arıza kaydı bulunamadı.");
+        var trimmedNote = note?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmedNote))
+            throw new ConflictException("fault.note_required", "Arıza notu boş bırakılamaz.");
+
+        var status = ticket.Status;
+        var now = timeProvider.GetTurkeyNow();
+        ticket.AddNote(actorId, now, trimmedNote);
+        await AddActivityAsync(ticket.ProductUnitId, ticket.AssignmentId, ticket.OrderId, null, actorId,
+            actorId.ToString(), "Arıza notu eklendi", trimmedNote, cancellationToken, now);
+        await AuditAsync(actorId, nameof(FaultTicket), ticket.Id, "NoteAdded", status.ToString(), status.ToString(), cancellationToken);
         return ticket;
     }
 
