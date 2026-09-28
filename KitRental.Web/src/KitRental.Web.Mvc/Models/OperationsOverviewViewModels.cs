@@ -45,7 +45,7 @@ public sealed record OperationsDashboardViewModel(int TotalOrders, int TotalStud
     int StudentsAwaitingAddress, int StudentsAwaitingShipment, int ShipmentsInTransit,
     int ShipmentsDelivered, int ReturnPendingKitCount, int ReturnInTransitKitCount,
     int ReturnCompletedKitCount, int FaultsAwaitingReview, int FaultsInRepair,
-    int FaultsAwaitingShipment, int FaultsCompleted,
+    int FaultsAwaitingShipment, int FaultsCompleted, int FaultsRejected,
     int PendingApprovalOrders, int ActiveKitCount, int ShipmentsReady, int ShipmentsFailed,
     int OpenFaultCount, int OverdueOrders, int EndingSoonOrders, int MissingReturnFormCount,
     DateTimeOffset GeneratedAt, Guid? CustomerId,

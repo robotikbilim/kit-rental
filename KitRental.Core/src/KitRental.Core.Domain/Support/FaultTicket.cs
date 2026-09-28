@@ -90,10 +90,20 @@ public sealed class FaultTicket
 
     public void ChangeStatus(FaultStatus next, Guid actorId, DateTimeOffset now, string note)
     {
-        if (actorId == Guid.Empty || string.IsNullOrWhiteSpace(note) || next == Status)
+        if (!Enum.IsDefined(typeof(FaultStatus), next) || actorId == Guid.Empty || string.IsNullOrWhiteSpace(note) || next == Status)
             throw new DomainException("fault.invalid_status_change", "Arıza durum değişikliği için yeni durum, aktör ve not zorunludur.");
         var previous = Status;
         Status = next;
+        if (next == FaultStatus.Accepted)
+        {
+            ApprovalStatus = FaultApprovalStatus.Approved;
+            ApprovedAt = now;
+        }
+        else if (next == FaultStatus.Rejected)
+        {
+            ApprovalStatus = FaultApprovalStatus.Rejected;
+            ApprovedAt = null;
+        }
         _history.Add(new FaultStatusEvent(Guid.NewGuid(), previous, next, now, actorId, note.Trim()));
     }
 

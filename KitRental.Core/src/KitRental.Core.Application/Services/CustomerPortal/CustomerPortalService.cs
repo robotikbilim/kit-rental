@@ -1161,7 +1161,8 @@ public sealed class CustomerPortalService(
             ticket.OpenedAt, ticket.History.OrderBy(item => item.OccurredAt).Select(item =>
                 new PortalFaultStatusResponse(item.Previous, item.Current, item.OccurredAt, item.Note)).ToArray(),
             ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress, ticket.ApprovalStatus, ticket.Origin,
-            new[] { "review", "repair", "shipment", "completed" }.FirstOrDefault(stage => OperationsWorkload.MatchesFaultStage(ticket.Status, stage)) ?? "other",
+            new[] { "review", "repair", "shipment", "completed", "rejected" }
+                .FirstOrDefault(stage => OperationsWorkload.MatchesFaultStage(ticket.Status, stage)) ?? "other",
             OperationsWorkload.IsOpenFault(ticket.Status),
             ticket.KargonomiShipments.OrderByDescending(item => item.CreatedAt).Select(item =>
                 new PortalFaultShipmentResponse((int)item.Direction, item.Carrier, item.TrackingNumber,

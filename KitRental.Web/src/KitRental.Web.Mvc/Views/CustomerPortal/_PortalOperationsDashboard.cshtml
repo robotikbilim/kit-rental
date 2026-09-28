@@ -8,10 +8,11 @@
             new("Kargoda", Model.ShipmentsInTransit, "Taşıma sürecindeki gönderiler", "RentalPeriods", "focus", "in-transit"),
             new("Teslim Edildi", Model.ShipmentsDelivered, "Kargo firmasının teslimat kayıtları", "RentalPeriods", "focus", "delivered")]),
         ("Arıza Durumu", [
-            new("Açık Arızalar", Model.OpenFaultCount, "Taşıma aşamasındakiler dahil", "Faults", "state", "open"),
-            new("Onarım Sürecinde", Model.FaultsInRepair, "Kabul edilen ve servisteki kayıtlar", "Faults", "state", "repair"),
-            new("Kargo Bekleyen", Model.FaultsAwaitingShipment, "Gönderim aşamasını bekleyen kayıtlar", "Faults", "state", "shipment"),
-            new("Çözümlenen", Model.FaultsCompleted, "Uzaktan çözülenler dahil; reddedilenler hariç", "Faults", "state", "completed")]),
+            new("İnceleme / bilgi bekleyen", Model.FaultsAwaitingReview, "İnceleme veya müşteri bilgisi beklenen kayıtlar", "Faults", "state", "review"),
+            new("Onarım sürecinde", Model.FaultsInRepair, "Kabul edilen ve atölyedeki kayıtlar", "Faults", "state", "repair"),
+            new("Kargo bekleyen", Model.FaultsAwaitingShipment, "Gönderim aşamasını bekleyen kayıtlar", "Faults", "state", "shipment"),
+            new("Çözümlenen", Model.FaultsCompleted, "Uzaktan çözülen ve kapatılan kayıtlar", "Faults", "state", "completed"),
+            new("Reddedilenler", Model.FaultsRejected, "Reddedilmiş arıza kayıtları", "Faults", "state", "rejected")]),
         ("İade Durumu", [
             new("İade Bekleyen Kitler", Model.ReturnPendingKitCount, "İade veya kargo başlangıcı bekleniyor", "Returns", "state", "pending"),
             new("Kargodaki İadeler", Model.ReturnInTransitKitCount, "Depo teslim alana kadar takip edilir", "Returns", "state", "in-transit"),

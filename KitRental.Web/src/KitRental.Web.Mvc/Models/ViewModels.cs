@@ -563,6 +563,7 @@ public sealed class PrepareOrderKitsViewModel
     public string OrderNumber { get; set; } = string.Empty;
     public string CustomerName { get; set; } = string.Empty;
     public bool UseAvailableKits { get; set; }
+    public List<Guid> SelectedStudentIds { get; set; } = [];
     public Guid? RentalCohortId { get; set; }
     public List<PortalRentalLineInputViewModel> Lines { get; set; } = [new()];
     public IReadOnlyCollection<ProductModelCatalogViewModel> ProductModels { get; set; } = [];

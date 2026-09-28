@@ -126,6 +126,8 @@
 .ops-data-table.student-order-table:not(.returns-order-table) :is(th,td):nth-child(7) { width:16%; }
 .ops-data-table.student-order-table:not(.returns-order-table) :is(th,td):nth-child(8) { width:10%; }
 .ops-data-table.student-order-table:not(.returns-order-table) :is(th,td):nth-child(9) { width:14%; }
+#order-students-table tbody td { text-align:center!important; vertical-align:middle!important; }
+#order-students-table tbody td::before { text-align:center!important; }
 .ops-data-region .returns-order-table :is(th,td):first-child { text-align:left!important; }
 .ops-data-table.fault-table th:nth-child(1) { width:13%; }
 .ops-data-table.fault-table th:nth-child(2) { width:9%; }
@@ -176,16 +178,10 @@
 .ops-fault-disclosure-body>.ops-fault-route { margin-top:14px; }
 .ops-fault-status-editor { margin-bottom:12px; border:1px solid var(--line); border-radius:10px; background:var(--card); }
 .ops-fault-status-form { display:grid; gap:18px; padding:18px; border-top:1px solid var(--line); }
-.ops-fault-status-options { min-width:0; padding:0; margin:0; border:0; }
-.ops-fault-status-options legend { float:none; width:auto; font-size:13px; font-weight:700; margin:0 0 10px; }
-.ops-fault-status-options-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:10px; }
-.ops-fault-status-option { display:flex; align-items:flex-start; gap:10px; padding:13px; margin:0; border:1px solid var(--line); border-radius:8px; cursor:pointer; }
-.ops-fault-status-option input[type=radio] { appearance:auto; flex:0 0 18px; width:18px; height:18px; min-height:18px!important; margin:2px 0 0; accent-color:var(--green); }
-.ops-fault-status-option>span { display:grid; gap:5px; min-width:0; }
-.ops-fault-status-option strong { font-size:13px; }
-.ops-fault-status-option small { font-size:12px; line-height:1.5; color:var(--muted); }
-.ops-fault-status-option:has(input:checked) { border-color:var(--green); background:color-mix(in srgb,var(--green) 7%,var(--card)); box-shadow:0 0 0 1px var(--green); }
-.ops-fault-status-option.is-rejection:has(input:checked) { border-color:#b83b32; box-shadow:0 0 0 1px #b83b32; background:#fff4f3; }
+.ops-fault-status-select-wrap { display:grid; gap:7px; }
+.ops-fault-status-select-wrap label { font-size:13px; font-weight:700; }
+.ops-fault-status-select-wrap label span,.ops-fault-status-select-wrap>small { color:var(--muted); font-size:12px; font-weight:400; }
+.ops-fault-status-select-wrap select { width:100%; min-height:44px; padding:9px 12px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); }
 .ops-fault-status-note { display:grid; gap:7px; }
 .ops-fault-status-note label { font-size:13px; font-weight:700; margin:0; }
 .ops-fault-status-note :is(label span,small) { color:var(--muted); font-weight:400; font-size:12px; }

@@ -1,11 +1,18 @@
 @model PrepareOrderKitsViewModel
-@{ ViewData["Title"] = "Sipariş Kitlerini Oluştur"; }
+@{
+    ViewData["Title"] = "Sipariş Kitlerini Oluştur";
+    var selectedStudentsOnly = Model.SelectedStudentIds.Count > 0;
+}
 <div class="form-shell form-shell-wide">
-    <div class="form-heading"><a asp-action="OrderDetails" asp-route-id="@Model.OrderId">← Sipariş Detayına Dön</a><span class="eyebrow">@Model.OrderNumber</span><h1>Fiziksel kitleri yapılandır</h1><p>@Model.CustomerName için siparişte yer alacak ürünleri ve adetleri son kez düzenleyin.</p></div>
+    <div class="form-heading"><a asp-action="OrderDetails" asp-route-id="@Model.OrderId">← Sipariş Detayına Dön</a><span class="eyebrow">@Model.OrderNumber</span><h1>Fiziksel kitleri yapılandır</h1><p>@(selectedStudentsOnly ? $"Seçilen {Model.SelectedStudentIds.Count} öğrenci için ürün ve adetler otomatik listelendi." : $"{Model.CustomerName} için siparişte yer alacak ürünleri ve adetleri son kez düzenleyin.")</p></div>
     <form class="catalog-form" asp-action="PrepareOrderKits" method="post">
         <input type="hidden" asp-for="OrderId" />
+        @foreach (var studentId in Model.SelectedStudentIds)
+        {
+            <input type="hidden" name="SelectedStudentIds" value="@studentId" />
+        }
         <div asp-validation-summary="All" class="error"></div>
-        @if (Model.RentalCohorts.Count > 0)
+        @if (!selectedStudentsOnly && Model.RentalCohorts.Count > 0)
         {
             <div class="form-section">
                 <div class="section-heading"><div><h2>TACEV dönemi</h2><p>Dönem seçildiğinde adetler öğrenci listesinden otomatik hesaplanır.</p></div></div>
@@ -21,11 +28,11 @@
                 </div>
             </div>
         }
-        <div class="form-section"><div class="section-heading"><div><h2>Sipariş kapsamındaki kitler</h2><p>Ürün ekleyebilir, satır çıkarabilir ve adetleri değiştirebilirsiniz.</p></div><button class="secondary-action" type="button" id="add-order-kit-line">+ Ürün Ekle</button></div>
+        <div class="form-section"><div class="section-heading"><div><h2>@(selectedStudentsOnly ? "Seçilen öğrencilerin kitleri" : "Sipariş kapsamındaki kitler")</h2><p>@(selectedStudentsOnly ? "Öğrenci seçimine göre ürün tipleri ve adetler belirlenmiştir." : "Ürün ekleyebilir, satır çıkarabilir ve adetleri değiştirebilirsiniz.")</p></div>@if (!selectedStudentsOnly) { <button class="secondary-action" type="button" id="add-order-kit-line">+ Ürün Ekle</button> }</div>
             <div class="recipe-lines" id="order-kit-lines">
             @for (var i = 0; i < Model.Lines.Count; i++)
             {
-                <div class="recipe-line order-kit-line"><span class="line-number">@(i + 1)</span><div class="field"><label>Eğitim kiti</label><select name="Lines[@i].ProductModelId"><option value="">Kit seçin</option>@foreach (var kit in Model.ProductModels) { <option value="@kit.Id" selected="@(kit.Id == Model.Lines[i].ProductModelId)">@kit.Name (@kit.Sku)</option> }</select></div><div class="field quantity-field"><label>Adet</label><input type="number" min="1" name="Lines[@i].Quantity" value="@Model.Lines[i].Quantity" /></div><button class="remove-line" type="button" title="Satırı kaldır">×</button></div>
+                <div class="recipe-line order-kit-line"><span class="line-number">@(i + 1)</span><div class="field"><label>Eğitim kiti</label><select name="Lines[@i].ProductModelId" disabled="@selectedStudentsOnly"><option value="">Kit seçin</option>@foreach (var kit in Model.ProductModels) { <option value="@kit.Id" selected="@(kit.Id == Model.Lines[i].ProductModelId)">@kit.Name (@kit.Sku)</option> }</select>@if (selectedStudentsOnly) { <input type="hidden" name="Lines[@i].ProductModelId" value="@Model.Lines[i].ProductModelId" /> }</div><div class="field quantity-field"><label>Adet</label><input type="number" min="1" name="Lines[@i].Quantity" value="@Model.Lines[i].Quantity" readonly="@selectedStudentsOnly" /></div>@if (!selectedStudentsOnly) { <button class="remove-line" type="button" title="Satırı kaldır">×</button> }</div>
             }
             </div>
         </div>
@@ -37,9 +44,12 @@
     </form>
 </div>
 <template id="order-kit-line-template"><div class="recipe-line order-kit-line"><span class="line-number"></span><div class="field"><label>Eğitim kiti</label><select data-name="ProductModelId"><option value="">Kit seçin</option>@foreach (var kit in Model.ProductModels) { <option value="@kit.Id">@kit.Name (@kit.Sku)</option> }</select></div><div class="field quantity-field"><label>Adet</label><input data-name="Quantity" type="number" min="1" value="1" /></div><button class="remove-line" type="button" title="Satırı kaldır">×</button></div></template>
+@if (!selectedStudentsOnly)
+{
 <script>
 (() => { const box=document.querySelector('#order-kit-lines'),tpl=document.querySelector('#order-kit-line-template');
  const renumber=()=>[...box.querySelectorAll('.order-kit-line')].forEach((row,i)=>{row.querySelector('.line-number').textContent=i+1;row.querySelectorAll('[name],[data-name]').forEach(el=>{const field=el.dataset.name||el.name.split('.').pop();el.name=`Lines[${i}].${field}`;});});
  document.querySelector('#add-order-kit-line').addEventListener('click',()=>{box.append(tpl.content.cloneNode(true));renumber();});
  box.addEventListener('click',e=>{if(!e.target.classList.contains('remove-line'))return;if(box.children.length>1)e.target.closest('.order-kit-line').remove();else{box.querySelector('select').value='';box.querySelector('input').value=1;}renumber();});renumber(); })();
 </script>
+}

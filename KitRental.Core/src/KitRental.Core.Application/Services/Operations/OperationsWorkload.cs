@@ -25,6 +25,7 @@ public static class OperationsWorkload
         "repair" => status is FaultStatus.Accepted or FaultStatus.InService or FaultStatus.WorkshopReceived,
         "shipment" => status is FaultStatus.AwaitingReturn or FaultStatus.AwaitingWorkshopShipment or FaultStatus.Repaired,
         "completed" => status is FaultStatus.Resolved or FaultStatus.Closed or FaultStatus.RemoteResolved,
+        "rejected" => status == FaultStatus.Rejected,
         _ => true
     };
 

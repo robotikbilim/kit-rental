@@ -179,7 +179,7 @@
                         <i></i>
                         <div>
                             <strong>@StatusName(item.NewStatus)</strong>
-                            <span>@item.Reason</span>
+                            <span>@OperationsDisplay.PhysicalKitEventReason(item.Reason)</span>
                             <small>@item.OccurredAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>
                         </div>
                     </article>

@@ -490,7 +490,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
 
         var normalizedQuery = query?.Trim() ?? string.Empty;
         var normalizedStatus = status is >= 1 and <= 16 ? status : null;
-        var normalizedState = state is "open" or "completed" or "review" or "repair" or "shipment" ? state : "all";
+        var normalizedState = state is "open" or "completed" or "review" or "repair" or "shipment" or "rejected" ? state : "all";
         var allFaults = portal.Faults
             .OrderByDescending(item => item.OpenedAt)
             .ThenBy(item => item.Number)

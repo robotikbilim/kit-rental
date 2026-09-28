@@ -30,11 +30,12 @@ document.querySelectorAll('[data-fault-status-form]').forEach((form) => {
     const save = form.querySelector('[data-fault-status-save]');
     const preview = form.querySelector('[data-fault-status-preview]');
     const syncSelection = () => {
-        const selected = form.querySelector('input[name="status"]:checked');
+        const selected = form.querySelector('select[name="status"]');
         const note = form.querySelector('textarea[name="note"]').value.trim();
-        save.disabled = !selected && !note;
-        preview.textContent = selected
-            ? `Seçilen işlem: ${selected.dataset.actionLabel}`
+        const hasStatus = Boolean(selected?.value);
+        save.disabled = !hasStatus && !note;
+        preview.textContent = hasStatus
+            ? `Yeni durum: ${selected.selectedOptions[0].textContent}`
             : note ? 'Yalnızca not eklenecek; mevcut durum korunacak.' : 'Durum seçin veya not girin.';
     };
     form.addEventListener('change', syncSelection);
@@ -46,9 +47,9 @@ document.querySelectorAll('[data-fault-status-form]').forEach((form) => {
         panel.querySelector('summary').focus();
     });
     form.addEventListener('submit', (event) => {
-        const selected = form.querySelector('input[name="status"]:checked');
+        const selected = form.querySelector('select[name="status"]');
         const note = form.querySelector('textarea[name="note"]').value.trim();
-        if (!selected && !note) { event.preventDefault(); syncSelection(); return; }
+        if (!selected?.value && !note) { event.preventDefault(); syncSelection(); return; }
         if (form.dataset.submitting === 'true') { event.preventDefault(); return; }
         form.dataset.submitting = 'true';
         save.disabled = true;

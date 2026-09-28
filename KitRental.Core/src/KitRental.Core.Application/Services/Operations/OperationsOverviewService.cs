@@ -36,6 +36,7 @@ public sealed class OperationsOverviewService(ICoreRepository repository, TimePr
             faults.Count(x => OperationsWorkload.MatchesFaultStage(x.Status, "repair")),
             faults.Count(x => OperationsWorkload.MatchesFaultStage(x.Status, "shipment")),
             faults.Count(x => OperationsWorkload.MatchesFaultStage(x.Status, "completed")),
+            faults.Count(x => OperationsWorkload.MatchesFaultStage(x.Status, "rejected")),
             rows.Count(x => x.Status == 2), rows.Sum(x => x.ActiveKitCount),
             rows.Sum(x => x.ShipmentReadyCount), rows.Sum(x => x.ShipmentFailedCount),
             faults.Count(x => OperationsWorkload.IsOpenFault(x.Status)),

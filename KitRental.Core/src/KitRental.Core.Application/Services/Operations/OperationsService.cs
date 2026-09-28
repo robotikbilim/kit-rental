@@ -626,7 +626,8 @@ public sealed class OperationsService(
                 ?? throw new ResourceNotFoundException("Kiralama dönemi bulunamadı.");
             if (cohort.CustomerId != order.CustomerId)
                 throw new ForbiddenException("Seçilen dönem bu siparişin müşterisine ait değil.");
-            var eligibleStudents = cohort.Students.Where(item => !item.IsDeleted && !item.HasKitAssignment).ToArray();
+            var eligibleStudents = cohort.Students.Where(item => !item.IsDeleted && item.OrderId == order.Id &&
+                !item.HasKitAssignment).ToArray();
             if (hasSelectedStudents && selectedStudentIds!.Any(studentId =>
                     !eligibleStudents.Any(student => student.Id == studentId)))
                 throw new ConflictException("rental_cohort.student_selection_invalid",
@@ -647,7 +648,8 @@ public sealed class OperationsService(
                 .FirstOrDefault(item => item.Students.Any(student => student.OrderId == order.Id));
             if (cohort is not null)
             {
-                cohortStudents = cohort.Students.Where(item => !item.IsDeleted && !item.HasKitAssignment).ToArray();
+                cohortStudents = cohort.Students.Where(item => !item.IsDeleted && item.OrderId == order.Id &&
+                    !item.HasKitAssignment).ToArray();
                 requestedLines = cohortStudents
                     .GroupBy(item => item.ProductModelId)
                     .Select(group => new OrderKitLineCommand(group.Key, group.Count()))
@@ -1310,26 +1312,26 @@ public sealed class OperationsService(
         var previous = ticket.Status;
         note = string.IsNullOrWhiteSpace(note) ? status switch
         {
-            FaultStatus.Investigating => "Arıza incelemeye alındı.", FaultStatus.Accepted => "Arıza kabul edildi.",
-            FaultStatus.Rejected => "Arıza reddedildi.", FaultStatus.RemoteResolved => "Uzaktan destekle çözüldü.",
-            FaultStatus.AwaitingWorkshopShipment => "Atölye kargosu bekleniyor.", FaultStatus.WorkshopShipmentInTransit => "Kit atölyeye kargolandı.",
-            FaultStatus.WorkshopReceived => "Kit atölyeye ulaştı.", FaultStatus.Repaired => "Arıza giderildi.",
-            FaultStatus.Closed => "Kargo teslim edildi, arıza kapatıldı.", _ => "Arıza süreci güncellendi."
+            FaultStatus.Open => "Arıza kaydı açık duruma alındı.",
+            FaultStatus.Investigating => "Arıza incelemeye alındı.",
+            FaultStatus.WaitingForCustomer => "Müşteriden bilgi bekleniyor.",
+            FaultStatus.AwaitingReturn => "Kitin iadesi bekleniyor.",
+            FaultStatus.InService => "Kit onarım sürecine alındı.",
+            FaultStatus.ReplacementInTransit => "Yedek kit yolda.",
+            FaultStatus.Resolved => "Arıza çözüldü.",
+            FaultStatus.Closed => "Arıza kaydı tamamlandı.",
+            FaultStatus.Accepted => "Arıza kabul edildi.",
+            FaultStatus.Rejected => "Arıza reddedildi.",
+            FaultStatus.RemoteResolved => "Arıza uzaktan destekle çözüldü.",
+            FaultStatus.AwaitingWorkshopShipment => "Atölye kargosu bekleniyor.",
+            FaultStatus.WorkshopShipmentInTransit => "Kit atölyeye kargolandı.",
+            FaultStatus.WorkshopReceived => "Kit atölyeye ulaştı.",
+            FaultStatus.Repaired => "Arıza giderildi.",
+            FaultStatus.CustomerShipmentInTransit => "Kit müşteriye kargolandı.",
+            _ => "Arıza durumu güncellendi."
         } : note.Trim();
         var now = timeProvider.GetTurkeyNow();
-        switch (status)
-        {
-            case FaultStatus.Investigating: ticket.MarkInvestigating(actorId, now, note); break;
-            case FaultStatus.Accepted: ticket.Accept(actorId, now, note); break;
-            case FaultStatus.Rejected: ticket.Reject(actorId, now, note); break;
-            case FaultStatus.RemoteResolved: ticket.ResolveRemotely(actorId, now, note); break;
-            case FaultStatus.AwaitingWorkshopShipment: ticket.AwaitWorkshopShipment(actorId, now, note); break;
-            case FaultStatus.WorkshopShipmentInTransit: ticket.MarkWorkshopShipmentInTransit(actorId, now, note); break;
-            case FaultStatus.WorkshopReceived: ticket.MarkWorkshopReceived(actorId, now, note); break;
-            case FaultStatus.Repaired: ticket.MarkRepaired(actorId, now, note); break;
-            case FaultStatus.Closed: ticket.Close(actorId, now, note); break;
-            default: throw new ConflictException("fault.unsupported_transition", "Bu arıza süreci adımı artık kullanılamıyor.");
-        }
+        ticket.ChangeStatus(status, actorId, now, note);
         await AddActivityAsync(ticket.ProductUnitId, ticket.AssignmentId, ticket.OrderId, null, actorId,
             actorId.ToString(), "Arıza durumu güncellendi", note, cancellationToken);
         await AuditAsync(actorId, nameof(FaultTicket), ticket.Id, "StatusChanged", previous.ToString(), ticket.Status.ToString(), cancellationToken);

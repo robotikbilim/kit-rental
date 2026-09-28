@@ -512,25 +512,44 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     }
 
     [HttpGet, Authorize(Roles = "SystemAdmin,OperationsManager")]
-    public async Task<IActionResult> PrepareOrderKits(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> PrepareOrderKits(Guid id, Guid[]? studentIds,
+        CancellationToken cancellationToken)
     {
         var order = await apiClient.GetOrderDetailAsync(id, cancellationToken);
         if (order is null) return NotFound();
-        if (order.Status != 3 || order.Kits.Count > 0)
+        var selectedStudentIds = studentIds?.Where(studentId => studentId != Guid.Empty).Distinct().ToArray() ?? [];
+        var selectedStudents = order.Students.Where(student => selectedStudentIds.Contains(student.Id)).ToArray();
+        if (order.Status != 3 || (selectedStudentIds.Length > 0 && order.Type != 1) ||
+            (selectedStudentIds.Length == 0 && order.Kits.Count > 0))
             return RedirectToAction(nameof(OrderDetails), new { id });
+        if (selectedStudentIds.Length > 0 &&
+            (selectedStudents.Length != selectedStudentIds.Length || selectedStudents.Any(student => student.HasKitAssignment)))
+        {
+            TempData["Error"] = "Seçilen öğrencilerden biri siparişe bağlı değil veya zaten fiziksel kit atanmış.";
+            return RedirectToAction(nameof(OrderDetails), new { id });
+        }
+
         return View(new PrepareOrderKitsViewModel
         {
             OrderId = order.Id,
             OrderNumber = order.OrderNumber,
             CustomerName = order.CustomerName,
-            Lines = order.Lines.Select(line => new PortalRentalLineInputViewModel
-            {
-                ProductModelId = line.ProductModelId,
-                Quantity = line.Quantity
-            }).ToList(),
+            SelectedStudentIds = selectedStudentIds.ToList(),
+            Lines = selectedStudentIds.Length > 0
+                ? selectedStudents.GroupBy(student => student.ProductModelId)
+                    .Select(group => new PortalRentalLineInputViewModel
+                    {
+                        ProductModelId = group.Key,
+                        Quantity = group.Count()
+                    }).ToList()
+                : order.Lines.Select(line => new PortalRentalLineInputViewModel
+                {
+                    ProductModelId = line.ProductModelId,
+                    Quantity = line.Quantity
+                }).ToList(),
             ProductModels = await apiClient.GetProductModelsAsync(cancellationToken),
             RentalCohortId = order.RentalCohortId,
-            RentalCohorts = order.Type == 1
+            RentalCohorts = selectedStudentIds.Length == 0
                 ? await apiClient.GetCustomerRentalCohortsAsync(order.CustomerId, cancellationToken)
                 : []
         });
@@ -541,12 +560,15 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         CancellationToken cancellationToken)
     {
         model.Lines = model.Lines.Where(line => line.ProductModelId != Guid.Empty && line.Quantity > 0).ToList();
-        if (model.Lines.Count == 0)
+        model.SelectedStudentIds = model.SelectedStudentIds.Where(studentId => studentId != Guid.Empty)
+            .Distinct().ToList();
+        if (model.Lines.Count == 0 && model.SelectedStudentIds.Count == 0)
             ModelState.AddModelError(string.Empty, "En az bir eğitim kiti seçmelisiniz.");
         if (ModelState.IsValid)
         {
             var result = await apiClient.CreateOrderKitsAsync(
-                model.OrderId, model.Lines, model.UseAvailableKits, model.RentalCohortId, cancellationToken);
+                model.OrderId, model.Lines, model.UseAvailableKits, model.RentalCohortId, cancellationToken,
+                model.SelectedStudentIds.Count > 0 ? model.SelectedStudentIds : null);
             if (result.IsSuccess)
             {
                 var data = result.Data!;
@@ -565,34 +587,6 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             ? await apiClient.GetCustomerRentalCohortsAsync(order.CustomerId, cancellationToken)
             : [];
         return View(model);
-    }
-
-    [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]
-    public async Task<IActionResult> CreateSelectedOrderKits(Guid id, Guid[] studentIds,
-        CancellationToken cancellationToken)
-    {
-        if (studentIds.Length == 0)
-        {
-            TempData["Error"] = "Kit oluşturmak için en az bir öğrenci seçmelisiniz.";
-            return RedirectToAction(nameof(OrderDetails), new { id });
-        }
-
-        var order = await apiClient.GetOrderDetailAsync(id, cancellationToken);
-        if (order is null) return NotFound();
-        var result = await apiClient.CreateOrderKitsAsync(id, [], true, order.RentalCohortId,
-            cancellationToken, studentIds);
-        if (result.IsSuccess)
-        {
-            var data = result.Data!;
-            TempData["Success"] = data.ReusedCount > 0
-                ? $"Seçilen öğrenciler için {data.ReusedCount} hazır kit rezerve edildi; {data.CreatedCount} fiziksel kit üretildi."
-                : $"Seçilen öğrenciler için {data.CreatedCount} fiziksel kit oluşturuldu ve rezerve edildi.";
-        }
-        else
-        {
-            TempData["Error"] = result.Error ?? "Seçilen öğrenciler için fiziksel kit oluşturulamadı.";
-        }
-        return RedirectToAction(nameof(OrderDetails), new { id });
     }
 
     [HttpPost, ValidateAntiForgeryToken, Authorize(Roles = "SystemAdmin,OperationsManager")]

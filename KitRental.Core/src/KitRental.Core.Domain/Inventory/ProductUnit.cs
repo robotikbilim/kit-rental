@@ -41,7 +41,7 @@ public sealed class ProductUnit
             throw new DomainException("product_unit.identifiers_required", "Serial number and QR code are required.");
 
         var unit = new ProductUnit(id, productModelId, serialNumber.Trim().ToUpperInvariant(), qrCode.Trim().ToUpperInvariant());
-        unit._history.Add(new InventoryEvent(Guid.NewGuid(), id, null, ProductUnitStatus.Available, occurredAt, actorId, "Physical product unit created."));
+        unit._history.Add(new InventoryEvent(Guid.NewGuid(), id, null, ProductUnitStatus.Available, occurredAt, actorId, "Fiziksel kit oluşturuldu."));
         return unit;
     }
 
@@ -54,44 +54,44 @@ public sealed class ProductUnit
     }
 
     public void Reserve(Guid actorId, DateTimeOffset occurredAt) =>
-        TransitionTo(ProductUnitStatus.Reserved, actorId, occurredAt, "Reserved for rental.", ProductUnitStatus.Available);
+        TransitionTo(ProductUnitStatus.Reserved, actorId, occurredAt, "Kiralama için rezerve edildi.", ProductUnitStatus.Available);
 
     public void ReleaseReservation(Guid actorId, DateTimeOffset occurredAt) =>
-        TransitionTo(ProductUnitStatus.Available, actorId, occurredAt, "Reservation released.", ProductUnitStatus.Reserved);
+        TransitionTo(ProductUnitStatus.Available, actorId, occurredAt, "Öğrencinin siparişten çıkarılmasıyla rezervasyon kaldırıldı.", ProductUnitStatus.Reserved);
 
     public void StartPreparation(Guid actorId, DateTimeOffset occurredAt) =>
-        TransitionTo(ProductUnitStatus.Preparing, actorId, occurredAt, "Kit assigned for shipping.", ProductUnitStatus.Reserved);
+        TransitionTo(ProductUnitStatus.Preparing, actorId, occurredAt, "Kit gönderim için hazırlandı.", ProductUnitStatus.Reserved);
 
     public void Dispatch(Guid actorId, DateTimeOffset occurredAt) =>
-        TransitionTo(ProductUnitStatus.OutboundInTransit, actorId, occurredAt, "Dispatched for outbound shipping.", ProductUnitStatus.Preparing);
+        TransitionTo(ProductUnitStatus.OutboundInTransit, actorId, occurredAt, "Kit müşteriye gönderilmek üzere kargoya verildi.", ProductUnitStatus.Preparing);
 
     public void ConfirmDelivery(Guid actorId, DateTimeOffset occurredAt) =>
-        TransitionTo(ProductUnitStatus.WithCustomer, actorId, occurredAt, "Delivery confirmed.", ProductUnitStatus.OutboundInTransit);
+        TransitionTo(ProductUnitStatus.WithCustomer, actorId, occurredAt, "Teslimat onaylandı.", ProductUnitStatus.OutboundInTransit);
 
     public void CompleteRentalFulfillment(Guid actorId, DateTimeOffset occurredAt) =>
-        TransitionTo(ProductUnitStatus.WithCustomer, actorId, occurredAt, "Rental fulfilled without shipment steps.",
+        TransitionTo(ProductUnitStatus.WithCustomer, actorId, occurredAt, "Kit, kargo adımları olmadan kiraya verildi.",
             ProductUnitStatus.Reserved, ProductUnitStatus.Preparing, ProductUnitStatus.OutboundInTransit);
 
     public void ConfirmDeliveryTo(Guid actorId, DateTimeOffset occurredAt, string recipientName, string address)
     {
-        var reason = $"Delivery confirmed. Recipient: {recipientName.Trim()}. Address: {address.Trim()}";
+        var reason = $"Teslimat onaylandı. Teslim alan: {recipientName.Trim()}. Adres: {address.Trim()}";
         if (reason.Length > 500) reason = reason[..497] + "...";
         TransitionTo(ProductUnitStatus.WithCustomer, actorId, occurredAt, reason, ProductUnitStatus.OutboundInTransit);
     }
 
     public void CompleteSale(Guid actorId, DateTimeOffset occurredAt) =>
-        TransitionTo(ProductUnitStatus.Sold, actorId, occurredAt, "Sale delivery completed; kit removed from rental fleet.",
+        TransitionTo(ProductUnitStatus.Sold, actorId, occurredAt, "Satış teslimatı tamamlandı; kit kiralama envanterinden çıkarıldı.",
             ProductUnitStatus.OutboundInTransit);
 
     public void CompleteSaleFulfillment(Guid actorId, DateTimeOffset occurredAt) =>
-        TransitionTo(ProductUnitStatus.Sold, actorId, occurredAt, "Sale fulfilled without shipment steps.",
+        TransitionTo(ProductUnitStatus.Sold, actorId, occurredAt, "Kit, kargo adımları olmadan satıldı.",
             ProductUnitStatus.Reserved, ProductUnitStatus.Preparing, ProductUnitStatus.OutboundInTransit);
 
     public void StartReturn(Guid actorId, DateTimeOffset occurredAt) =>
-        TransitionTo(ProductUnitStatus.ReturnInTransit, actorId, occurredAt, "Sent to return shipping.", ProductUnitStatus.WithCustomer);
+        TransitionTo(ProductUnitStatus.ReturnInTransit, actorId, occurredAt, "Kit iade için kargoya verildi.", ProductUnitStatus.WithCustomer);
 
     public void ReceiveForInspection(Guid actorId, DateTimeOffset occurredAt) =>
-        TransitionTo(ProductUnitStatus.UnderInspection, actorId, occurredAt, "Received to warehouse; waiting for inspection.", ProductUnitStatus.ReturnInTransit);
+        TransitionTo(ProductUnitStatus.UnderInspection, actorId, occurredAt, "Kit atölyeye ulaştı; kontrol bekliyor.", ProductUnitStatus.ReturnInTransit);
 
     public void CompleteInspection(ProductUnitStatus outcome, Guid actorId, DateTimeOffset occurredAt, string reason)
     {
@@ -104,7 +104,7 @@ public sealed class ProductUnit
     public void ReceiveReturnToAvailable(Guid actorId, DateTimeOffset occurredAt)
     {
         ReceiveForInspection(actorId, occurredAt);
-        CompleteInspection(ProductUnitStatus.Available, actorId, occurredAt, "Customer return received; kit is available again.");
+        CompleteInspection(ProductUnitStatus.Available, actorId, occurredAt, "Müşteri iadesi alındı; kit yeniden kiralanabilir.");
     }
 
     private void TransitionTo(

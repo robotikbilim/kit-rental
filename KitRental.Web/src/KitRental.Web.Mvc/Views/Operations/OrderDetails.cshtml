@@ -152,11 +152,10 @@
             @if (!isPurchase && canManage && Model.Status == 3)
             {
                 <form id="bulk-student-kit-form"
-                      asp-action="CreateSelectedOrderKits"
+                      asp-action="PrepareOrderKits"
                       asp-route-id="@Model.Id"
-                      method="post"
+                      method="get"
                       hidden
-                      data-confirm="Seçilen öğrenciler için fiziksel kit oluşturulup rezerve edilsin mi?"
                       data-datatable-bulk-label="Kit Oluştur"
                       data-datatable-bulk-class="dt-bulk-kit"
                       data-datatable-selection-attribute="canCreateKit"
