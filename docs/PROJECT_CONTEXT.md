@@ -548,7 +548,7 @@ There are existing web UI changes in the working tree unrelated to the kit-locat
 - Admin order detail no longer shows a per-row or bulk `Teslim Et` action.
 - Admin order detail combined student table uses a narrow checkbox column and a wider student-name column.
 - Admin order detail combined student table uses fixed compact percentage widths, zero minimum cell widths, and truncated content so every column remains within the available screen width without a horizontal scrollbar or DataTables responsive child rows.
-- Admin order detail's approved-order `Kit Oluştur` action is a DataTables bulk action. It is shown only when at least one rental student has no physical-kit assignment, accepts one or more selected student rows, creates/reuses and reserves only those students' kits, and preserves the order's remaining requested quantities for later selections. Rows already assigned a kit cannot be used for this action.
+- Admin order detail's approved-order `Kit Oluştur` action is registered as a DataTables bulk action on every approved rental order, then appears for selected rows and is enabled only when every selected student has no physical-kit assignment. It creates/reuses and reserves only those students' kits, and preserves the order's remaining requested quantities for later selections. Rows already assigned a kit cannot be used for this action.
 - Admin order summaries recalculate requested and assigned kit counts after an approved-order student/kit removal, excluding cancelled rental assignments.
 - Admin order completion message uses the requested wording that all student kits must be delivered; the existing address validation remains unchanged.
 

@@ -18,8 +18,6 @@
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .OrderBy(status => status, StringComparer.CurrentCultureIgnoreCase)
         .ToArray();
-    var hasKitCreatableStudents = !isPurchase && canManage && Model.Status == 3 &&
-        Model.Students.Any(student => !student.HasKitAssignment);
     var canPrintOrderLabels = User.IsInRole("SystemAdmin") || User.IsInRole("OperationsManager") || User.IsInRole("WarehouseStaff");
     var studentBulkActionIds = "bulk-student-excel-form,bulk-student-kargonomi-form" +
         (canPrintOrderLabels ? ",bulk-student-labels-form" : string.Empty) +
@@ -151,7 +149,7 @@
                   data-datatable-bulk-disabled-title="Kargo etiketi yazdırmak için seçilen kayıtların tamamında Kargonomi gönderisi oluşmuş olmalıdır.">
                 <input type="hidden" name="id" value="@Model.Id" />
             </form>
-            @if (hasKitCreatableStudents)
+            @if (!isPurchase && canManage && Model.Status == 3)
             {
                 <form id="bulk-student-kit-form"
                       asp-action="CreateSelectedOrderKits"
