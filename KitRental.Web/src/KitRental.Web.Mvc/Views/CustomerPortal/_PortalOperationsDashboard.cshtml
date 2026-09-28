@@ -10,7 +10,7 @@
         ("Arıza Durumu", [
             new("İnceleme / bilgi bekleyen", Model.FaultsAwaitingReview, "İnceleme veya müşteri bilgisi beklenen kayıtlar", "Faults", "state", "review"),
             new("Onarım sürecinde", Model.FaultsInRepair, "Kabul edilen ve atölyedeki kayıtlar", "Faults", "state", "repair"),
-            new("Kargo bekleyen", Model.FaultsAwaitingShipment, "Gönderim aşamasını bekleyen kayıtlar", "Faults", "state", "shipment"),
+            new("Kargo Sürecinde", Model.FaultsAwaitingShipment, "Atölyeye veya müşteriye gönderilen kayıtlar", "Faults", "state", "shipment"),
             new("Çözümlenen", Model.FaultsCompleted, "Uzaktan çözülen ve kapatılan kayıtlar", "Faults", "state", "completed"),
             new("Reddedilenler", Model.FaultsRejected, "Reddedilmiş arıza kayıtları", "Faults", "state", "rejected")]),
         ("İade Durumu", [

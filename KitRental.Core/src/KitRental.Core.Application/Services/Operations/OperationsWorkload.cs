@@ -23,7 +23,8 @@ public static class OperationsWorkload
         "open" => IsOpenFault(status),
         "review" => status is FaultStatus.Open or FaultStatus.Investigating or FaultStatus.WaitingForCustomer,
         "repair" => status is FaultStatus.Accepted or FaultStatus.InService or FaultStatus.WorkshopReceived,
-        "shipment" => status is FaultStatus.AwaitingReturn or FaultStatus.AwaitingWorkshopShipment or FaultStatus.Repaired,
+        "shipment" => status is FaultStatus.AwaitingReturn or FaultStatus.AwaitingWorkshopShipment
+            or FaultStatus.Repaired or FaultStatus.CustomerShipmentInTransit,
         "completed" => status is FaultStatus.Resolved or FaultStatus.Closed or FaultStatus.RemoteResolved,
         "rejected" => status == FaultStatus.Rejected,
         _ => true
