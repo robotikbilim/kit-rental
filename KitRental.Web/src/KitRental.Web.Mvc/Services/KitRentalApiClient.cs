@@ -550,6 +550,17 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         GetAsync<PublicKitDeliveryContextViewModel>(
             $"/core/api/public/deliveries/context/{Uri.EscapeDataString(qrCode)}", cancellationToken);
 
+    public Task<ApiCommandResult<OwnershipPaymentStartViewModel>> StartOwnershipPaymentAsync(string token,
+        PublicKitOwnershipViewModel model, CancellationToken cancellationToken) =>
+        PostAsync<OwnershipPaymentStartViewModel>($"/core/api/public/kit-ownership/{Uri.EscapeDataString(token)}/payments",
+            new { firstName = model.FirstName, lastName = model.LastName, identityNumber = model.IdentityNumber,
+                email = model.BuyerEmail, phone = model.BuyerPhone, address = model.Address,
+                city = model.City, postalCode = model.PostalCode }, cancellationToken);
+
+    public Task<OwnershipPaymentStatusViewModel?> GetOwnershipPaymentStatusAsync(Guid attemptId,
+        CancellationToken cancellationToken) =>
+        GetAsync<OwnershipPaymentStatusViewModel>($"/core/api/public/kit-ownership/payments/{attemptId}", cancellationToken);
+
     public Task<PublicKitReturnContextViewModel?> GetPublicKitReturnContextAsync(string qrCode,
         CancellationToken cancellationToken) =>
         GetAsync<PublicKitReturnContextViewModel>(

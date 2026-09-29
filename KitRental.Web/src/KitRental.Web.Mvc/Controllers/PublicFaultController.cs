@@ -29,6 +29,65 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
             : View("Index", new PublicKitActionViewModel(kit.QrCode, kit.KitName, kit.SerialNumber, token));
     }
 
+    [HttpGet("form/{token}/sahiplen")]
+    public async Task<IActionResult> OwnershipOffer(string token, CancellationToken cancellationToken)
+    {
+        var kit = await apiClient.GetPublicFaultKitAsync(token, cancellationToken);
+        return kit is null
+            ? View("LinkExpired")
+            : View("OwnershipOffer", new PublicKitActionViewModel(kit.QrCode, kit.KitName, kit.SerialNumber, token));
+    }
+
+    [HttpGet("form/{token}/sahiplen/odeme")]
+    public async Task<IActionResult> OwnershipCheckout(string token, CancellationToken cancellationToken)
+    {
+        var kit = await apiClient.GetPublicFaultKitAsync(token, cancellationToken);
+        if (kit is null) return View("LinkExpired");
+        var delivery = await apiClient.GetPublicKitDeliveryContextAsync(token, cancellationToken);
+        var parsedAddress = ParseStoredAddress(delivery?.AddressLine);
+        var parts = (delivery?.RecipientName ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return View(new PublicKitOwnershipViewModel
+        {
+            QrCode = kit.QrCode,
+            AccessToken = token,
+            KitName = kit.KitName,
+            SerialNumber = kit.SerialNumber,
+            FirstName = parts.FirstOrDefault() ?? string.Empty,
+            LastName = parts.Length > 1 ? string.Join(' ', parts.Skip(1)) : string.Empty,
+            BuyerPhone = delivery?.RecipientPhone ?? string.Empty,
+            Address = parsedAddress.AddressLine,
+            City = parsedAddress.City
+        });
+    }
+
+    [HttpPost("form/{token}/sahiplen/odeme"), ValidateAntiForgeryToken]
+    public async Task<IActionResult> OwnershipCheckout(string token, PublicKitOwnershipViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var kit = await apiClient.GetPublicFaultKitAsync(token, cancellationToken);
+        if (kit is null) return View("LinkExpired");
+        model.AccessToken = token;
+        model.QrCode = kit.QrCode;
+        model.KitName = kit.KitName;
+        model.SerialNumber = kit.SerialNumber;
+        if (!ModelState.IsValid) return View(model);
+
+        var started = await apiClient.StartOwnershipPaymentAsync(token, model, cancellationToken);
+        if (!started.IsSuccess || started.Data is null)
+        {
+            ModelState.AddModelError(string.Empty, started.Error ?? "Ödeme başlatılamadı. Lütfen tekrar deneyin.");
+            return View(model);
+        }
+        return Redirect(started.Data.PaymentPageUrl);
+    }
+
+    [HttpGet("sahiplenme-sonuc/{attemptId:guid}")]
+    public async Task<IActionResult> OwnershipPaymentResult(Guid attemptId, CancellationToken cancellationToken)
+    {
+        var status = await apiClient.GetOwnershipPaymentStatusAsync(attemptId, cancellationToken);
+        return status is null ? NotFound() : View("OwnershipPaymentResult", status);
+    }
+
     [HttpGet("form/{token}/ariza")]
     public async Task<IActionResult> Troubleshooting(string token, CancellationToken cancellationToken)
     {

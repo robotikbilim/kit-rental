@@ -22,6 +22,45 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("KitRental.Core.Domain.Payments.KitOwnershipPayment", b =>
+                {
+                    b.Property<Guid>("Id").HasColumnType("uniqueidentifier");
+                    b.Property<string>("BasketId").IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
+                    b.Property<DateTimeOffset>("CompletedAt").HasColumnType("datetimeoffset");
+                    b.Property<string>("ConversationId").IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
+                    b.Property<DateTimeOffset>("CreatedAt").HasColumnType("datetimeoffset");
+                    b.Property<Guid>("CustomerId").HasColumnType("uniqueidentifier");
+                    b.Property<DateTimeOffset?>("ExpiresAt").HasColumnType("datetimeoffset");
+                    b.Property<int?>("FraudStatus").HasColumnType("int");
+                    b.Property<string>("Currency").IsRequired().HasMaxLength(3).HasColumnType("nvarchar(3)");
+                    b.Property<string>("IyzicoTokenHash").HasMaxLength(64).HasColumnType("nvarchar(64)");
+                    b.Property<string>("ProtectedIyzicoToken").HasMaxLength(4096).HasColumnType("nvarchar(4096)");
+                    b.Property<string>("PaymentId").HasMaxLength(120).HasColumnType("nvarchar(120)");
+                    b.Property<string>("PaymentPageUrl").HasMaxLength(2000).HasColumnType("nvarchar(2000)");
+                    b.Property<string>("PaymentTransactionId").HasMaxLength(120).HasColumnType("nvarchar(120)");
+                    b.Property<string>("LastWebhookEventType").HasMaxLength(80).HasColumnType("nvarchar(80)");
+                    b.Property<string>("LastWebhookPaymentId").HasMaxLength(120).HasColumnType("nvarchar(120)");
+                    b.Property<string>("LastWebhookStatus").HasMaxLength(40).HasColumnType("nvarchar(40)");
+                    b.Property<DateTimeOffset?>("LastWebhookReceivedAt").HasColumnType("datetimeoffset");
+                    b.Property<DateTimeOffset?>("LastWebhookProcessedAt").HasColumnType("datetimeoffset");
+                    b.Property<decimal>("PaidPrice").HasPrecision(18, 2).HasColumnType("decimal(18,2)");
+                    b.Property<decimal>("Price").HasPrecision(18, 2).HasColumnType("decimal(18,2)");
+                    b.Property<Guid>("ProductUnitId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("ProviderStatus").HasMaxLength(80).HasColumnType("nvarchar(80)");
+                    b.Property<byte[]>("RowVersion").IsRequired().IsConcurrencyToken().ValueGeneratedOnAddOrUpdate().HasColumnType("rowversion");
+                    b.Property<Guid>("AssignmentId").HasColumnType("uniqueidentifier");
+                    b.Property<int>("Status").HasColumnType("int");
+                    b.HasKey("Id");
+                    b.HasIndex("AssignmentId");
+                    b.HasIndex("ConversationId").IsUnique();
+                    b.HasIndex("IyzicoTokenHash").IsUnique().HasFilter("[IyzicoTokenHash] IS NOT NULL");
+                    b.HasIndex("ProductUnitId").IsUnique().HasFilter("[Status] IN (1, 2, 3)");
+                    b.HasIndex("ProductUnitId").IsUnique().HasFilter("[Status] = 4").HasDatabaseName("IX_KitOwnershipPayments_ProductUnitId1");
+                    b.HasIndex("ProductUnitId", "Status", "ExpiresAt");
+                    b.HasIndex("CustomerId", "CreatedAt");
+                    b.ToTable("KitOwnershipPayments");
+                });
+
             modelBuilder.Entity("KitRental.Core.Domain.Auditing.AuditEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1050,6 +1089,16 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                     b.ToTable("StockMovements", (string)null);
                 });
 
+            modelBuilder.Entity("KitRental.Core.Domain.Payments.KitOwnershipPayment", b =>
+                {
+                    b.HasOne("KitRental.Core.Domain.Rentals.RentalAssignment", null)
+                        .WithMany().HasForeignKey("AssignmentId").OnDelete(DeleteBehavior.Restrict).IsRequired();
+                    b.HasOne("KitRental.Core.Domain.Customers.Customer", null)
+                        .WithMany().HasForeignKey("CustomerId").OnDelete(DeleteBehavior.Restrict).IsRequired();
+                    b.HasOne("KitRental.Core.Domain.Inventory.ProductUnit", null)
+                        .WithMany().HasForeignKey("ProductUnitId").OnDelete(DeleteBehavior.Restrict).IsRequired();
+                });
+
             modelBuilder.Entity("KitRental.Core.Domain.Warehouse.StorageLocation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1970,5 +2019,7 @@ namespace KitRental.Core.Infrastructure.Persistence.Migrations
                 });
 #pragma warning restore 612, 618
         }
+
+        public void PopulateModel(ModelBuilder modelBuilder) => BuildModel(modelBuilder);
     }
 }

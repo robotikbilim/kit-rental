@@ -76,12 +76,18 @@ public sealed class ProductUnit
     {
         var reason = $"Teslimat onaylandı. Teslim alan: {recipientName.Trim()}. Adres: {address.Trim()}";
         if (reason.Length > 500) reason = reason[..497] + "...";
-        TransitionTo(ProductUnitStatus.WithCustomer, actorId, occurredAt, reason, ProductUnitStatus.OutboundInTransit);
+        TransitionTo(ProductUnitStatus.WithCustomer, actorId, occurredAt, reason,
+            ProductUnitStatus.Reserved, ProductUnitStatus.Preparing, ProductUnitStatus.OutboundInTransit);
     }
 
     public void CompleteSale(Guid actorId, DateTimeOffset occurredAt) =>
         TransitionTo(ProductUnitStatus.Sold, actorId, occurredAt, "Satış teslimatı tamamlandı; kit kiralama envanterinden çıkarıldı.",
             ProductUnitStatus.OutboundInTransit);
+
+    public void ConvertRentalToSale(Guid actorId, DateTimeOffset occurredAt) =>
+        TransitionTo(ProductUnitStatus.Sold, actorId, occurredAt,
+            "Kiracı kiti TACEV desteğiyle sahiplendi; kiralama envanterinden çıkarıldı.",
+            ProductUnitStatus.WithCustomer);
 
     public void CompleteSaleFulfillment(Guid actorId, DateTimeOffset occurredAt) =>
         TransitionTo(ProductUnitStatus.Sold, actorId, occurredAt, "Kit, kargo adımları olmadan satıldı.",

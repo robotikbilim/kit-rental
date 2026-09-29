@@ -1,0 +1,35 @@
+@model OwnershipPaymentStatusViewModel
+@{
+    ViewData["Title"] = "Kit sahiplenme ödeme sonucu";
+    var pending = Model.Status is "Pending" or "Initializing" or "AwaitingReview";
+}
+@if (pending)
+{
+    <meta http-equiv="refresh" content="8" />
+}
+<div class="public-fault-shell">
+    <section class="public-fault-card">
+        <span class="eyebrow">KİT SAHİPLENME · ÖDEME SONUCU</span>
+        @if (Model.Status == "Succeeded")
+        {
+            <h1>Kit sahiplenmeniz tamamlandı</h1>
+            <p class="block-muted">Ödemeniz doğrulandı. Kit kaydı satış olarak güncellendi.</p>
+        }
+        else if (Model.Status == "Failed")
+        {
+            <h1>Ödeme tamamlanamadı</h1>
+            <p class="block-muted">Ödeme sağlayıcısı işlemi onaylamadı. Yardım için TACEV ile iletişime geçebilirsiniz.</p>
+        }
+        else if (Model.Status == "Expired")
+        {
+            <h1>Ödeme bağlantısının süresi doldu</h1>
+            <p class="block-muted">Yeni ödeme denemesi başlatmak için kitin QR kodunu yeniden okutun.</p>
+        }
+        else
+        {
+            <h1>Ödeme doğrulanıyor</h1>
+            <p class="block-muted">Ödeme sonucunu iyzico üzerinden kontrol ediyoruz. Bu sayfa otomatik olarak yenilenecek.</p>
+        }
+        <p class="ownership-payment-notice">İşlem numarası: @Model.AttemptId</p>
+    </section>
+</div>

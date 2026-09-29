@@ -6,6 +6,7 @@ using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Notifications;
 using KitRental.Core.Domain.Orders;
+using KitRental.Core.Domain.Payments;
 using KitRental.Core.Domain.Procurement;
 using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Returns;
@@ -24,6 +25,7 @@ public sealed class InMemoryCoreRepository : ICoreRepository
     private readonly Dictionary<Guid, Customer> _customers = [];
     private readonly Dictionary<Guid, RentalOrder> _orders = [];
     private readonly Dictionary<Guid, RentalCohort> _rentalCohorts = [];
+    private readonly Dictionary<Guid, KitOwnershipPayment> _kitOwnershipPayments = [];
     private readonly Dictionary<Guid, KargonomiShipment> _kargonomiShipments = [];
     private readonly Dictionary<Guid, KitLocationEvent> _kitLocationEvents = [];
     private readonly Dictionary<Guid, FaultTicket> _faultTickets = [];
@@ -310,6 +312,43 @@ public sealed class InMemoryCoreRepository : ICoreRepository
         cancellationToken.ThrowIfCancellationRequested();
         lock (_gate) return Task.FromResult<IReadOnlyCollection<RentalAssignment>>(
             _assignments.Where(item => item.ProductUnitId == productUnitId)
+                .OrderByDescending(item => item.CreatedAt).ToArray());
+    }
+
+    public Task AddKitOwnershipPaymentAsync(KitOwnershipPayment payment, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            if (_kitOwnershipPayments.Values.Any(item => item.ProductUnitId == payment.ProductUnitId &&
+                item.Status is KitOwnershipPaymentStatus.Initializing or KitOwnershipPaymentStatus.Pending or
+                    KitOwnershipPaymentStatus.AwaitingReview or KitOwnershipPaymentStatus.Succeeded))
+                throw new InvalidOperationException("Bu kit için sahiplenme ödemesi zaten başlatılmış.");
+            _kitOwnershipPayments.Add(payment.Id, payment);
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task<KitOwnershipPayment?> GetKitOwnershipPaymentAsync(Guid id, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult(_kitOwnershipPayments.GetValueOrDefault(id));
+    }
+
+    public Task<KitOwnershipPayment?> GetKitOwnershipPaymentByTokenHashAsync(string tokenHash,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult(_kitOwnershipPayments.Values.SingleOrDefault(item =>
+            item.IyzicoTokenHash == tokenHash));
+    }
+
+    public Task<IReadOnlyCollection<KitOwnershipPayment>> GetKitOwnershipPaymentsForProductUnitAsync(
+        Guid productUnitId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult<IReadOnlyCollection<KitOwnershipPayment>>(
+            _kitOwnershipPayments.Values.Where(item => item.ProductUnitId == productUnitId)
                 .OrderByDescending(item => item.CreatedAt).ToArray());
     }
 

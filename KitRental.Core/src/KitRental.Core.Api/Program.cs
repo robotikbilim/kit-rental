@@ -4,6 +4,8 @@ using KitRental.Core.Infrastructure.Persistence;
 using KitRental.Observability;
 using KitRental.Security;
 using Microsoft.OpenApi;
+using Microsoft.AspNetCore.HttpOverrides;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 var tokenOptions = new TokenOptions(
@@ -42,6 +44,15 @@ builder.Services.AddKitRentalSecurity(tokenOptions);
 builder.Services.AddCoreServices(builder.Configuration, useInMemoryPersistence);
 
 var app = builder.Build();
+var forwardedOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+forwardedOptions.KnownIPNetworks.Clear();
+forwardedOptions.KnownProxies.Clear();
+foreach (var proxy in builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [])
+    if (IPAddress.TryParse(proxy, out var address)) forwardedOptions.KnownProxies.Add(address);
+app.UseForwardedHeaders(forwardedOptions);
 if (!useInMemoryPersistence)
     await app.Services.MigrateCoreDatabaseAsync();
 

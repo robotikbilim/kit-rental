@@ -22,6 +22,7 @@ public sealed class KargonomiClientTests
             ["Kargonomi:SenderName"] = "Robotik Bilim Atölyesi",
             ["Kargonomi:SenderEmail"] = "test@example.com",
             ["Kargonomi:SenderPhone"] = "05536589698",
+            ["Kargonomi:SenderTaxNumber"] = "55981171232",
             ["Kargonomi:SenderAddress"] = "İstanbul / Esenler - Atölye adresi",
             ["Kargonomi:SenderStateId"] = "34",
             ["Kargonomi:SenderCityId"] = "332"
@@ -36,6 +37,7 @@ public sealed class KargonomiClientTests
         var shipment = payload.RootElement.GetProperty("shipment");
         Assert.False(shipment.TryGetProperty("warehouse_id", out _));
         Assert.Equal("Veli Adı", shipment.GetProperty("sender_name").GetString());
+        Assert.Equal("55981171232", shipment.GetProperty("sender_tax_number").GetString());
         Assert.Equal("Ankara / Çankaya - Seçilen arıza adresi", shipment.GetProperty("sender_address").GetString());
         Assert.Equal(6, shipment.GetProperty("sender_state_id").GetInt32());
         Assert.Equal(104, shipment.GetProperty("sender_city_id").GetInt32());

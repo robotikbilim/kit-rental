@@ -1,0 +1,24 @@
+@model PublicKitActionViewModel
+@{
+    ViewData["Title"] = "Kit Sahiplenme Fırsatı";
+}
+<div class="public-fault-shell">
+    <section class="public-fault-card public-ownership-card">
+        <a class="back-link" asp-action="Form" asp-route-token="@Model.AccessToken">← Kit işlemlerine dön</a>
+        <span class="eyebrow">TACEV EĞİTİM DESTEĞİ</span>
+        <h1>🎉 TACEV Desteğiyle Kitinizi Sahiplenin!</h1>
+        <p class="block-muted">Kiralamadaki kitinizin sahibi olun ve eğitim desteğiyle indirimli tutarı ödeyin.</p>
+        <div class="public-kit-summary"><span>Sahiplenilecek kit</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
+
+        <dl class="ownership-price-list">
+            <div><dt>Piyasa Değeri</dt><dd>@PublicKitOwnershipViewModel.MarketValue.ToString("N0") TL</dd></div>
+            <div><dt>TACEV Eğitim Desteği</dt><dd>%@PublicKitOwnershipViewModel.SupportPercentage.ToString("N0") Karşılandı</dd></div>
+            <div class="ownership-total"><dt>Ödeyeceğiniz Tutar</dt><dd>@PublicKitOwnershipViewModel.PriceBeforeVat.ToString("N0") TL + KDV <small>(@PublicKitOwnershipViewModel.PriceWithVat.ToString("N0") TL KDV Dahil)</small></dd></div>
+        </dl>
+
+        <div class="ownership-actions">
+            <a class="primary-action" asp-action="OwnershipCheckout" asp-route-token="@Model.AccessToken">🎉 TACEV Desteğiyle Kiti Sahiplen</a>
+            <a class="secondary-action" asp-action="Return" asp-route-token="@Model.AccessToken">🚚 Kiti İade Etmek İstiyorum</a>
+        </div>
+    </section>
+</div>

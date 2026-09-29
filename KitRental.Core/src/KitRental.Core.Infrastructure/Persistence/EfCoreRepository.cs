@@ -6,6 +6,7 @@ using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Notifications;
 using KitRental.Core.Domain.Orders;
+using KitRental.Core.Domain.Payments;
 using KitRental.Core.Domain.Procurement;
 using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Returns;
@@ -188,6 +189,22 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
 
     public async Task<IReadOnlyCollection<RentalAssignment>> GetAssignmentsForProductUnitAsync(Guid productUnitId, CancellationToken cancellationToken) =>
         await dbContext.RentalAssignments.Where(item => item.ProductUnitId == productUnitId)
+            .OrderByDescending(item => item.CreatedAt).ToArrayAsync(cancellationToken);
+
+    public Task AddKitOwnershipPaymentAsync(KitOwnershipPayment payment, CancellationToken cancellationToken) =>
+        dbContext.KitOwnershipPayments.AddAsync(payment, cancellationToken).AsTask();
+
+    public Task<KitOwnershipPayment?> GetKitOwnershipPaymentAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.KitOwnershipPayments.SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+    public Task<KitOwnershipPayment?> GetKitOwnershipPaymentByTokenHashAsync(string tokenHash,
+        CancellationToken cancellationToken) =>
+        dbContext.KitOwnershipPayments.SingleOrDefaultAsync(item => item.IyzicoTokenHash == tokenHash,
+            cancellationToken);
+
+    public async Task<IReadOnlyCollection<KitOwnershipPayment>> GetKitOwnershipPaymentsForProductUnitAsync(
+        Guid productUnitId, CancellationToken cancellationToken) =>
+        await dbContext.KitOwnershipPayments.Where(item => item.ProductUnitId == productUnitId)
             .OrderByDescending(item => item.CreatedAt).ToArrayAsync(cancellationToken);
 
     public Task AddRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken) =>

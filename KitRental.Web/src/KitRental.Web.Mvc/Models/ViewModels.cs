@@ -581,6 +581,29 @@ public sealed record PortalFaultShipmentViewModel(int Direction, string Carrier,
 public sealed record PublicFaultKitViewModel(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
 public sealed record PublicFormAccessTokenViewModel(string Token, DateTimeOffset ExpiresAt);
 public sealed record PublicKitActionViewModel(string QrCode, string KitName, string SerialNumber, string AccessToken = "");
+public sealed class PublicKitOwnershipViewModel
+{
+    public const decimal MarketValue = 7000m;
+    public const decimal SupportPercentage = 60m;
+    public const decimal PriceBeforeVat = 2350m;
+    public const decimal PriceWithVat = 2820m;
+
+    [Required] public string QrCode { get; set; } = string.Empty;
+    [Required] public string AccessToken { get; set; } = string.Empty;
+    public string KitName { get; set; } = string.Empty;
+    public string SerialNumber { get; set; } = string.Empty;
+    [Required, StringLength(80), Display(Name = "Ad")] public string FirstName { get; set; } = string.Empty;
+    [Required, StringLength(80), Display(Name = "Soyad")] public string LastName { get; set; } = string.Empty;
+    [Required, RegularExpression("^[0-9]{11}$", ErrorMessage = "TCKN 11 rakamdan oluşmalıdır."), Display(Name = "T.C. Kimlik Numarası")]
+    public string IdentityNumber { get; set; } = string.Empty;
+    [Required, TurkishPhone, StringLength(40), Display(Name = "Telefon numarası")] public string BuyerPhone { get; set; } = string.Empty;
+    [Required, EmailAddress, StringLength(254), Display(Name = "E-posta adresi")] public string BuyerEmail { get; set; } = string.Empty;
+    [Required, StringLength(1000), Display(Name = "Adres")] public string Address { get; set; } = string.Empty;
+    [Required, StringLength(100), Display(Name = "Şehir")] public string City { get; set; } = string.Empty;
+    [StringLength(20), Display(Name = "Posta kodu")] public string? PostalCode { get; set; }
+}
+public sealed record OwnershipPaymentStartViewModel(Guid AttemptId, string PaymentPageUrl, DateTimeOffset ExpiresAt);
+public sealed record OwnershipPaymentStatusViewModel(Guid AttemptId, string Status, DateTimeOffset? ExpiresAt);
 public sealed record PublicFaultTroubleshootingViewModel(string QrCode, string KitName, string SerialNumber,
     string AccessToken,
     IReadOnlyCollection<FaultGuideEntryViewModel> Entries);

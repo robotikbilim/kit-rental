@@ -5,6 +5,7 @@ using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Notifications;
 using KitRental.Core.Domain.Orders;
+using KitRental.Core.Domain.Payments;
 using KitRental.Core.Domain.Procurement;
 using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Returns;
@@ -51,6 +52,11 @@ public interface ICoreRepository
     Task<IReadOnlyCollection<RentalAssignment>> GetAssignmentsForOrdersAsync(IReadOnlyCollection<Guid> orderIds,
         CancellationToken cancellationToken);
     Task<IReadOnlyCollection<RentalAssignment>> GetAssignmentsForProductUnitAsync(Guid productUnitId, CancellationToken cancellationToken);
+    Task AddKitOwnershipPaymentAsync(KitOwnershipPayment payment, CancellationToken cancellationToken);
+    Task<KitOwnershipPayment?> GetKitOwnershipPaymentAsync(Guid id, CancellationToken cancellationToken);
+    Task<KitOwnershipPayment?> GetKitOwnershipPaymentByTokenHashAsync(string tokenHash, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<KitOwnershipPayment>> GetKitOwnershipPaymentsForProductUnitAsync(Guid productUnitId,
+        CancellationToken cancellationToken);
     Task AddRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken);
     Task<RentalCohort?> GetRentalCohortAsync(Guid id, CancellationToken cancellationToken);
     Task<RentalCohort?> GetRentalCohortByStudentAddressTokenAsync(string token, CancellationToken cancellationToken);

@@ -536,7 +536,23 @@ public sealed class OperationsService(
                 throw new ConflictException("order.student_address_incomplete", "Teslim işaretlemek için seçilen öğrencilerin adresi girilmiş olmalıdır.");
             if (!student.AssignmentId.HasValue || !student.ProductUnitId.HasValue)
                 throw new ConflictException("order.student_kit_incomplete", "Teslim işaretlemek için seçilen öğrencilere fiziksel kit atanmış olmalıdır.");
-            if (student.AssignmentId is { } assignmentId && deliveredAssignmentIds.Contains(assignmentId)) continue;
+
+            var assignmentId = student.AssignmentId.Value;
+            var assignment = await repository.GetRentalAssignmentAsync(assignmentId, cancellationToken)
+                ?? throw new ResourceNotFoundException("Öğrenciye ait kiralama ataması bulunamadı.");
+            var unit = await repository.GetProductUnitAsync(student.ProductUnitId.Value, cancellationToken)
+                ?? throw new ResourceNotFoundException("Öğrenciye atanmış fiziksel kit bulunamadı.");
+            if (assignment.ProductUnitId != unit.Id ||
+                assignment.Status is not (RentalAssignmentStatus.Reserved or RentalAssignmentStatus.Active))
+                throw new ConflictException("order.student_delivery_state_invalid",
+                    "Öğrenciye ait kit ataması teslim onayı için uygun durumda değil.");
+
+            if (unit.Status != ProductUnitStatus.WithCustomer)
+                unit.ConfirmDeliveryTo(actorId, now, student.FullName, student.AddressLine);
+            if (assignment.Status == RentalAssignmentStatus.Reserved)
+                assignment.Activate();
+
+            if (deliveredAssignmentIds.Contains(assignmentId)) continue;
 
             await AddStudentKitLocationEventAsync(student, student.ProductUnitId.Value, student.AssignmentId.Value,
                 order.Id, order.CustomerId, actorId, now, cancellationToken);

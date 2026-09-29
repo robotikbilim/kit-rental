@@ -1,0 +1,29 @@
+@model PublicKitOwnershipViewModel
+@{
+    ViewData["Title"] = "Kit Sahiplenme Ödemesi";
+}
+<div class="public-fault-shell">
+    <section class="public-fault-card">
+        <a class="back-link" asp-action="OwnershipOffer" asp-route-token="@Model.AccessToken">← Fırsat detayına dön</a>
+        <span class="eyebrow">KİT SAHİPLENME · ÖDEME ADIMI</span>
+        <h1>Ödeme bilgileri</h1>
+        <p class="block-muted">Ödeme güvenli iyzico sayfasında tamamlanır. TCKN yalnızca ödeme sağlayıcısına iletilir.</p>
+        <div class="public-kit-summary"><span>Sahiplenilecek kit</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
+        <div class="ownership-checkout-total"><span>Ödenecek toplam</span><strong>@PublicKitOwnershipViewModel.PriceWithVat.ToString("N0") TL</strong><small>@PublicKitOwnershipViewModel.PriceBeforeVat.ToString("N0") TL + KDV</small></div>
+
+        <form method="post" class="public-fault-form">
+            <input asp-for="QrCode" type="hidden" />
+            <input asp-for="AccessToken" type="hidden" />
+            <div asp-validation-summary="All" class="error"></div>
+            <div class="field"><label asp-for="FirstName"></label><input asp-for="FirstName" autocomplete="given-name" /><span asp-validation-for="FirstName" class="error"></span></div>
+            <div class="field"><label asp-for="LastName"></label><input asp-for="LastName" autocomplete="family-name" /><span asp-validation-for="LastName" class="error"></span></div>
+            <div class="field"><label asp-for="IdentityNumber"></label><input asp-for="IdentityNumber" inputmode="numeric" autocomplete="off" /><span asp-validation-for="IdentityNumber" class="error"></span></div>
+            <div class="field"><label asp-for="BuyerPhone"></label><input asp-for="BuyerPhone" type="tel" autocomplete="tel" inputmode="tel" data-phone-mask="tr" placeholder="0xxx xxx xx xx" /><span asp-validation-for="BuyerPhone" class="error"></span></div>
+            <div class="field"><label asp-for="BuyerEmail"></label><input asp-for="BuyerEmail" type="email" autocomplete="email" placeholder="ornek@eposta.com" /><span asp-validation-for="BuyerEmail" class="error"></span></div>
+            <div class="field"><label asp-for="City"></label><input asp-for="City" autocomplete="address-level1" /><span asp-validation-for="City" class="error"></span></div>
+            <div class="field"><label asp-for="Address"></label><textarea asp-for="Address" autocomplete="street-address" rows="3"></textarea><span asp-validation-for="Address" class="error"></span></div>
+            <div class="field"><label asp-for="PostalCode"></label><input asp-for="PostalCode" autocomplete="postal-code" /></div>
+            <button class="primary-action" type="submit">Ödeme Adımına Geç</button>
+        </form>
+    </section>
+</div>
