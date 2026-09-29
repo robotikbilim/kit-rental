@@ -85,7 +85,7 @@ E-posta: admin@robotikbilim.com.tr
 Parola:  41yaD3r!n58
 ```
 
-Bu hesap ve varsayılan token sırrı yalnız yerel geliştirme içindir. Üretimde `KIT_RENTAL_TOKEN_SECRET` güçlü ve gizli bir değerle tanımlanmalıdır.
+Bu hesap ve varsayılan token sırrı yalnız yerel geliştirme içindir. Üretimde `Security__TokenSecret` güçlü ve gizli bir değerle tanımlanmalıdır.
 
 ## Docker olmadan çalıştırma
 
