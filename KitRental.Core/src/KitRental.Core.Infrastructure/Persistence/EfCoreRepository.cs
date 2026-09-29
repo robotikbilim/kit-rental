@@ -220,6 +220,12 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
             .SingleOrDefaultAsync(item => item.Students.Any(student => student.PublicAddressToken == token),
                 cancellationToken);
 
+    public Task<RentalCohort?> GetRentalCohortByStudentAsync(Guid orderId, Guid studentId,
+        CancellationToken cancellationToken) =>
+        dbContext.RentalCohorts.Include(item => item.Students)
+            .SingleOrDefaultAsync(item => item.Students.Any(student =>
+                student.OrderId == orderId && student.Id == studentId), cancellationToken);
+
     public async Task<IReadOnlyCollection<RentalCohort>> GetRentalCohortsAsync(Guid? customerId,
         CancellationToken cancellationToken)
     {

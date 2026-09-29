@@ -374,6 +374,15 @@ public sealed class InMemoryCoreRepository : ICoreRepository
                 cohort.Students.Any(student => student.PublicAddressToken == token)));
     }
 
+    public Task<RentalCohort?> GetRentalCohortByStudentAsync(Guid orderId, Guid studentId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+            return Task.FromResult(_rentalCohorts.Values.SingleOrDefault(cohort =>
+                cohort.Students.Any(student => student.OrderId == orderId && student.Id == studentId)));
+    }
+
     public Task<IReadOnlyCollection<RentalCohort>> GetRentalCohortsAsync(Guid? customerId,
         CancellationToken cancellationToken)
     {

@@ -1,8 +1,10 @@
 using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Application.Common;
+using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Inventory;
 using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Orders;
+using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Support;
 using KitRental.SharedKernel;
@@ -293,6 +295,7 @@ public sealed class KargonomiShippingService(
         if (shipment is not null)
         {
             shipment.ApplyUpdate(status, statusLabel, trackingNumber, timeProvider.GetUtcNow(), description);
+            await ApplyRentalDeliveryTransitionAsync(shipment, cancellationToken);
             await repository.SaveChangesAsync(cancellationToken);
             return;
         }
@@ -309,6 +312,58 @@ public sealed class KargonomiShippingService(
 
         await ApplyFaultWebhookAsync(externalShipmentId, status, statusLabel, trackingNumber, description,
             cancellationToken);
+    }
+
+    private async Task ApplyRentalDeliveryTransitionAsync(KargonomiShipment shipment,
+        CancellationToken cancellationToken)
+    {
+        if (shipment.State != KargonomiShipmentState.Delivered)
+            return;
+
+        var cohort = await repository.GetRentalCohortByStudentAsync(shipment.OrderId, shipment.StudentId,
+            cancellationToken);
+        var student = cohort?.Students.SingleOrDefault(item => item.Id == shipment.StudentId);
+        if (cohort is null || student?.ProductUnitId is not Guid productUnitId ||
+            student.AssignmentId is not Guid assignmentId)
+            return;
+
+        var unit = await repository.GetProductUnitAsync(productUnitId, cancellationToken);
+        var assignment = await repository.GetRentalAssignmentAsync(assignmentId, cancellationToken);
+        if (unit is null || assignment is null)
+            return;
+
+        var now = timeProvider.GetTurkeyNow();
+        var previousUnitStatus = unit.Status;
+        var unitWasDelivered = unit.Status == ProductUnitStatus.WithCustomer;
+        if (unit.Status is ProductUnitStatus.Reserved or ProductUnitStatus.Preparing or
+            ProductUnitStatus.OutboundInTransit)
+        {
+            unit.ConfirmDeliveryTo(SystemActorId, now, student.FullName, student.AddressLine);
+            unitWasDelivered = true;
+        }
+
+        if (assignment.Status == RentalAssignmentStatus.Reserved)
+            assignment.Activate();
+
+        if (!unitWasDelivered || previousUnitStatus == ProductUnitStatus.WithCustomer)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(student.AddressLine))
+        {
+            await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id,
+                assignment.Id, shipment.OrderId, cohort.CustomerId, KitLocationEventSource.DeliveryReceipt,
+                shipment.Id, student.FullName, student.GuardianPhone, student.AddressLine,
+                student.HasCoordinates ? student.Latitude : null,
+                student.HasCoordinates ? student.Longitude : null, now, SystemActorId), cancellationToken);
+        }
+
+        await repository.AddProductUnitActivityAsync(ProductUnitActivity.Create(Guid.NewGuid(), unit.Id,
+            assignment.Id, shipment.OrderId, student.Id, SystemActorId, "Kargonomi",
+            "Kargonomi teslimatı onaylandı", "Kargonomi gönderi durumu teslim edildi olarak bildirildi; kit müşteriye teslim edilmiş sayıldı.", now),
+            cancellationToken);
+        await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), SystemActorId,
+            nameof(ProductUnit), unit.Id, "KargonomiDeliveryConfirmed", previousUnitStatus.ToString(),
+            unit.Status.ToString(), now), cancellationToken);
     }
 
     private void ApplyFaultDeliveryTransition(FaultTicket ticket, FaultKargonomiShipment shipment)

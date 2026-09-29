@@ -60,6 +60,8 @@ public interface ICoreRepository
     Task AddRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken);
     Task<RentalCohort?> GetRentalCohortAsync(Guid id, CancellationToken cancellationToken);
     Task<RentalCohort?> GetRentalCohortByStudentAddressTokenAsync(string token, CancellationToken cancellationToken);
+    Task<RentalCohort?> GetRentalCohortByStudentAsync(Guid orderId, Guid studentId,
+        CancellationToken cancellationToken);
     Task<IReadOnlyCollection<RentalCohort>> GetRentalCohortsAsync(Guid? customerId, CancellationToken cancellationToken);
     Task RemoveRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken);
     Task AddKargonomiShipmentAsync(KargonomiShipment shipment, CancellationToken cancellationToken);
