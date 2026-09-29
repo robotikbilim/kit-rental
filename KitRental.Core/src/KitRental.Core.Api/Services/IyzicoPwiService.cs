@@ -21,7 +21,8 @@ public sealed record OwnershipPaymentStart(Guid AttemptId, string PaymentPageUrl
 public sealed record OwnershipPaymentStatus(Guid AttemptId, string Status, DateTimeOffset? ExpiresAt);
 
 public sealed class IyzicoPwiService(ICoreRepository repository, PublicFormAccessService publicForms,
-    IDataProtectionProvider dataProtectionProvider, IConfiguration configuration, TimeProvider timeProvider)
+    IDataProtectionProvider dataProtectionProvider, IConfiguration configuration, TimeProvider timeProvider,
+    ILogger<IyzicoPwiService> logger)
 {
     private static readonly Guid SystemActorId = Guid.Parse("b9d7720f-7ef9-4fe6-a397-41d240ef7774");
     private const decimal Price = 2350m;
@@ -92,20 +93,35 @@ public sealed class IyzicoPwiService(ICoreRepository repository, PublicFormAcces
                 ItemType = BasketItemType.PHYSICAL.ToString(), Price = Price.ToString("0.00", CultureInfo.InvariantCulture)
             }]
         };
+        LogInitializeRequest(request, callbackUrl, options.BaseUrl);
         PayWithIyzicoInitializeResource result;
         try
         {
             result = await PayWithIyzicoInitialize.Create(request, options);
         }
-        catch
+        catch (Exception exception)
         {
+            if (DiagnosticsEnabled)
+                logger.LogError(exception,
+                    "Iyzico PWI initialize request failed. ConversationId={ConversationId} BasketId={BasketId} BaseUrl={BaseUrl}",
+                    conversationId, basketId, SafeUrl(options.BaseUrl));
             payment.MarkInitializationFailed(timeProvider.GetUtcNow());
             await repository.SaveChangesAsync(cancellationToken);
             throw;
         }
-        if (!string.Equals(result.Status, Status.SUCCESS.ToString(), StringComparison.OrdinalIgnoreCase) ||
-            !ValidateInitializeSignature(result, conversationId) ||
-            string.IsNullOrWhiteSpace(result.Token) || string.IsNullOrWhiteSpace(result.PayWithIyzicoPageUrl))
+        var statusValid = string.Equals(result.Status, Status.SUCCESS.ToString(), StringComparison.OrdinalIgnoreCase);
+        var signatureValid = ValidateInitializeSignature(result, conversationId);
+        var tokenPresent = !string.IsNullOrWhiteSpace(result.Token);
+        var paymentPageUrlPresent = !string.IsNullOrWhiteSpace(result.PayWithIyzicoPageUrl);
+        if (DiagnosticsEnabled)
+            logger.LogInformation(
+                "Iyzico PWI initialize response. ConversationId={ConversationId} ResponseConversationId={ResponseConversationId} Status={Status} StatusValid={StatusValid} ErrorCode={ErrorCode} ErrorGroup={ErrorGroup} ErrorMessage={ErrorMessage} SignatureValid={SignatureValid} TokenPresent={TokenPresent} TokenExpireTime={TokenExpireTime} ComputedExpiry={ComputedExpiry} PaymentPageUrlPresent={PaymentPageUrlPresent} PaymentPageUrl={PaymentPageUrl} SignaturePresent={SignaturePresent}",
+                conversationId, result.ConversationId, result.Status, statusValid, result.ErrorCode,
+                result.ErrorGroup, result.ErrorMessage, signatureValid, tokenPresent, result.TokenExpireTime,
+                FormatExpiry(result.TokenExpireTime), paymentPageUrlPresent, SafeUrl(result.PayWithIyzicoPageUrl),
+                !string.IsNullOrWhiteSpace(result.Signature));
+
+        if (!statusValid || !signatureValid || !tokenPresent || !paymentPageUrlPresent)
         {
             payment.MarkInitializationFailed(timeProvider.GetUtcNow());
             await repository.SaveChangesAsync(cancellationToken);
@@ -115,7 +131,18 @@ public sealed class IyzicoPwiService(ICoreRepository repository, PublicFormAcces
         var expiry = result.TokenExpireTime is > 0
             ? DateTimeOffset.FromUnixTimeMilliseconds(result.TokenExpireTime.Value)
             : timeProvider.GetUtcNow().AddMinutes(30);
-        payment.SetInitialized(Hash(result.Token), _protector.Protect(result.Token), result.PayWithIyzicoPageUrl, expiry);
+        try
+        {
+            payment.SetInitialized(Hash(result.Token), _protector.Protect(result.Token), result.PayWithIyzicoPageUrl, expiry);
+        }
+        catch (Exception exception)
+        {
+            if (DiagnosticsEnabled)
+                logger.LogError(exception,
+                    "Iyzico PWI initialize response failed local validation. ConversationId={ConversationId} TokenExpireTime={TokenExpireTime} ComputedExpiry={ComputedExpiry} PaymentPageUrl={PaymentPageUrl}",
+                    conversationId, result.TokenExpireTime, expiry, SafeUrl(result.PayWithIyzicoPageUrl));
+            throw;
+        }
         await repository.SaveChangesAsync(cancellationToken);
         return new OwnershipPaymentStart(id, result.PayWithIyzicoPageUrl, expiry);
     }
@@ -227,6 +254,35 @@ public sealed class IyzicoPwiService(ICoreRepository repository, PublicFormAcces
     };
 
     private string RequiredSecret() => configuration["Iyzico:SecretKey"] ?? throw new InvalidOperationException("Iyzico:SecretKey ayarlanmamış.");
+
+    private bool DiagnosticsEnabled => configuration.GetValue<bool>("Iyzico:EnableDiagnostics");
+
+    private void LogInitializeRequest(CreatePayWithIyzicoInitializeRequest request, string callbackUrl,
+        string baseUrl)
+    {
+        if (!DiagnosticsEnabled) return;
+        logger.LogInformation(
+            "Iyzico PWI initialize request. ConversationId={ConversationId} BasketId={BasketId} Price={Price} PaidPrice={PaidPrice} Currency={Currency} CallbackUrl={CallbackUrl} BaseUrl={BaseUrl} BuyerNamePresent={BuyerNamePresent} BuyerIdentityPresent={BuyerIdentityPresent} BuyerEmailPresent={BuyerEmailPresent} BuyerPhonePresent={BuyerPhonePresent} AddressPresent={AddressPresent} BasketItemCount={BasketItemCount}",
+            request.ConversationId, request.BasketId, request.Price, request.PaidPrice, request.Currency,
+            SafeUrl(callbackUrl), SafeUrl(baseUrl), !string.IsNullOrWhiteSpace(request.Buyer?.Name),
+            !string.IsNullOrWhiteSpace(request.Buyer?.IdentityNumber), !string.IsNullOrWhiteSpace(request.Buyer?.Email),
+            !string.IsNullOrWhiteSpace(request.Buyer?.GsmNumber),
+            !string.IsNullOrWhiteSpace(request.Buyer?.RegistrationAddress), request.BasketItems?.Count ?? 0);
+    }
+
+    private static string SafeUrl(string? value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)) return "<invalid>";
+        return $"{uri.Scheme}://{uri.Host}{uri.AbsolutePath}";
+    }
+
+    private static string FormatExpiry(long? tokenExpireTime)
+    {
+        if (tokenExpireTime is not > 0) return "<fallback-30m>";
+        try { return DateTimeOffset.FromUnixTimeMilliseconds(tokenExpireTime.Value).ToString("O"); }
+        catch (ArgumentOutOfRangeException) { return "<out-of-range>"; }
+    }
+
     private static string NormalizeTurkishPhone(string value)
     {
         var digits = new string(value.Where(char.IsDigit).ToArray());
