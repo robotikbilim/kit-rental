@@ -168,15 +168,43 @@ public sealed class IyzicoPwiService(ICoreRepository repository, PublicFormAcces
         var result = await PayWithIyzico.Retrieve(request, CreateOptions());
         if (!string.Equals(result.Status, Status.SUCCESS.ToString(), StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("iyzico ödeme sonucu sorgulanamadı.");
-        if (!ValidateRetrieveSignature(result, token) ||
-            !string.Equals(result.ConversationId, payment.ConversationId, StringComparison.Ordinal) ||
-            (expectedPaymentId is not null && !string.Equals(result.PaymentId, expectedPaymentId, StringComparison.Ordinal)) ||
-            (expectedConversationId is not null && !string.Equals(result.ConversationId, expectedConversationId, StringComparison.Ordinal)) ||
-            !string.Equals(result.BasketId, payment.BasketId, StringComparison.Ordinal) ||
-            !decimal.TryParse(result.Price, CultureInfo.InvariantCulture, out var price) || price != payment.Price ||
-            !decimal.TryParse(result.PaidPrice, CultureInfo.InvariantCulture, out var paidPrice) || paidPrice != payment.PaidPrice ||
-            !string.Equals(result.Currency, Currency.TRY.ToString(), StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("iyzico ödeme yanıtı beklenen siparişle eşleşmiyor.");
+        var retrieveSignatureValid = ValidateRetrieveSignature(result, token);
+        var conversationIdMatches = string.Equals(result.ConversationId, payment.ConversationId, StringComparison.Ordinal);
+        var paymentIdMatches = expectedPaymentId is null ||
+            string.Equals(result.PaymentId, expectedPaymentId, StringComparison.Ordinal);
+        var webhookConversationIdMatches = expectedConversationId is null ||
+            string.Equals(result.ConversationId, expectedConversationId, StringComparison.Ordinal);
+        var basketIdMatches = string.Equals(result.BasketId, payment.BasketId, StringComparison.Ordinal);
+        var priceParsed = decimal.TryParse(result.Price, CultureInfo.InvariantCulture, out var price);
+        var priceMatches = priceParsed && price == payment.Price;
+        var paidPriceParsed = decimal.TryParse(result.PaidPrice, CultureInfo.InvariantCulture, out var paidPrice);
+        var paidPriceMatches = paidPriceParsed && paidPrice == payment.PaidPrice;
+        var currencyMatches = string.Equals(result.Currency, Currency.TRY.ToString(), StringComparison.OrdinalIgnoreCase);
+        var validationFailures = new List<string>();
+        if (!retrieveSignatureValid) validationFailures.Add("Signature");
+        if (!conversationIdMatches) validationFailures.Add("ConversationId");
+        if (!paymentIdMatches) validationFailures.Add("PaymentId");
+        if (!webhookConversationIdMatches) validationFailures.Add("WebhookConversationId");
+        if (!basketIdMatches) validationFailures.Add("BasketId");
+        if (!priceMatches) validationFailures.Add("Price");
+        if (!paidPriceMatches) validationFailures.Add("PaidPrice");
+        if (!currencyMatches) validationFailures.Add("Currency");
+        if (validationFailures.Count > 0)
+        {
+            var failures = string.Join(", ", validationFailures);
+            logger.LogError(
+                "Iyzico PWI retrieve validation failed. AttemptId={AttemptId} Failures={Failures} " +
+                "SignatureValid={SignatureValid} ProviderConversationId={ProviderConversationId} ExpectedConversationId={ExpectedConversationId} " +
+                "ExpectedPaymentId={ExpectedPaymentId} ProviderPaymentId={ProviderPaymentId} " +
+                "ProviderBasketId={ProviderBasketId} ExpectedBasketId={ExpectedBasketId} " +
+                "ProviderPrice={ProviderPrice} ExpectedPrice={ExpectedPrice} ProviderPaidPrice={ProviderPaidPrice} ExpectedPaidPrice={ExpectedPaidPrice} " +
+                "ProviderCurrency={ProviderCurrency} ExpectedCurrency={ExpectedCurrency}",
+                attemptId, failures, retrieveSignatureValid, result.ConversationId, payment.ConversationId,
+                expectedPaymentId, result.PaymentId, result.BasketId, payment.BasketId, result.Price, payment.Price,
+                result.PaidPrice, payment.PaidPrice, result.Currency, Currency.TRY.ToString());
+            throw new InvalidOperationException(
+                $"iyzico ödeme yanıtı beklenen siparişle eşleşmiyor. Uyuşmayan alanlar: {failures}.");
+        }
 
         var wasNewSuccess = payment.ApplyProviderResult(result.PaymentStatus ?? "", result.FraudStatus,
             result.PaymentId, result.PaymentItems?.FirstOrDefault()?.PaymentTransactionId, timeProvider.GetUtcNow());
