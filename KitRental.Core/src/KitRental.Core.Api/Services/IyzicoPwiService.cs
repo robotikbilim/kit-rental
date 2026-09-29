@@ -113,12 +113,16 @@ public sealed class IyzicoPwiService(ICoreRepository repository, PublicFormAcces
         var signatureValid = ValidateInitializeSignature(result, conversationId);
         var tokenPresent = !string.IsNullOrWhiteSpace(result.Token);
         var paymentPageUrlPresent = !string.IsNullOrWhiteSpace(result.PayWithIyzicoPageUrl);
+        var expiryBase = timeProvider.GetUtcNow();
+        var expiry = result.TokenExpireTime is > 0
+            ? expiryBase.AddSeconds(result.TokenExpireTime.Value)
+            : expiryBase.AddMinutes(30);
         if (DiagnosticsEnabled)
             logger.LogInformation(
                 "Iyzico PWI initialize response. ConversationId={ConversationId} ResponseConversationId={ResponseConversationId} Status={Status} StatusValid={StatusValid} ErrorCode={ErrorCode} ErrorGroup={ErrorGroup} ErrorMessage={ErrorMessage} SignatureValid={SignatureValid} TokenPresent={TokenPresent} TokenExpireTime={TokenExpireTime} ComputedExpiry={ComputedExpiry} PaymentPageUrlPresent={PaymentPageUrlPresent} PaymentPageUrl={PaymentPageUrl} SignaturePresent={SignaturePresent}",
                 conversationId, result.ConversationId, result.Status, statusValid, result.ErrorCode,
                 result.ErrorGroup, result.ErrorMessage, signatureValid, tokenPresent, result.TokenExpireTime,
-                FormatExpiry(result.TokenExpireTime), paymentPageUrlPresent, SafeUrl(result.PayWithIyzicoPageUrl),
+                expiry, paymentPageUrlPresent, SafeUrl(result.PayWithIyzicoPageUrl),
                 !string.IsNullOrWhiteSpace(result.Signature));
 
         if (!statusValid || !signatureValid || !tokenPresent || !paymentPageUrlPresent)
@@ -128,9 +132,6 @@ public sealed class IyzicoPwiService(ICoreRepository repository, PublicFormAcces
             throw new InvalidOperationException("iyzico ödeme sayfası oluşturulamadı.");
         }
 
-        var expiry = result.TokenExpireTime is > 0
-            ? DateTimeOffset.FromUnixTimeMilliseconds(result.TokenExpireTime.Value)
-            : timeProvider.GetUtcNow().AddMinutes(30);
         try
         {
             payment.SetInitialized(Hash(result.Token), _protector.Protect(result.Token), result.PayWithIyzicoPageUrl, expiry);
@@ -274,13 +275,6 @@ public sealed class IyzicoPwiService(ICoreRepository repository, PublicFormAcces
     {
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)) return "<invalid>";
         return $"{uri.Scheme}://{uri.Host}{uri.AbsolutePath}";
-    }
-
-    private static string FormatExpiry(long? tokenExpireTime)
-    {
-        if (tokenExpireTime is not > 0) return "<fallback-30m>";
-        try { return DateTimeOffset.FromUnixTimeMilliseconds(tokenExpireTime.Value).ToString("O"); }
-        catch (ArgumentOutOfRangeException) { return "<out-of-range>"; }
     }
 
     private static string NormalizeTurkishPhone(string value)
