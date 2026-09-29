@@ -22,7 +22,7 @@ public partial class AddKitOwnershipPayments : Migration
                 ConversationId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                 BasketId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                 IyzicoTokenHash = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
-                ProtectedIyzicoToken = table.Column<string>(type: "nvarchar(4096)", maxLength: 4096, nullable: true),
+                ProtectedIyzicoToken = table.Column<string>(type: "nvarchar(max)", maxLength: 4096, nullable: true),
                 PaymentPageUrl = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
                 ExpiresAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
                 Status = table.Column<int>(type: "int", nullable: false),
