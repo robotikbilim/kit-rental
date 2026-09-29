@@ -168,6 +168,8 @@ public sealed class IyzicoPwiService(ICoreRepository repository, PublicFormAcces
         var result = await PayWithIyzico.Retrieve(request, CreateOptions());
         if (!string.Equals(result.Status, Status.SUCCESS.ToString(), StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("iyzico ödeme sonucu sorgulanamadı.");
+        var signaturePrice = NormalizeIyzicoPriceForSignature(result.Price);
+        var signaturePaidPrice = NormalizeIyzicoPriceForSignature(result.PaidPrice);
         var retrieveSignatureValid = ValidateRetrieveSignature(result, token);
         var conversationIdMatches = string.Equals(result.ConversationId, payment.ConversationId, StringComparison.Ordinal);
         var paymentIdMatches = expectedPaymentId is null ||
@@ -198,10 +200,12 @@ public sealed class IyzicoPwiService(ICoreRepository repository, PublicFormAcces
                 "ExpectedPaymentId={ExpectedPaymentId} ProviderPaymentId={ProviderPaymentId} " +
                 "ProviderBasketId={ProviderBasketId} ExpectedBasketId={ExpectedBasketId} " +
                 "ProviderPrice={ProviderPrice} ExpectedPrice={ExpectedPrice} ProviderPaidPrice={ProviderPaidPrice} ExpectedPaidPrice={ExpectedPaidPrice} " +
-                "ProviderCurrency={ProviderCurrency} ExpectedCurrency={ExpectedCurrency}",
+                "ProviderCurrency={ProviderCurrency} ExpectedCurrency={ExpectedCurrency} " +
+                "SignaturePrice={SignaturePrice} SignaturePaidPrice={SignaturePaidPrice}",
                 attemptId, failures, retrieveSignatureValid, result.ConversationId, payment.ConversationId,
                 expectedPaymentId, result.PaymentId, result.BasketId, payment.BasketId, result.Price, payment.Price,
-                result.PaidPrice, payment.PaidPrice, result.Currency, Currency.TRY.ToString());
+                result.PaidPrice, payment.PaidPrice, result.Currency, Currency.TRY.ToString(), signaturePrice,
+                signaturePaidPrice);
             throw new InvalidOperationException(
                 $"iyzico ödeme yanıtı beklenen siparişle eşleşmiyor. Uyuşmayan alanlar: {failures}.");
         }
@@ -248,12 +252,25 @@ public sealed class IyzicoPwiService(ICoreRepository repository, PublicFormAcces
     private bool ValidateRetrieveSignature(PayWithIyzico response, string token)
     {
         var values = new[] { response.PaymentStatus, response.PaymentId, response.Currency,
-            response.BasketId, response.ConversationId, response.PaidPrice, response.Price, token };
+            response.BasketId, response.ConversationId, NormalizeIyzicoPriceForSignature(response.PaidPrice),
+            NormalizeIyzicoPriceForSignature(response.Price), token };
         var message = string.Join(":", values.Select(value => value ?? string.Empty));
         var expected = Convert.ToHexString(HMACSHA256.HashData(Encoding.UTF8.GetBytes(RequiredSecret()),
             Encoding.UTF8.GetBytes(message))).ToLowerInvariant();
         return !string.IsNullOrWhiteSpace(response.Signature) && CryptographicOperations.FixedTimeEquals(
             Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(response.Signature.ToLowerInvariant()));
+    }
+
+    private static string NormalizeIyzicoPriceForSignature(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+
+        var normalized = value.Trim();
+        var decimalSeparatorIndex = normalized.IndexOf('.');
+        if (decimalSeparatorIndex < 0) return normalized;
+
+        normalized = normalized.TrimEnd('0').TrimEnd('.');
+        return normalized.Length == 0 ? "0" : normalized;
     }
 
     private bool ValidateInitializeSignature(PayWithIyzicoInitializeResource response, string conversationId)
