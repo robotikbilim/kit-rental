@@ -57,6 +57,7 @@ public interface ICoreRepository
     Task<KitOwnershipPayment?> GetKitOwnershipPaymentByTokenHashAsync(string tokenHash, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KitOwnershipPayment>> GetKitOwnershipPaymentsForProductUnitAsync(Guid productUnitId,
         CancellationToken cancellationToken);
+    Task<int> CountSucceededKitOwnershipPaymentsAsync(Guid? customerId, CancellationToken cancellationToken);
     Task AddRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken);
     Task<RentalCohort?> GetRentalCohortAsync(Guid id, CancellationToken cancellationToken);
     Task<RentalCohort?> GetRentalCohortByStudentAddressTokenAsync(string token, CancellationToken cancellationToken);

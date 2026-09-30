@@ -29,7 +29,8 @@
         new OperationsMetricViewModel("İade formu eksik", Model.MissingReturnFormCount, "Süresi dolmuş aktif kit", "Returns", "state", "missing-form", Model.CustomerId, "rose"),
         new OperationsMetricViewModel("İade bekleniyor", Model.ReturnPendingKitCount, "İade / kargo başlangıcı bekleyen kit", "Returns", "state", "pending", Model.CustomerId, "amber"),
         new OperationsMetricViewModel("İade kargoda", Model.ReturnInTransitKitCount, "Gönderisi başlatılan kit", "Returns", "state", "in-transit", Model.CustomerId, "blue"),
-        new OperationsMetricViewModel("İade tamamlandı", Model.ReturnCompletedKitCount, "Robotik Bilim tarafından teslim alındı", "Returns", "state", "completed", Model.CustomerId, "green")
+        new OperationsMetricViewModel("İade tamamlandı", Model.ReturnCompletedKitCount, "Robotik Bilim tarafından teslim alındı", "Returns", "state", "completed", Model.CustomerId, "green"),
+        new OperationsMetricViewModel("Satışa dönüştü", Model.SoldKitCount, "iyzico ödemesiyle satılan kit", "Dashboard", CustomerId: Model.CustomerId, Tone: "blue", Icon: "badge-check")
     };
 }
 <div class="ops-workspace">

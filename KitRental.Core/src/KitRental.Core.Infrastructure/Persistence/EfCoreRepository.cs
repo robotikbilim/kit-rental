@@ -207,6 +207,11 @@ public sealed class EfCoreRepository(KitRentalDbContext dbContext) : ICoreReposi
         await dbContext.KitOwnershipPayments.Where(item => item.ProductUnitId == productUnitId)
             .OrderByDescending(item => item.CreatedAt).ToArrayAsync(cancellationToken);
 
+    public Task<int> CountSucceededKitOwnershipPaymentsAsync(Guid? customerId,
+        CancellationToken cancellationToken) =>
+        dbContext.KitOwnershipPayments.CountAsync(item => item.Status == KitOwnershipPaymentStatus.Succeeded &&
+            (!customerId.HasValue || item.CustomerId == customerId.Value), cancellationToken);
+
     public Task AddRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken) =>
         dbContext.RentalCohorts.AddAsync(cohort, cancellationToken).AsTask();
 

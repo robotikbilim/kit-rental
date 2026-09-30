@@ -352,6 +352,15 @@ public sealed class InMemoryCoreRepository : ICoreRepository
                 .OrderByDescending(item => item.CreatedAt).ToArray());
     }
 
+    public Task<int> CountSucceededKitOwnershipPaymentsAsync(Guid? customerId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate) return Task.FromResult(_kitOwnershipPayments.Values.Count(item =>
+            item.Status == KitOwnershipPaymentStatus.Succeeded &&
+            (!customerId.HasValue || item.CustomerId == customerId.Value)));
+    }
+
     public Task AddRentalCohortAsync(RentalCohort cohort, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
