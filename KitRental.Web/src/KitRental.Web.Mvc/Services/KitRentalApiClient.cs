@@ -586,7 +586,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             token = model.AccessToken,
             model.RequesterName,
             model.RequesterPhone,
-            model.ReturnAddress,
+            ReturnAddress = model.ReturnAddress ?? string.Empty,
             model.ReturnReason,
             model.DeliveryMethod,
             model.Latitude,

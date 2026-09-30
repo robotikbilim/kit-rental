@@ -221,11 +221,11 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
     private static string BuildAddressLine(PublicFaultFormViewModel model) =>
         BuildAddressLine(model.City, model.District, model.ReporterAddress);
 
-    private static string BuildAddressLine(string city, string district, string addressValue)
+    private static string BuildAddressLine(string? city, string? district, string? addressValue)
     {
-        var address = addressValue.Trim();
-        var location = string.Join(" / ", new[] { city.Trim(), district.Trim() }
-            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        var address = addressValue?.Trim() ?? string.Empty;
+        var location = string.Join(" / ", new[] { city, district }
+            .Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value!.Trim()));
         if (string.IsNullOrWhiteSpace(location) ||
             address.Contains(location, StringComparison.CurrentCultureIgnoreCase))
             return address;
@@ -287,8 +287,9 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
         if (!ModelState.IsValid) return View(model);
         if (model.DeliveryMethod == 1)
         {
-            model.ReturnAddress = BuildAddressLine(model.City, model.District, model.ReturnAddress);
-            if (model.ReturnAddress.Length > 1000)
+            var returnAddress = BuildAddressLine(model.City, model.District, model.ReturnAddress);
+            model.ReturnAddress = returnAddress;
+            if (returnAddress.Length > 1000)
             {
                 ModelState.AddModelError(nameof(model.ReturnAddress), "Adres en fazla 1000 karakter olabilir.");
                 return View(model);
@@ -313,8 +314,8 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
         {
             ViewData["SuccessTitle"] = "İade talebi kaydedildi";
             ViewData["SuccessMessage"] = "İade talebiniz operasyon ekibinin ekranına düştü.";
-            ViewData["PopupTitle"] = "İade Kodu";
-            ViewData["PopupMessage"] = "\"1234567890\" İade Kodu ile herhangi bir Aras Kargo şubesine bırakabilirsiniz.";
+            ViewData["PopupTitle"] = "Aras Kargo Anlaşma Kodu";
+            ViewData["PopupMessage"] = "2626601651131 anlaşma kodu ile herhangi bir Aras Kargo şubesine bırakabilirsiniz.";
         }
         return View("Success", new PublicKitActionViewModel(model.QrCode, model.KitName, model.SerialNumber, token));
     }

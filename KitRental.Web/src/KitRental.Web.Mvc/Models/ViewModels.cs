@@ -643,9 +643,9 @@ public sealed class PublicReturnFormViewModel : IValidatableObject
     [Required, Range(1, 2), Display(Name = "Teslimat şekli")] public int? DeliveryMethod { get; set; } = 1;
     [Required, StringLength(160), Display(Name = "Ad soyad")] public string RequesterName { get; set; } = string.Empty;
     [Required, TurkishPhone, StringLength(40), Display(Name = "Telefon numarası")] public string RequesterPhone { get; set; } = string.Empty;
-    [Display(Name = "İl")] public string City { get; set; } = string.Empty;
-    [Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
-    [StringLength(1000), Display(Name = "Adres")] public string ReturnAddress { get; set; } = string.Empty;
+    [Display(Name = "İl")] public string? City { get; set; }
+    [Display(Name = "İlçe")] public string? District { get; set; }
+    [StringLength(1000), Display(Name = "Adres")] public string? ReturnAddress { get; set; }
     [Display(Name = "Enlem")] public double? Latitude { get; set; }
     [Display(Name = "Boylam")] public double? Longitude { get; set; }
 
