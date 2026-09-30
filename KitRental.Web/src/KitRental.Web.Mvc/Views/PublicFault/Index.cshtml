@@ -1,19 +1,23 @@
 @model PublicKitActionViewModel
-@{ ViewData["Title"] = "Kit Islemleri"; }
+@{ ViewData["Title"] = "Kit İşlemleri"; }
 <div class="public-fault-shell">
     <section class="public-fault-card">
-        <span class="eyebrow">QR KIT ISLEMLERI</span>
+        <span class="eyebrow">QR KİT İŞLEMLERİ</span>
         <h1>Ne yapmak istersiniz?</h1>
-        <p class="block-muted">Okuttugunuz kit icin ariza kaydi olusturabilir veya iade talebi baslatabilirsiniz.</p>
-        <div class="public-kit-summary"><span>Okutulan urun</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
+        <p class="block-muted">Okuttuğunuz kit için arıza kaydı oluşturabilir, iade talebi başlatabilir veya kiti sahiplenebilirsiniz.</p>
+        <div class="public-kit-summary"><span>Okutulan ürün</span><strong>@Model.KitName</strong><code>@Model.SerialNumber</code></div>
         <div class="public-action-grid">
             <a class="public-action-card" asp-action="Troubleshooting" asp-route-token="@Model.AccessToken">
-                <strong>Ariza Kaydi Olustur</strong>
-                <span>Teknik ekibin ekranina acik ariza kaydi olarak duser.</span>
+                <strong>Arıza Kaydı Oluştur</strong>
+                <span>Teknik ekibin ekranına açık arıza kaydı olarak düşer.</span>
             </a>
             <a class="public-action-card" asp-action="Return" asp-route-token="@Model.AccessToken">
-                <strong>Kit Iadesi Baslat</strong>
-                <span>Konumunuzu paylasarak operasyon ekibine iade talebi gonderin.</span>
+                <strong>İade Talebi Oluştur</strong>
+                <span>Konumunuzu paylaşarak operasyon ekibine iade talebi gönderin.</span>
+            </a>
+            <a class="public-action-card public-ownership-action" asp-action="OwnershipOffer" asp-route-token="@Model.AccessToken">
+                <strong>🎉 Kit Bende Kalsın</strong>
+                <span>TACEV Eğitim Desteğiyle kiti sahiplenme fırsatını görüntüleyin.</span>
             </a>
         </div>
     </section>

@@ -5,6 +5,7 @@ using KitRental.Core.Domain.Logistics;
 using KitRental.Core.Domain.Manufacturing;
 using KitRental.Core.Domain.Notifications;
 using KitRental.Core.Domain.Orders;
+using KitRental.Core.Domain.Payments;
 using KitRental.Core.Domain.Procurement;
 using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Returns;
@@ -25,6 +26,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<RentalOrder> RentalOrders => Set<RentalOrder>();
     public DbSet<RentalAssignment> RentalAssignments => Set<RentalAssignment>();
+    public DbSet<KitOwnershipPayment> KitOwnershipPayments => Set<KitOwnershipPayment>();
     public DbSet<RentalCohort> RentalCohorts => Set<RentalCohort>();
     public DbSet<KargonomiShipment> KargonomiShipments => Set<KargonomiShipment>();
     public DbSet<KitLocationEvent> KitLocationEvents => Set<KitLocationEvent>();
@@ -50,6 +52,7 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         ConfigureCustomer(modelBuilder.Entity<Customer>());
         ConfigureOrder(modelBuilder.Entity<RentalOrder>());
         ConfigureAssignment(modelBuilder.Entity<RentalAssignment>());
+        ConfigureKitOwnershipPayment(modelBuilder.Entity<KitOwnershipPayment>());
         ConfigureRentalCohort(modelBuilder.Entity<RentalCohort>());
         ConfigureKargonomiShipment(modelBuilder.Entity<KargonomiShipment>());
         ConfigureKitLocationEvent(modelBuilder.Entity<KitLocationEvent>());
@@ -237,6 +240,41 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.HasIndex(assignment => new { assignment.CustomerId, assignment.Status });
         builder.HasIndex(assignment => assignment.CreatedAt);
         builder.HasOne<ProductUnit>().WithMany().HasForeignKey(assignment => assignment.ProductUnitId).OnDelete(DeleteBehavior.Restrict);
+        AddRowVersion(builder);
+    }
+
+    private static void ConfigureKitOwnershipPayment(EntityTypeBuilder<KitOwnershipPayment> builder)
+    {
+        builder.ToTable("KitOwnershipPayments");
+        builder.HasKey(item => item.Id);
+        builder.Property(item => item.Currency).HasMaxLength(3).IsRequired();
+        builder.Property(item => item.Price).HasPrecision(18, 2);
+        builder.Property(item => item.PaidPrice).HasPrecision(18, 2);
+        builder.Property(item => item.ConversationId).HasMaxLength(100).IsRequired();
+        builder.Property(item => item.BasketId).HasMaxLength(100).IsRequired();
+        builder.Property(item => item.IyzicoTokenHash).HasMaxLength(64);
+        builder.Property(item => item.ProtectedIyzicoToken).HasMaxLength(4096);
+        builder.Property(item => item.PaymentPageUrl).HasMaxLength(2000);
+        builder.Property(item => item.ProviderStatus).HasMaxLength(80);
+        builder.Property(item => item.PaymentId).HasMaxLength(120);
+        builder.Property(item => item.PaymentTransactionId).HasMaxLength(120);
+        builder.Property(item => item.LastWebhookEventType).HasMaxLength(80);
+        builder.Property(item => item.LastWebhookPaymentId).HasMaxLength(120);
+        builder.Property(item => item.LastWebhookStatus).HasMaxLength(40);
+        builder.HasIndex(item => item.ConversationId).IsUnique();
+        builder.HasIndex(item => item.IyzicoTokenHash).IsUnique().HasFilter("[IyzicoTokenHash] IS NOT NULL");
+        builder.HasIndex(item => item.ProductUnitId)
+            .IsUnique().HasFilter("[Status] IN (1, 2, 3)");
+        builder.HasIndex(item => item.ProductUnitId)
+            .IsUnique().HasFilter("[Status] = 4");
+        builder.HasIndex(item => new { item.ProductUnitId, item.Status, item.ExpiresAt });
+        builder.HasIndex(item => new { item.CustomerId, item.CreatedAt });
+        builder.HasOne<ProductUnit>().WithMany().HasForeignKey(item => item.ProductUnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<RentalAssignment>().WithMany().HasForeignKey(item => item.AssignmentId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Customer>().WithMany().HasForeignKey(item => item.CustomerId)
+            .OnDelete(DeleteBehavior.Restrict);
         AddRowVersion(builder);
     }
 

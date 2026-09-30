@@ -2,10 +2,10 @@ name: Build and publish container images
 
 on:
   push:
-    branches: [main]
+    branches: [main, development]
 
 concurrency:
-  group: containers-main
+  group: containers-${{ github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -55,7 +55,7 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
-          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}:main
+          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}:${{ github.ref_name == 'main' && 'main' || 'dev' }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
           provenance: mode=max

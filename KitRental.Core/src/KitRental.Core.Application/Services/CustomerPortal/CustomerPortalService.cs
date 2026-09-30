@@ -21,7 +21,7 @@ public sealed class CustomerPortalService(
     OperationsOverviewService operationsOverviewService)
 {
     private static readonly Guid PublicActorId = new("00000000-0000-0000-0000-000000000001");
-    private const string CargoDropOffAddress = "Aras Kargo şubesine bırakılacak. İade kodu: 1234567890";
+    private const string CargoDropOffAddress = "Aras Kargo şubesine bırakılacak. Anlaşma kodu: 2626601651131";
 
     public async Task<CustomerPortalDashboardResponse> GetDashboardAsync(Guid customerId,
         CancellationToken cancellationToken)

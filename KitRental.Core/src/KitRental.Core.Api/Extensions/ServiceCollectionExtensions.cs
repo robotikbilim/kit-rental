@@ -10,6 +10,7 @@ using KitRental.Core.Application.Workshop;
 using KitRental.Core.Application.Kargonomi;
 using KitRental.Core.Api.Services;
 using KitRental.Core.Infrastructure.Persistence;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace KitRental.Core.Api.Extensions;
 
@@ -43,6 +44,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<CustomerPortalService>();
         services.AddScoped<SupplyNeedService>();
         services.AddScoped<KargonomiShippingService>();
+        var dataProtection = services.AddDataProtection().SetApplicationName("KitRental");
+        var keyRingPath = configuration["DataProtection:KeyRingPath"];
+        if (!string.IsNullOrWhiteSpace(keyRingPath))
+            dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+        services.AddScoped<IyzicoPwiService>();
         services.AddSingleton<IEmailNotificationQueue, EmailNotificationQueue>();
         services.AddHostedService<EmailNotificationWorker>();
         services.AddScoped<EmailNotificationDispatcher>();

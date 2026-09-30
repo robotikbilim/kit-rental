@@ -48,7 +48,7 @@ public sealed record OperationsDashboardViewModel(int TotalOrders, int TotalStud
     int FaultsAwaitingShipment, int FaultsCompleted, int FaultsRejected,
     int PendingApprovalOrders, int ActiveKitCount, int ShipmentsReady, int ShipmentsFailed,
     int OpenFaultCount, int OverdueOrders, int EndingSoonOrders, int MissingReturnFormCount,
-    DateTimeOffset GeneratedAt, Guid? CustomerId,
+    int SoldKitCount, DateTimeOffset GeneratedAt, Guid? CustomerId,
     IReadOnlyCollection<OperationsCustomerOption> Customers,
     IReadOnlyCollection<OperationsOrderSummary> PriorityOrders);
 

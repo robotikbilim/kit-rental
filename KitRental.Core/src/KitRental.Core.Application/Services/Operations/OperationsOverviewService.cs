@@ -17,6 +17,7 @@ public sealed class OperationsOverviewService(ICoreRepository repository, TimePr
         CancellationToken cancellationToken)
     {
         var snapshot = await LoadAsync(customerId, cancellationToken);
+        var soldKitCount = await repository.CountSucceededKitOwnershipPaymentsAsync(customerId, cancellationToken);
         var rows = snapshot.Orders;
         var faults = snapshot.Faults;
         var priorities = rows.Where(item => item.IsOverdue || item.ShipmentFailedCount > 0 ||
@@ -41,7 +42,7 @@ public sealed class OperationsOverviewService(ICoreRepository repository, TimePr
             rows.Sum(x => x.ShipmentReadyCount), rows.Sum(x => x.ShipmentFailedCount),
             faults.Count(x => OperationsWorkload.IsOpenFault(x.Status)),
             rows.Count(x => x.IsOverdue), rows.Count(x => x.IsEndingSoon),
-            rows.Sum(x => x.MissingReturnFormCount), timeProvider.GetUtcNow(), customerId,
+            rows.Sum(x => x.MissingReturnFormCount), soldKitCount, timeProvider.GetUtcNow(), customerId,
             snapshot.Customers, priorities);
     }
 

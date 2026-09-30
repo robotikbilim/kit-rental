@@ -5,6 +5,7 @@ using KitRental.Core.Application.Operations;
 using KitRental.Core.Application.PhysicalKits;
 using KitRental.Core.Domain.Inventory;
 using KitRental.Core.Domain.Orders;
+using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Support;
 using KitRental.Security;
@@ -420,8 +421,19 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
             $"/api/physical-kits/{unit.Id}", cancellationToken);
+        Assert.Equal(ProductUnitStatus.WithCustomer, detail!.Kit.Status);
         Assert.Equal("Adres Bekleyen Öğrenci", detail!.CurrentLocation?.RecipientName);
         Assert.Contains(detail.DeliveryHistory, item => item.RecipientName == "Adres Bekleyen Öğrenci");
+        Assert.Equal(RentalAssignmentStatus.Active, Assert.Single(detail.DeliveryHistory).AssignmentStatus);
+        Assert.Contains(detail.StatusHistory, item => item.NewStatus == ProductUnitStatus.WithCustomer &&
+            item.Reason.Contains("Teslim alan: Adres Bekleyen Öğrenci", StringComparison.Ordinal) &&
+            item.Reason.Contains("Adres: İstanbul / Kadıköy - Test Sokak 1", StringComparison.Ordinal));
+
+        await ConfirmStudentDeliveriesAsync(admin, order.Id, cancellationToken);
+        detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
+            $"/api/physical-kits/{unit.Id}", cancellationToken);
+        Assert.Single(detail!.StatusHistory, item => item.NewStatus == ProductUnitStatus.WithCustomer);
+        Assert.Single(detail.ActivityHistory, item => item.Action == "Öğrenciye teslim edildi");
 
         var completedOrder = await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Completed), cancellationToken);
