@@ -1,6 +1,7 @@
 using KitRental.Web.Mvc.Branding;
 using KitRental.Web.Mvc.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.StaticFiles;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
@@ -28,8 +29,16 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 app.UseResponseCompression();
+// PDF.js modules and font/colour-map assets are served locally with the label renderer.
+var staticContentTypes = new FileExtensionContentTypeProvider();
+staticContentTypes.Mappings[".mjs"] = "text/javascript";
+staticContentTypes.Mappings[".bcmap"] = "application/octet-stream";
+staticContentTypes.Mappings[".pfb"] = "application/octet-stream";
+staticContentTypes.Mappings[".icc"] = "application/vnd.iccprofile";
+staticContentTypes.Mappings[".wasm"] = "application/wasm";
 app.UseStaticFiles(new StaticFileOptions
 {
+    ContentTypeProvider = staticContentTypes,
     OnPrepareResponse = context =>
         context.Context.Response.Headers.CacheControl = "public,max-age=604800"
 });

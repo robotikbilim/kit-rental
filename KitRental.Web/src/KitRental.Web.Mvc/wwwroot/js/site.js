@@ -1,4 +1,6 @@
 (() => {
+    const labelPrintModuleUrl = new URL('kargonomi-label-print.mjs', document.currentScript.src);
+    labelPrintModuleUrl.search = new URL(document.currentScript.src).search;
     if (window.lucide) {
         window.lucide.createIcons({ attrs: { 'aria-hidden': 'true' } });
     }
@@ -809,17 +811,8 @@
 
             const pdf = await response.blob();
             if (!pdf.size) throw new Error('Henüz kargo etiketi oluşmamış, lütfen tekrar deneyin.');
-            const pdfUrl = URL.createObjectURL(pdf);
-            printWindow.document.open();
-            printWindow.document.write('<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kargo Etiketi · 10 × 10 cm</title><style>@page{size:100mm 100mm;margin:0}*{box-sizing:border-box}html,body{width:100mm;height:100mm;margin:0;padding:0;overflow:hidden}iframe{display:block;width:100mm;height:100mm;border:0}</style></head><body><iframe title="10 × 10 cm kargo etiketi"></iframe></body></html>');
-            printWindow.document.close();
-            const labelFrame = printWindow.document.querySelector('iframe');
-            labelFrame.addEventListener('load', () => {
-                printWindow.focus();
-                printWindow.setTimeout(() => printWindow.print(), 500);
-            }, { once: true });
-            labelFrame.src = pdfUrl;
-            printWindow.addEventListener('afterprint', () => URL.revokeObjectURL(pdfUrl), { once: true });
+            const { printKargonomiLabel } = await import(labelPrintModuleUrl.href);
+            await printKargonomiLabel(pdf, printWindow);
         } catch (error) {
             printWindow.close();
             showPopup(error instanceof Error ? error.message : 'Kargo etiketi alınamadı.', 'error');
