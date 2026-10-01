@@ -575,7 +575,8 @@ public sealed record PortalFaultViewModel(Guid Id, string Number, Guid ProductUn
     IReadOnlyCollection<PortalFaultStatusViewModel> History,
     string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "", int ApprovalStatus = 0,
     int Origin = 1, string Stage = "", bool IsOpen = false,
-    IReadOnlyCollection<PortalFaultShipmentViewModel>? Shipments = null);
+    IReadOnlyCollection<PortalFaultShipmentViewModel>? Shipments = null,
+    string? AssignedStudentName = null, string? AssignedStudentPhone = null);
 public sealed record PortalFaultShipmentViewModel(int Direction, string Carrier, string? TrackingNumber,
     string StatusLabel, int State, string RecipientAddress, DateTimeOffset UpdatedAt);
 public sealed record PublicFaultKitViewModel(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);

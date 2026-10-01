@@ -164,6 +164,8 @@
 .ops-fault-shipment-buttons { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 10px; }
 .ops-fault-shipment-buttons form { margin:0; }
 .ops-fault-shipment-buttons .table-action { min-height:36px; white-space:normal; }
+.ops-fault-agreement-code { display:flex; flex-direction:column; justify-content:center; gap:2px; min-height:36px; padding:0 10px; border:1px solid var(--ops-line); border-radius:8px; color:var(--ops-muted); font-size:.75rem; }
+.ops-fault-agreement-code strong { color:var(--ops-ink); font-size:.9rem; letter-spacing:.04em; }
 .ops-fault-shipment-buttons button:disabled { opacity:.5; cursor:not-allowed; }
 .ops-fault-disclosure>summary { display:flex; align-items:center; gap:12px; padding:13px 16px; cursor:pointer; list-style:none; border-radius:9px; text-align:left; }
 .ops-fault-disclosure>summary::-webkit-details-marker { display:none; }

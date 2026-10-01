@@ -80,7 +80,19 @@ public sealed class CustomerPortalService(
         var tickets = await repository.GetFaultTicketsAsync(customerId, cancellationToken);
         var models = (await repository.GetProductModelsAsync(cancellationToken)).ToDictionary(item => item.Id);
         var units = await LoadProductUnitsAsync(tickets.Select(ticket => ticket.ProductUnitId), cancellationToken);
-        return new CustomerPortalFaultsResponse(customer.Name, MapFaults(tickets, models, units));
+        var studentsByAssignment = (await repository.GetRentalCohortsAsync(customerId, cancellationToken))
+            .SelectMany(cohort => cohort.Students)
+            .Where(student => !student.IsDeleted && student.AssignmentId.HasValue)
+            .GroupBy(student => student.AssignmentId!.Value)
+            .ToDictionary(group => group.Key, group => group.First());
+        var faults = tickets.Select(ticket =>
+        {
+            units.TryGetValue(ticket.ProductUnitId, out var unit);
+            models.TryGetValue(unit?.ProductModelId ?? Guid.Empty, out var model);
+            studentsByAssignment.TryGetValue(ticket.AssignmentId, out var student);
+            return MapFault(ticket, unit, model, student?.FullName, student?.GuardianPhone);
+        }).OrderByDescending(item => item.OpenedAt).ToArray();
+        return new CustomerPortalFaultsResponse(customer.Name, faults);
     }
 
     public async Task<PortalFaultResponse> GetFaultAsync(Guid customerId, Guid faultId,
@@ -1155,7 +1167,8 @@ public sealed class CustomerPortalService(
             return MapFault(ticket, unit, model);
         }).OrderByDescending(item => item.OpenedAt).ToArray();
 
-    private static PortalFaultResponse MapFault(FaultTicket ticket, ProductUnit? unit, ProductModel? model) =>
+    private static PortalFaultResponse MapFault(FaultTicket ticket, ProductUnit? unit, ProductModel? model,
+        string? assignedStudentName = null, string? assignedStudentPhone = null) =>
         new(ticket.Id, ticket.Number, ticket.ProductUnitId, model?.Name ?? "Eğitim kiti",
             unit?.SerialNumber ?? "-", ticket.Category, ticket.Severity, ticket.Description, ticket.Status,
             ticket.OpenedAt, ticket.History.OrderBy(item => item.OccurredAt).Select(item =>
@@ -1166,7 +1179,8 @@ public sealed class CustomerPortalService(
             OperationsWorkload.IsOpenFault(ticket.Status),
             ticket.KargonomiShipments.OrderByDescending(item => item.CreatedAt).Select(item =>
                 new PortalFaultShipmentResponse((int)item.Direction, item.Carrier, item.TrackingNumber,
-                    item.StatusLabel, (int)item.State, item.RecipientAddress, item.UpdatedAt)).ToArray());
+                    item.StatusLabel, (int)item.State, item.RecipientAddress, item.UpdatedAt)).ToArray(),
+            assignedStudentName, assignedStudentPhone);
 
     private sealed record PortalLinkedStudent(Guid StudentId, Guid? AssignmentId, Guid? ProductUnitId, string FullName,
         string GuardianPhone, string AddressLine, string CohortName, bool StudentOrderLocked, Guid? OrderId);

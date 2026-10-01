@@ -37,11 +37,13 @@
         <div class="table-scroll portal-kit-table-wrap portal-table-no-frame">
             <table class="portal-kit-table js-datatable" data-datatable-state-save="false" data-datatable-responsive="false" data-datatable-page-length="10" data-datatable-column-filters="true">
                 <thead>
-                    <tr><th>Kayıt</th><th>Kaynak</th><th>Kit</th><th>Bildirim</th><th>Durum</th><th><span class="visually-hidden">İşlemler</span></th></tr>
+                    <tr><th>Kayıt</th><th>Kaynak</th><th>Kit</th><th>Atanan öğrenci</th><th>Telefon</th><th>Bildirim</th><th>Durum</th><th><span class="visually-hidden">İşlemler</span></th></tr>
                     <tr class="column-filter-row" data-dt-order="disable">
                         <th><input type="search" data-column-filter placeholder="Kayıt filtrele" aria-label="Kayıt sütununu filtrele" autocomplete="off" /></th>
                         <th><input type="search" data-column-filter placeholder="Kaynak filtrele" aria-label="Kaynak sütununu filtrele" autocomplete="off" /></th>
                         <th><input type="search" data-column-filter placeholder="Kit filtrele" aria-label="Kit sütununu filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter placeholder="Öğrenci filtrele" aria-label="Atanan öğrenci sütununu filtrele" autocomplete="off" /></th>
+                        <th><input type="search" data-column-filter placeholder="Telefon filtrele" aria-label="Telefon sütununu filtrele" autocomplete="off" /></th>
                         <th><input type="search" data-column-filter placeholder="Bildirim filtrele" aria-label="Bildirim sütununu filtrele" autocomplete="off" /></th>
                         <th><input type="search" data-column-filter placeholder="Durum filtrele" aria-label="Durum sütununu filtrele" autocomplete="off" /></th>
                         <th></th>
@@ -54,6 +56,8 @@
                         <td data-mobile-label="Kayit"><strong>@fault.Number</strong><small class="block-muted">@fault.OpenedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small></td>
                         <td data-mobile-label="Kaynak"><span class="fault-stage status-@fault.Origin">@OriginName(fault.Origin)</span></td>
                         <td data-mobile-label="Kit"><strong>@fault.KitName</strong><small class="block-muted">@fault.SerialNumber</small></td>
+                        <td data-mobile-label="Atanan öğrenci">@(fault.AssignedStudentName ?? "—")</td>
+                        <td data-mobile-label="Telefon">@(fault.AssignedStudentPhone ?? "—")</td>
                         <td data-mobile-label="Bildirim"><span class="fault-category">@fault.Category</span><p>@fault.Description</p></td>
                         <td data-mobile-label="Durum"><span class="fault-stage status-@fault.Status">@StatusName(fault.Status)</span></td>
                         <td data-mobile-label="İşlemler">

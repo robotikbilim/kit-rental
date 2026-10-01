@@ -47,7 +47,8 @@ public sealed record PortalFaultResponse(Guid Id, string Number, Guid ProductUni
     IReadOnlyCollection<PortalFaultStatusResponse> History,
     string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "",
     FaultApprovalStatus ApprovalStatus = FaultApprovalStatus.NotRequired, FaultOrigin Origin = FaultOrigin.Internal,
-    string Stage = "", bool IsOpen = false, IReadOnlyCollection<PortalFaultShipmentResponse>? Shipments = null);
+    string Stage = "", bool IsOpen = false, IReadOnlyCollection<PortalFaultShipmentResponse>? Shipments = null,
+    string? AssignedStudentName = null, string? AssignedStudentPhone = null);
 public sealed record PortalFaultShipmentResponse(int Direction, string Carrier, string? TrackingNumber,
     string StatusLabel, int State, string RecipientAddress, DateTimeOffset UpdatedAt);
 public sealed record CustomerPortalDashboardResponse(string CustomerName, int TotalRentedKitCount,
