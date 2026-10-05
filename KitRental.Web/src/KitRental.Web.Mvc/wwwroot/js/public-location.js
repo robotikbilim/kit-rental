@@ -57,9 +57,10 @@
             const displayName = typeof data.display_name === "string" ? data.display_name.trim() : "";
             const address = data && typeof data.address === "object" ? data.address : {};
 
-            if (displayName) {
-                addressInput.value = displayName;
-            }
+            const streetParts = [address.neighbourhood, address.road, address.house_number, address.building]
+                .filter(value => typeof value === "string" && value.trim());
+            const streetAddress = [...new Set(streetParts)].join(", ");
+            if (streetAddress) addressInput.value = streetAddress;
 
             addressInput.dispatchEvent(new CustomEvent("public-location:address-resolved", {
                 bubbles: true,

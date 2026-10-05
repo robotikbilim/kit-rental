@@ -44,7 +44,6 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
         var kit = await apiClient.GetPublicFaultKitAsync(token, cancellationToken);
         if (kit is null) return View("LinkExpired");
         var delivery = await apiClient.GetPublicKitDeliveryContextAsync(token, cancellationToken);
-        var parsedAddress = ParseStoredAddress(delivery?.AddressLine);
         var parts = (delivery?.RecipientName ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
         return View(new PublicKitOwnershipViewModel
         {
@@ -55,8 +54,9 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
             FirstName = parts.FirstOrDefault() ?? string.Empty,
             LastName = parts.Length > 1 ? string.Join(' ', parts.Skip(1)) : string.Empty,
             BuyerPhone = delivery?.RecipientPhone ?? string.Empty,
-            Address = parsedAddress.AddressLine,
-            City = parsedAddress.City
+            Address = delivery?.AddressLine ?? string.Empty,
+            CityId = delivery?.CityId, DistrictId = delivery?.DistrictId,
+            City = delivery?.City, District = delivery?.District
         });
     }
 
@@ -104,7 +104,6 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
         if (kit is null) return View("LinkExpired");
         var faultContext = await apiClient.GetPublicFaultContextAsync(token, cancellationToken);
         var deliveryContext = await apiClient.GetPublicKitDeliveryContextAsync(token, cancellationToken);
-        var parsedAddress = ParseStoredAddress(deliveryContext?.AddressLine ?? faultContext?.ReporterAddress);
         return View(new PublicFaultFormViewModel
         {
             FaultId = faultContext?.FaultId,
@@ -118,9 +117,11 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
             ReporterPhone = deliveryContext?.RecipientPhone
                 ?? faultContext?.ReporterPhone
                 ?? string.Empty,
-            City = parsedAddress.City,
-            District = parsedAddress.District,
-            ReporterAddress = parsedAddress.AddressLine,
+            CityId = deliveryContext?.AddressLine is not null ? deliveryContext.CityId : faultContext?.CityId,
+            DistrictId = deliveryContext?.AddressLine is not null ? deliveryContext.DistrictId : faultContext?.DistrictId,
+            City = deliveryContext?.AddressLine is not null ? deliveryContext.City : faultContext?.City,
+            District = deliveryContext?.AddressLine is not null ? deliveryContext.District : faultContext?.District,
+            ReporterAddress = deliveryContext?.AddressLine ?? faultContext?.ReporterAddress ?? string.Empty,
             Description = faultContext?.Description ?? string.Empty,
             AttachmentUrl = faultContext?.AttachmentUrl,
             Latitude = deliveryContext?.Latitude ?? faultContext?.Latitude,
@@ -141,12 +142,11 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
         model.SerialNumber = kit.SerialNumber;
         model.FaultId = faultContext?.FaultId;
         model.AttachmentUrl = faultContext?.AttachmentUrl;
-        if (string.IsNullOrWhiteSpace(model.City))
-            ModelState.AddModelError(nameof(model.City), "Lütfen il seçin.");
-        if (string.IsNullOrWhiteSpace(model.District))
-            ModelState.AddModelError(nameof(model.District), "Lütfen ilçe seçin.");
+        if (model.CityId is null or <= 0)
+            ModelState.AddModelError(nameof(model.CityId), "Lütfen il seçin.");
+        if (model.DistrictId is null or <= 0)
+            ModelState.AddModelError(nameof(model.DistrictId), "Lütfen ilçe seçin.");
         if (!ModelState.IsValid) return View(model);
-        model.ReporterAddress = BuildAddressLine(model);
         if (model.ReporterAddress.Length > 1000)
         {
             ModelState.AddModelError(nameof(model.ReporterAddress), "Adres en fazla 1000 karakter olabilir.");
@@ -199,39 +199,6 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
             System.IO.File.Delete(Path.Combine(environment.WebRootPath, "uploads", "faults", fileName));
     }
 
-    private static (string City, string District, string AddressLine) ParseStoredAddress(string? addressLine)
-    {
-        var address = addressLine?.Trim() ?? string.Empty;
-        var separatorIndex = address.IndexOf(" - ", StringComparison.Ordinal);
-        if (separatorIndex <= 0) return (string.Empty, string.Empty, address);
-
-        var location = address[..separatorIndex];
-        var slashIndex = location.IndexOf(" / ", StringComparison.Ordinal);
-        if (slashIndex <= 0 || slashIndex >= location.Length - 3)
-            return (string.Empty, string.Empty, address);
-
-        var city = location[..slashIndex].Trim();
-        var district = location[(slashIndex + 3)..].Trim();
-        if (string.IsNullOrWhiteSpace(city) || string.IsNullOrWhiteSpace(district))
-            return (string.Empty, string.Empty, address);
-
-        return (city, district, address[(separatorIndex + 3)..].Trim());
-    }
-
-    private static string BuildAddressLine(PublicFaultFormViewModel model) =>
-        BuildAddressLine(model.City, model.District, model.ReporterAddress);
-
-    private static string BuildAddressLine(string? city, string? district, string? addressValue)
-    {
-        var address = addressValue?.Trim() ?? string.Empty;
-        var location = string.Join(" / ", new[] { city, district }
-            .Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value!.Trim()));
-        if (string.IsNullOrWhiteSpace(location) ||
-            address.Contains(location, StringComparison.CurrentCultureIgnoreCase))
-            return address;
-        return $"{location} - {address}";
-    }
-
     [HttpGet("form/{token}/iade")]
     public async Task<IActionResult> Return(string token, CancellationToken cancellationToken)
     {
@@ -248,7 +215,6 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
                 returnContext.Carrier, returnContext.TrackingNumber));
         }
         var deliveryContext = await apiClient.GetPublicKitDeliveryContextAsync(token, cancellationToken);
-        var parsedAddress = ParseStoredAddress(returnContext?.ReturnAddress ?? deliveryContext?.AddressLine);
         return View(new PublicReturnFormViewModel
         {
             QrCode = kit.QrCode,
@@ -259,9 +225,11 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
             DeliveryMethod = returnContext?.DeliveryMethod ?? 1,
             RequesterName = returnContext?.RequesterName ?? deliveryContext?.RecipientName ?? string.Empty,
             RequesterPhone = returnContext?.RequesterPhone ?? deliveryContext?.RecipientPhone ?? string.Empty,
-            City = parsedAddress.City,
-            District = parsedAddress.District,
-            ReturnAddress = parsedAddress.AddressLine,
+            CityId = returnContext?.CityId ?? deliveryContext?.CityId,
+            DistrictId = returnContext?.DistrictId ?? deliveryContext?.DistrictId,
+            City = returnContext?.City ?? deliveryContext?.City,
+            District = returnContext?.District ?? deliveryContext?.District,
+            ReturnAddress = returnContext?.ReturnAddress ?? deliveryContext?.AddressLine,
             Latitude = returnContext?.Latitude ?? deliveryContext?.Latitude,
             Longitude = returnContext?.Longitude ?? deliveryContext?.Longitude
         });
@@ -279,22 +247,12 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
         model.SerialNumber = kit.SerialNumber;
         if (model.DeliveryMethod == 1)
         {
-            if (string.IsNullOrWhiteSpace(model.City))
-                ModelState.AddModelError(nameof(model.City), "Lütfen il seçin.");
-            if (string.IsNullOrWhiteSpace(model.District))
-                ModelState.AddModelError(nameof(model.District), "Lütfen ilçe seçin.");
+            if (model.CityId is null or <= 0)
+                ModelState.AddModelError(nameof(model.CityId), "Lütfen il seçin.");
+            if (model.DistrictId is null or <= 0)
+                ModelState.AddModelError(nameof(model.DistrictId), "Lütfen ilçe seçin.");
         }
         if (!ModelState.IsValid) return View(model);
-        if (model.DeliveryMethod == 1)
-        {
-            var returnAddress = BuildAddressLine(model.City, model.District, model.ReturnAddress);
-            model.ReturnAddress = returnAddress;
-            if (returnAddress.Length > 1000)
-            {
-                ModelState.AddModelError(nameof(model.ReturnAddress), "Adres en fazla 1000 karakter olabilir.");
-                return View(model);
-            }
-        }
         var result = await apiClient.CreatePublicReturnAsync(model, cancellationToken);
         if (!result.IsSuccess)
         {
@@ -335,6 +293,8 @@ public sealed class PublicFaultController(KitRentalApiClient apiClient, IWebHost
             RecipientName = deliveryContext?.RecipientName ?? string.Empty,
             RecipientPhone = deliveryContext?.RecipientPhone ?? string.Empty,
             AddressLine = deliveryContext?.AddressLine ?? string.Empty,
+            CityId = deliveryContext?.CityId, DistrictId = deliveryContext?.DistrictId,
+            City = deliveryContext?.City, District = deliveryContext?.District,
             Latitude = deliveryContext?.Latitude,
             Longitude = deliveryContext?.Longitude
         });

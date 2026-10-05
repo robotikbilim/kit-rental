@@ -1,5 +1,6 @@
 using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Application.Common;
+using KitRental.Core.Application.Kargonomi;
 using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Customers;
 using KitRental.Core.Domain.Inventory;
@@ -11,7 +12,7 @@ using KitRental.SharedKernel;
 
 namespace KitRental.Core.Application.PhysicalKits;
 
-public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider timeProvider)
+public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider timeProvider, IKargonomiClient? kargonomiClient = null)
 {
     public async Task<PhysicalKitDashboardResponse> GetDashboardAsync(CancellationToken cancellationToken)
     {
@@ -123,11 +124,13 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
                 ? new PhysicalKitLocationResponse(string.Empty, string.Empty, string.Empty, null, null, null)
                 : new PhysicalKitLocationResponse(assignmentLocation.ContactName, assignmentLocation.ContactPhone,
                     assignmentLocation.AddressLine, assignmentLocation.OccurredAt, assignmentLocation.Latitude,
-                    assignmentLocation.Longitude);
+                    assignmentLocation.Longitude, assignmentLocation.CityId, assignmentLocation.DistrictId,
+                    assignmentLocation.City, assignmentLocation.District);
             deliveries.Add(new PhysicalKitDeliveryHistoryResponse(assignment.Id, order.OrderNumber, order.Status,
                 assignment.Status, customer.Name, customer.Email, order.Period!.Value.StartDate,
                 order.Period.Value.EndDate, assignment.CreatedAt, location.RecipientName, location.Phone,
-                location.AddressLine, location.DeliveredAt, location.Latitude, location.Longitude));
+                location.AddressLine, location.DeliveredAt, location.Latitude, location.Longitude,
+                location.CityId, location.DistrictId, location.City, location.District));
         }
         deliveries = deliveries.OrderByDescending(item => item.CreatedAt).ToList();
         PhysicalKitLocationResponse? currentLocation = null;
@@ -143,12 +146,14 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
             if (currentAssignment is not null && latestLocationsByAssignment.TryGetValue(currentAssignment.Id, out var customerLocation))
                 currentLocation = new PhysicalKitLocationResponse(customerLocation.ContactName,
                     customerLocation.ContactPhone, customerLocation.AddressLine, customerLocation.OccurredAt,
-                    customerLocation.Latitude, customerLocation.Longitude);
+                    customerLocation.Latitude, customerLocation.Longitude, customerLocation.CityId, customerLocation.DistrictId,
+                    customerLocation.City, customerLocation.District);
         }
         else if (unit.Status == ProductUnitStatus.Sold && latestLocation is not null)
             currentLocation = new PhysicalKitLocationResponse(latestLocation.ContactName,
                 latestLocation.ContactPhone, latestLocation.AddressLine, latestLocation.OccurredAt,
-                latestLocation.Latitude, latestLocation.Longitude);
+                latestLocation.Latitude, latestLocation.Longitude, latestLocation.CityId, latestLocation.DistrictId,
+                latestLocation.City, latestLocation.District);
         var faults = (await repository.GetFaultTicketsAsync(null, cancellationToken))
             .Where(item => item.ProductUnitId == id)
             .Select(item => new PhysicalKitFaultHistoryResponse(item.Number, item.Category, item.Severity, item.Status,
@@ -167,7 +172,7 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
                 customer?.Name ?? "Müşteri",
                 request.RequesterName ?? "Bilinmiyor", request.RequesterPhone ?? "-",
                 request.ReturnAddress ?? "-", request.CreatedAt, request.ShippedAt, request.ReceivedAt,
-                request.Latitude, request.Longitude));
+                request.Latitude, request.Longitude, request.CityId, request.DistrictId, request.City, request.District));
         }
         returnRequests = returnRequests.OrderByDescending(item => item.CreatedAt).ToList();
         var status = unit.History.OrderBy(item => item.OccurredAt)
@@ -202,6 +207,8 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
         if ((await GetFaultyUnitIdsAsync(cancellationToken)).Contains(unit.Id))
             throw new ConflictException("physical_kit.has_open_fault", "Açık arıza kaydı bulunan bir kit kiralanamaz.");
 
+        var region = await AddressRegionResolver.ResolveAsync(kargonomiClient, command.CityId, command.DistrictId,
+            command.City, command.District, cancellationToken);
         var customer = await repository.FindCustomerByEmailAsync(command.Email, cancellationToken);
         if (customer is null)
         {
@@ -209,7 +216,7 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
             await repository.AddCustomerAsync(customer, cancellationToken);
         }
         var address = customer.AddAddress("Kiralama adresi", command.CustomerName, command.Phone,
-            command.AddressLine, command.PostalCode);
+            command.AddressLine, command.PostalCode, region.CityId, region.DistrictId, region.City, region.District);
         var now = timeProvider.GetTurkeyNow();
         var period = new RentalPeriod(command.StartDate, command.EndDate);
         var order = RentalOrder.Create(Guid.NewGuid(), $"KR-{now:yyyyMMdd}-{Guid.NewGuid():N}"[..20],
@@ -234,7 +241,8 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
         assignment.Activate();
         await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id,
             assignment.Id, order.Id, customer.Id, KitLocationEventSource.DeliveryReceipt, null,
-            command.CustomerName, command.Phone, command.AddressLine, null, null, now, command.ActorId),
+            command.CustomerName, command.Phone, command.AddressLine, null, null, now, command.ActorId,
+                region.CityId, region.DistrictId, region.City, region.District),
             cancellationToken);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(ProductUnit), unit.Id,
             "Rented", ProductUnitStatus.Available.ToString(), unit.Status.ToString(), now), cancellationToken);
@@ -273,6 +281,8 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
             throw new ConflictException("physical_kit.has_open_fault",
                 $"{faultyUnit.SerialNumber} seri numaralı kitin açık arıza kaydı bulunuyor.");
 
+        var region = await AddressRegionResolver.ResolveAsync(kargonomiClient, command.CityId, command.DistrictId,
+            command.City, command.District, cancellationToken);
         var customer = await repository.FindCustomerByEmailAsync(command.Email, cancellationToken);
         if (customer is null)
         {
@@ -281,7 +291,7 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
         }
 
         var address = customer.AddAddress("Kiralama adresi", command.CustomerName, command.Phone,
-            command.AddressLine, command.PostalCode);
+            command.AddressLine, command.PostalCode, region.CityId, region.DistrictId, region.City, region.District);
         var now = timeProvider.GetTurkeyNow();
         var period = new RentalPeriod(command.StartDate, command.EndDate);
         var order = RentalOrder.Create(Guid.NewGuid(), $"KR-{now:yyyyMMdd}-{Guid.NewGuid():N}"[..20],
@@ -317,7 +327,8 @@ public sealed class PhysicalKitService(ICoreRepository repository, TimeProvider 
         {
             await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id,
                 assignmentByUnit[unit.Id].Id, order.Id, customer.Id, KitLocationEventSource.DeliveryReceipt, null,
-                command.CustomerName, command.Phone, command.AddressLine, null, null, now, command.ActorId),
+                command.CustomerName, command.Phone, command.AddressLine, null, null, now, command.ActorId,
+                region.CityId, region.DistrictId, region.City, region.District),
                 cancellationToken);
             await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(ProductUnit),
                 unit.Id, "BulkRented", ProductUnitStatus.Available.ToString(), unit.Status.ToString(), now), cancellationToken);

@@ -260,7 +260,7 @@
                         <td>
                             @if (hasAddress)
                             {
-                                <span class="student-address-truncate" title="@student.AddressLine">@student.AddressLine</span>
+                                <span class="student-address-truncate" title="@(AddressDisplay.Full(student.AddressLine, student.City, student.District))">@(AddressDisplay.Full(student.AddressLine, student.City, student.District))</span>
                             }
                         </td>
                         <td>

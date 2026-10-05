@@ -39,7 +39,7 @@ public sealed class PhysicalKitsController : CoreApiControllerBase
         return Created("/api/physical-kits", await service.RentManyAsync(new BulkRentPhysicalKitsCommand(
                 request.ProductUnitIds, request.CustomerName, request.Email, request.Phone, request.AddressLine,
                 request.PostalCode, request.StartDate, request.EndDate,
-                User.GetRequiredUserId()), cancellationToken));
+                User.GetRequiredUserId(), request.CityId, request.DistrictId, request.City, request.District), cancellationToken));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff")]
@@ -55,7 +55,7 @@ public sealed class PhysicalKitsController : CoreApiControllerBase
     {
         return Created($"/api/physical-kits/{id}", await service.RentAsync(new RentPhysicalKitCommand(id,
                 request.CustomerName, request.Email, request.Phone, request.AddressLine, request.PostalCode,
-                request.StartDate, request.EndDate, User.GetRequiredUserId()), cancellationToken));
+                request.StartDate, request.EndDate, User.GetRequiredUserId(), request.CityId, request.DistrictId, request.City, request.District), cancellationToken));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager,WarehouseStaff")]

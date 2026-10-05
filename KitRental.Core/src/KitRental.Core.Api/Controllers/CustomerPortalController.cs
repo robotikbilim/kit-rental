@@ -72,7 +72,7 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     {
         var result = await service.OpenFaultAsync(new OpenPortalFaultCommand(GetRequiredCustomerId(),
                 request.AssignmentId, request.ReporterName, request.ReporterPhone, request.ReporterAddress,
-                request.Description, User.GetRequiredUserId()),
+                request.Description, User.GetRequiredUserId(), request.CityId, request.DistrictId, request.City, request.District),
                 cancellationToken);
         await notifications.NotifyAdminsOfFaultAsync(result, "Müşteri yeni bir arıza kaydı oluşturdu",
             cancellationToken);
@@ -128,7 +128,8 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     {
         var result = await service.SaveRentalCohortStudentAsync(new SaveRentalCohortStudentCommand(null,
                 GetRequiredCustomerId(), periodId, request.FullName, request.GuardianPhone, request.AddressLine ?? string.Empty,
-                request.ProductModelId, User.GetRequiredUserId(), GetActorDisplayName()), cancellationToken);
+                request.ProductModelId, User.GetRequiredUserId(), GetActorDisplayName(),
+                request.CityId, request.DistrictId, request.City, request.District), cancellationToken);
         return Created($"/api/customer-portal/rental-periods/{periodId}/students/{result.Id}", result);
     }
 
@@ -138,7 +139,8 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     {
         return Ok(await service.SaveRentalCohortStudentAsync(new SaveRentalCohortStudentCommand(studentId,
                 GetRequiredCustomerId(), periodId, request.FullName, request.GuardianPhone, request.AddressLine ?? string.Empty,
-                request.ProductModelId, User.GetRequiredUserId(), GetActorDisplayName()), cancellationToken));
+                request.ProductModelId, User.GetRequiredUserId(), GetActorDisplayName(),
+                request.CityId, request.DistrictId, request.City, request.District), cancellationToken));
     }
 
     [Authorize(Roles = "CustomerAccountManager,CustomerUser")]
@@ -156,7 +158,7 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     {
         return Ok(await service.ImportRentalCohortStudentsAsync(GetRequiredCustomerId(), periodId,
                 request.Rows.Select(row => new ImportRentalCohortStudentCommand(row.FullName, row.GuardianPhone,
-                    row.AddressLine ?? string.Empty, row.ProductModel)).ToArray(), User.GetRequiredUserId(), GetActorDisplayName(),
+                    row.AddressLine ?? string.Empty, row.ProductModel, row.CityId, row.DistrictId, row.City, row.District)).ToArray(), User.GetRequiredUserId(), GetActorDisplayName(),
                 cancellationToken));
     }
 
@@ -166,7 +168,8 @@ public sealed class CustomerPortalController : CoreApiControllerBase
     {
         var result = await service.CreatePortalStudentReturnAsync(new CreatePortalStudentReturnCommand(
                     GetRequiredCustomerId(), periodId, studentId, User.GetRequiredUserId(), GetActorDisplayName(),
-                    request.RequesterName, request.RequesterPhone, request.ReturnAddress, request.ReturnReason),
+                    request.RequesterName, request.RequesterPhone, request.ReturnAddress, request.ReturnReason,
+                    request.CityId, request.DistrictId, request.City, request.District),
                     cancellationToken);
         return Created($"/api/kit-returns/{result.Id}", result);
     }

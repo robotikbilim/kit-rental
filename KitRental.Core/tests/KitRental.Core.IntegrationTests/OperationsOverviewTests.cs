@@ -337,7 +337,8 @@ public sealed class OperationsOverviewTests
         Assert.True(await repository.TryCreateReservationAsync(unit, assignment, Actor, Now, Token));
         if (approve) assignment.Activate();
         var cohort = RentalCohort.Create(Guid.NewGuid(), customer.Id, "Güz dönemi", new DateOnly(2026, 9, 1), end, Now);
-        var student = cohort.AddStudent("Öğrenci", "5550001122", "İstanbul / Kadıköy - Adres", model.Id);
+        var student = cohort.AddStudent("Öğrenci", "5550001122", "Adres", model.Id,
+            cityId: 34, districtId: 1, city: "İstanbul", district: "Kadıköy");
         cohort.LinkStudentToKit(student.Id, order.Id, assignment.Id, unit.Id);
         await repository.AddRentalCohortAsync(cohort, Token);
         return new Fixture(repository, customer, order, student, assignment,

@@ -37,6 +37,10 @@ public sealed class FaultShipmentTests
         Assert.Equal(2, fixture.Ticket.KargonomiShipments.Count);
         var returning = fixture.Ticket.KargonomiShipments.Single(item => item.Direction == FaultKargonomiShipmentDirection.ToWorkshop);
         Assert.Equal(fixture.Client.GetReturnDestination().Address, returning.RecipientAddress);
+        Assert.Equal(34, returning.CityId);
+        Assert.Equal(1, returning.DistrictId);
+        Assert.Equal("İstanbul", returning.City);
+        Assert.Equal("Kadıköy", returning.District);
         Assert.Equal("HepsiJet", returning.Carrier);
         Assert.Equal("Aras Kargo", fixture.Ticket.KargonomiShipments.Single(item => item.Direction == FaultKargonomiShipmentDirection.ToCustomer).Carrier);
 
@@ -96,10 +100,59 @@ public sealed class FaultShipmentTests
         var externalId = failed.ExternalShipmentId;
         Assert.NotNull(externalId);
         Assert.Equal(KargonomiShipmentState.Failed, failed.State);
+        var originalRecipient = (failed.RecipientName, failed.RecipientPhone, failed.RecipientAddress);
+        fixture.Ticket.UpdatePublicDetails(fixture.Ticket.Category, fixture.Ticket.Description,
+            "Yeni veli", "05321112233", "Güncellenmiş adres", null, null, null, 35, 351, "İzmir", "Bornova");
         var retried = await fixture.Shipping.StartForFaultAsync(fixture.Ticket.Id, direction, Token);
         Assert.Equal(externalId, retried.ExternalShipmentId);
         Assert.Single(fixture.Ticket.KargonomiShipments);
         Assert.Equal(1, fixture.Client.OutboundRequests.Count + fixture.Client.ReturnRequests.Count);
+        Assert.Single(fixture.Client.AddressResolutionRequests);
+        Assert.Equal(originalRecipient, (failed.RecipientName, failed.RecipientPhone, failed.RecipientAddress));
+        Assert.Throws<DomainException>(() => failed.UpdateRecipientBeforeCreation(
+            fixture.Ticket.ReporterName, fixture.Ticket.ReporterPhone, fixture.Ticket.ReporterAddress));
+    }
+
+    [Theory]
+    [InlineData(FaultKargonomiShipmentDirection.ToWorkshop)]
+    [InlineData(FaultKargonomiShipmentDirection.ToCustomer)]
+    public async Task AddressFailureRetryUsesCorrectedFaultContactBeforeProviderCreation(FaultKargonomiShipmentDirection direction)
+    {
+        var fixture = await SeedAsync(includeRegion: false);
+        fixture.Ticket.UpdatePublicDetails(fixture.Ticket.Category, fixture.Ticket.Description,
+            fixture.Ticket.ReporterName, fixture.Ticket.ReporterPhone, "Eksik bölge bilgili adres", null, null);
+
+        await Assert.ThrowsAsync<ConflictException>(() => fixture.Shipping.StartForFaultAsync(fixture.Ticket.Id, direction, Token));
+        var failed = Assert.Single(fixture.Ticket.KargonomiShipments);
+        Assert.Null(failed.ExternalShipmentId);
+        Assert.Equal(KargonomiShipmentState.Failed, failed.State);
+        Assert.Empty(fixture.Client.OutboundRequests);
+        Assert.Empty(fixture.Client.ReturnRequests);
+
+        fixture.Ticket.UpdatePublicDetails(fixture.Ticket.Category, fixture.Ticket.Description,
+            "Yeni veli", "05321112233", "Güncellenmiş adres", null, null, null, 35, 351, "İzmir", "Bornova");
+        var retried = await fixture.Shipping.StartForFaultAsync(fixture.Ticket.Id, direction, Token);
+
+        Assert.Equal(failed.Id, retried.Id);
+        Assert.Single(fixture.Ticket.KargonomiShipments);
+        Assert.Equal(new (int?, int?)[] { (null, null), (35, 351) },
+            fixture.Client.AddressResolutionRequests);
+        if (direction == FaultKargonomiShipmentDirection.ToCustomer)
+        {
+            var request = Assert.Single(fixture.Client.OutboundRequests);
+            Assert.Equal(fixture.Ticket.ReporterName, request.BuyerName);
+            Assert.Equal(fixture.Ticket.ReporterPhone, request.BuyerPhone);
+            Assert.Equal(fixture.Ticket.ReporterAddress, request.BuyerAddress);
+            Assert.Equal(fixture.Ticket.ReporterAddress, failed.RecipientAddress);
+        }
+        else
+        {
+            var request = Assert.Single(fixture.Client.ReturnRequests);
+            Assert.Equal(fixture.Ticket.ReporterName, request.SenderName);
+            Assert.Equal(fixture.Ticket.ReporterPhone, request.SenderPhone);
+            Assert.Equal(fixture.Ticket.ReporterAddress, request.SenderAddress);
+            Assert.Equal(fixture.Client.GetReturnDestination().Address, failed.RecipientAddress);
+        }
     }
 
     [Theory]
@@ -127,7 +180,7 @@ public sealed class FaultShipmentTests
         await Assert.ThrowsAsync<ResourceNotFoundException>(() => fixture.Shipping.GetFaultBarcodeAsync(fixture.Ticket.Id, Guid.NewGuid(), Token));
     }
 
-    private static async Task<Fixture> SeedAsync()
+    private static async Task<Fixture> SeedAsync(bool includeRegion = true)
     {
         var repository = new InMemoryCoreRepository();
         var model = ProductModel.Create(Guid.NewGuid(), "Robotik Kit", "KIT");
@@ -136,7 +189,9 @@ public sealed class FaultShipmentTests
         await repository.AddProductUnitAsync(unit, Token);
         var ticket = FaultTicket.Open(Guid.NewGuid(), "FAULT-01", Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), unit.Id,
             "Arıza", FaultSeverity.Medium, "Çalışmıyor", DateTimeOffset.UtcNow,
-            "Veli", "5550001122", "Ankara / Çankaya - Veli adresi");
+            "Veli", "5550001122", "Veli adresi", cityId: includeRegion ? 6 : null,
+            districtId: includeRegion ? 104 : null, city: includeRegion ? "Ankara" : null,
+            district: includeRegion ? "Çankaya" : null);
         ticket.MarkInvestigating(Actor, DateTimeOffset.UtcNow, "İncelendi");
         ticket.Accept(Actor, DateTimeOffset.UtcNow, "Kabul edildi");
         await repository.AddFaultTicketAsync(ticket, Token);

@@ -18,6 +18,7 @@
             <div asp-validation-summary="ModelOnly" class="error"></div>
             <div class="field"><label asp-for="RecipientName"></label><input asp-for="RecipientName" autocomplete="name" placeholder="Ad soyad" /><span asp-validation-for="RecipientName" class="error"></span></div>
             <div class="field"><label asp-for="RecipientPhone"></label><input asp-for="RecipientPhone" type="tel" autocomplete="tel" inputmode="tel" data-phone-mask="tr" placeholder="0xxx xxx xx xx" /><span asp-validation-for="RecipientPhone" class="error"></span></div>
+            <partial name="_AddressRegionFields" model='@(new AddressRegionFieldsViewModel("", Model.CityId, Model.DistrictId, Model.City, Model.District, "AddressLine"))' />
             <div class="field"><label asp-for="AddressLine"></label><textarea asp-for="AddressLine" data-kargonomi-address rows="3" autocomplete="street-address" placeholder="Kitin teslim edildigi acik adres"></textarea><span asp-validation-for="AddressLine" class="error"></span><small class="block-muted" data-kargonomi-address-warning role="status" aria-live="polite" hidden>Kargonomi bazı görünmeyen, emoji veya desteklenmeyen karakterleri kabul etmeyebilir. Bu karakterler gönderi hazırlanırken otomatik ayıklanır; Türkçe adresinizi yazabilirsiniz.</small></div>
             <div class="public-location-box">
                 <button class="secondary-action" id="use-location" type="button">Konumumu Bul</button>

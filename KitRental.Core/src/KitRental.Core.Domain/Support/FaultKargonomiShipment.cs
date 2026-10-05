@@ -14,10 +14,13 @@ public sealed class FaultKargonomiShipment
     private FaultKargonomiShipment() { }
 
     private FaultKargonomiShipment(Guid id, Guid faultTicketId, FaultKargonomiShipmentDirection direction,
-        string recipientName, string recipientPhone, string recipientAddress, DateTimeOffset createdAt)
+        string recipientName, string recipientPhone, string recipientAddress, DateTimeOffset createdAt,
+        int? cityId, int? districtId, string? city, string? district)
     {
         Id = id; FaultTicketId = faultTicketId; Direction = direction;
         RecipientName = recipientName; RecipientPhone = recipientPhone; RecipientAddress = recipientAddress;
+        CityId = cityId; DistrictId = districtId;
+        City = city?.Trim() ?? string.Empty; District = district?.Trim() ?? string.Empty;
         State = KargonomiShipmentState.Pending; StatusLabel = "Başlatılmadı";
         CreatedAt = createdAt; UpdatedAt = createdAt;
     }
@@ -28,6 +31,10 @@ public sealed class FaultKargonomiShipment
     public string RecipientName { get; private set; } = string.Empty;
     public string RecipientPhone { get; private set; } = string.Empty;
     public string RecipientAddress { get; private set; } = string.Empty;
+    public int? CityId { get; private set; }
+    public int? DistrictId { get; private set; }
+    public string City { get; private set; } = string.Empty;
+    public string District { get; private set; } = string.Empty;
     public int? ExternalShipmentId { get; private set; }
     public string Carrier { get; private set; } = "Aras Kargo";
     public string? TrackingNumber { get; private set; }
@@ -40,13 +47,34 @@ public sealed class FaultKargonomiShipment
     public IReadOnlyCollection<FaultKargonomiShipmentEvent> Events => _events.AsReadOnly();
 
     public static FaultKargonomiShipment Create(Guid id, Guid faultTicketId, FaultKargonomiShipmentDirection direction,
-        string recipientName, string recipientPhone, string recipientAddress, DateTimeOffset createdAt)
+        string recipientName, string recipientPhone, string recipientAddress, DateTimeOffset createdAt,
+        int? cityId = null, int? districtId = null, string? city = null, string? district = null)
     {
         if (id == Guid.Empty || faultTicketId == Guid.Empty || string.IsNullOrWhiteSpace(recipientName) ||
             string.IsNullOrWhiteSpace(recipientPhone) || string.IsNullOrWhiteSpace(recipientAddress))
             throw new DomainException("fault_kargonomi.required_fields", "Arıza kargosu alıcı bilgileri zorunludur.");
         return new FaultKargonomiShipment(id, faultTicketId, direction, recipientName.Trim(), recipientPhone.Trim(),
-            recipientAddress.Trim(), createdAt);
+            recipientAddress.Trim(), createdAt, cityId, districtId, city, district);
+    }
+
+    public void UpdateRecipientBeforeCreation(string recipientName, string recipientPhone, string recipientAddress,
+        int? cityId = null, int? districtId = null, string? city = null, string? district = null)
+    {
+        if (ExternalShipmentId.HasValue)
+            throw new DomainException("fault_kargonomi.recipient_locked", "Kargonomi gönderisi oluşturulduktan sonra alıcı bilgileri değiştirilemez.");
+        if (string.IsNullOrWhiteSpace(recipientName) || string.IsNullOrWhiteSpace(recipientPhone) ||
+            string.IsNullOrWhiteSpace(recipientAddress))
+            throw new DomainException("fault_kargonomi.required_fields", "Arıza kargosu alıcı bilgileri zorunludur.");
+        RecipientName = recipientName.Trim();
+        RecipientPhone = recipientPhone.Trim();
+        RecipientAddress = recipientAddress.Trim();
+        if (cityId is not null || districtId is not null || city is not null || district is not null)
+        {
+            CityId = cityId;
+            DistrictId = districtId;
+            City = city?.Trim() ?? string.Empty;
+            District = district?.Trim() ?? string.Empty;
+        }
     }
 
     public void MarkCreated(int externalShipmentId, string? status, string statusLabel, string? trackingNumber,

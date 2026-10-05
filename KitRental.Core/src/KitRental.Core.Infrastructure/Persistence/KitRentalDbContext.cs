@@ -160,6 +160,10 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             addresses.Property(address => address.Phone).HasMaxLength(40).IsRequired();
             addresses.Property(address => address.Line1).HasMaxLength(500).IsRequired();
             addresses.Property(address => address.PostalCode).HasMaxLength(20);
+            addresses.Property(address => address.CityId);
+            addresses.Property(address => address.DistrictId);
+            addresses.Property(address => address.City).HasMaxLength(160).IsRequired().HasDefaultValue(string.Empty);
+            addresses.Property(address => address.District).HasMaxLength(160).IsRequired().HasDefaultValue(string.Empty);
         });
         builder.Navigation(customer => customer.Addresses).HasField("_addresses").UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.OwnsMany(customer => customer.AllowedProductModels, allowed =>
@@ -194,6 +198,10 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             address.Property(item => item.Phone).HasColumnName("DeliveryPhone").HasMaxLength(40);
             address.Property(item => item.Line1).HasColumnName("DeliveryLine1").HasMaxLength(500);
             address.Property(item => item.PostalCode).HasColumnName("DeliveryPostalCode").HasMaxLength(20);
+            address.Property(item => item.CityId).HasColumnName("DeliveryCityId");
+            address.Property(item => item.DistrictId).HasColumnName("DeliveryDistrictId");
+            address.Property(item => item.City).HasColumnName("DeliveryCity").HasMaxLength(160).IsRequired().HasDefaultValue(string.Empty);
+            address.Property(item => item.District).HasColumnName("DeliveryDistrict").HasMaxLength(160).IsRequired().HasDefaultValue(string.Empty);
         });
         builder.OwnsMany(order => order.Lines, lines =>
         {
@@ -295,6 +303,10 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             students.Property(item => item.FullName).HasMaxLength(160).IsRequired(false);
             students.Property(item => item.GuardianPhone).HasMaxLength(40).IsRequired(false);
             students.Property(item => item.AddressLine).HasMaxLength(1000).IsRequired(false);
+            students.Property(item => item.CityId);
+            students.Property(item => item.DistrictId);
+            students.Property(item => item.City).HasMaxLength(160).IsRequired().HasDefaultValue(string.Empty);
+            students.Property(item => item.District).HasMaxLength(160).IsRequired().HasDefaultValue(string.Empty);
             students.Property(item => item.PublicAddressToken).HasMaxLength(80).IsRequired();
             students.HasIndex(item => item.PublicAddressToken).IsUnique();
             students.HasIndex(item => item.ProductModelId);
@@ -351,6 +363,10 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(item => item.ContactName).HasMaxLength(160).IsRequired();
         builder.Property(item => item.ContactPhone).HasMaxLength(40).IsRequired();
         builder.Property(item => item.AddressLine).HasMaxLength(1000).IsRequired();
+        builder.Property(item => item.CityId);
+        builder.Property(item => item.DistrictId);
+        builder.Property(item => item.City).HasMaxLength(160).IsRequired().HasDefaultValue(string.Empty);
+        builder.Property(item => item.District).HasMaxLength(160).IsRequired().HasDefaultValue(string.Empty);
         builder.HasIndex(item => new { item.ProductUnitId, item.OccurredAt });
         builder.HasIndex(item => new { item.CustomerId, item.OccurredAt });
         builder.HasIndex(item => new { item.AssignmentId, item.OccurredAt });
@@ -378,6 +394,10 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(ticket => ticket.ReporterName).HasMaxLength(160).IsRequired();
         builder.Property(ticket => ticket.ReporterPhone).HasMaxLength(40).IsRequired();
         builder.Property(ticket => ticket.ReporterAddress).HasMaxLength(1000).IsRequired();
+        builder.Property(ticket => ticket.CityId);
+        builder.Property(ticket => ticket.DistrictId);
+        builder.Property(ticket => ticket.City).HasMaxLength(160).IsRequired().HasDefaultValue(string.Empty);
+        builder.Property(ticket => ticket.District).HasMaxLength(160).IsRequired().HasDefaultValue(string.Empty);
         builder.Property(ticket => ticket.AttachmentUrl).HasMaxLength(500);
         builder.Property(ticket => ticket.Origin).HasDefaultValue(FaultOrigin.Internal);
         builder.HasIndex(ticket => ticket.Number).IsUnique();
@@ -406,6 +426,10 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
             shipment.Property(item => item.RecipientName).HasMaxLength(160).IsRequired();
             shipment.Property(item => item.RecipientPhone).HasMaxLength(40).IsRequired();
             shipment.Property(item => item.RecipientAddress).HasMaxLength(1000).IsRequired();
+            shipment.Property(item => item.CityId);
+            shipment.Property(item => item.DistrictId);
+            shipment.Property(item => item.City).HasMaxLength(160).IsRequired().HasDefaultValue(string.Empty);
+            shipment.Property(item => item.District).HasMaxLength(160).IsRequired().HasDefaultValue(string.Empty);
             shipment.Property(item => item.Carrier).HasMaxLength(120).IsRequired();
             shipment.Property(item => item.StatusLabel).HasMaxLength(160).IsRequired();
             shipment.Property(item => item.ExternalStatus).HasMaxLength(80);
@@ -577,6 +601,10 @@ public sealed class KitRentalDbContext(DbContextOptions<KitRentalDbContext> opti
         builder.Property(x => x.RequesterName).HasMaxLength(160);
         builder.Property(x => x.RequesterPhone).HasMaxLength(40);
         builder.Property(x => x.ReturnAddress).HasMaxLength(1000);
+        builder.Property(x => x.CityId);
+        builder.Property(x => x.DistrictId);
+        builder.Property(x => x.City).HasMaxLength(160).IsRequired().HasDefaultValue(string.Empty);
+        builder.Property(x => x.District).HasMaxLength(160).IsRequired().HasDefaultValue(string.Empty);
         builder.Property(x => x.ReturnReason).HasConversion<int>();
         builder.Property(x => x.DeliveryMethod).HasConversion<int>();
         builder.HasIndex(x => new { x.CustomerId, x.Status });

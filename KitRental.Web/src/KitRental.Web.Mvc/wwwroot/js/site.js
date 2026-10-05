@@ -1038,6 +1038,11 @@
             editPhone.value = formatTurkishPhone(trigger.dataset.studentPhone || '');
             validateTurkishPhoneInput(editPhone);
             editAddress.value = trigger.dataset.studentAddress || '';
+            ['city-id', 'district-id', 'city', 'district'].forEach(field => {
+                const input = studentEditDialog.querySelector('#edit-student-' + field);
+                const key = 'student' + field.split('-').map(part => part[0].toUpperCase() + part.slice(1)).join('');
+                if (input) input.value = trigger.dataset[key] || '';
+            });
             editProduct.value = trigger.dataset.studentProduct || '';
             if (typeof studentEditDialog.showModal === 'function') {
                 studentEditDialog.showModal();

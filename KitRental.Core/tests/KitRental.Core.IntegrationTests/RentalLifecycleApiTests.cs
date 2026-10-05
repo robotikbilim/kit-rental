@@ -1,3 +1,7 @@
+using KitRental.Core.Application.Kargonomi;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using KitRental.Core.Application.Inventory;
 using KitRental.Core.Application.Operations;
 using KitRental.Core.Application.Workshop;
@@ -17,7 +21,15 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
 
     public RentalLifecycleApiTests(WebApplicationFactory<Program> factory)
     {
-        _client = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Testing")).CreateClient();
+        _client = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IKargonomiClient>();
+                services.AddScoped<IKargonomiClient, FakeKargonomiClient>();
+            });
+        }).CreateClient();
         var tokens = new TokenService(new TokenOptions(
             "KitRental.Identity", "KitRental", "development-only-secret-change-before-production-2026", TimeSpan.FromHours(8)));
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
@@ -36,7 +48,7 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
         var customer = await PostAsync<CustomerResponse>(
             "/api/customers",
             new CreateCustomerRequest("Yaşam Döngüsü Okulu", $"lc-{Guid.NewGuid():N}@example.com",
-                new AddressRequest("Okul", "Teslim Alan", "5550001122", "Bilim Sokak 1", "16000")),
+                new AddressRequest("Okul", "Teslim Alan", "5550001122", "Bilim Sokak 1", "16000", CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy")),
             cancellationToken);
         var start = new DateOnly(2026, 9, 1);
         var end = new DateOnly(2026, 9, 15);
@@ -77,7 +89,7 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
         var customer = await PostAsync<CustomerResponse>(
             "/api/customers",
             new CreateCustomerRequest("Akış Test Okulu", $"flow-{Guid.NewGuid():N}@example.com",
-                new AddressRequest("Okul", "Teslim Alan", "5550007788", "Test Sokak 1", "06000")),
+                new AddressRequest("Okul", "Teslim Alan", "5550007788", "Test Sokak 1", "06000", CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy")),
             cancellationToken);
         var start = new DateOnly(2026, 10, 1);
         var end = new DateOnly(2026, 10, 15);
@@ -149,7 +161,7 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
                 $"SALE-READY-QR-{Guid.NewGuid():N}"), cancellationToken);
         var customer = await PostAsync<CustomerResponse>("/api/customers",
             new CreateCustomerRequest("Satış Müşterisi", $"sale-{Guid.NewGuid():N}@example.com",
-                new AddressRequest("Merkez", "Teslim Alan", "5550007788", "Satış Sokak 1", "06000")),
+                new AddressRequest("Merkez", "Teslim Alan", "5550007788", "Satış Sokak 1", "06000", CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy")),
             cancellationToken);
 
         var order = await PostAsync<OrderResponse>("/api/purchase-orders",
@@ -188,7 +200,7 @@ public sealed class RentalLifecycleApiTests : IClassFixture<WebApplicationFactor
         {
             var response = await _client.PostAsJsonAsync(
                 $"/api/public/student-addresses/{student.PublicAddressToken}",
-                new PublicStudentAddressRequest(addressLine), cancellationToken);
+                new PublicStudentAddressRequest(addressLine, CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"), cancellationToken);
             response.EnsureSuccessStatusCode();
         }
     }

@@ -127,7 +127,8 @@ public sealed class CustomersController(KitRentalApiClient apiClient) : Controll
             ContactName = address.ContactName,
             Phone = address.Phone,
             Line1 = address.Line1,
-            PostalCode = address.PostalCode
+            PostalCode = address.PostalCode,
+            CityId = address.CityId, DistrictId = address.DistrictId, City = address.City, District = address.District
         });
     }
 

@@ -19,22 +19,7 @@
             <div asp-validation-summary="ModelOnly" class="error"></div>
             <div class="field"><label asp-for="ReporterName"></label><input asp-for="ReporterName" autocomplete="name" placeholder="Adiniz ve soyadiniz" /><span asp-validation-for="ReporterName" class="error"></span></div>
             <div class="field"><label asp-for="ReporterPhone"></label><input asp-for="ReporterPhone" type="tel" autocomplete="tel" inputmode="tel" data-phone-mask="tr" placeholder="0xxx xxx xx xx" /><span asp-validation-for="ReporterPhone" class="error"></span></div>
-            <div class="form-grid">
-                <div class="field">
-                    <label asp-for="City"></label>
-                    <select asp-for="City" id="City" autocomplete="address-level1" data-selected="@Model.City" required>
-                        <option value="">İl seçin</option>
-                    </select>
-                    <span asp-validation-for="City" class="error"></span>
-                </div>
-                <div class="field">
-                    <label asp-for="District"></label>
-                    <select asp-for="District" id="District" autocomplete="address-level2" data-selected="@Model.District" disabled required>
-                        <option value="">Önce il seçin</option>
-                    </select>
-                    <span asp-validation-for="District" class="error"></span>
-                </div>
-            </div>
+            <partial name="_AddressRegionFields" model='@(new AddressRegionFieldsViewModel("", Model.CityId, Model.DistrictId, Model.City, Model.District, "ReporterAddress", true))' />
             <div class="field"><label asp-for="ReporterAddress"></label><textarea asp-for="ReporterAddress" data-kargonomi-address rows="3" autocomplete="street-address" placeholder="Kitin bulunduğu açık adresi yazın."></textarea><span asp-validation-for="ReporterAddress" class="error"></span><small class="block-muted" data-kargonomi-address-warning role="status" aria-live="polite" hidden>Kargonomi bazı görünmeyen, emoji veya desteklenmeyen karakterleri kabul etmeyebilir. Bu karakterler gönderi hazırlanırken otomatik ayıklanır; Türkçe adresinizi yazabilirsiniz.</small></div>
             <div class="public-location-box">
                 <button class="secondary-action" id="use-location" type="button">Konumumu Bul</button>
@@ -48,7 +33,5 @@
     </section>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="~/js/turkey-address-dropdowns.js" asp-append-version="true"></script>
-<script src="~/js/public-student-address.js" asp-append-version="true"></script>
 <script src="~/js/public-kargonomi-address.js" asp-append-version="true"></script>
 <script src="~/js/public-location.js" asp-append-version="true"></script>

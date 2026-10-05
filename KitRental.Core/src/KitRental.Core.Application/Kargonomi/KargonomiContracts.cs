@@ -48,6 +48,7 @@ public sealed record KargonomiShipmentListSnapshot(
     DateTimeOffset? UpdatedAt);
 
 public sealed record KargonomiCarrierQuote(int Id, string Name, string Slug, string? Price);
+public sealed record KargonomiRegionResponse(int Id, string Name);
 
 public interface IKargonomiClient
 {
@@ -59,10 +60,13 @@ public interface IKargonomiClient
     Task<KargonomiShipmentSnapshot> GetShipmentAsync(int shipmentId, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<KargonomiShipmentListSnapshot>> GetShipmentsAsync(CancellationToken cancellationToken);
     Task<string> GetBarcodeAsync(int shipmentId, CancellationToken cancellationToken);
-    Task<(int StateId, int CityId)> ResolveLocationAsync(string address, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<KargonomiRegionResponse>> GetStatesAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<KargonomiRegionResponse>> GetCitiesAsync(int stateId, CancellationToken cancellationToken);
+    Task<(int StateId, int CityId)> ResolveLocationAsync(int? cityId, int? districtId, CancellationToken cancellationToken);
 }
 
-public sealed record KargonomiReturnDestination(string Name, string Phone, string Address);
+public sealed record KargonomiReturnDestination(string Name, string Phone, string Address,
+    int? CityId = null, int? DistrictId = null, string City = "", string District = "");
 
 public sealed record KargonomiShipmentResponse(
     Guid Id,
@@ -99,7 +103,8 @@ public sealed record KargonomiShipmentBatchResponse(
 public sealed record FaultKargonomiShipmentResponse(Guid Id, Guid FaultTicketId,
     FaultKargonomiShipmentDirection Direction, int? ExternalShipmentId, string RecipientName,
     string RecipientAddress, string? TrackingNumber, string Carrier, string StatusLabel,
-    KargonomiShipmentState State, string? LastError, DateTimeOffset UpdatedAt);
+    KargonomiShipmentState State, string? LastError, DateTimeOffset UpdatedAt,
+    int? CityId = null, int? DistrictId = null, string City = "", string District = "");
 
 public sealed record KargonomiShipmentListItemResponse(
     int Id, string BuyerName, string? BuyerPhone, string BuyerAddress, string? BuyerState, string? BuyerCity,

@@ -10,6 +10,7 @@
             <div class="field"><label asp-for="Email"></label><input asp-for="Email" /><span asp-validation-for="Email"></span></div>
             <div class="field"><label asp-for="Phone"></label><input asp-for="Phone" type="tel" data-phone-mask="tr" /><span asp-validation-for="Phone"></span></div>
             <div class="field"><label asp-for="PostalCode"></label><input asp-for="PostalCode" /></div>
+            <partial name="_AddressRegionFields" model='@(new AddressRegionFieldsViewModel("", Model.CityId, Model.DistrictId, Model.City, Model.District, "AddressLine"))' />
             <div class="field wide"><label asp-for="AddressLine"></label><textarea asp-for="AddressLine" rows="3"></textarea><span asp-validation-for="AddressLine"></span></div>
         </div></section>
         <section class="form-section"><h2>Kiralama dönemi</h2><div class="form-grid">

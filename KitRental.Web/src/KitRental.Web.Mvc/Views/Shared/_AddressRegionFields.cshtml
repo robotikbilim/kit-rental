@@ -1,0 +1,31 @@
+@model AddressRegionFieldsViewModel
+@{
+    var cityField = Model.Prefix + "CityId";
+    var districtField = Model.Prefix + "DistrictId";
+    var cityElement = cityField.Replace('.', '_');
+    var districtElement = districtField.Replace('.', '_');
+    var cityError = ViewData.ModelState.TryGetValue(cityField, out var cityState)
+        ? cityState.Errors.FirstOrDefault()?.ErrorMessage : null;
+    var districtError = ViewData.ModelState.TryGetValue(districtField, out var districtState)
+        ? districtState.Errors.FirstOrDefault()?.ErrorMessage : null;
+}
+<div class="form-grid" data-address-regions data-city-id="@Model.CityId" data-district-id="@Model.DistrictId"
+     data-city-name="@Model.City" data-district-name="@Model.District" data-street-id="@Model.StreetInputId">
+    <div class="field">
+        <label for="@cityElement">İl</label>
+        <select name="@cityField" id="@cityElement" data-region-city autocomplete="address-level1" required="@Model.Required">
+            <option value="">İller yükleniyor…</option>
+        </select>
+        <input type="hidden" name="@(Model.Prefix + "City")" value="@Model.City" data-region-city-name />
+        <span class="error" data-valmsg-for="@cityField" data-valmsg-replace="true">@cityError</span>
+    </div>
+    <div class="field">
+        <label for="@districtElement">İlçe</label>
+        <select name="@districtField" id="@districtElement" data-region-district autocomplete="address-level2" disabled required="@Model.Required">
+            <option value="">Önce il seçin</option>
+        </select>
+        <input type="hidden" name="@(Model.Prefix + "District")" value="@Model.District" data-region-district-name />
+        <span class="error" data-valmsg-for="@districtField" data-valmsg-replace="true">@districtError</span>
+    </div>
+    <small class="error" data-region-error role="status" aria-live="polite" hidden></small>
+</div>

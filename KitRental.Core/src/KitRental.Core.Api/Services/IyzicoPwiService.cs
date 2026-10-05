@@ -5,6 +5,8 @@ using Iyzipay;
 using Iyzipay.Model;
 using Iyzipay.Request;
 using KitRental.Core.Application.Abstractions;
+using KitRental.Core.Application.Common;
+using KitRental.Core.Application.Kargonomi;
 using KitRental.Core.Application.Operations;
 using KitRental.Core.Domain.Auditing;
 using KitRental.Core.Domain.Inventory;
@@ -16,13 +18,14 @@ using Microsoft.AspNetCore.DataProtection;
 namespace KitRental.Core.Api.Services;
 
 public sealed record OwnershipPaymentRequest(string FirstName, string LastName, string IdentityNumber,
-    string Email, string Phone, string Address, string City, string? PostalCode);
+    string Email, string Phone, string Address, string City, string? PostalCode,
+    int? CityId = null, int? DistrictId = null, string? District = null);
 public sealed record OwnershipPaymentStart(Guid AttemptId, string PaymentPageUrl, DateTimeOffset ExpiresAt);
 public sealed record OwnershipPaymentStatus(Guid AttemptId, string Status, DateTimeOffset? ExpiresAt);
 
 public sealed class IyzicoPwiService(ICoreRepository repository, PublicFormAccessService publicForms,
     IDataProtectionProvider dataProtectionProvider, IConfiguration configuration, TimeProvider timeProvider,
-    ILogger<IyzicoPwiService> logger)
+    ILogger<IyzicoPwiService> logger, IKargonomiClient? kargonomiClient = null)
 {
     private static readonly Guid SystemActorId = Guid.Parse("b9d7720f-7ef9-4fe6-a397-41d240ef7774");
     private const decimal Price = 2350m;
@@ -33,6 +36,9 @@ public sealed class IyzicoPwiService(ICoreRepository repository, PublicFormAcces
         string ipAddress, CancellationToken cancellationToken)
     {
         var unit = await publicForms.ResolveProductUnitAsync(publicToken, cancellationToken);
+        var addressRegion = await AddressRegionResolver.ResolveAsync(kargonomiClient, input.CityId,
+            input.DistrictId, input.City, input.District, cancellationToken);
+        input = input with { City = addressRegion.City!, District = addressRegion.District };
         if (unit.Status != ProductUnitStatus.WithCustomer)
             throw new InvalidOperationException("Bu kit şu anda sahiplenme ödemesine uygun değil.");
         var assignments = (await repository.GetAssignmentsForProductUnitAsync(unit.Id, cancellationToken))

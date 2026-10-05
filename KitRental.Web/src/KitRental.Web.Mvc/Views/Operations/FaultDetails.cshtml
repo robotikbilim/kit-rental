@@ -35,7 +35,7 @@
                 <div><dt>Telefon</dt><dd>@if (!string.IsNullOrWhiteSpace(fault.ReporterPhone) && fault.ReporterPhone != "—") { <a href="tel:@fault.ReporterPhone">@fault.ReporterPhone</a> } else { <span>—</span> }</dd></div>
                 <div><dt>Kayıtla ilişkili öğrenci</dt><dd>@(Model.ReportedStudentName ?? "Öğrenci kaydı bulunamadı")</dd></div>
                 <div><dt>Sipariş</dt><dd>@if (fault.OrderId != Guid.Empty) { <a asp-action="OrderDetails" asp-route-id="@fault.OrderId">@(fault.OrderNumber ?? "Siparişi aç")</a> } else { <span>—</span> }</dd></div>
-                <div class="ops-fault-fact-wide"><dt>Arıza bildirimi / kargo işlem adresi</dt><dd>@fault.ReporterAddress</dd></div>
+                <div class="ops-fault-fact-wide"><dt>Arıza bildirimi / kargo işlem adresi</dt><dd>@(AddressDisplay.Full(fault.ReporterAddress, fault.City, fault.District))</dd></div>
             </dl>
             @if (!string.IsNullOrWhiteSpace(fault.AttachmentUrl))
             {
@@ -75,7 +75,7 @@
                 <div><dt>Müşteri</dt><dd>@current.CustomerName</dd></div>
                 <div><dt>İletişim kişisi</dt><dd>@(current.ContactName ?? "—")</dd></div>
                 <div><dt>Telefon</dt><dd>@if (!string.IsNullOrWhiteSpace(current.Phone)) { <a href="tel:@current.Phone">@current.Phone</a> } else { <span>—</span> }</dd></div>
-                <div class="ops-fault-fact-wide"><dt>Son kayıtlı adres</dt><dd>@(current.Address ?? "Adres bilgisi bulunmuyor")</dd></div>
+                <div class="ops-fault-fact-wide"><dt>Son kayıtlı adres</dt><dd>@(string.IsNullOrWhiteSpace(current.Address) ? "Adres bilgisi bulunmuyor" : AddressDisplay.Full(current.Address, current.City, current.District))</dd></div>
                 <div><dt>Güncel sipariş</dt><dd>@if (current.OrderId != Guid.Empty) { <a asp-action="OrderDetails" asp-route-id="@current.OrderId">@current.OrderNumber</a> } else { <span>—</span> }</dd></div>
                 <div><dt>Adres kayıt zamanı</dt><dd>@(current.AddressUpdatedAt?.ToTurkeyTimeString("dd.MM.yyyy HH:mm") ?? "—")</dd></div>
             </dl>

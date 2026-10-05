@@ -27,21 +27,7 @@
                 <option value="1">Adresimden Alınsın</option>
                 <option value="2">Kendim Bırakacağım</option>
             </select><span asp-validation-for="DeliveryMethod" class="error"></span></div>
-            <div class="form-grid" data-return-pickup-field>
-                <div class="field">
-                    <label asp-for="City"></label>
-                    <select asp-for="City" id="City" autocomplete="address-level1" data-selected="@Model.City">
-                        <option value="">İl seçin</option>
-                    </select>
-                    <span asp-validation-for="City" class="error"></span>
-                </div>
-                <div class="field">
-                    <label asp-for="District"></label>
-                    <select asp-for="District" id="District" autocomplete="address-level2" data-selected="@Model.District" disabled>
-                        <option value="">Önce il seçin</option>
-                    </select>
-                    <span asp-validation-for="District" class="error"></span>
-                </div>
+            <div data-return-pickup-field><partial name="_AddressRegionFields" model='@(new AddressRegionFieldsViewModel("", Model.CityId, Model.DistrictId, Model.City, Model.District, "ReturnAddress", false))' />
             </div>
             <div class="field" data-return-pickup-field><label asp-for="ReturnAddress"></label><textarea asp-for="ReturnAddress" data-kargonomi-address rows="3" autocomplete="street-address" placeholder="Kargo alınacak açık adresi yazın."></textarea><span asp-validation-for="ReturnAddress" class="error"></span><small class="block-muted" data-kargonomi-address-warning role="status" aria-live="polite" hidden>Kargonomi bazı görünmeyen, emoji veya desteklenmeyen karakterleri kabul etmeyebilir. Bu karakterler gönderi hazırlanırken otomatik ayıklanır; Türkçe adresinizi yazabilirsiniz.</small></div>
             <div class="public-location-box" data-return-pickup-field>
@@ -58,8 +44,6 @@
     </section>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="~/js/turkey-address-dropdowns.js" asp-append-version="true"></script>
-<script src="~/js/public-student-address.js" asp-append-version="true"></script>
 <script src="~/js/public-kargonomi-address.js" asp-append-version="true"></script>
 <script src="~/js/public-location.js" asp-append-version="true"></script>
 <script>
@@ -73,6 +57,8 @@
         const sync = () => {
             const isDropoff = method?.value === '2';
             pickupFields.forEach((field) => { field.hidden = isDropoff; });
+            form?.querySelectorAll('[data-region-city],[data-region-district],textarea[name="ReturnAddress"]')
+                .forEach(field => { field.required = !isDropoff; });
             if (submitButton && !isSubmitting) submitButton.textContent = isDropoff ? 'İade Talebi Oluştur' : 'Kurye Çağır';
         };
         method?.addEventListener('change', sync);

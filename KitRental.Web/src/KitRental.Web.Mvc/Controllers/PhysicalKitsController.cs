@@ -150,7 +150,7 @@ public sealed class PhysicalKitsController(KitRentalApiClient apiClient) : Contr
     private static string? FormatStudentAddress(PortalRentalCohortStudentViewModel? student)
     {
         if (student is null) return null;
-        return string.IsNullOrWhiteSpace(student.AddressLine) ? null : student.AddressLine.Trim();
+        return string.IsNullOrWhiteSpace(student.AddressLine) ? null : AddressDisplay.Full(student.AddressLine, student.City, student.District);
     }
 
     [HttpGet]

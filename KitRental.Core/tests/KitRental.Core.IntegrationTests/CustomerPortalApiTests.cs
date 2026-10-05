@@ -40,6 +40,51 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         });
 
     [Fact]
+    public async Task StructuredFaultValidatesProviderIdsAndKeepsStreetSeparateFromCanonicalRegion()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var today = TurkeyTime.Today();
+        using var admin = CreateClient(new TokenUser(Guid.NewGuid(), "address-admin@test.local", "SystemAdmin", null));
+        using var publicClient = _factory.CreateClient();
+        var model = await PostAsync<ProductModelResponse>(admin, "/api/product-models",
+            new CreateProductModelRequest("Adres Test Kiti", $"ADDRESS-{Guid.NewGuid():N}"), cancellationToken);
+        var unit = await PostAsync<ProductUnitResponse>(admin, "/api/product-units",
+            new CreateProductUnitRequest(model.Id), cancellationToken);
+        var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rentals",
+            new RentPhysicalKitRequest("Adres Müşterisi", $"address-{Guid.NewGuid():N}@example.com",
+                "05320000000", "İlk Sokak 1", "34000", today.AddDays(-1), today.AddDays(30),
+                CityId: 34, DistrictId: 1, City: "Yanlış il etiketi", District: "Yanlış ilçe etiketi"), cancellationToken);
+        var token = await CreatePublicTokenAsync(publicClient, unit.QrCode, cancellationToken);
+        var initial = await publicClient.GetFromJsonAsync<PublicKitDeliveryContextResponse>(
+            $"/api/public/deliveries/context/{token}", cancellationToken);
+        Assert.Equal("İlk Sokak 1", initial!.AddressLine);
+        Assert.Equal(((int?)34, (int?)1, "İstanbul", "Kadıköy"), (initial.CityId, initial.DistrictId, initial.City, initial.District));
+
+        var invalid = await publicClient.PostAsJsonAsync("/api/public/faults",
+            new PublicFaultRequest(null, token, "Bildiren", "05320000000", "Arıza Sokak 2", "Motor çalışmıyor",
+                CityId: 6, DistrictId: 1, City: "Ankara", District: "Kadıköy"), cancellationToken);
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, invalid.StatusCode);
+        var unchanged = await publicClient.GetFromJsonAsync<PublicFaultContextResponse>(
+            $"/api/public/faults/context/{token}", cancellationToken);
+        Assert.Null(unchanged!.FaultId);
+
+        const string street = "İl gibi görünen / metin - Arıza Sokak 2";
+        var saved = await publicClient.PostAsJsonAsync("/api/public/faults",
+            new PublicFaultRequest(null, token, "Bildiren", "05320000000", street, "Motor çalışmıyor",
+                CityId: 6, DistrictId: 104, City: "İstanbul", District: "Kadıköy"), cancellationToken);
+        saved.EnsureSuccessStatusCode();
+        var latest = await publicClient.GetFromJsonAsync<PublicKitDeliveryContextResponse>(
+            $"/api/public/deliveries/context/{token}", cancellationToken);
+        Assert.Equal(street, latest!.AddressLine);
+        Assert.Equal(((int?)6, (int?)104, "Ankara", "Çankaya"), (latest.CityId, latest.DistrictId, latest.City, latest.District));
+        using var customer = CreateClient(new TokenUser(Guid.NewGuid(), "address-user@test.local", "CustomerUser", rental.CustomerId));
+        var form = await customer.GetFromJsonAsync<PortalFaultFormContextResponse>(
+            $"/api/customer-portal/assignments/{rental.AssignmentId}/fault-context", cancellationToken);
+        Assert.Equal(street, form!.ReporterAddress);
+        Assert.Equal(((int?)6, (int?)104, "Ankara", "Çankaya"), (form.CityId, form.DistrictId, form.City, form.District));
+    }
+
+    [Fact]
     public async Task CustomerPortalListsOwnKitBlocksRentalRequestAndCreatesFault()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -53,7 +98,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var email = $"tacev-{Guid.NewGuid():N}@example.com";
         var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rentals",
             new RentPhysicalKitRequest("TACEV Test Merkezi", email, "02165550000", "Bilim Sokak 1",
-                "34000", new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1)), cancellationToken);
+                "34000", new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1), CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"), cancellationToken);
 
         var customer = CreateClient(new TokenUser(Guid.NewGuid(), email, "CustomerAccountManager", rental.CustomerId));
         var kits = await customer.GetFromJsonAsync<CustomerPortalKitsResponse>("/api/customer-portal/kits", cancellationToken);
@@ -79,7 +124,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         var fault = await customer.PostAsJsonAsync("/api/customer-portal/faults", new PortalFaultRequest(
             rental.AssignmentId, "TACEV Test Merkezi", "02165550000", "Test Sokak 1",
-            "Sol motor yük altında dönmüyor."), cancellationToken);
+            "Sol motor yük altında dönmüyor.", CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"), cancellationToken);
         fault.EnsureSuccessStatusCode();
         var createdFault = (await fault.Content.ReadFromJsonAsync<CreatedFaultResponse>(cancellationToken))!;
         var portalFaultContext = await customer.GetFromJsonAsync<PortalFaultFormContextResponse>(
@@ -168,7 +213,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         {
             var response = await client.PostAsJsonAsync(
                 $"/api/public/student-addresses/{student.PublicAddressToken}",
-                new PublicStudentAddressRequest(addressLine), cancellationToken);
+                new PublicStudentAddressRequest(addressLine, CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"), cancellationToken);
             response.EnsureSuccessStatusCode();
         }
     }
@@ -199,7 +244,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rentals",
             new RentPhysicalKitRequest("Public QR Musterisi", $"public-{Guid.NewGuid():N}@example.com",
                 "05320000000", "Test Sokak 10", "34000",
-                today.AddDays(-1), today.AddDays(30)), cancellationToken);
+                today.AddDays(-1), today.AddDays(30), CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"), cancellationToken);
 
         var token = await CreatePublicTokenAsync(publicClient, unit.QrCode, cancellationToken);
         var initialContext = await publicClient.GetFromJsonAsync<PublicKitDeliveryContextResponse>(
@@ -209,7 +254,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         var fault = await publicClient.PostAsJsonAsync("/api/public/faults", new PublicFaultRequest(
             null, token, "Ayse Test", "05321112233", "Ariza Sokak 20 Kadikoy Istanbul",
-            "Kit acildiginda sensor okumasi yapmiyor."), cancellationToken);
+            "Kit acildiginda sensor okumasi yapmiyor.", CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"), cancellationToken);
         fault.EnsureSuccessStatusCode();
         var createdFault = (await fault.Content.ReadFromJsonAsync<CreatedFaultResponse>(cancellationToken))!;
         var faultContext = await publicClient.GetFromJsonAsync<PublicKitDeliveryContextResponse>(
@@ -224,7 +269,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         var createdReturn = await PostAsync<PublicReturnResponse>(publicClient, "/api/public/returns",
             new PublicKitReturnRequest(token, "Ayse Test", "05321112233", "Iade Sokak 30 Kadikoy Istanbul",
-                null, null, KitReturnReason.EducationCompleted),
+                null, null, KitReturnReason.EducationCompleted, CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"),
             cancellationToken);
         Assert.Equal(KitReturnStatus.InTransit, createdReturn.Status);
         Assert.Equal("HepsiJet", createdReturn.Carrier);
@@ -282,7 +327,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var duplicateReturn = await publicClient.PostAsJsonAsync("/api/public/returns",
             new PublicKitReturnRequest(token, "Ayse Guncel", "05321112233",
                 "Guncel Iade Sokak 40 Kadikoy Istanbul", 41.012345, 29.012345,
-                KitReturnReason.EducationCompleted),
+                KitReturnReason.EducationCompleted, CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"),
             cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, duplicateReturn.StatusCode);
         var currentReturnContext = await publicClient.GetFromJsonAsync<PublicKitReturnContextResponse>(
@@ -311,10 +356,10 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var unavailableToken = await CreatePublicTokenAsync(publicClient, availableUnit.QrCode, cancellationToken);
         var unavailableFault = await publicClient.PostAsJsonAsync("/api/public/faults", new PublicFaultRequest(
             null, unavailableToken, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul",
-            "Aktif kiralamasi olmayan kit."), cancellationToken);
+            "Aktif kiralamasi olmayan kit.", CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"), cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, unavailableFault.StatusCode);
         var unavailableReturn = await publicClient.PostAsJsonAsync("/api/public/returns",
-            new PublicKitReturnRequest(unavailableToken, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345, KitReturnReason.EnrollmentCancelled),
+            new PublicKitReturnRequest(unavailableToken, "Ayse Test", "05321112233", "Test Sokak 10 Kadikoy Istanbul", 41.012345, 29.012345, KitReturnReason.EnrollmentCancelled, CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"),
             cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, unavailableReturn.StatusCode);
     }
@@ -331,7 +376,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             new CreateProductUnitRequest(model.Id, $"PDL-SN-{Guid.NewGuid():N}", $"PDL-QR-{Guid.NewGuid():N}"), cancellationToken);
         var customer = await PostAsync<CustomerResponse>(admin, "/api/customers",
             new CreateCustomerRequest("Teslim Okulu", $"delivery-{Guid.NewGuid():N}@example.com",
-                new AddressRequest("Okul", "Operasyon", "02120000000", "Okul Sokak 1", "06000")),
+                new AddressRequest("Okul", "Operasyon", "02120000000", "Okul Sokak 1", "06000", CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy")),
             cancellationToken);
         var order = await PostAsync<CreatedOrderResponse>(admin, "/api/orders", new CreateOrderRequest(
             customer.Id, model.Id, new DateOnly(2026, 11, 1), new DateOnly(2026, 12, 1),
@@ -352,7 +397,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var token = await CreatePublicTokenAsync(publicClient, unit.QrCode, cancellationToken);
         var receipt = await PostAsync<PublicDeliveryResponse>(publicClient, "/api/public/deliveries",
             new PublicKitDeliveryRequest(token, "Ece Yilmaz", "05325550000",
-                "Ataturk Caddesi 12", 41.0438, 29.0094), cancellationToken);
+                "Ataturk Caddesi 12", 41.0438, 29.0094, CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"), cancellationToken);
         Assert.Equal(unit.Id, receipt.ProductUnitId);
         Assert.Equal(prepared.Kits.Single().AssignmentId, receipt.AssignmentId);
 
@@ -384,7 +429,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             cancellationToken);
         var customer = await PostAsync<CustomerResponse>(admin, "/api/customers",
             new CreateCustomerRequest("Adres Sonra Okulu", $"address-later-{Guid.NewGuid():N}@example.com",
-                new AddressRequest("Okul", "Operasyon", "02120000000", "Okul Sokak 1", "06000")),
+                new AddressRequest("Okul", "Operasyon", "02120000000", "Okul Sokak 1", "06000", CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy")),
             cancellationToken);
         var order = await PostAsync<CreatedOrderResponse>(admin, "/api/orders", new CreateOrderRequest(
             customer.Id, model.Id, new DateOnly(2026, 11, 1), new DateOnly(2026, 12, 1),
@@ -413,7 +458,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         var addressResponse = await publicClient.PostAsJsonAsync(
             $"/api/public/student-addresses/{student.PublicAddressToken}",
-            new PublicStudentAddressRequest("İstanbul / Kadıköy - Test Sokak 1", 99, null),
+            new PublicStudentAddressRequest("Test Sokak 1", 99, null, CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"),
             cancellationToken);
         addressResponse.EnsureSuccessStatusCode();
 
@@ -427,7 +472,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         Assert.Equal(RentalAssignmentStatus.Active, Assert.Single(detail.DeliveryHistory).AssignmentStatus);
         Assert.Contains(detail.StatusHistory, item => item.NewStatus == ProductUnitStatus.WithCustomer &&
             item.Reason.Contains("Teslim alan: Adres Bekleyen Öğrenci", StringComparison.Ordinal) &&
-            item.Reason.Contains("Adres: İstanbul / Kadıköy - Test Sokak 1", StringComparison.Ordinal));
+            item.Reason.Contains("Adres: Test Sokak 1", StringComparison.Ordinal));
 
         await ConfirmStudentDeliveriesAsync(admin, order.Id, cancellationToken);
         detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
@@ -442,7 +487,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         detail = await admin.GetFromJsonAsync<PhysicalKitDetailResponse>(
             $"/api/physical-kits/{unit.Id}", cancellationToken);
         Assert.Equal("Adres Bekleyen Öğrenci", detail!.CurrentLocation!.RecipientName);
-        Assert.Equal("İstanbul / Kadıköy - Test Sokak 1", detail.CurrentLocation.AddressLine);
+        Assert.Equal("Test Sokak 1", detail.CurrentLocation.AddressLine);
         Assert.Null(detail.CurrentLocation.Latitude);
         Assert.Null(detail.CurrentLocation.Longitude);
     }
@@ -466,10 +511,10 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var email = $"active-kit-{Guid.NewGuid():N}@example.com";
         var faultyRental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{faultyUnit.Id}/rentals",
             new RentPhysicalKitRequest("Aktif Kit Musterisi", email, "05320000000", "Test Sokak 1",
-                "34000", today.AddDays(-5), today.AddDays(10)), cancellationToken);
+                "34000", today.AddDays(-5), today.AddDays(10), CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"), cancellationToken);
         var returnedRental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{returnedUnit.Id}/rentals",
             new RentPhysicalKitRequest("Aktif Kit Musterisi", email, "05320000000", "Test Sokak 2",
-                "34000", today.AddDays(-5), today.AddDays(10)), cancellationToken);
+                "34000", today.AddDays(-5), today.AddDays(10), CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"), cancellationToken);
 
         var customer = CreateClient(new TokenUser(Guid.NewGuid(), email, "CustomerAccountManager", faultyRental.CustomerId));
         var initialOverview = await customer.GetFromJsonAsync<CustomerPortalDashboardResponse>(
@@ -483,13 +528,13 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         var faultResponse = await customer.PostAsJsonAsync("/api/customer-portal/faults", new PortalFaultRequest(
             faultyRental.AssignmentId, "Aktif Kit Musterisi", "05320000000", "Test Sokak 2",
-            "Kit calisirken sensor verisi gelmiyor."), cancellationToken);
+            "Kit calisirken sensor verisi gelmiyor.", CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"), cancellationToken);
         faultResponse.EnsureSuccessStatusCode();
 
         var returnedToken = await CreatePublicTokenAsync(publicClient, returnedUnit.QrCode, cancellationToken);
         var publicReturn = await PostAsync<PublicReturnResponse>(publicClient, "/api/public/returns",
             new PublicKitReturnRequest(returnedToken, "Aktif Kit Musterisi", "05320000000",
-                "Test Sokak 2 Kadikoy Istanbul", null, null, KitReturnReason.EnrollmentCancelled), cancellationToken);
+                "Test Sokak 2 Kadikoy Istanbul", null, null, KitReturnReason.EnrollmentCancelled, CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"), cancellationToken);
         await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{publicReturn.Id}/receipts", new { }, cancellationToken);
 
         var updatedOverview = await customer.GetFromJsonAsync<CustomerPortalDashboardResponse>(
@@ -560,7 +605,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var email = $"return-{Guid.NewGuid():N}@example.com";
         var rental = await PostAsync<RentPhysicalKitResponse>(admin, $"/api/physical-kits/{unit.Id}/rentals",
             new RentPhysicalKitRequest("İade Müşterisi", email, "02120000000", "Test Sokak 1",
-                "34000", today.AddMonths(-2), today.AddDays(-1)), cancellationToken);
+                "34000", today.AddMonths(-2), today.AddDays(-1), CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"), cancellationToken);
         var customer = CreateClient(new TokenUser(Guid.NewGuid(), email, "CustomerAccountManager", rental.CustomerId));
         var created = await PostAsync<ReturnResponse>(customer, "/api/customer-portal/returns",
             new { assignmentIds = new[] { rental.AssignmentId } }, cancellationToken);
@@ -589,7 +634,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             new CreateProductModelRequest("TACEV Öğrenci Kiti", $"TCK-{Guid.NewGuid():N}"), cancellationToken);
         var customer = await PostAsync<CustomerResponse>(admin, "/api/customers",
             new CreateCustomerRequest("TACEV Cohort", $"cohort-{Guid.NewGuid():N}@example.com",
-                new AddressRequest("Merkez", "TACEV", "02120000000", "Bilim Sokak 1", "34000")),
+                new AddressRequest("Merkez", "TACEV", "02120000000", "Bilim Sokak 1", "34000", CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy")),
             cancellationToken);
         var portal = CreateClient(new TokenUser(Guid.NewGuid(), "tacev-cohort@test.local",
             "CustomerAccountManager", customer.Id));
@@ -598,19 +643,19 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
             cancellationToken);
         var student = await PostAsync<PortalRentalCohortStudentResponse>(portal,
             $"/api/customer-portal/rental-periods/{cohort.Id}/students",
-            new RentalCohortStudentRequest("Ayşe Yılmaz", "05320000000", "Test Mahallesi 1", model.Id),
+            new RentalCohortStudentRequest("Ayşe Yılmaz", "05320000000", "Test Mahallesi 1", model.Id, CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"),
             cancellationToken);
         var orders = (await portal.GetFromJsonAsync<PagedResponse<PortalOrderResponse>>("/api/orders?pageSize=5000", cancellationToken))!.Items;
         var order = Assert.Single(orders!, item => item.Status == RentalOrderStatus.PendingApproval);
         var editableStudent = await PostAsync<PortalRentalCohortStudentResponse>(portal,
             $"/api/customer-portal/rental-periods/{cohort.Id}/students",
-            new RentalCohortStudentRequest("Mehmet Yılmaz", "05320000001", "Test Mahallesi 2", model.Id),
+            new RentalCohortStudentRequest("Mehmet Yılmaz", "05320000001", "Test Mahallesi 2", model.Id, CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"),
             cancellationToken);
         await portal.DeleteAsync($"/api/customer-portal/rental-periods/{cohort.Id}/students/{editableStudent.Id}",
             cancellationToken);
         var approvedUnassignedStudent = await PostAsync<PortalRentalCohortStudentResponse>(portal,
             $"/api/customer-portal/rental-periods/{cohort.Id}/students",
-            new RentalCohortStudentRequest("Zeynep Yılmaz", "05320000002", "Test Mahallesi 3", model.Id),
+            new RentalCohortStudentRequest("Zeynep Yılmaz", "05320000002", "Test Mahallesi 3", model.Id, CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"),
             cancellationToken);
         await PostAsync<OrderResponse>(admin, $"/api/orders/{order.Id}/status-transitions",
             new OrderTransitionRequest(RentalOrderStatus.Approved), cancellationToken);
@@ -647,7 +692,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
 
         var blockedAdd = await portal.PostAsJsonAsync(
             $"/api/customer-portal/rental-periods/{cohort.Id}/students",
-            new RentalCohortStudentRequest("Mehmet Yılmaz", "05320000001", "Test Mahallesi 2", model.Id),
+            new RentalCohortStudentRequest("Mehmet Yılmaz", "05320000001", "Test Mahallesi 2", model.Id, CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"),
             cancellationToken);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, blockedAdd.StatusCode);
 
@@ -674,7 +719,7 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         var returnRequest = await PostAsync<ReturnResponse>(portal,
             $"/api/customer-portal/rental-periods/{cohort.Id}/students/{student.Id}/returns",
             new PortalStudentReturnRequest("Ayşe Yılmaz", "05320000000", "Test Mahallesi 1",
-                KitReturnReason.EducationCompleted),
+                KitReturnReason.EducationCompleted, CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"),
             cancellationToken);
         Assert.Equal(KitReturnStatus.Requested, returnRequest.Status);
         await PostAsync<ReturnResponse>(admin, $"/api/kit-returns/{returnRequest.Id}/receipts", new { },
@@ -720,6 +765,5 @@ public sealed class CustomerPortalApiTests : IClassFixture<WebApplicationFactory
         int? ExternalShipmentId, string? KargonomiStatus, string? KargonomiStatusLabel,
         string? KargonomiBarcode, string? ReturnState = null);
 }
-
 
 

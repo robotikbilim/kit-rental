@@ -86,7 +86,7 @@
                             <div>
                                 <small>@delivery.OrderNumber · @delivery.StartDate.ToString("dd.MM.yyyy") - @delivery.EndDate.ToString("dd.MM.yyyy")</small>
                                 <h3>@delivery.CustomerName</h3>
-                                <p>@delivery.AddressLine</p>
+                                <p>@(AddressDisplay.Full(delivery.AddressLine, delivery.City, delivery.District))</p>
                                 <small>@delivery.CustomerEmail</small>
                                 @if (delivery.DeliveredAt.HasValue)
                                 {
@@ -150,7 +150,7 @@
                                 <small>@request.ReturnNumber · @request.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>
                                 <h3>@request.CustomerName</h3>
                                 <p>@request.RequesterName · @request.RequesterPhone</p>
-                                <small>@request.ReturnAddress</small>
+                                <small>@(AddressDisplay.Full(request.ReturnAddress, request.City, request.District))</small>
                                 @if (request.ShippedAt.HasValue)
                                 {
                                     <small>Kargoya verildi: @request.ShippedAt.Value.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>

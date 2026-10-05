@@ -158,7 +158,8 @@ public sealed class InventoryService(
                     rental?.CustomerName, rental?.OrderNumber, rental?.EndDate, rental?.DaysRemaining,
                     rental?.StudentName, rental?.GuardianPhone, rental?.AddressLine, rental?.PublicAddressToken,
                     rental?.ShipmentStatusLabel, rental?.ShipmentState, rental?.TrackingNumber, rental?.Carrier,
-                    rental?.ShipmentUpdatedAt, rental?.ShipmentError, rental?.OrderId, rental?.StudentId);
+                    rental?.ShipmentUpdatedAt, rental?.ShipmentError, rental?.OrderId, rental?.StudentId,
+                    rental?.CityId, rental?.DistrictId, rental?.City, rental?.District);
             })
             .Where(item => !productModelId.HasValue || item.ProductModelId == productModelId.Value)
             .Where(item => !status.HasValue || item.Status == status.Value)
@@ -238,7 +239,7 @@ public sealed class InventoryService(
                         shipment?.UpdatedAt,
                         shipment?.LastError,
                         student?.OrderId,
-                        student?.Id)
+                        student?.Id, student?.CityId, student?.DistrictId, student?.City, student?.District)
                 };
             })
             .GroupBy(item => item.ProductUnitId)
@@ -251,7 +252,8 @@ public sealed class InventoryService(
     private sealed record RentalInfo(string CustomerName, string OrderNumber, DateOnly? EndDate,
         int? DaysRemaining, string? StudentName, string? GuardianPhone, string? AddressLine,
         string? PublicAddressToken, string? ShipmentStatusLabel, int? ShipmentState, string? TrackingNumber,
-        string? Carrier, DateTimeOffset? ShipmentUpdatedAt, string? ShipmentError, Guid? OrderId, Guid? StudentId);
+        string? Carrier, DateTimeOffset? ShipmentUpdatedAt, string? ShipmentError, Guid? OrderId, Guid? StudentId,
+        int? CityId, int? DistrictId, string? City, string? District);
 
     public async Task<ProductUnitResponse> UpdateUnitAsync(UpdateProductUnitCommand command, CancellationToken cancellationToken)
     {

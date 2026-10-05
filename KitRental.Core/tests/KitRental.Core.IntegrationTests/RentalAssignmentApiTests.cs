@@ -1,3 +1,7 @@
+using KitRental.Core.Application.Kargonomi;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using KitRental.Core.Application.Inventory;
 using KitRental.Core.Application.Rentals;
 using KitRental.Core.Domain.Orders;
@@ -16,7 +20,15 @@ public sealed class RentalAssignmentApiTests : IClassFixture<WebApplicationFacto
 
     public RentalAssignmentApiTests(WebApplicationFactory<Program> factory)
     {
-        _client = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Testing")).CreateClient();
+        _client = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IKargonomiClient>();
+                services.AddScoped<IKargonomiClient, FakeKargonomiClient>();
+            });
+        }).CreateClient();
         var tokenService = new TokenService(new TokenOptions(
             "KitRental.Identity", "KitRental", "development-only-secret-change-before-production-2026", TimeSpan.FromHours(8)));
         var token = tokenService.Create(
@@ -47,7 +59,7 @@ public sealed class RentalAssignmentApiTests : IClassFixture<WebApplicationFacto
             "/api/customers",
             new CreateCustomerRequest(
                 "Test Okulu", $"test-{Guid.NewGuid():N}@example.com",
-                new AddressRequest("Merkez", "Test Kullanıcısı", "5551112233", "Teknoloji Cad. 1", "06500")),
+                new AddressRequest("Merkez", "Test Kullanıcısı", "5551112233", "Teknoloji Cad. 1", "06500", CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy")),
             cancellationToken);
         customerResponse.EnsureSuccessStatusCode();
         var customer = await customerResponse.Content.ReadFromJsonAsync<CustomerApiResponse>(cancellationToken);

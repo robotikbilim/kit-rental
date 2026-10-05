@@ -77,10 +77,12 @@ public sealed class PublicController : CoreApiControllerBase
         var result = request.FaultId.HasValue
                 ? await service.UpdatePublicFaultAsync(request.FaultId.Value, unit.QrCode, request.ReporterName,
                     request.ReporterPhone, request.ReporterAddress, request.Description, request.Latitude,
-                    request.Longitude, request.AttachmentUrl, cancellationToken)
+                    request.Longitude, request.AttachmentUrl, cancellationToken,
+                    request.CityId, request.DistrictId, request.City, request.District)
                 : await service.OpenPublicFaultAsync(new OpenPublicFaultCommand(
                     unit.QrCode, request.ReporterName, request.ReporterPhone, request.ReporterAddress,
-                    request.Description, request.Latitude, request.Longitude, request.AttachmentUrl),
+                    request.Description, request.Latitude, request.Longitude, request.AttachmentUrl,
+                    request.CityId, request.DistrictId, request.City, request.District),
                     cancellationToken);
         await notifications.NotifyAdminsOfFaultAsync(result, "QR üzerinden yeni arıza kaydı oluşturuldu",
             cancellationToken);
@@ -97,7 +99,7 @@ public sealed class PublicController : CoreApiControllerBase
         var result = await service.CreatePublicKitReturnAsync(new CreatePublicKitReturnCommand(
                 unit.QrCode, request.RequesterName, request.RequesterPhone, request.ReturnAddress,
                 request.Latitude, request.Longitude, request.ReturnReason,
-                request.DeliveryMethod), cancellationToken);
+                request.DeliveryMethod, request.CityId, request.DistrictId, request.City, request.District), cancellationToken);
         return Created($"/api/public/returns/{result.Request.Id}", new
         {
             result.Request.Id,
@@ -110,6 +112,7 @@ public sealed class PublicController : CoreApiControllerBase
             result.Request.RequesterName,
             result.Request.RequesterPhone,
             result.Request.ReturnAddress,
+            result.Request.CityId, result.Request.DistrictId, result.Request.City, result.Request.District,
             result.Request.Latitude,
             result.Request.Longitude,
             result.Request.DeliveryMethod,
@@ -127,7 +130,8 @@ public sealed class PublicController : CoreApiControllerBase
         var unit = await accessService.ResolveProductUnitAsync(request.Token, cancellationToken);
         var result = await service.CreatePublicKitDeliveryAsync(new CreatePublicKitDeliveryCommand(
                 unit.QrCode, request.RecipientName, request.RecipientPhone,
-                request.AddressLine, request.Latitude, request.Longitude), cancellationToken);
+                request.AddressLine, request.Latitude, request.Longitude,
+                request.CityId, request.DistrictId, request.City, request.District), cancellationToken);
         return Created($"/api/public/deliveries/{result.Id}", result);
     }
 
@@ -146,7 +150,8 @@ public sealed class PublicController : CoreApiControllerBase
         CancellationToken cancellationToken)
     {
         await service.SavePublicStudentAddressAsync(new SavePublicStudentAddressCommand(token,
-            request.AddressLine, request.Latitude, request.Longitude), cancellationToken);
+            request.AddressLine, request.Latitude, request.Longitude,
+                request.CityId, request.DistrictId, request.City, request.District), cancellationToken);
         return NoContent();
     }
 

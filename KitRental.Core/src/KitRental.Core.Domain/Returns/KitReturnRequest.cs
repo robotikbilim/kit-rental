@@ -16,7 +16,8 @@ public sealed class KitReturnRequest
     private KitReturnRequest(Guid id, Guid customerId, DateTimeOffset createdAt, Guid createdBy,
         IReadOnlyCollection<KitReturnItem> items, string? requesterName = null,
         string? requesterPhone = null, string? returnAddress = null, double? latitude = null, double? longitude = null,
-        KitReturnReason? returnReason = null, KitReturnDeliveryMethod deliveryMethod = KitReturnDeliveryMethod.PickupFromAddress)
+        KitReturnReason? returnReason = null, KitReturnDeliveryMethod deliveryMethod = KitReturnDeliveryMethod.PickupFromAddress,
+        int? cityId = null, int? districtId = null, string? city = null, string? district = null)
     {
         Id = id; CustomerId = customerId; CreatedAt = createdAt; CreatedBy = createdBy;
         RequesterName = requesterName?.Trim();
@@ -24,6 +25,10 @@ public sealed class KitReturnRequest
             ? null
             : TurkishPhoneNumber.Normalize(requesterPhone, "İade talep eden telefon numarası");
         ReturnAddress = returnAddress?.Trim();
+        CityId = cityId;
+        DistrictId = districtId;
+        City = city?.Trim() ?? string.Empty;
+        District = district?.Trim() ?? string.Empty;
         Latitude = latitude;
         Longitude = longitude;
         ReturnReason = returnReason;
@@ -48,6 +53,10 @@ public sealed class KitReturnRequest
     public string? RequesterName { get; private set; }
     public string? RequesterPhone { get; private set; }
     public string? ReturnAddress { get; private set; }
+    public int? CityId { get; private set; }
+    public int? DistrictId { get; private set; }
+    public string City { get; private set; } = string.Empty;
+    public string District { get; private set; } = string.Empty;
     public double? Latitude { get; private set; }
     public double? Longitude { get; private set; }
     public KitReturnReason? ReturnReason { get; private set; }
@@ -55,21 +64,24 @@ public sealed class KitReturnRequest
     public IReadOnlyCollection<KitReturnItem> Items => _items.AsReadOnly();
 
     public static KitReturnRequest Create(Guid id, Guid customerId, DateTimeOffset createdAt, Guid createdBy,
-        IReadOnlyCollection<KitReturnItem> items)
+        IReadOnlyCollection<KitReturnItem> items, int? cityId = null, int? districtId = null,
+        string? city = null, string? district = null)
     {
         if (id == Guid.Empty || customerId == Guid.Empty || createdBy == Guid.Empty || items.Count == 0 ||
             items.Any(x => x.AssignmentId == Guid.Empty || x.ProductUnitId == Guid.Empty || x.OrderId == Guid.Empty))
             throw new DomainException("kit_return.required_fields", "İade için en az bir geçerli kit seçilmelidir.");
         if (items.Select(x => x.ProductUnitId).Distinct().Count() != items.Count)
             throw new DomainException("kit_return.duplicate_unit", "Aynı kit bir iadeye birden fazla eklenemez.");
-        return new KitReturnRequest(id, customerId, createdAt, createdBy, items);
+        return new KitReturnRequest(id, customerId, createdAt, createdBy, items,
+            cityId: cityId, districtId: districtId, city: city, district: district);
     }
 
     public static KitReturnRequest CreatePublic(Guid id, Guid customerId, DateTimeOffset createdAt, Guid createdBy,
         IReadOnlyCollection<KitReturnItem> items, string requesterName,
         string requesterPhone, string returnAddress, double? latitude, double? longitude,
         KitReturnReason? returnReason = null,
-        KitReturnDeliveryMethod deliveryMethod = KitReturnDeliveryMethod.PickupFromAddress)
+        KitReturnDeliveryMethod deliveryMethod = KitReturnDeliveryMethod.PickupFromAddress,
+        int? cityId = null, int? districtId = null, string? city = null, string? district = null)
     {
         if (string.IsNullOrWhiteSpace(requesterName) || string.IsNullOrWhiteSpace(requesterPhone))
             throw new DomainException("kit_return.requester_required", "Ad, soyad ve telefon zorunludur.");
@@ -79,12 +91,14 @@ public sealed class KitReturnRequest
             throw new DomainException("kit_return.invalid_location", "Geçerli bir konum seçilmelidir.");
         var request = Create(id, customerId, createdAt, createdBy, items);
         return new KitReturnRequest(request.Id, request.CustomerId, request.CreatedAt, request.CreatedBy, request.Items,
-            requesterName, requesterPhone, returnAddress, latitude, longitude, returnReason, deliveryMethod);
+            requesterName, requesterPhone, returnAddress, latitude, longitude, returnReason, deliveryMethod,
+            cityId, districtId, city, district);
     }
 
     public void UpdatePublicDetails(string requesterName, string requesterPhone, string returnAddress,
         double? latitude, double? longitude, KitReturnReason? returnReason,
-        KitReturnDeliveryMethod deliveryMethod)
+        KitReturnDeliveryMethod deliveryMethod, int? cityId = null, int? districtId = null,
+        string? city = null, string? district = null)
     {
         if (Status == KitReturnStatus.Received)
             throw new DomainException("kit_return.already_received", "Teslim alınmış iade güncellenemez.");
@@ -97,6 +111,13 @@ public sealed class KitReturnRequest
         RequesterName = requesterName.Trim();
         RequesterPhone = TurkishPhoneNumber.Normalize(requesterPhone, "İade talep eden telefon numarası");
         ReturnAddress = returnAddress?.Trim();
+        if (cityId is not null || districtId is not null || city is not null || district is not null)
+        {
+            CityId = cityId;
+            DistrictId = districtId;
+            City = city?.Trim() ?? string.Empty;
+            District = district?.Trim() ?? string.Empty;
+        }
         Latitude = latitude;
         Longitude = longitude;
         ReturnReason = returnReason;

@@ -318,7 +318,7 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         return ExportStudentAddressWorkbook(order.OrderNumber, students.Select(student =>
             new StudentAddressExportRow(student.FullName, student.GuardianPhone,
                 string.IsNullOrWhiteSpace(student.ProductName) ? "Eğitim kiti" : student.ProductName, student.HasAddress,
-                student.AddressLine, BuildStudentAddressUrl(student.PublicAddressToken))).ToArray());
+                student.AddressLine, BuildStudentAddressUrl(student.PublicAddressToken), student.City, student.District)).ToArray());
     }
 
     [HttpGet]
@@ -334,8 +334,7 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             : order.Students.Where(student => selectedStudentIds.Contains(student.Id)).ToArray();
         return ExportKargonomiWorkbook(order.OrderNumber, students.Where(student => student.HasAddress).Select(student =>
         {
-            var (city, district) = ParseStudentAddressRegion(student.AddressLine);
-            return new KargonomiExportRow(student.FullName, student.AddressLine, city, district,
+            return new KargonomiExportRow(student.FullName, student.AddressLine, student.City ?? string.Empty, student.District ?? string.Empty,
                 student.GuardianPhone, string.IsNullOrWhiteSpace(student.ProductName) ? "Eğitim kiti" : student.ProductName);
         }).ToArray());
     }
@@ -676,6 +675,8 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
         sheet.Cell(1, 4).Value = "Adres Durumu";
         sheet.Cell(1, 5).Value = "Adres";
         sheet.Cell(1, 6).Value = "Public Link";
+        sheet.Cell(1, 7).Value = "İl";
+        sheet.Cell(1, 8).Value = "İlçe";
         sheet.Row(1).Style.Font.Bold = true;
         var rowIndex = 2;
         foreach (var student in students)
@@ -686,6 +687,8 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             sheet.Cell(rowIndex, 4).Value = student.HasAddress ? "Tamamlandı" : "Bekleniyor";
             sheet.Cell(rowIndex, 5).Value = student.AddressLine;
             sheet.Cell(rowIndex, 6).Value = student.PublicLink;
+            sheet.Cell(rowIndex, 7).Value = student.City ?? string.Empty;
+            sheet.Cell(rowIndex, 8).Value = student.District ?? string.Empty;
             rowIndex++;
         }
         sheet.Columns().AdjustToContents();
@@ -737,17 +740,6 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
             $"{SafeFileName(orderNumber)}-kargonomi.xlsx");
     }
 
-    private static (string City, string District) ParseStudentAddressRegion(string? addressLine)
-    {
-        if (string.IsNullOrWhiteSpace(addressLine)) return (string.Empty, string.Empty);
-        var separatorIndex = addressLine.IndexOf(" - ", StringComparison.Ordinal);
-        if (separatorIndex <= 0) return (string.Empty, string.Empty);
-        var region = addressLine[..separatorIndex];
-        var slashIndex = region.IndexOf('/', StringComparison.Ordinal);
-        if (slashIndex <= 0 || slashIndex == region.Length - 1) return (string.Empty, string.Empty);
-        return (region[..slashIndex].Trim(), region[(slashIndex + 1)..].Trim());
-    }
-
     private static string SafeFileName(string value)
     {
         var invalidChars = Path.GetInvalidFileNameChars();
@@ -757,7 +749,7 @@ public sealed class OperationsController(KitRentalApiClient apiClient) : Control
     }
 
     private sealed record StudentAddressExportRow(string FullName, string Phone, string ProductName,
-        bool HasAddress, string AddressLine, string PublicLink);
+        bool HasAddress, string AddressLine, string PublicLink, string? City, string? District);
 
     private sealed record KargonomiExportRow(string FullName, string AddressLine, string City,
         string District, string Phone, string Content);

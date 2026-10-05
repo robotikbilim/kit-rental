@@ -1,3 +1,7 @@
+using KitRental.Core.Application.Kargonomi;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using KitRental.Core.Application.CustomerPortal;
 using KitRental.Core.Application.Inventory;
 using KitRental.Core.Application.PhysicalKits;
@@ -16,7 +20,15 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
 
     public WorkshopApiTests(WebApplicationFactory<Program> factory)
     {
-        _client = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Testing")).CreateClient();
+        _client = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IKargonomiClient>();
+                services.AddScoped<IKargonomiClient, FakeKargonomiClient>();
+            });
+        }).CreateClient();
         var tokens = new TokenService(new TokenOptions(
             "KitRental.Identity", "KitRental", "development-only-secret-change-before-production-2026", TimeSpan.FromHours(8)));
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
@@ -225,7 +237,7 @@ public sealed class WorkshopApiTests : IClassFixture<WebApplicationFactory<Progr
         var rental = await PostAsync<BulkRentPhysicalKitsResponse>("/api/physical-kit-rental-batches",
             new BulkRentPhysicalKitsRequest(units.Select(item => item.Id).ToArray(), "TACEV Toplu Test",
                 $"bulk-{Guid.NewGuid():N}@example.com", "02165550000", "Bilim Sokak 1", "34000",
-                new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1)), cancellationToken);
+                new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1), CityId: 34, DistrictId: 1, City: "İstanbul", District: "Kadıköy"), cancellationToken);
 
         Assert.Equal(3, rental.KitCount);
         Assert.Equal(3, rental.Kits.Count);

@@ -1,4 +1,4 @@
-﻿using KitRental.Core.Application.Abstractions;
+using KitRental.Core.Application.Abstractions;
 using KitRental.Core.Application.Common;
 using KitRental.Core.Application.Kargonomi;
 using KitRental.Core.Application.Operations;
@@ -18,7 +18,8 @@ public sealed class CustomerPortalService(
     ICoreRepository repository,
     OperationsService operationsService,
     KargonomiShippingService kargonomiShippingService,
-    OperationsOverviewService operationsOverviewService)
+    OperationsOverviewService operationsOverviewService,
+    IKargonomiClient? kargonomiClient = null)
 {
     private static readonly Guid PublicActorId = new("00000000-0000-0000-0000-000000000001");
     private const string CargoDropOffAddress = "Aras Kargo şubesine bırakılacak. Anlaşma kodu: 2626601651131";
@@ -166,14 +167,14 @@ public sealed class CustomerPortalService(
                 .Select(student => new PortalLinkedStudent(student.Id, student.AssignmentId, student.ProductUnitId,
                     student.FullName, student.GuardianPhone, student.AddressLine, cohort.Name,
                     student.OrderId.HasValue && assignmentOrders.Values.Any(order =>
-                        order.Id == student.OrderId.Value && IsApprovedOrderStatus(order.Status)), student.OrderId)))
+                        order.Id == student.OrderId.Value && IsApprovedOrderStatus(order.Status)), student.OrderId, student.CityId, student.DistrictId, student.City, student.District)))
             .GroupBy(item => item.AssignmentId!.Value).ToDictionary(group => group.Key, group => group.First());
         var unitStudents = cohorts.SelectMany(cohort => cohort.Students
                 .Where(student => !student.IsDeleted && student.ProductUnitId == productUnitId)
                 .Select(student => new PortalLinkedStudent(student.Id, student.AssignmentId, student.ProductUnitId,
                     student.FullName, student.GuardianPhone, student.AddressLine, cohort.Name,
                     student.OrderId.HasValue && assignmentOrders.Values.Any(order =>
-                        order.Id == student.OrderId.Value && IsApprovedOrderStatus(order.Status)), student.OrderId)))
+                        order.Id == student.OrderId.Value && IsApprovedOrderStatus(order.Status)), student.OrderId, student.CityId, student.DistrictId, student.City, student.District)))
             .ToArray();
         var kitRows = assignments.Where(item => assignmentOrders.ContainsKey(item.Id)).Select(assignment =>
         {
@@ -186,7 +187,8 @@ public sealed class CustomerPortalService(
                 order.Period!.Value.StartDate, order.Period.Value.EndDate,
                 faults.Count(item => !IsCompletedFaultStatus(item.Status)), deliveryIds.Contains(assignment.Id),
                 student?.FullName, student?.GuardianPhone, student?.AddressLine, student?.CohortName,
-                returnedIds.Contains(assignment.Id), student?.StudentOrderLocked ?? false);
+                returnedIds.Contains(assignment.Id), student?.StudentOrderLocked ?? false,
+                CityId: student?.CityId, DistrictId: student?.DistrictId, City: student?.City, District: student?.District);
         }).ToArray();
         var kit = kitRows
             .OrderByDescending(item => item.AssignmentStatus == RentalAssignmentStatus.Active && !item.IsReturned)
@@ -218,7 +220,10 @@ public sealed class CustomerPortalService(
                         student.OrderId.HasValue
                             ? assignmentOrders.Values.FirstOrDefault(item => item.Id == student.OrderId.Value)?.OrderNumber
                             : null,
-                        cohort.StartDate, cohort.EndDate, delivery?.OccurredAt);
+                        cohort.StartDate, cohort.EndDate, delivery?.OccurredAt,
+                        delivery is null ? student.CityId : delivery.CityId,
+                        delivery is null ? student.DistrictId : delivery.DistrictId,
+                        delivery is null ? student.City : delivery.City, delivery is null ? student.District : delivery.District);
                 }))
             .OrderByDescending(item => item.DeliveredAt ?? DateTimeOffset.MinValue)
             .ThenByDescending(item => item.StartDate).ToArray();
@@ -227,10 +232,11 @@ public sealed class CustomerPortalService(
         {
             var latest = locations.Where(item => item.ProductUnitId == productUnitId)
                 .OrderByDescending(item => item.OccurredAt).ThenByDescending(item => item.Id).FirstOrDefault();
+            var currentAddress = StoredAddress.First(StoredAddress.From(latest), StoredAddress.From(customer.Addresses.FirstOrDefault()));
             currentLocation = new PortalKitLocationResponse(unit.Id, model.Id, model.Name, model.Sku,
                 unit.SerialNumber, latest?.ContactName ?? customer.Name,
-                latest?.AddressLine ?? customer.Addresses.FirstOrDefault()?.Line1 ?? string.Empty,
-                (int)unit.Status, latest?.Latitude, latest?.Longitude);
+                currentAddress.Street ?? string.Empty, (int)unit.Status, latest?.Latitude, latest?.Longitude,
+                CityId: currentAddress.CityId, DistrictId: currentAddress.DistrictId, City: currentAddress.City, District: currentAddress.District);
         }
         return new CustomerPortalKitDetailResponse(kit, currentLocation, mappedFaults, mappedReturns, rentalHistory);
     }
@@ -260,13 +266,14 @@ public sealed class CustomerPortalService(
                 item.Source == KitLocationEventSource.DeliveryReceipt)
             .OrderByDescending(item => item.OccurredAt).ThenByDescending(item => item.Id).FirstOrDefault();
         var address = customer.Addresses.FirstOrDefault();
+        var storedAddress = StoredAddress.First(StoredAddress.From(latestLocation), StoredAddress.From(delivery),
+            StoredAddress.From(student), StoredAddress.From(address));
         return new PortalFaultFormContextResponse(assignmentId, model?.Name ?? "Eğitim kiti", unit.SerialNumber,
             FirstNotEmpty(latestLocation?.ContactName, delivery?.ContactName, student?.FullName,
                 address?.ContactName) ?? string.Empty,
             FirstNotEmpty(latestLocation?.ContactPhone, delivery?.ContactPhone, student?.GuardianPhone,
                 address?.Phone) ?? string.Empty,
-            FirstNotEmpty(latestLocation?.AddressLine, delivery?.AddressLine, student?.AddressLine,
-                address?.Line1) ?? string.Empty);
+            storedAddress.Street ?? string.Empty, storedAddress.CityId, storedAddress.DistrictId, storedAddress.City, storedAddress.District);
     }
 
     private async Task<PortalKitData> LoadPortalKitDataAsync(Guid customerId, CancellationToken cancellationToken)
@@ -291,7 +298,7 @@ public sealed class CustomerPortalService(
             .Select(student => new PortalLinkedStudent(student.Id, student.AssignmentId, student.ProductUnitId, student.FullName,
                 student.GuardianPhone, student.AddressLine, cohort.Name,
                 student.OrderId.HasValue && ordersById.TryGetValue(student.OrderId.Value, out var order) &&
-                IsApprovedOrderStatus(order.Status), student.OrderId))).ToArray();
+                IsApprovedOrderStatus(order.Status), student.OrderId, student.CityId, student.DistrictId, student.City, student.District))).ToArray();
         var studentsByAssignment = linkedStudents.Where(item => item.AssignmentId.HasValue)
             .GroupBy(item => item.AssignmentId!.Value).ToDictionary(group => group.Key, group => group.First());
         var studentsByUnit = linkedStudents.Where(item => item.ProductUnitId.HasValue)
@@ -336,15 +343,18 @@ public sealed class CustomerPortalService(
                     deliveryAssignmentIds.Contains(assignment.Id), student?.FullName, student?.GuardianPhone,
                     student?.AddressLine, student?.CohortName, returnedIds.Contains(assignment.Id),
                     student?.StudentOrderLocked ?? false, shipmentStatusLabel,
-                    shipment?.State ?? KargonomiShipmentState.Pending));
+                    shipment?.State ?? KargonomiShipmentState.Pending,
+                    student?.CityId, student?.DistrictId, student?.City, student?.District));
                 if (assignment.Status != RentalAssignmentStatus.Active || returnedIds.Contains(assignment.Id)) continue;
                 var category = GetKitLocationCategory(unit.Status, openFaultCount > 0,
                     returnStartedIds.Contains(assignment.Id), order.Period.Value.EndDate < today);
                 var location = latestLocationsByUnit.GetValueOrDefault(unit.Id);
+                var storedAddress = StoredAddress.First(StoredAddress.From(location), StoredAddress.From(order.DeliveryAddress));
                 kitLocations.Add(new PortalKitLocationResponse(unit.Id, unit.ProductModelId, model.Name, model.Sku,
                     unit.SerialNumber, location?.ContactName ?? order.DeliveryAddress.ContactName,
-                    location?.AddressLine ?? order.DeliveryAddress.Line1, (int)unit.Status,
-                    location?.Latitude, location?.Longitude, category));
+                    storedAddress.Street ?? string.Empty, (int)unit.Status,
+                    location?.Latitude, location?.Longitude, category,
+                    storedAddress.CityId, storedAddress.DistrictId, storedAddress.City, storedAddress.District));
             }
         }
         return new PortalKitData(customer, models, orders, faults, returns, cohorts, locations, units,
@@ -472,10 +482,13 @@ public sealed class CustomerPortalService(
             ?? throw new ResourceNotFoundException("Müşteri hesabı bulunamadı.");
         if (!customer.CanUseProductModel(command.ProductModelId))
             throw new ForbiddenException("Bu eğitim kiti müşterinin kullanımına açık değil.");
+        var region = await AddressRegionResolver.ResolveAsync(kargonomiClient, command.CityId, command.DistrictId,
+            command.City, command.District, cancellationToken, !string.IsNullOrWhiteSpace(command.AddressLine));
         var student = command.Id.HasValue
             ? cohort.UpdateStudent(command.Id.Value, command.FullName, command.GuardianPhone, command.AddressLine,
-                command.ProductModelId)
-            : cohort.AddStudent(command.FullName, command.GuardianPhone, command.AddressLine, command.ProductModelId);
+                command.ProductModelId, region.CityId, region.DistrictId, region.City ?? string.Empty, region.District ?? string.Empty)
+            : cohort.AddStudent(command.FullName, command.GuardianPhone, command.AddressLine, command.ProductModelId,
+                region.CityId, region.DistrictId, region.City, region.District);
         await SyncLinkedUnapprovedOrderAfterStudentChangeAsync(customer, cohort, command.ActorId, cancellationToken);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(RentalCohort),
             cohort.Id, command.Id.HasValue ? "StudentUpdated" : "StudentAdded", null, student.FullName,
@@ -499,7 +512,10 @@ public sealed class CustomerPortalService(
         {
             var model = FindModel(models, row.ProductModel)
                 ?? throw new ResourceNotFoundException($"{row.ProductModel} eğitim kiti bulunamadı.");
-            cohort.AddStudent(row.FullName, row.GuardianPhone, row.AddressLine, model.Id);
+            var region = await AddressRegionResolver.ResolveAsync(kargonomiClient, row.CityId, row.DistrictId,
+                row.City, row.District, cancellationToken, !string.IsNullOrWhiteSpace(row.AddressLine));
+            cohort.AddStudent(row.FullName, row.GuardianPhone, row.AddressLine, model.Id,
+                region.CityId, region.DistrictId, region.City, region.District);
         }
         await SyncLinkedUnapprovedOrderAfterStudentChangeAsync(customer, cohort, actorId, cancellationToken);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), actorId, nameof(RentalCohort),
@@ -564,15 +580,18 @@ public sealed class CustomerPortalService(
             .Any(item => item.AssignmentId == student.AssignmentId.Value))
             throw new ConflictException("kit_return.already_started", "Bu kit için iade süreci zaten devam ediyor.");
         var now = TurkeyTime.Now();
+        var region = await AddressRegionResolver.ResolveAsync(kargonomiClient, command.CityId, command.DistrictId,
+            command.City, command.District, cancellationToken);
         var request = KitReturnRequest.CreatePublic(Guid.NewGuid(), command.CustomerId, now, command.ActorId,
             [new KitReturnItem(Guid.NewGuid(), student.AssignmentId.Value, student.ProductUnitId.Value,
                 student.OrderId.Value)],
-            command.RequesterName, command.RequesterPhone, command.ReturnAddress, null, null, command.ReturnReason);
+            command.RequesterName, command.RequesterPhone, command.ReturnAddress, null, null, command.ReturnReason,
+            cityId: region.CityId, districtId: region.DistrictId, city: region.City, district: region.District);
         await repository.AddKitReturnRequestAsync(request, cancellationToken);
         await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), student.ProductUnitId.Value,
             student.AssignmentId.Value, student.OrderId.Value, command.CustomerId, KitLocationEventSource.ReturnRequest,
             request.Id, command.RequesterName, command.RequesterPhone, command.ReturnAddress,
-            null, null, now, command.ActorId), cancellationToken);
+            null, null, now, command.ActorId, region.CityId, region.DistrictId, region.City, region.District), cancellationToken);
         await AddActivityAsync(student.ProductUnitId.Value, student.AssignmentId, student.OrderId, student.Id,
             command.ActorId, command.ActorDisplayName, "İade talebi oluşturuldu",
             $"{command.RequesterName.Trim()} iade talebi oluşturdu.", cancellationToken, now);
@@ -686,6 +705,10 @@ public sealed class CustomerPortalService(
         var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kiralama siparişi bulunamadı.");
         var now = TurkeyTime.Now();
+        var region = command.DeliveryMethod == KitReturnDeliveryMethod.DropOffToCargo
+            ? new AddressRegion(null, null, null, null)
+            : await AddressRegionResolver.ResolveAsync(kargonomiClient, command.CityId, command.DistrictId,
+                command.City, command.District, cancellationToken);
         var returnAddress = command.DeliveryMethod == KitReturnDeliveryMethod.DropOffToCargo
             ? CargoDropOffAddress
             : KargonomiAddressSanitizer.Clean(command.ReturnAddress);
@@ -705,17 +728,19 @@ public sealed class CustomerPortalService(
                 [new KitReturnItem(Guid.NewGuid(), assignment.Id, assignment.ProductUnitId, order.Id)],
                 command.RequesterName, command.RequesterPhone,
                 returnAddress, latitude, longitude, command.ReturnReason,
-                command.DeliveryMethod);
+                command.DeliveryMethod, region.CityId, region.DistrictId, region.City, region.District);
             await repository.AddKitReturnRequestAsync(request, cancellationToken);
         }
         else
         {
             request.UpdatePublicDetails(command.RequesterName, command.RequesterPhone, returnAddress,
-                latitude, longitude, command.ReturnReason, command.DeliveryMethod);
+                latitude, longitude, command.ReturnReason, command.DeliveryMethod,
+                region.CityId, region.DistrictId, region.City ?? string.Empty, region.District ?? string.Empty);
         }
         await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id, assignment.Id,
             order.Id, assignment.CustomerId, KitLocationEventSource.ReturnRequest, request.Id,
-            command.RequesterName, command.RequesterPhone, returnAddress, latitude, longitude, now, PublicActorId),
+            command.RequesterName, command.RequesterPhone, returnAddress, latitude, longitude, now, PublicActorId,
+            region.CityId, region.DistrictId, region.City, region.District),
             cancellationToken);
         var courierBarcode = command.DeliveryMethod == KitReturnDeliveryMethod.PickupFromAddress
             ? await kargonomiShippingService.StartForReturnAsync(request, unit, cancellationToken)
@@ -808,7 +833,8 @@ public sealed class CustomerPortalService(
                 request.Status, request.Carrier, request.TrackingNumber, request.CreatedAt, request.ShippedAt,
                 request.RequesterName, request.RequesterPhone,
                 request.ReturnAddress, request.Latitude, request.Longitude, request.DeliveryMethod, items,
-                OperationsWorkload.ReturnState(request), request.ExternalStatusLabel, request.ReceivedAt));
+                OperationsWorkload.ReturnState(request), request.ExternalStatusLabel, request.ReceivedAt,
+                request.CityId, request.DistrictId, request.City, request.District));
         }
         return result;
     }
@@ -831,7 +857,9 @@ public sealed class CustomerPortalService(
             request.ExternalStatus, request.ExternalStatusLabel, request.RequesterName, request.RequesterPhone,
             isDropOff ? null : request.ReturnAddress,
             request.Latitude, request.Longitude,
-            request.ReturnReason, request.DeliveryMethod);
+            request.ReturnReason, request.DeliveryMethod,
+            isDropOff ? null : request.CityId, isDropOff ? null : request.DistrictId,
+            isDropOff ? null : request.City, isDropOff ? null : request.District);
     }
 
     public async Task<IReadOnlyCollection<PortalOrderResponse>> GetOrderSummariesAsync(Guid? customerId,
@@ -902,12 +930,12 @@ public sealed class CustomerPortalService(
         var ticket = await operationsService.OpenFaultAsync(new OpenFaultCommand(command.CustomerId, order.Id, assignment.Id,
             assignment.ProductUnitId, "Müşteri paneli bildirimi", FaultSeverity.Medium, command.Description, command.ActorId,
             command.ReporterName, command.ReporterPhone, command.ReporterAddress, null,
-            null, FaultOrigin.CustomerPortal),
+            null, FaultOrigin.CustomerPortal, CityId: command.CityId, DistrictId: command.DistrictId, City: command.City, District: command.District),
             cancellationToken);
         await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), assignment.ProductUnitId,
             assignment.Id, order.Id, command.CustomerId, KitLocationEventSource.FaultReport, ticket.Id,
             command.ReporterName, command.ReporterPhone, command.ReporterAddress, null, null, TurkeyTime.Now(),
-            command.ActorId), cancellationToken);
+            command.ActorId, ticket.CityId, ticket.DistrictId, ticket.City, ticket.District), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return ticket;
     }
@@ -1086,7 +1114,9 @@ public sealed class CustomerPortalService(
                     activeReturnAssignmentIds.Contains(student.AssignmentId.Value),
                 student.AssignmentId.HasValue && completedReturnAssignmentIds.Contains(student.AssignmentId.Value),
                 delivery is not null, delivery?.ContactName, delivery?.ContactPhone, delivery?.AddressLine,
-                delivery?.OccurredAt, student.PublicAddressToken, student.AddressSubmittedAt));
+                delivery?.OccurredAt, student.PublicAddressToken, student.AddressSubmittedAt,
+                student.CityId, student.DistrictId, student.City, student.District,
+                delivery?.CityId, delivery?.DistrictId, delivery?.City, delivery?.District));
         }
         var assignedStudentUnitIds = cohort.Students.Where(item => !item.IsDeleted && item.ProductUnitId.HasValue)
             .Select(item => item.ProductUnitId!.Value)
@@ -1179,11 +1209,13 @@ public sealed class CustomerPortalService(
             OperationsWorkload.IsOpenFault(ticket.Status),
             ticket.KargonomiShipments.OrderByDescending(item => item.CreatedAt).Select(item =>
                 new PortalFaultShipmentResponse((int)item.Direction, item.Carrier, item.TrackingNumber,
-                    item.StatusLabel, (int)item.State, item.RecipientAddress, item.UpdatedAt)).ToArray(),
-            assignedStudentName, assignedStudentPhone);
+                    item.StatusLabel, (int)item.State, item.RecipientAddress, item.UpdatedAt,
+                    item.CityId, item.DistrictId, item.City, item.District)).ToArray(),
+            assignedStudentName, assignedStudentPhone, ticket.CityId, ticket.DistrictId, ticket.City, ticket.District);
 
     private sealed record PortalLinkedStudent(Guid StudentId, Guid? AssignmentId, Guid? ProductUnitId, string FullName,
-        string GuardianPhone, string AddressLine, string CohortName, bool StudentOrderLocked, Guid? OrderId);
+        string GuardianPhone, string AddressLine, string CohortName, bool StudentOrderLocked, Guid? OrderId,
+        int? CityId, int? DistrictId, string? City, string? District);
 
     private sealed record PortalKitData(Customer Customer, IReadOnlyDictionary<Guid, ProductModel> Models,
         IReadOnlyCollection<RentalOrder> Orders, IReadOnlyCollection<FaultTicket> Faults,

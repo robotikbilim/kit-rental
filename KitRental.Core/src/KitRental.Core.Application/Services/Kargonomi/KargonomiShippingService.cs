@@ -51,18 +51,30 @@ public sealed class KargonomiShippingService(
             throw new ConflictException("fault_kargonomi.contact_required", "Arıza kaydındaki ad, telefon ve adres bilgileri eksiksiz olmalıdır.");
         var toWorkshop = direction == FaultKargonomiShipmentDirection.ToWorkshop;
         var destination = toWorkshop ? client.GetReturnDestination()
-            : new KargonomiReturnDestination(ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress);
+            : new KargonomiReturnDestination(ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress,
+                ticket.CityId, ticket.DistrictId, ticket.City, ticket.District);
         destination = destination with { Address = KargonomiAddressSanitizer.Clean(destination.Address) };
         var unit = await repository.GetProductUnitAsync(ticket.ProductUnitId, cancellationToken)
             ?? throw new ResourceNotFoundException("Arızaya bağlı fiziksel kit bulunamadı.");
         var shipment = existing is null || startNewShipment
-            ? ticket.CreateKargonomiShipment(direction, destination.Name, destination.Phone, destination.Address, timeProvider.GetUtcNow())
+            ? ticket.CreateKargonomiShipment(direction, destination.Name, destination.Phone, destination.Address, timeProvider.GetUtcNow(),
+                destination.CityId, destination.DistrictId, destination.City, destination.District)
             : existing;
         try
         {
             if (!shipment.ExternalShipmentId.HasValue)
             {
-                var location = await client.ResolveLocationAsync(toWorkshop ? ticket.ReporterAddress : shipment.RecipientAddress, cancellationToken);
+                if (toWorkshop)
+                {
+                    var region = await AddressRegionResolver.ResolveAsync(client, destination.CityId,
+                        destination.DistrictId, destination.City, destination.District, cancellationToken);
+                    destination = destination with { City = region.City ?? string.Empty, District = region.District ?? string.Empty };
+                }
+                // A pre-provider failure may be retried after the fault's contact details were corrected.
+                shipment.UpdateRecipientBeforeCreation(destination.Name, destination.Phone, destination.Address,
+                    destination.CityId, destination.DistrictId, destination.City, destination.District);
+                var location = await client.ResolveLocationAsync(toWorkshop ? ticket.CityId : shipment.CityId,
+                    toWorkshop ? ticket.DistrictId : shipment.DistrictId, cancellationToken);
                 var created = toWorkshop
                     ? await client.CreateReturnShipmentAsync(new KargonomiReturnShipmentRequest(
                         ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress, location.StateId, location.CityId,
@@ -129,7 +141,7 @@ public sealed class KargonomiShippingService(
             throw new ConflictException("kargonomi.return_details_required",
                 "Kurye çağırmak için ad, telefon ve adres bilgileri zorunludur.");
 
-        var location = await client.ResolveLocationAsync(request.ReturnAddress, cancellationToken);
+        var location = await client.ResolveLocationAsync(request.CityId, request.DistrictId, cancellationToken);
         var created = await client.CreateReturnShipmentAsync(new KargonomiReturnShipmentRequest(
             request.RequesterName, request.RequesterPhone, request.ReturnAddress,
             location.StateId, location.CityId, $"İade kiti {unit.SerialNumber}", unit.SerialNumber, 1), cancellationToken);
@@ -191,7 +203,7 @@ public sealed class KargonomiShippingService(
     internal static FaultKargonomiShipmentResponse MapFault(FaultKargonomiShipment shipment) =>
         new(shipment.Id, shipment.FaultTicketId, shipment.Direction, shipment.ExternalShipmentId, shipment.RecipientName,
             shipment.RecipientAddress, shipment.TrackingNumber, shipment.Carrier, shipment.StatusLabel, shipment.State,
-            shipment.LastError, shipment.UpdatedAt);
+            shipment.LastError, shipment.UpdatedAt, shipment.CityId, shipment.DistrictId, shipment.City, shipment.District);
     public async Task<KargonomiShipmentBatchResponse> StartForOrderAsync(Guid orderId,
         IReadOnlyCollection<Guid>? studentIds, CancellationToken cancellationToken)
     {
@@ -227,7 +239,7 @@ public sealed class KargonomiShippingService(
                     await repository.AddKargonomiShipmentAsync(shipment, cancellationToken);
                 }
 
-                var location = await client.ResolveLocationAsync(student.AddressLine, cancellationToken);
+                var location = await client.ResolveLocationAsync(student.CityId, student.DistrictId, cancellationToken);
                 var created = await client.CreateShipmentAsync(new KargonomiCreateShipmentRequest(
                     student.FullName, student.GuardianPhone, student.AddressLine, location.StateId, location.CityId,
                     "Eğitim kiti", string.Empty, 1), cancellationToken);
@@ -354,7 +366,8 @@ public sealed class KargonomiShippingService(
                 assignment.Id, shipment.OrderId, cohort.CustomerId, KitLocationEventSource.DeliveryReceipt,
                 shipment.Id, student.FullName, student.GuardianPhone, student.AddressLine,
                 student.HasCoordinates ? student.Latitude : null,
-                student.HasCoordinates ? student.Longitude : null, now, SystemActorId), cancellationToken);
+                student.HasCoordinates ? student.Longitude : null, now, SystemActorId,
+                student.CityId, student.DistrictId, student.City, student.District), cancellationToken);
         }
 
         await repository.AddProductUnitActivityAsync(ProductUnitActivity.Create(Guid.NewGuid(), unit.Id,

@@ -12,7 +12,7 @@
             <dl><dt>Kargo firması</dt><dd>@(shipment?.Carrier ?? "—")</dd><dt>Takip numarası</dt><dd>@(shipment?.TrackingNumber ?? "Henüz oluşmadı")</dd></dl>
             @if (shipment is not null)
             {
-                <p>Teslim adresi: @shipment.RecipientAddress</p>
+                <p>Teslim adresi: @(AddressDisplay.Full(shipment.RecipientAddress, shipment.City, shipment.District))</p>
                 <small>Son güncelleme: @shipment.UpdatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small>
             }
         </div>

@@ -196,7 +196,7 @@
                         <td>
                             @if (!string.IsNullOrWhiteSpace(student.AddressLine))
                             {
-                                <span class="student-address-truncate" title="@student.AddressLine">@student.AddressLine</span>
+                                <span class="student-address-truncate" title="@(AddressDisplay.Full(student.AddressLine, student.City, student.District))">@(AddressDisplay.Full(student.AddressLine, student.City, student.District))</span>
                             }
                         </td>
                         <td>
@@ -215,6 +215,8 @@
                                         data-student-name="@student.FullName"
                                         data-student-phone="@student.GuardianPhone"
                                         data-student-address="@student.AddressLine"
+                                        data-student-city-id="@student.CityId" data-student-district-id="@student.DistrictId"
+                                        data-student-city="@student.City" data-student-district="@student.District"
                                         data-student-product="@student.ProductModelId">
                                         <i data-lucide="pencil"></i><span class="visually-hidden">Güncelle</span>
                                     </button>
@@ -331,6 +333,10 @@
                 </div>
             </div>
             <input type="hidden" id="edit-student-address" name="AddressLine" value="@Model.StudentForm.AddressLine" />
+            <input type="hidden" id="edit-student-city-id" name="CityId" value="@Model.StudentForm.CityId" />
+            <input type="hidden" id="edit-student-district-id" name="DistrictId" value="@Model.StudentForm.DistrictId" />
+            <input type="hidden" id="edit-student-city" name="City" value="@Model.StudentForm.City" />
+            <input type="hidden" id="edit-student-district" name="District" value="@Model.StudentForm.District" />
             <footer>
                 <button class="secondary-action" type="button" data-student-edit-close>Vazgeç</button>
                 <button class="primary-action" type="submit">Güncelle</button>

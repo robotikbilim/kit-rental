@@ -25,7 +25,8 @@ public sealed record InventoryItemResponse(Guid Id, Guid ProductModelId, string 
     string? GuardianPhone = null, string? AddressLine = null, string? PublicAddressToken = null,
     string? ShipmentStatusLabel = null, int? ShipmentState = null, string? TrackingNumber = null,
     string? Carrier = null, DateTimeOffset? ShipmentUpdatedAt = null, string? ShipmentError = null,
-    Guid? OrderId = null, Guid? StudentId = null);
+    Guid? OrderId = null, Guid? StudentId = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 
 public sealed record InventoryPageResponse(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<InventoryItemResponse> Items);

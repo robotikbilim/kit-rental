@@ -23,11 +23,13 @@ public sealed class FaultTicket
     private FaultTicket(Guid id, string number, Guid customerId, Guid orderId, Guid assignmentId, Guid productUnitId,
         string category, FaultSeverity severity, string description, DateTimeOffset openedAt, string reporterName,
         string reporterPhone, string reporterAddress, double? latitude, double? longitude, FaultOrigin origin,
-        string? attachmentUrl)
+        string? attachmentUrl, int? cityId, int? districtId, string? city, string? district)
     {
         Id = id; Number = number; CustomerId = customerId; OrderId = orderId; AssignmentId = assignmentId; ProductUnitId = productUnitId;
         Category = category; Severity = severity; Description = description; OpenedAt = openedAt; Status = FaultStatus.Open;
         ReporterName = reporterName; ReporterPhone = reporterPhone; ReporterAddress = reporterAddress;
+        CityId = cityId; DistrictId = districtId;
+        City = city?.Trim() ?? string.Empty; District = district?.Trim() ?? string.Empty;
         Latitude = latitude; Longitude = longitude;
         ApprovalStatus = FaultApprovalStatus.NotRequired;
         Origin = origin;
@@ -46,6 +48,10 @@ public sealed class FaultTicket
     public string ReporterName { get; private set; } = string.Empty;
     public string ReporterPhone { get; private set; } = string.Empty;
     public string ReporterAddress { get; private set; } = string.Empty;
+    public int? CityId { get; private set; }
+    public int? DistrictId { get; private set; }
+    public string City { get; private set; } = string.Empty;
+    public string District { get; private set; } = string.Empty;
     public double? Latitude { get; private set; }
     public double? Longitude { get; private set; }
     public FaultApprovalStatus ApprovalStatus { get; private set; }
@@ -58,9 +64,11 @@ public sealed class FaultTicket
     public IReadOnlyCollection<FaultKargonomiShipment> KargonomiShipments => _kargonomiShipments.AsReadOnly();
 
     public FaultKargonomiShipment CreateKargonomiShipment(FaultKargonomiShipmentDirection direction,
-        string recipientName, string recipientPhone, string recipientAddress, DateTimeOffset now)
+        string recipientName, string recipientPhone, string recipientAddress, DateTimeOffset now,
+        int? cityId = null, int? districtId = null, string? city = null, string? district = null)
     {
-        var shipment = FaultKargonomiShipment.Create(Guid.NewGuid(), Id, direction, recipientName, recipientPhone, recipientAddress, now);
+        var shipment = FaultKargonomiShipment.Create(Guid.NewGuid(), Id, direction, recipientName, recipientPhone,
+            recipientAddress, now, cityId, districtId, city, district);
         _kargonomiShipments.Add(shipment);
         return shipment;
     }
@@ -78,14 +86,15 @@ public sealed class FaultTicket
         Guid productUnitId, string category, FaultSeverity severity, string description, DateTimeOffset openedAt,
         string? reporterName = null, string? reporterPhone = null, string? reporterAddress = null,
         double? latitude = null, double? longitude = null, FaultOrigin origin = FaultOrigin.Internal,
-        string? attachmentUrl = null)
+        string? attachmentUrl = null, int? cityId = null, int? districtId = null,
+        string? city = null, string? district = null)
     {
         if (new[] { id, customerId, orderId, assignmentId, productUnitId }.Any(value => value == Guid.Empty) || string.IsNullOrWhiteSpace(description))
             throw new DomainException("fault.required_fields", "Arıza için müşteri, sipariş, atama, ürün ve açıklama zorunludur.");
         return new FaultTicket(id, number, customerId, orderId, assignmentId, productUnitId, category.Trim(),
             severity, description.Trim(), openedAt, reporterName?.Trim() ?? string.Empty,
             TurkishPhoneNumber.NormalizeOptional(reporterPhone, "Bildiren telefon numarası"), reporterAddress?.Trim() ?? string.Empty,
-            latitude, longitude, origin, attachmentUrl);
+            latitude, longitude, origin, attachmentUrl, cityId, districtId, city, district);
     }
 
     public void ChangeStatus(FaultStatus next, Guid actorId, DateTimeOffset now, string note)
@@ -175,7 +184,8 @@ public sealed class FaultTicket
             throw new DomainException("fault.invalid_status_change", "Arıza durumu değişikliği için aktör ve not zorunludur.");
     }
     public void UpdatePublicDetails(string category, string description, string reporterName,
-        string reporterPhone, string reporterAddress, double? latitude, double? longitude, string? attachmentUrl = null)
+        string reporterPhone, string reporterAddress, double? latitude, double? longitude, string? attachmentUrl = null,
+        int? cityId = null, int? districtId = null, string? city = null, string? district = null)
     {
         if (string.IsNullOrWhiteSpace(category) || string.IsNullOrWhiteSpace(description) ||
             string.IsNullOrWhiteSpace(reporterName) || string.IsNullOrWhiteSpace(reporterPhone) ||
@@ -187,6 +197,13 @@ public sealed class FaultTicket
         ReporterName = reporterName.Trim();
         ReporterPhone = TurkishPhoneNumber.Normalize(reporterPhone, "Bildiren telefon numarası");
         ReporterAddress = reporterAddress.Trim();
+        if (cityId is not null || districtId is not null || city is not null || district is not null)
+        {
+            CityId = cityId;
+            DistrictId = districtId;
+            City = city?.Trim() ?? string.Empty;
+            District = district?.Trim() ?? string.Empty;
+        }
         Latitude = latitude;
         Longitude = longitude;
         AttachmentUrl = attachmentUrl?.Trim();

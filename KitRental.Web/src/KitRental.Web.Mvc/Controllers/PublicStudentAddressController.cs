@@ -28,13 +28,12 @@ public sealed class PublicStudentAddressController(KitRentalApiClient apiClient)
         model.CustomerName = context.CustomerName;
         model.OrderNumber = context.OrderNumber;
         model.ProductName = context.ProductName;
-        if (string.IsNullOrWhiteSpace(model.City))
-            ModelState.AddModelError(nameof(model.City), "Lütfen il seçin.");
-        if (string.IsNullOrWhiteSpace(model.District))
-            ModelState.AddModelError(nameof(model.District), "Lütfen ilçe seçin.");
+        if (model.CityId is null or <= 0)
+            ModelState.AddModelError(nameof(model.CityId), "Lütfen il seçin.");
+        if (model.DistrictId is null or <= 0)
+            ModelState.AddModelError(nameof(model.DistrictId), "Lütfen ilçe seçin.");
         if (!ModelState.IsValid) return View(model);
 
-        model.AddressLine = BuildAddressLine(model);
         if (model.AddressLine.Length > 1000)
         {
             ModelState.AddModelError(nameof(model.AddressLine), "Adres en fazla 1000 karakter olabilir.");
@@ -55,7 +54,6 @@ public sealed class PublicStudentAddressController(KitRentalApiClient apiClient)
     private static PublicStudentAddressFormViewModel BuildForm(string token,
         PublicStudentAddressContextViewModel context)
     {
-        var parsedAddress = ParseStoredAddress(context.AddressLine);
         return new()
         {
             Token = token,
@@ -64,42 +62,12 @@ public sealed class PublicStudentAddressController(KitRentalApiClient apiClient)
             CustomerName = context.CustomerName,
             OrderNumber = context.OrderNumber,
             ProductName = context.ProductName,
-            City = parsedAddress.City,
-            District = parsedAddress.District,
-            AddressLine = parsedAddress.AddressLine,
+            CityId = context.CityId, DistrictId = context.DistrictId,
+            City = context.City, District = context.District,
+            AddressLine = context.AddressLine ?? string.Empty,
             Latitude = context.Latitude,
             Longitude = context.Longitude
         };
     }
 
-    private static (string City, string District, string AddressLine) ParseStoredAddress(string? addressLine)
-    {
-        var address = addressLine?.Trim() ?? string.Empty;
-        var separatorIndex = address.IndexOf(" - ", StringComparison.Ordinal);
-        if (separatorIndex <= 0) return (string.Empty, string.Empty, address);
-
-        var location = address[..separatorIndex];
-        var slashIndex = location.IndexOf(" / ", StringComparison.Ordinal);
-        if (slashIndex <= 0 || slashIndex >= location.Length - 3)
-            return (string.Empty, string.Empty, address);
-
-        var city = location[..slashIndex].Trim();
-        var district = location[(slashIndex + 3)..].Trim();
-        if (string.IsNullOrWhiteSpace(city) || string.IsNullOrWhiteSpace(district))
-            return (string.Empty, string.Empty, address);
-
-        return (city, district, address[(separatorIndex + 3)..].Trim());
-    }
-
-    private static string BuildAddressLine(PublicStudentAddressFormViewModel model)
-    {
-        var address = model.AddressLine.Trim();
-        var city = model.City.Trim();
-        var district = model.District.Trim();
-        var location = string.Join(" / ", new[] { city, district }.Where(value => !string.IsNullOrWhiteSpace(value)));
-        if (string.IsNullOrWhiteSpace(location) ||
-            address.Contains(location, StringComparison.CurrentCultureIgnoreCase))
-            return address;
-        return $"{location} - {address}";
-    }
 }

@@ -36,8 +36,8 @@
         </summary>
         <div class="ops-fault-disclosure-body">
         <p class="ops-fault-route">@(direction == 1 ? "Veli adresi → Robotik Bilim deposu" : "Robotik Bilim deposu → Veli adresi")</p>
-        <div class="ops-fault-shipment-address"><strong>@(direction == 1 ? "Alınacak adres" : "Teslim adresi")</strong><span>@(direction == 2 && shipment is not null ? shipment.RecipientAddress : fault.ReporterAddress)</span></div>
-        @if (direction == 1 && shipment is not null) { <small class="block-muted">Teslim: @shipment.RecipientName · @shipment.RecipientAddress</small> }
+        <div class="ops-fault-shipment-address"><strong>@(direction == 1 ? "Alınacak adres" : "Teslim adresi")</strong><span>@(direction == 2 && shipment is not null ? AddressDisplay.Full(shipment.RecipientAddress, shipment.City, shipment.District) : AddressDisplay.Full(fault.ReporterAddress, fault.City, fault.District))</span></div>
+        @if (direction == 1 && shipment is not null) { <small class="block-muted">Teslim: @shipment.RecipientName · @(AddressDisplay.Full(shipment.RecipientAddress, shipment.City, shipment.District))</small> }
         <dl><div><dt>Kargo firması</dt><dd>@carrier</dd></div><div><dt>Takip numarası</dt><dd>@(shipment?.TrackingNumber ?? "Henüz oluşmadı")</dd></div></dl>
         @if (shipment is not null) { <small class="block-muted">Son güncelleme: @shipment.UpdatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</small> }
         @if (!string.IsNullOrWhiteSpace(shipment?.LastError)) { <p class="error" role="alert">@shipment.LastError</p> }

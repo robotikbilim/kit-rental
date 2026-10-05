@@ -19,7 +19,8 @@ public sealed class KitLocationEvent
     private KitLocationEvent(Guid id, Guid productUnitId, Guid? assignmentId, Guid? orderId,
         Guid? customerId, KitLocationEventSource source, Guid? sourceId, string contactName,
         string contactPhone, string addressLine, double? latitude,
-        double? longitude, DateTimeOffset occurredAt, Guid actorId)
+        double? longitude, DateTimeOffset occurredAt, Guid actorId,
+        int? cityId, int? districtId, string? city, string? district)
     {
         Id = id;
         ProductUnitId = productUnitId;
@@ -31,6 +32,10 @@ public sealed class KitLocationEvent
         ContactName = contactName;
         ContactPhone = contactPhone;
         AddressLine = addressLine;
+        CityId = cityId;
+        DistrictId = districtId;
+        City = city?.Trim() ?? string.Empty;
+        District = district?.Trim() ?? string.Empty;
         Latitude = latitude;
         Longitude = longitude;
         OccurredAt = occurredAt;
@@ -47,6 +52,10 @@ public sealed class KitLocationEvent
     public string ContactName { get; private set; } = string.Empty;
     public string ContactPhone { get; private set; } = string.Empty;
     public string AddressLine { get; private set; } = string.Empty;
+    public int? CityId { get; private set; }
+    public int? DistrictId { get; private set; }
+    public string City { get; private set; } = string.Empty;
+    public string District { get; private set; } = string.Empty;
     public double? Latitude { get; private set; }
     public double? Longitude { get; private set; }
     public DateTimeOffset OccurredAt { get; private set; }
@@ -64,7 +73,8 @@ public sealed class KitLocationEvent
     public static KitLocationEvent Create(Guid id, Guid productUnitId, Guid? assignmentId, Guid? orderId,
         Guid? customerId, KitLocationEventSource source, Guid? sourceId, string contactName,
         string contactPhone, string addressLine, double? latitude,
-        double? longitude, DateTimeOffset occurredAt, Guid actorId)
+        double? longitude, DateTimeOffset occurredAt, Guid actorId,
+        int? cityId = null, int? districtId = null, string? city = null, string? district = null)
     {
         if (id == Guid.Empty || productUnitId == Guid.Empty || actorId == Guid.Empty)
             throw new DomainException("kit_location_event.id_required", "Kit, event and actor identities are required.");
@@ -75,6 +85,6 @@ public sealed class KitLocationEvent
 
         return new KitLocationEvent(id, productUnitId, assignmentId, orderId, customerId, source, sourceId,
             contactName.Trim(), TurkishPhoneNumber.NormalizeOptional(contactPhone, "İletişim telefon numarası"), addressLine.Trim(),
-            latitude, longitude, occurredAt, actorId);
+            latitude, longitude, occurredAt, actorId, cityId, districtId, city, district);
     }
 }

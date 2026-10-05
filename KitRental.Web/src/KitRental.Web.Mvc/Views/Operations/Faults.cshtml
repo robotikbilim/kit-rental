@@ -56,7 +56,7 @@ else
                 @if (!string.IsNullOrWhiteSpace(item.SerialNumber)) { <small class="block-muted">Seri no: @item.SerialNumber</small> }
             </td>
             <td data-mobile-label="Kaynak"><span class="fault-stage status-@item.Origin">@OriginName(item.Origin)</span></td>
-            <td data-mobile-label="Bildiren Kişi"><strong>@item.ReporterName</strong><a class="fault-phone" href="tel:@item.ReporterPhone">@item.ReporterPhone</a><small class="block-muted">@item.ReporterAddress</small><small class="block-muted">@item.CustomerName</small></td>
+            <td data-mobile-label="Bildiren Kişi"><strong>@item.ReporterName</strong><a class="fault-phone" href="tel:@item.ReporterPhone">@item.ReporterPhone</a><small class="block-muted">@(AddressDisplay.Full(item.ReporterAddress, item.City, item.District))</small><small class="block-muted">@item.CustomerName</small></td>
             <td data-mobile-label="Arıza Nedeni"><span class="fault-category">@item.Category</span><p>@item.Description</p>
                 @if (!string.IsNullOrWhiteSpace(item.AttachmentUrl))
                 {

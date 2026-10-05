@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Caching.Memory;
 using KitRental.Core.Application.Common;
 using KitRental.Core.Application.Kargonomi;
 
@@ -22,13 +23,15 @@ public sealed class KargonomiOptions
     public int SenderCityId { get; set; }
 }
 
-public sealed class KargonomiClient(HttpClient httpClient, IConfiguration configuration) : IKargonomiClient
+public sealed class KargonomiClient(HttpClient httpClient, IConfiguration configuration, IMemoryCache? memoryCache = null) : IKargonomiClient
 {
     private readonly KargonomiOptions options = configuration.GetSection("Kargonomi").Get<KargonomiOptions>() ?? new();
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly IMemoryCache regionCache = memoryCache ?? new MemoryCache(new MemoryCacheOptions());
 
     public KargonomiReturnDestination GetReturnDestination() =>
-        new(options.SenderName, options.SenderPhone, KargonomiAddressSanitizer.Clean(options.SenderAddress));
+        new(options.SenderName, options.SenderPhone, KargonomiAddressSanitizer.Clean(options.SenderAddress),
+            options.SenderStateId, options.SenderCityId);
 
     public async Task<KargonomiShipmentSnapshot> CreateShipmentAsync(KargonomiCreateShipmentRequest request,
         CancellationToken cancellationToken)
@@ -143,21 +146,51 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
         throw new InvalidOperationException("Kargonomi barkod yanıtı okunamadı.");
     }
 
-    public async Task<(int StateId, int CityId)> ResolveLocationAsync(string address, CancellationToken cancellationToken)
+    public Task<IReadOnlyCollection<KargonomiRegionResponse>> GetStatesAsync(CancellationToken cancellationToken) =>
+        GetRegionsAsync("states/1", cancellationToken);
+
+    public Task<IReadOnlyCollection<KargonomiRegionResponse>> GetCitiesAsync(int stateId, CancellationToken cancellationToken)
     {
-        var parts = address.Split('-', 2, StringSplitOptions.TrimEntries);
-        if (parts.Length != 2 || !parts[0].Contains('/'))
-            throw new ConflictException("kargonomi.address_region_missing", "Adres şehir / ilçe formatında olmalıdır.");
-        var region = parts[0].Split('/', 2, StringSplitOptions.TrimEntries);
-        var states = await SendAsync(HttpMethod.Get, "states/1", null, cancellationToken);
-        using var stateDocument = JsonDocument.Parse(states);
-        var state = FindByName(stateDocument.RootElement, region[0]);
-        if (state.Id <= 0) throw new ConflictException("kargonomi.state_not_found", $"Şehir bulunamadı: {region[0]}");
-        var cities = await SendAsync(HttpMethod.Get, $"cities/{state.Id}", null, cancellationToken);
-        using var cityDocument = JsonDocument.Parse(cities);
-        var city = FindByName(cityDocument.RootElement, region[1]);
-        if (city.Id <= 0) throw new ConflictException("kargonomi.city_not_found", $"İlçe bulunamadı: {region[1]}");
-        return (state.Id, city.Id);
+        if (stateId <= 0)
+            throw new ConflictException("kargonomi.state_required", "Lütfen il seçin.");
+        return GetRegionsAsync($"cities/{stateId}", cancellationToken);
+    }
+
+    public async Task<(int StateId, int CityId)> ResolveLocationAsync(int? cityId, int? districtId,
+        CancellationToken cancellationToken)
+    {
+        if (cityId is null or <= 0 || districtId is null or <= 0)
+            throw new ConflictException("kargonomi.address_region_missing",
+                "Gönderi adresinde il/ilçe bilgisi eksik. Adres formundan il ve ilçeyi seçerek adresi yeniden kaydedin.");
+        var states = await GetStatesAsync(cancellationToken);
+        if (!states.Any(item => item.Id == cityId))
+            throw new ConflictException("kargonomi.state_not_found", "Seçilen il Kargonomi listesinde bulunamadı.");
+        var cities = await GetCitiesAsync(cityId.Value, cancellationToken);
+        if (!cities.Any(item => item.Id == districtId))
+            throw new ConflictException("kargonomi.city_not_found", "Seçilen ilçe bu ile ait değil. İl ve ilçeyi yeniden seçin.");
+        return (cityId.Value, districtId.Value);
+    }
+
+    private async Task<IReadOnlyCollection<KargonomiRegionResponse>> GetRegionsAsync(string path,
+        CancellationToken cancellationToken)
+    {
+        var key = $"kargonomi-regions:{options.BaseUrl}:{path}";
+        if (regionCache.TryGetValue<IReadOnlyCollection<KargonomiRegionResponse>>(key, out var cached) && cached is not null)
+            return cached;
+        var json = await SendAsync(HttpMethod.Get, path, null, cancellationToken);
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        var items = root.ValueKind == JsonValueKind.Array ? root :
+            root.TryGetProperty("data", out var data) ? data : default;
+        if (items.ValueKind != JsonValueKind.Array)
+            throw new HttpRequestException("Kargonomi il/ilçe listesi okunamadı.");
+        var regions = items.EnumerateArray().Select(item => new KargonomiRegionResponse(
+            ReadInt(item, "id"), ReadString(item, "name") ?? ReadString(item, "title") ?? string.Empty))
+            .Where(item => item.Id > 0 && !string.IsNullOrWhiteSpace(item.Name)).ToArray();
+        if (regions.Length == 0)
+            throw new HttpRequestException("Kargonomi il/ilçe listesi boş döndü. Lütfen tekrar deneyin.");
+        regionCache.Set<IReadOnlyCollection<KargonomiRegionResponse>>(key, regions, TimeSpan.FromHours(24));
+        return regions;
     }
 
     private async Task<string> SendAsync(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
@@ -225,18 +258,6 @@ public sealed class KargonomiClient(HttpClient httpClient, IConfiguration config
             ReadDate(item, "updated_at"));
     }
 
-    private static (int Id, string Name) FindByName(JsonElement root, string name)
-    {
-        var items = root.ValueKind == JsonValueKind.Array ? root : root.TryGetProperty("data", out var data) ? data : default;
-        if (items.ValueKind != JsonValueKind.Array) return (0, string.Empty);
-        var normalized = Normalize(name);
-        foreach (var item in items.EnumerateArray())
-            if (Normalize(ReadString(item, "name") ?? ReadString(item, "title") ?? string.Empty) == normalized)
-                return (ReadInt(item, "id"), ReadString(item, "name") ?? string.Empty);
-        return (0, string.Empty);
-    }
-
-    private static string Normalize(string value) => value.Trim().ToUpperInvariant().Replace('İ', 'I');
     private static string GetSenderTaxNumber(string? value)
     {
         var digits = new string((value ?? string.Empty).Where(char.IsAsciiDigit).ToArray());

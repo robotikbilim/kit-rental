@@ -80,7 +80,7 @@
             ${escapeHtml(item.kitSku)}<br>
             ${escapeHtml(item.serialNumber)}<br>
             ${escapeHtml(item.recipientName)}<br>
-            ${escapeHtml(item.addressLine)}<br>
+            ${escapeHtml([item.addressLine, item.district, item.city].filter(Boolean).join(", "))}<br>
             <a href="${escapeHtml(detailUrl)}">Kit gecmisine git</a>
         `);
         return { item, marker, status: categoryKey(item), productModelId: String(item.productModelId || "") };

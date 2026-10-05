@@ -147,6 +147,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
                 FullName = edit.FullName,
                 GuardianPhone = edit.GuardianPhone,
                 AddressLine = edit.AddressLine,
+                CityId = edit.CityId, DistrictId = edit.DistrictId, City = edit.City, District = edit.District,
                 ProductModelId = edit.ProductModelId
             };
         var allStudents = cohort.Students
@@ -173,6 +174,8 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         sheet.Cell(1, 5).Value = "Adres";
         sheet.Cell(1, 6).Value = "Public Link";
         sheet.Cell(1, 7).Value = "Atanan Fiziksel Kit QR Linki";
+        sheet.Cell(1, 8).Value = "İl";
+        sheet.Cell(1, 9).Value = "İlçe";
         sheet.Row(1).Style.Font.Bold = true;
         var rowIndex = 2;
         foreach (var student in cohort.Students.OrderBy(item => item.FullName))
@@ -186,6 +189,8 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             sheet.Cell(rowIndex, 5).Value = student.AddressLine;
             sheet.Cell(rowIndex, 6).Value = BuildStudentAddressUrl(student.PublicAddressToken);
             sheet.Cell(rowIndex, 7).Value = BuildPhysicalKitQrUrl(student.QrCode);
+            sheet.Cell(rowIndex, 8).Value = student.City ?? string.Empty;
+            sheet.Cell(rowIndex, 9).Value = student.District ?? string.Empty;
             rowIndex++;
         }
         sheet.Columns().AdjustToContents();
@@ -393,6 +398,7 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             fullName = row.FullName,
             guardianPhone = TurkishPhoneNumber.Normalize(row.GuardianPhone, "Veli telefon numarası"),
             addressLine = row.AddressLine ?? string.Empty,
+            row.CityId, row.DistrictId, row.City, row.District,
             productModel = row.ProductModelId.ToString()
         }).ToArray();
         var result = await apiClient.ImportRentalCohortStudentsAsync(model.CohortId, rows, cancellationToken);
@@ -467,7 +473,11 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
             SerialNumber = student.SerialNumber ?? "-",
             RequesterName = string.IsNullOrWhiteSpace(student.DeliveredTo) ? student.FullName : student.DeliveredTo,
             RequesterPhone = string.IsNullOrWhiteSpace(student.DeliveryPhone) ? student.GuardianPhone : student.DeliveryPhone,
-            ReturnAddress = string.IsNullOrWhiteSpace(student.DeliveryAddress) ? student.AddressLine : student.DeliveryAddress
+            ReturnAddress = string.IsNullOrWhiteSpace(student.DeliveryAddress) ? student.AddressLine : student.DeliveryAddress,
+            CityId = string.IsNullOrWhiteSpace(student.DeliveryAddress) ? student.CityId : student.DeliveryCityId,
+            DistrictId = string.IsNullOrWhiteSpace(student.DeliveryAddress) ? student.DistrictId : student.DeliveryDistrictId,
+            City = string.IsNullOrWhiteSpace(student.DeliveryAddress) ? student.City : student.DeliveryCity,
+            District = string.IsNullOrWhiteSpace(student.DeliveryAddress) ? student.District : student.DeliveryDistrict
         };
     }
 
@@ -673,6 +683,10 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> NewFault(PortalFaultRequestViewModel model, CancellationToken cancellationToken)
     {
+        if (model.CityId is null or <= 0)
+            ModelState.AddModelError(nameof(model.CityId), "Lütfen il seçin.");
+        if (model.DistrictId is null or <= 0)
+            ModelState.AddModelError(nameof(model.DistrictId), "Lütfen ilçe seçin.");
         if (ModelState.IsValid)
         {
             var result = await apiClient.CreatePortalFaultAsync(model, cancellationToken);
@@ -690,16 +704,20 @@ public sealed class CustomerPortalController(KitRentalApiClient apiClient) : Con
         return View(new PortalFaultRequestPageViewModel(model));
     }
 
-    private static PortalFaultRequestViewModel BuildPortalFaultForm(PortalFaultFormContextViewModel context) =>
-        new()
+    private static PortalFaultRequestViewModel BuildPortalFaultForm(PortalFaultFormContextViewModel context)
+    {
+        return new()
         {
             AssignmentId = context.AssignmentId,
             KitName = context.KitName,
             SerialNumber = context.SerialNumber,
             ReporterName = context.ReporterName,
             ReporterPhone = context.ReporterPhone,
+            CityId = context.CityId, DistrictId = context.DistrictId,
+            City = context.City, District = context.District,
             ReporterAddress = context.ReporterAddress
         };
+    }
 
     public async Task<IActionResult> Fault(Guid id, CancellationToken cancellationToken)
     {

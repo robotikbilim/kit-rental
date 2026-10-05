@@ -56,6 +56,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient("identity-notifications", client =>
             client.BaseAddress = new Uri(configuration["Notifications:IdentityBaseUrl"]
                 ?? "https://localhost:59592"));
+        services.AddMemoryCache();
         services.AddHttpClient<IKargonomiClient, KargonomiClient>();
 
         return services;

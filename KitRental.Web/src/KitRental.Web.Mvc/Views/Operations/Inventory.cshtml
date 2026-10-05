@@ -95,7 +95,7 @@ else
                         }
                     </td>
                     <td>@(item.TrackingNumber ?? "-")</td>
-                    <td>@if (hasAddress) { <span class="student-address-truncate" title="@item.AddressLine">@item.AddressLine</span> }</td>
+                    <td>@if (hasAddress) { <span class="student-address-truncate" title="@(AddressDisplay.Full(item.AddressLine, item.City, item.District))">@(AddressDisplay.Full(item.AddressLine, item.City, item.District))</span> }</td>
                     <td>@if (!string.IsNullOrWhiteSpace(addressUrl)) { <a class="student-public-link-truncate" href="@addressUrl" target="_blank" rel="noopener" title="@addressUrl">@addressUrl</a> }</td>
                     <td><a class="icon-action icon-action-neutral" asp-controller="PhysicalKits" asp-action="Details" asp-route-id="@item.Id" title="Fiziksel kit detayını aç" aria-label="@item.SerialNumber fiziksel kit detayını aç"><i data-lucide="eye"></i><span class="visually-hidden">Detay</span></a></td>
                 </tr>

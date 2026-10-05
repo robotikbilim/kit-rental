@@ -119,6 +119,12 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.CustomerId
         }, cancellationToken);
 
+    public Task<IReadOnlyCollection<AddressRegionViewModel>?> GetAddressCitiesAsync(CancellationToken cancellationToken) =>
+        GetAsync<IReadOnlyCollection<AddressRegionViewModel>>("/core/api/address-regions/cities", cancellationToken);
+
+    public Task<IReadOnlyCollection<AddressRegionViewModel>?> GetAddressDistrictsAsync(int cityId, CancellationToken cancellationToken) =>
+        GetAsync<IReadOnlyCollection<AddressRegionViewModel>>($"/core/api/address-regions/districts/{cityId}", cancellationToken);
+
     public Task<OrderCustomerViewModel?> GetCustomerAsync(Guid id, CancellationToken cancellationToken) =>
         GetAsync<OrderCustomerViewModel>($"/core/api/customers/{id}", cancellationToken);
 
@@ -133,7 +139,8 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
                 model.Address.ContactName,
                 model.Address.Phone,
                 model.Address.Line1,
-                model.Address.PostalCode
+                model.Address.PostalCode,
+                model.Address.CityId, model.Address.DistrictId, model.Address.City, model.Address.District
             },
             allowedProductModelIds = model.SelectedAllowedProductModelIds
         }, cancellationToken);
@@ -165,6 +172,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         model.Title,
         model.ContactName,
         model.Phone,
+        model.CityId, model.DistrictId, model.City, model.District,
         model.Line1,
         model.PostalCode
     };
@@ -409,6 +417,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             model.CustomerName,
             model.Email,
             model.Phone,
+            model.CityId, model.DistrictId, model.City, model.District,
             model.AddressLine,
             model.PostalCode,
             model.StartDate,
@@ -483,14 +492,14 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         RentalCohortStudentInputViewModel model, CancellationToken cancellationToken) =>
         PostAsync<PortalRentalCohortStudentViewModel>(
             $"/core/api/customer-portal/rental-periods/{model.CohortId}/students",
-            new { model.FullName, model.GuardianPhone, AddressLine = model.AddressLine ?? string.Empty, model.ProductModelId },
+            new { model.FullName, model.GuardianPhone, AddressLine = model.AddressLine ?? string.Empty, model.ProductModelId, model.CityId, model.DistrictId, model.City, model.District },
             cancellationToken);
 
     public Task<ApiCommandResult<PortalRentalCohortStudentViewModel>> UpdateRentalCohortStudentAsync(
         RentalCohortStudentInputViewModel model, CancellationToken cancellationToken) =>
         SendAsync<PortalRentalCohortStudentViewModel>(HttpMethod.Put,
             $"/core/api/customer-portal/rental-periods/{model.CohortId}/students/{model.Id}",
-            new { model.FullName, model.GuardianPhone, AddressLine = model.AddressLine ?? string.Empty, model.ProductModelId },
+            new { model.FullName, model.GuardianPhone, AddressLine = model.AddressLine ?? string.Empty, model.ProductModelId, model.CityId, model.DistrictId, model.City, model.District },
             cancellationToken);
 
     public Task<ApiCommandResult<object>> DeleteRentalCohortStudentAsync(Guid cohortId, Guid studentId,
@@ -513,6 +522,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             {
                 model.RequesterName,
                 model.RequesterPhone,
+                model.CityId, model.DistrictId, model.City, model.District,
                 model.ReturnAddress,
                 model.ReturnReason
             },
@@ -530,6 +540,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
                 model.AssignmentId,
                 model.ReporterName,
                 model.ReporterPhone,
+                model.CityId, model.DistrictId, model.City, model.District,
                 model.ReporterAddress,
                 model.Description
             }, cancellationToken);
@@ -555,7 +566,8 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         PostAsync<OwnershipPaymentStartViewModel>($"/core/api/public/kit-ownership/{Uri.EscapeDataString(token)}/payments",
             new { firstName = model.FirstName, lastName = model.LastName, identityNumber = model.IdentityNumber,
                 email = model.BuyerEmail, phone = model.BuyerPhone, address = model.Address,
-                city = model.City, postalCode = model.PostalCode }, cancellationToken);
+                city = model.City, postalCode = model.PostalCode,
+                model.CityId, model.DistrictId, model.District }, cancellationToken);
 
     public Task<OwnershipPaymentStatusViewModel?> GetOwnershipPaymentStatusAsync(Guid attemptId,
         CancellationToken cancellationToken) =>
@@ -573,6 +585,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             token = model.AccessToken,
             model.ReporterName,
             model.ReporterPhone,
+            model.CityId, model.DistrictId, model.City, model.District,
             model.ReporterAddress,
             model.Description,
             model.Latitude,
@@ -586,6 +599,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             token = model.AccessToken,
             model.RequesterName,
             model.RequesterPhone,
+            model.CityId, model.DistrictId, model.City, model.District,
             ReturnAddress = model.ReturnAddress ?? string.Empty,
             model.ReturnReason,
             model.DeliveryMethod,
@@ -599,6 +613,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             token = model.AccessToken,
             model.RecipientName,
             model.RecipientPhone,
+            model.CityId, model.DistrictId, model.City, model.District,
             model.AddressLine,
             model.Latitude,
             model.Longitude
@@ -613,6 +628,7 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
         CancellationToken cancellationToken) =>
         PostAsync<object>($"/core/api/public/student-addresses/{Uri.EscapeDataString(model.Token)}", new
         {
+            model.CityId, model.DistrictId, model.City, model.District,
             model.AddressLine,
             model.Latitude,
             model.Longitude

@@ -11,7 +11,9 @@
     ViewData["Title"] = Model.Kit.KitName;
     string UnitStatus(int value) => value switch { 1 => "Hazır", 2 => "Rezerve", 3 => "Hazırlanıyor", 4 => "Teslimat yolunda", 5 => "Kullanımınızda", 6 => "Geri gönderiliyor", 7 => "Kontrolde", 8 => "Serviste", _ => "İşlemde" };
     string FaultStatus(int value) => OperationsDisplay.FaultStatus(value);
-    var currentAddress = Model.CurrentLocation?.AddressLine ?? Model.Kit.AssignedStudentAddressLine;
+    var currentAddress = Model.CurrentLocation is not null
+        ? AddressDisplay.Full(Model.CurrentLocation.AddressLine, Model.CurrentLocation.City, Model.CurrentLocation.District)
+        : AddressDisplay.Full(Model.Kit.AssignedStudentAddressLine, Model.Kit.City, Model.Kit.District);
 }
 <a class="back-link" asp-action="Index">← Kitlerime dön</a>
 <section class="portal-kit-detail-hero">
@@ -48,7 +50,7 @@ else
 </section>
 
 <section class="portal-section"><div class="section-heading"><div><span class="eyebrow">KİRALAMA GEÇMİŞİ</span><h2>Bu kit kimlerde kullanıldı?</h2></div><b>@Model.RentalHistory.Count kayıt</b></div>
-@if(Model.RentalHistory.Count == 0){<div class="empty">Bu kit için geçmiş kiralama kaydı bulunmuyor.</div>}else{<div class="portal-log-list">@foreach(var rental in Model.RentalHistory){<article class="portal-log-item"><i data-lucide="graduation-cap"></i><div><div class="portal-log-meta"><span>@rental.StartDate.ToString("dd.MM.yyyy") – @rental.EndDate.ToString("dd.MM.yyyy")</span>@if(rental.DeliveredAt.HasValue){<span>Teslim: @rental.DeliveredAt.Value.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</span>}</div><h3>@rental.StudentName</h3><p>@(string.IsNullOrWhiteSpace(rental.Address) ? "Adres bilgisi bulunmuyor." : rental.Address)</p><small class="portal-log-subline">@rental.PeriodName@if(!string.IsNullOrWhiteSpace(rental.OrderNumber)){<text> · @rental.OrderNumber</text>}</small></div></article>}</div>}
+@if(Model.RentalHistory.Count == 0){<div class="empty">Bu kit için geçmiş kiralama kaydı bulunmuyor.</div>}else{<div class="portal-log-list">@foreach(var rental in Model.RentalHistory){<article class="portal-log-item"><i data-lucide="graduation-cap"></i><div><div class="portal-log-meta"><span>@rental.StartDate.ToString("dd.MM.yyyy") – @rental.EndDate.ToString("dd.MM.yyyy")</span>@if(rental.DeliveredAt.HasValue){<span>Teslim: @rental.DeliveredAt.Value.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</span>}</div><h3>@rental.StudentName</h3><p>@(string.IsNullOrWhiteSpace(rental.Address) ? "Adres bilgisi bulunmuyor." : AddressDisplay.Full(rental.Address, rental.City, rental.District))</p><small class="portal-log-subline">@rental.PeriodName@if(!string.IsNullOrWhiteSpace(rental.OrderNumber)){<text> · @rental.OrderNumber</text>}</small></div></article>}</div>}
 </section>
 
 <section class="portal-section"><div class="section-heading"><div><span class="eyebrow">ARIZA GÜNLÜĞÜ</span><h2>Bu kitteki arıza kayıtları</h2></div><b>@Model.Faults.Count kayıt</b></div>
@@ -56,6 +58,6 @@ else
 </section>
 
 <section class="portal-section"><div class="section-heading"><div><span class="eyebrow">İADE GÜNLÜĞÜ</span><h2>Bu kitteki iade süreçleri</h2></div><b>@Model.Returns.Count süreç</b></div>
-@if(Model.Returns.Count == 0){<div class="empty">Bu kit için başlatılmış bir iade süreci bulunmuyor.</div>}else{<div class="portal-log-list">@foreach(var item in Model.Returns){<article class="portal-log-item"><i data-lucide="rotate-ccw"></i><div><div class="portal-log-meta"><span>@item.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</span><span class="fault-stage status-@item.Status">@OperationsDisplay.ReturnState(item.ReturnStateKey)</span></div><h3>@(item.RequesterName ?? "İade talebi")</h3><p>@(item.ReturnAddress ?? "Adres bilgisi belirtilmedi.")</p>@if(!string.IsNullOrWhiteSpace(item.TrackingNumber)){<small class="portal-log-subline">@item.Carrier · @item.TrackingNumber · @item.ExternalStatusLabel</small>}</div></article>}</div>}
+@if(Model.Returns.Count == 0){<div class="empty">Bu kit için başlatılmış bir iade süreci bulunmuyor.</div>}else{<div class="portal-log-list">@foreach(var item in Model.Returns){<article class="portal-log-item"><i data-lucide="rotate-ccw"></i><div><div class="portal-log-meta"><span>@item.CreatedAt.ToTurkeyTimeString("dd.MM.yyyy HH:mm")</span><span class="fault-stage status-@item.Status">@OperationsDisplay.ReturnState(item.ReturnStateKey)</span></div><h3>@(item.RequesterName ?? "İade talebi")</h3><p>@(string.IsNullOrWhiteSpace(item.ReturnAddress) ? "Adres bilgisi belirtilmedi." : AddressDisplay.Full(item.ReturnAddress, item.City, item.District))</p>@if(!string.IsNullOrWhiteSpace(item.TrackingNumber)){<small class="portal-log-subline">@item.Carrier · @item.TrackingNumber · @item.ExternalStatusLabel</small>}</div></article>}</div>}
 </section>
 

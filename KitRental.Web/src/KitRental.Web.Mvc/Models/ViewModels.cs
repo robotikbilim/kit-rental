@@ -51,7 +51,8 @@ public sealed record AuditScreenViewModel(int Page, int PageSize, int TotalCount
 public sealed record ReturnListItemViewModel(Guid Id, string CustomerName, int Status, string? Carrier,
     string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount, string? RequesterName = null,
     string? RequesterPhone = null, string? ReturnAddress = null,
-    double? Latitude = null, double? Longitude = null, int DeliveryMethod = 1);
+    double? Latitude = null, double? Longitude = null, int DeliveryMethod = 1,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record ReturnTableItemViewModel(Guid ProductUnitId, Guid AssignmentId, Guid? ReturnId,
     Guid? StudentId, string CustomerName, string StudentName, string GuardianPhone,
     string ProductModelName, string ProductModelSku, string SerialNumber, string OrderNumber,
@@ -60,10 +61,12 @@ public sealed record ReturnTableItemViewModel(Guid ProductUnitId, Guid Assignmen
     int? ExternalShipmentId, string? KargonomiStatus, string? KargonomiStatusLabel, string? KargonomiBarcode,
     DateTimeOffset? ReturnCreatedAt, DateTimeOffset? ShippedAt, DateTimeOffset? ReceivedAt,
     string? AddressLine, string? PublicAddressToken, string? RequesterName, string? RequesterPhone,
-    int DeliveryMethod, Guid OrderId = default);
+    int DeliveryMethod, Guid OrderId = default,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record DashboardKitLocationViewModel(Guid ProductUnitId, Guid ProductModelId, string KitName,
     string KitSku, string SerialNumber, string RecipientName, string AddressLine,
-    int Status, double? Latitude = null, double? Longitude = null, string LocationCategory = "active");
+    int Status, double? Latitude = null, double? Longitude = null, string LocationCategory = "active",
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record ProductUnitViewModel(Guid Id, Guid ProductModelId, string SerialNumber, string QrCode, int Status);
 public sealed record InventoryItemViewModel(Guid Id, Guid ProductModelId, string ProductModelName,
     string ProductModelSku, string SerialNumber, string QrCode, int Status, DateTimeOffset CreatedAt,
@@ -72,7 +75,8 @@ public sealed record InventoryItemViewModel(Guid Id, Guid ProductModelId, string
     string? AddressLine = null, string? PublicAddressToken = null, string? ShipmentStatusLabel = null,
     int? ShipmentState = null, string? TrackingNumber = null, string? Carrier = null,
     DateTimeOffset? ShipmentUpdatedAt = null, string? ShipmentError = null, Guid? OrderId = null,
-    Guid? StudentId = null);
+    Guid? StudentId = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record InventoryPageViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<InventoryItemViewModel> Items);
 public sealed class InventoryFilterViewModel
@@ -95,7 +99,8 @@ public sealed record FaultViewModel(Guid Id, string Number, Guid CustomerId, str
     string ReporterName, string ReporterPhone, string ReporterAddress, string Category, int Severity, string Description, int Status,
     DateTimeOffset OpenedAt, int ApprovalStatus = 0, int Origin = 1, string? AttachmentUrl = null,
     Guid OrderId = default, string? OrderNumber = null, Guid ProductUnitId = default,
-    string? SerialNumber = null, IReadOnlyCollection<FaultKargonomiShipmentViewModel>? Shipments = null);
+    string? SerialNumber = null, IReadOnlyCollection<FaultKargonomiShipmentViewModel>? Shipments = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record FaultPageViewModel(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultViewModel> Items);
 public sealed record FaultDetailViewModel(FaultViewModel Fault, FaultKitContextViewModel Kit,
@@ -104,7 +109,8 @@ public sealed record FaultKitContextViewModel(Guid Id, string Name, string Sku, 
     int Status, FaultKitAssignmentViewModel? CurrentAssignment);
 public sealed record FaultKitAssignmentViewModel(Guid AssignmentId, Guid OrderId, string OrderNumber,
     string CustomerName, string? StudentName, string? ContactName, string? Phone, string? Address,
-    DateTimeOffset? AddressUpdatedAt);
+    DateTimeOffset? AddressUpdatedAt,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record FaultStatusEventViewModel(Guid Id, int Previous, int Current, DateTimeOffset OccurredAt,
     Guid ActorId, string Note);
 public sealed record FaultGuideEntryViewModel(Guid Id, string Title, string Problem, string Solution,
@@ -140,7 +146,8 @@ public sealed class FaultFilterViewModel
 public sealed record FaultScreenViewModel(FaultPageViewModel Result, FaultFilterViewModel Filter);
 public sealed record FaultKargonomiShipmentViewModel(Guid Id, Guid FaultTicketId, int Direction,
     int? ExternalShipmentId, string RecipientName, string RecipientAddress, string? TrackingNumber,
-    string Carrier, string StatusLabel, int State, string? LastError, DateTimeOffset UpdatedAt);
+    string Carrier, string StatusLabel, int State, string? LastError, DateTimeOffset UpdatedAt,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record ComponentSuggestionViewModel(Guid Id, string Name, string Sku, string? ImageUrl, decimal TotalStock, string UnitOfMeasure);
 public sealed record ComponentLocationViewModel(Guid StorageLocationId, string LocationCode, string Warehouse, string Aisle, string Rack, string Shelf, decimal Quantity);
 public sealed record ComponentLocatorViewModel(
@@ -275,15 +282,18 @@ public sealed record PhysicalKitFaultHistoryViewModel(string Number, string Cate
 public sealed record PhysicalKitDeliveryHistoryViewModel(Guid AssignmentId, string OrderNumber, int OrderStatus,
     int AssignmentStatus, string CustomerName, string CustomerEmail, DateOnly StartDate, DateOnly EndDate,
     DateTimeOffset CreatedAt, string RecipientName, string Phone, string AddressLine,
-    DateTimeOffset? DeliveredAt, double? Latitude, double? Longitude);
+    DateTimeOffset? DeliveredAt, double? Latitude, double? Longitude,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PhysicalKitReturnHistoryViewModel(Guid ReturnId, string ReturnNumber, int Status,
     string CustomerName, string RequesterName, string RequesterPhone, string ReturnAddress,
     DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt, DateTimeOffset? ReceivedAt,
-    double? Latitude, double? Longitude);
+    double? Latitude, double? Longitude,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PhysicalKitActivityViewModel(string Action, string Description, DateTimeOffset OccurredAt,
     string ActorDisplayName);
 public sealed record PhysicalKitLocationViewModel(string RecipientName, string Phone, string AddressLine,
-    DateTimeOffset? DeliveredAt, double? Latitude, double? Longitude);
+    DateTimeOffset? DeliveredAt, double? Latitude, double? Longitude,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PhysicalKitDetailViewModel(PhysicalKitListItemViewModel Kit, PhysicalKitLocationViewModel? CurrentLocation,
     IReadOnlyCollection<PhysicalKitFaultHistoryViewModel> FaultHistory,
     IReadOnlyCollection<PhysicalKitDeliveryHistoryViewModel> DeliveryHistory,
@@ -311,11 +321,12 @@ public sealed class EditPhysicalKitViewModel
     [Required, StringLength(200), Display(Name = "QR kod")] public string QrCode { get; set; } = string.Empty;
 }
 public sealed record PhysicalKitLabelViewModel(Guid Id, string KitName, string KitSku, string SerialNumber, string QrCode,
-    string? RecipientName = null, string? RecipientPhone = null, string? RecipientAddress = null);
+    string? RecipientName = null, string? RecipientPhone = null, string? RecipientAddress = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PhysicalKitLabelsPageViewModel(DateTimeOffset CreatedAt,
     IReadOnlyCollection<PhysicalKitLabelViewModel> Labels, string? BackUrl = null,
     string LabelHeading = "Robotik Bilim");
-public sealed class RentPhysicalKitViewModel
+public sealed class RentPhysicalKitViewModel : AddressRegionInputViewModel
 {
     public Guid ProductUnitId { get; set; }
     public string KitName { get; set; } = string.Empty;
@@ -337,7 +348,7 @@ public sealed class PhysicalKitSelectionViewModel
     public string Filter { get; set; } = "available";
     public List<Guid> ProductUnitIds { get; set; } = [];
 }
-public sealed class BulkRentPhysicalKitsViewModel
+public sealed class BulkRentPhysicalKitsViewModel : AddressRegionInputViewModel
 {
     public Guid ProductModelId { get; set; }
     public string KitName { get; set; } = string.Empty;
@@ -357,14 +368,16 @@ public sealed record BulkRentPhysicalKitItemViewModel(Guid ProductUnitId, Guid A
     int Status);
 
 public sealed record PortalAddressViewModel(Guid Id, string Title, string ContactName, string Phone, string Line1,
-    string PostalCode);
+    string PostalCode,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PortalProductModelViewModel(Guid Id, string Name, string Sku, string? Description, string? ImageUrl);
 public sealed record PortalRentalCohortStudentViewModel(Guid Id, string FullName, string GuardianPhone,
     string AddressLine, Guid ProductModelId, string ProductModelName, string ProductModelSku, Guid? OrderId,
     Guid? AssignmentId, Guid? ProductUnitId, string? SerialNumber, string? QrCode, bool IsDeleted,
     bool HasActiveReturn, bool HasCompletedReturn = false, bool HasDeliveryForm = false, string? DeliveredTo = null,
     string? DeliveryPhone = null, string? DeliveryAddress = null, DateTimeOffset? DeliveredAt = null,
-    string PublicAddressToken = "", DateTimeOffset? AddressSubmittedAt = null);
+    string PublicAddressToken = "", DateTimeOffset? AddressSubmittedAt = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null, int? DeliveryCityId = null, int? DeliveryDistrictId = null, string? DeliveryCity = null, string? DeliveryDistrict = null);
 public sealed record PortalUnassignedCohortKitViewModel(Guid ProductUnitId, Guid AssignmentId, Guid OrderId,
     Guid ProductModelId, string ProductModelName, string ProductModelSku, string SerialNumber, string QrCode);
 public sealed record PortalKargonomiShipmentViewModel(Guid Id, Guid OrderId, Guid StudentId, string Carrier,
@@ -382,11 +395,13 @@ public sealed record PortalKitViewModel(Guid ProductUnitId, Guid AssignmentId, G
     string? AssignedStudentName = null, string? AssignedStudentGuardianPhone = null,
     string? AssignedStudentAddressLine = null, string? AssignedStudentPeriodName = null, bool IsReturned = false,
     bool StudentOrderLocked = false, string KargonomiStatusLabel = "Başlatılmadı",
-    int ShipmentState = 1);
+    int ShipmentState = 1,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PortalKitLookupPageViewModel(string Identifier, bool HasSearched, string? Error);
 public sealed record PortalKitRentalHistoryViewModel(string StudentName, string Address,
     string PeriodName, string? OrderNumber, DateOnly StartDate, DateOnly EndDate,
-    DateTimeOffset? DeliveredAt);
+    DateTimeOffset? DeliveredAt,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PortalKitDetailPageViewModel(PortalKitViewModel Kit,
     DashboardKitLocationViewModel? CurrentLocation,
     IReadOnlyCollection<PortalFaultViewModel> Faults,
@@ -447,7 +462,7 @@ public sealed class CustomerInputViewModel
             .Distinct()
             .ToArray();
 }
-public sealed class CustomerAddressInputViewModel
+public sealed class CustomerAddressInputViewModel : AddressRegionInputViewModel
 {
     public Guid CustomerId { get; set; }
     public Guid Id { get; set; }
@@ -511,7 +526,8 @@ public sealed record OrderDetailStudentViewModel(Guid Id, string FullName, strin
     bool HasAddress, string PublicAddressToken, DateTimeOffset? AddressSubmittedAt, Guid ProductModelId = default,
     string ProductName = "", string ProductSku = "", bool IsDelivered = false, bool HasKitAssignment = false,
     string AssignedKitSerialNumber = "", string AssignedKitQrCode = "", int? AssignedKitStatus = null,
-    Guid? AssignedKitId = null);
+    Guid? AssignedKitId = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record OrderDetailViewModel(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName,
     int Type, int Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt, Guid? RentalCohortId,
     string? RentalPeriodName,
@@ -576,13 +592,15 @@ public sealed record PortalFaultViewModel(Guid Id, string Number, Guid ProductUn
     string ReporterName = "", string ReporterPhone = "", string ReporterAddress = "", int ApprovalStatus = 0,
     int Origin = 1, string Stage = "", bool IsOpen = false,
     IReadOnlyCollection<PortalFaultShipmentViewModel>? Shipments = null,
-    string? AssignedStudentName = null, string? AssignedStudentPhone = null);
+    string? AssignedStudentName = null, string? AssignedStudentPhone = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PortalFaultShipmentViewModel(int Direction, string Carrier, string? TrackingNumber,
-    string StatusLabel, int State, string RecipientAddress, DateTimeOffset UpdatedAt);
+    string StatusLabel, int State, string RecipientAddress, DateTimeOffset UpdatedAt,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PublicFaultKitViewModel(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
 public sealed record PublicFormAccessTokenViewModel(string Token, DateTimeOffset ExpiresAt);
 public sealed record PublicKitActionViewModel(string QrCode, string KitName, string SerialNumber, string AccessToken = "");
-public sealed class PublicKitOwnershipViewModel
+public sealed class PublicKitOwnershipViewModel : AddressRegionInputViewModel
 {
     public const decimal MarketValue = 7000m;
     public const decimal SupportPercentage = 60m;
@@ -600,7 +618,6 @@ public sealed class PublicKitOwnershipViewModel
     [Required, TurkishPhone, StringLength(40), Display(Name = "Telefon numarası")] public string BuyerPhone { get; set; } = string.Empty;
     [Required, EmailAddress, StringLength(254), Display(Name = "E-posta adresi")] public string BuyerEmail { get; set; } = string.Empty;
     [Required, StringLength(1000), Display(Name = "Adres")] public string Address { get; set; } = string.Empty;
-    [Required, StringLength(100), Display(Name = "Şehir")] public string City { get; set; } = string.Empty;
     [StringLength(20), Display(Name = "Posta kodu")] public string? PostalCode { get; set; }
 }
 public sealed record OwnershipPaymentStartViewModel(Guid AttemptId, string PaymentPageUrl, DateTimeOffset ExpiresAt);
@@ -611,7 +628,7 @@ public sealed record PublicFaultTroubleshootingViewModel(string QrCode, string K
 
 public sealed record EmailDeliveryViewModel(Guid Id, string Recipient, string RecipientName, string Subject,
     string Body, int Status, DateTimeOffset OccurredAt, string? Error);
-public sealed class PublicFaultFormViewModel
+public sealed class PublicFaultFormViewModel : AddressRegionInputViewModel
 {
     public Guid? FaultId { get; set; }
     [Required] public string QrCode { get; set; } = string.Empty;
@@ -620,8 +637,6 @@ public sealed class PublicFaultFormViewModel
     public string SerialNumber { get; set; } = string.Empty;
     [Required, StringLength(160), Display(Name = "Ad soyad")] public string ReporterName { get; set; } = string.Empty;
     [Required, TurkishPhone, StringLength(40), Display(Name = "Telefon numarası")] public string ReporterPhone { get; set; } = string.Empty;
-    [Required, Display(Name = "İl")] public string City { get; set; } = string.Empty;
-    [Required, Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
     [Required, StringLength(1000), Display(Name = "Adres")] public string ReporterAddress { get; set; } = string.Empty;
     [Display(Name = "Enlem")] public double? Latitude { get; set; }
     [Display(Name = "Boylam")] public double? Longitude { get; set; }
@@ -633,7 +648,8 @@ public sealed class PublicFaultFormViewModel
 }
 public sealed record PublicFaultContextViewModel(Guid? FaultId, string? ReporterName, string? ReporterPhone,
     string? ReporterAddress, string? Category, string? Description,
-    double? Latitude, double? Longitude, string? AttachmentUrl = null);
+    double? Latitude, double? Longitude, string? AttachmentUrl = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed class PublicReturnFormViewModel : IValidatableObject
 {
     [Required] public string QrCode { get; set; } = string.Empty;
@@ -644,6 +660,8 @@ public sealed class PublicReturnFormViewModel : IValidatableObject
     [Required, Range(1, 2), Display(Name = "Teslimat şekli")] public int? DeliveryMethod { get; set; } = 1;
     [Required, StringLength(160), Display(Name = "Ad soyad")] public string RequesterName { get; set; } = string.Empty;
     [Required, TurkishPhone, StringLength(40), Display(Name = "Telefon numarası")] public string RequesterPhone { get; set; } = string.Empty;
+    [Display(Name = "İl")] public int? CityId { get; set; }
+    [Display(Name = "İlçe")] public int? DistrictId { get; set; }
     [Display(Name = "İl")] public string? City { get; set; }
     [Display(Name = "İlçe")] public string? District { get; set; }
     [StringLength(1000), Display(Name = "Adres")] public string? ReturnAddress { get; set; }
@@ -653,6 +671,10 @@ public sealed class PublicReturnFormViewModel : IValidatableObject
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (DeliveryMethod != 1) yield break;
+        if (CityId is null or <= 0)
+            yield return new ValidationResult("Lütfen il seçin.", [nameof(CityId)]);
+        if (DistrictId is null or <= 0)
+            yield return new ValidationResult("Lütfen ilçe seçin.", [nameof(DistrictId)]);
         if (string.IsNullOrWhiteSpace(ReturnAddress))
             yield return new ValidationResult("Adres zorunludur.", [nameof(ReturnAddress)]);
     }
@@ -660,12 +682,14 @@ public sealed class PublicReturnFormViewModel : IValidatableObject
 public sealed record PublicKitReturnContextViewModel(Guid ReturnId, int Status, string? Carrier,
     string? TrackingNumber, string? ExternalStatus, string? ExternalStatusLabel,
     string? RequesterName, string? RequesterPhone, string? ReturnAddress, double? Latitude, double? Longitude,
-    int? ReturnReason, int DeliveryMethod = 1);
+    int? ReturnReason, int DeliveryMethod = 1,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PublicReturnStatusViewModel(string KitName, string SerialNumber,
     string KargonomiStatus, string? Carrier, string? TrackingNumber);
 public sealed record PublicKitDeliveryContextViewModel(string? RecipientName, string? RecipientPhone,
-    string? AddressLine, double? Latitude, double? Longitude);
-public sealed class PublicDeliveryFormViewModel
+    string? AddressLine, double? Latitude, double? Longitude,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
+public sealed class PublicDeliveryFormViewModel : AddressRegionInputViewModel
 {
     [Required] public string QrCode { get; set; } = string.Empty;
     [Required] public string AccessToken { get; set; } = string.Empty;
@@ -679,8 +703,9 @@ public sealed class PublicDeliveryFormViewModel
 }
 public sealed record PublicStudentAddressContextViewModel(string StudentName, string GuardianPhone,
     string CustomerName, string OrderNumber, string ProductName, string? AddressLine,
-    double? Latitude, double? Longitude);
-public sealed class PublicStudentAddressFormViewModel
+    double? Latitude, double? Longitude,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
+public sealed class PublicStudentAddressFormViewModel : AddressRegionInputViewModel
 {
     public string Token { get; set; } = string.Empty;
     public string StudentName { get; set; } = string.Empty;
@@ -688,8 +713,6 @@ public sealed class PublicStudentAddressFormViewModel
     public string CustomerName { get; set; } = string.Empty;
     public string OrderNumber { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
-    [Display(Name = "İl")] public string City { get; set; } = string.Empty;
-    [Display(Name = "İlçe")] public string District { get; set; } = string.Empty;
     [Required, StringLength(1000), Display(Name = "Adres")] public string AddressLine { get; set; } = string.Empty;
     [Display(Name = "Enlem")] public double? Latitude { get; set; }
     [Display(Name = "Boylam")] public double? Longitude { get; set; }
@@ -715,7 +738,8 @@ public sealed record CustomerPortalReturnsDataViewModel(string CustomerName,
 public sealed record CustomerPortalFaultsDataViewModel(string CustomerName,
     IReadOnlyCollection<PortalFaultViewModel> Faults);
 public sealed record PortalFaultFormContextViewModel(Guid AssignmentId, string KitName, string SerialNumber,
-    string ReporterName, string ReporterPhone, string ReporterAddress);
+    string ReporterName, string ReporterPhone, string ReporterAddress,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PortalReturnListItemViewModel(Guid ProductUnitId, Guid AssignmentId, Guid? ReturnId,
     string KitName, string KitSku, string SerialNumber, string OrderNumber, DateOnly StartDate, DateOnly EndDate,
     int UnitStatus, int AssignmentStatus, int ReturnStatus, int OpenFaultCount, string ReturnStateKey,
@@ -731,13 +755,14 @@ public sealed record PortalKitReturnViewModel(Guid Id, Guid CustomerId, string C
     string? RequesterName, string? RequesterPhone, string? ReturnAddress,
     double? Latitude, double? Longitude, int DeliveryMethod,
     IReadOnlyCollection<PortalKitReturnItemViewModel> Items, string? Barcode = null,
-    string ReturnStateKey = "pending", string? ExternalStatusLabel = null, DateTimeOffset? ReceivedAt = null);
+    string ReturnStateKey = "pending", string? ExternalStatusLabel = null, DateTimeOffset? ReceivedAt = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed class PortalRentalLineInputViewModel
 {
     [Required, Display(Name = "Eğitim kiti")] public Guid ProductModelId { get; set; }
     [Range(1, int.MaxValue), Display(Name = "Adet")] public int Quantity { get; set; } = 1;
 }
-public sealed class PortalFaultRequestViewModel
+public sealed class PortalFaultRequestViewModel : AddressRegionInputViewModel
 {
     [Required] public Guid AssignmentId { get; set; }
     public string KitName { get; set; } = string.Empty;
@@ -749,7 +774,7 @@ public sealed class PortalFaultRequestViewModel
 }
 public sealed record PortalFaultRequestPageViewModel(PortalFaultRequestViewModel Form);
 
-public sealed class PortalStudentReturnFormViewModel
+public sealed class PortalStudentReturnFormViewModel : AddressRegionInputViewModel
 {
     [Required] public Guid CohortId { get; set; }
     [Required] public Guid StudentId { get; set; }
@@ -778,6 +803,10 @@ public sealed class RentalCohortStudentInputViewModel
     [Required, TurkishPhone, StringLength(40), Display(Name = "Veli telefon numarası")] public string GuardianPhone { get; set; } = string.Empty;
     [StringLength(1000), Display(Name = "Adres bilgileri")] public string? AddressLine { get; set; }
     [Required, Display(Name = "Eğitim kiti")] public Guid ProductModelId { get; set; }
+    public int? CityId { get; set; }
+    public int? DistrictId { get; set; }
+    public string? City { get; set; }
+    public string? District { get; set; }
 }
 
 public sealed record RentalCohortsPageViewModel(string CustomerName,
@@ -805,6 +834,10 @@ public sealed class RentalCohortStudentImportPreviewRowViewModel
     public string GuardianPhone { get; set; } = string.Empty;
     public string? AddressLine { get; set; }
     public Guid ProductModelId { get; set; }
+    public int? CityId { get; set; }
+    public int? DistrictId { get; set; }
+    public string? City { get; set; }
+    public string? District { get; set; }
 }
 
 public sealed class RentalCohortStudentImportPreviewViewModel
@@ -833,3 +866,14 @@ public sealed record ManufacturingDashboardViewModel(IReadOnlyCollection<Buildab
 
 
 
+
+public class AddressRegionInputViewModel
+{
+    [Required, Range(1, int.MaxValue), Display(Name = "İl")] public int? CityId { get; set; }
+    [Required, Range(1, int.MaxValue), Display(Name = "İlçe")] public int? DistrictId { get; set; }
+    public string? City { get; set; }
+    public string? District { get; set; }
+}
+public sealed record AddressRegionViewModel(int Id, string Name);
+public sealed record AddressRegionFieldsViewModel(string Prefix, int? CityId, int? DistrictId,
+    string? City, string? District, string StreetInputId, bool Required = true);

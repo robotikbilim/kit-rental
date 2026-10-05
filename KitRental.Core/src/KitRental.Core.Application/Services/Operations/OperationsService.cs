@@ -14,7 +14,8 @@ using KitRental.SharedKernel;
 
 namespace KitRental.Core.Application.Operations;
 
-public sealed record AddressCommand(string Title, string ContactName, string Phone, string Line1, string PostalCode);
+public sealed record AddressCommand(string Title, string ContactName, string Phone, string Line1, string PostalCode,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record CreateCustomerCommand(string Name, string Email, AddressCommand Address, Guid ActorId,
     IReadOnlyCollection<Guid>? AllowedProductModelIds = null);
 public sealed record UpdateCustomerCommand(Guid CustomerId, string Name, string Email, bool IsActive, Guid ActorId,
@@ -35,19 +36,24 @@ public sealed record CreatePurchaseOrderCommand(Guid CustomerId, Guid AddressId,
 public sealed record OpenFaultCommand(Guid CustomerId, Guid OrderId, Guid AssignmentId, Guid ProductUnitId,
     string Category, FaultSeverity Severity, string Description, Guid ActorId, string? ReporterName = null,
     string? ReporterPhone = null, string? ReporterAddress = null, double? Latitude = null, double? Longitude = null,
-    FaultOrigin Origin = FaultOrigin.Internal, string? AttachmentUrl = null);
+    FaultOrigin Origin = FaultOrigin.Internal, string? AttachmentUrl = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PublicFaultKitResponse(string QrCode, Guid ProductUnitId, string KitName, string SerialNumber);
 public sealed record PublicKitDeliveryContextResponse(string? RecipientName, string? RecipientPhone,
-    string? AddressLine, double? Latitude, double? Longitude);
+    string? AddressLine, double? Latitude, double? Longitude,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PublicFaultContextResponse(Guid? FaultId, string? ReporterName, string? ReporterPhone,
     string? ReporterAddress, string? Description,
-    double? Latitude, double? Longitude, string? AttachmentUrl = null);
+    double? Latitude, double? Longitude, string? AttachmentUrl = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record OpenPublicFaultCommand(string QrCode, string ReporterName, string ReporterPhone,
     string ReporterAddress, string Description,
-    double? Latitude, double? Longitude, string? AttachmentUrl = null);
+    double? Latitude, double? Longitude, string? AttachmentUrl = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record CreatePublicKitDeliveryCommand(string QrCode, string RecipientName,
     string RecipientPhone, string AddressLine,
-    double? Latitude, double? Longitude);
+    double? Latitude, double? Longitude,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record FaultGuideEntryResponse(Guid Id, string Title, string Problem, string Solution,
     int DisplayOrder, bool IsActive, DateTimeOffset UpdatedAt, Guid? ProductModelId = null,
     string? ProductModelName = null);
@@ -62,16 +68,19 @@ public sealed record FaultListItemResponse(Guid Id, string Number, Guid Customer
     FaultStatus Status, DateTimeOffset OpenedAt, FaultApprovalStatus ApprovalStatus, FaultOrigin Origin,
     string? AttachmentUrl = null, Guid OrderId = default, string? OrderNumber = null,
     Guid ProductUnitId = default, string? SerialNumber = null,
-    IReadOnlyCollection<FaultKargonomiShipmentResponse>? Shipments = null);
+    IReadOnlyCollection<FaultKargonomiShipmentResponse>? Shipments = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record FaultKitLabelResponse(Guid Id, string KitName, string KitSku, string SerialNumber,
-    string QrCode, string RecipientName, string RecipientPhone, string RecipientAddress);
+    string QrCode, string RecipientName, string RecipientPhone, string RecipientAddress,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record FaultDetailResponse(FaultListItemResponse Fault, FaultKitContextResponse Kit,
     string? ReportedStudentName, IReadOnlyCollection<FaultStatusEvent> History);
 public sealed record FaultKitContextResponse(Guid Id, string Name, string Sku, string SerialNumber, string QrCode,
     ProductUnitStatus Status, FaultKitAssignmentResponse? CurrentAssignment);
 public sealed record FaultKitAssignmentResponse(Guid AssignmentId, Guid OrderId, string OrderNumber,
     string CustomerName, string? StudentName, string? ContactName, string? Phone, string? Address,
-    DateTimeOffset? AddressUpdatedAt);
+    DateTimeOffset? AddressUpdatedAt,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record FaultPageResponse(int Page, int PageSize, int TotalCount, int TotalPages,
     IReadOnlyCollection<FaultListItemResponse> Items);
 public sealed record OrderKitResponse(Guid ProductUnitId, Guid AssignmentId, Guid ProductModelId,
@@ -87,7 +96,8 @@ public sealed record OrderDetailStudentResponse(Guid Id, string FullName, string
     bool HasAddress, string PublicAddressToken, DateTimeOffset? AddressSubmittedAt, Guid ProductModelId = default,
     string ProductName = "", string ProductSku = "", bool IsDelivered = false, bool HasKitAssignment = false,
     string AssignedKitSerialNumber = "", string AssignedKitQrCode = "", ProductUnitStatus? AssignedKitStatus = null,
-    Guid? AssignedKitId = null);
+    Guid? AssignedKitId = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record OrderDetailResponse(Guid Id, string OrderNumber, Guid CustomerId, string CustomerName, OrderType Type,
     RentalOrderStatus Status, DateOnly? StartDate, DateOnly? EndDate, DateTimeOffset CreatedAt, Guid? RentalCohortId,
     string? RentalPeriodName,
@@ -95,14 +105,17 @@ public sealed record OrderDetailResponse(Guid Id, string OrderNumber, Guid Custo
     IReadOnlyCollection<OrderDetailStudentResponse> Students,
     IReadOnlyCollection<KargonomiShipmentResponse> KargonomiShipments = default!);
 public sealed record PublicStudentAddressContextResponse(string StudentName, string GuardianPhone, string CustomerName,
-    string OrderNumber, string ProductName, string? AddressLine, double? Latitude, double? Longitude);
+    string OrderNumber, string ProductName, string? AddressLine, double? Latitude, double? Longitude,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record SavePublicStudentAddressCommand(string Token, string AddressLine, double? Latitude,
-    double? Longitude);
+    double? Longitude,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record ReturnListItemResponse(Guid Id, string CustomerName, int Status, string? Carrier,
     string? TrackingNumber, DateTimeOffset CreatedAt, int KitCount, string? RequesterName = null,
     string? RequesterPhone = null, string? ReturnAddress = null,
     double? Latitude = null, double? Longitude = null,
-    KitReturnDeliveryMethod DeliveryMethod = KitReturnDeliveryMethod.PickupFromAddress);
+    KitReturnDeliveryMethod DeliveryMethod = KitReturnDeliveryMethod.PickupFromAddress,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record ReturnTableItemResponse(Guid ProductUnitId, Guid AssignmentId, Guid? ReturnId,
     Guid? StudentId, string CustomerName, string StudentName, string GuardianPhone,
     string ProductModelName, string ProductModelSku, string SerialNumber, string OrderNumber,
@@ -111,12 +124,14 @@ public sealed record ReturnTableItemResponse(Guid ProductUnitId, Guid Assignment
     int? ExternalShipmentId, string? KargonomiStatus, string? KargonomiStatusLabel, string? KargonomiBarcode,
     DateTimeOffset? ReturnCreatedAt, DateTimeOffset? ShippedAt, DateTimeOffset? ReceivedAt,
     string? AddressLine, string? PublicAddressToken, string? RequesterName, string? RequesterPhone,
-    int DeliveryMethod, Guid OrderId = default);
+    int DeliveryMethod, Guid OrderId = default,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 
 public sealed class OperationsService(
     ICoreRepository repository,
     TimeProvider timeProvider,
-    ProductUnitStockConsumptionPlanner stockConsumptionPlanner)
+    ProductUnitStockConsumptionPlanner stockConsumptionPlanner,
+    IKargonomiClient? kargonomiClient = null)
 {
     private static readonly Guid PublicActorId = new("00000000-0000-0000-0000-000000000001");
 
@@ -125,9 +140,11 @@ public sealed class OperationsService(
         var customer = Customer.Create(Guid.NewGuid(), command.Name, command.Email);
         var allowedProductModelIds = await ValidateAllowedProductModelsAsync(command.AllowedProductModelIds, cancellationToken);
         customer.SetAllowedProductModels(allowedProductModelIds);
+        var region = await AddressRegionResolver.ResolveAsync(kargonomiClient, command.Address.CityId,
+            command.Address.DistrictId, command.Address.City, command.Address.District, cancellationToken);
         customer.AddAddress(
             command.Address.Title, command.Address.ContactName, command.Address.Phone, command.Address.Line1,
-            command.Address.PostalCode);
+            command.Address.PostalCode, region.CityId, region.DistrictId, region.City, region.District);
         try
         {
             await repository.AddCustomerAsync(customer, cancellationToken);
@@ -199,8 +216,10 @@ public sealed class OperationsService(
     {
         var customer = await repository.GetCustomerAsync(command.CustomerId, cancellationToken)
             ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+        var region = await AddressRegionResolver.ResolveAsync(kargonomiClient, command.Address.CityId,
+            command.Address.DistrictId, command.Address.City, command.Address.District, cancellationToken);
         var address = customer.AddAddress(command.Address.Title, command.Address.ContactName, command.Address.Phone,
-            command.Address.Line1, command.Address.PostalCode);
+            command.Address.Line1, command.Address.PostalCode, region.CityId, region.DistrictId, region.City, region.District);
         await repository.SaveChangesAsync(cancellationToken);
         await AuditAsync(command.ActorId, nameof(Customer), customer.Id, "AddressAdded", null, address.Title, cancellationToken);
         return address;
@@ -210,8 +229,11 @@ public sealed class OperationsService(
     {
         var customer = await repository.GetCustomerAsync(command.CustomerId, cancellationToken)
             ?? throw new ResourceNotFoundException("Müşteri bulunamadı.");
+        var region = await AddressRegionResolver.ResolveAsync(kargonomiClient, command.Address.CityId,
+            command.Address.DistrictId, command.Address.City, command.Address.District, cancellationToken);
         var address = customer.UpdateAddress(command.AddressId ?? Guid.Empty, command.Address.Title,
-            command.Address.ContactName, command.Address.Phone, command.Address.Line1, command.Address.PostalCode);
+            command.Address.ContactName, command.Address.Phone, command.Address.Line1, command.Address.PostalCode,
+            region.CityId, region.DistrictId, region.City, region.District);
         await repository.SaveChangesAsync(cancellationToken);
         await AuditAsync(command.ActorId, nameof(Customer), customer.Id, "AddressUpdated", null, address.Title, cancellationToken);
         return address;
@@ -372,7 +394,7 @@ public sealed class OperationsService(
                     student.ProductUnitId is { } unitId ? kits.FirstOrDefault(item => item.Id == unitId)?.SerialNumber ?? "" : "",
                     student.ProductUnitId is { } qrUnitId ? kits.FirstOrDefault(item => item.Id == qrUnitId)?.QrCode ?? "" : "",
                     student.ProductUnitId is { } statusUnitId ? kits.FirstOrDefault(item => item.Id == statusUnitId)?.Status : null,
-                    student.ProductUnitId);
+                    student.ProductUnitId, student.CityId, student.DistrictId, student.City, student.District);
             })
             .ToArray() ?? [];
         var kargonomiShipments = (await repository.GetKargonomiShipmentsAsync(order.Id, cancellationToken))
@@ -433,7 +455,7 @@ public sealed class OperationsService(
 
         var previousValue = $"{student.FullName}|{student.GuardianPhone}";
         cohort.UpdateStudent(student.Id, command.FullName, command.GuardianPhone, student.AddressLine,
-            student.ProductModelId);
+            student.ProductModelId, student.CityId, student.DistrictId, student.City, student.District);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(RentalCohort),
             cohort.Id, "OrderStudentUpdated", previousValue,
             $"{student.FullName}|{student.GuardianPhone}", timeProvider.GetTurkeyNow()), cancellationToken);
@@ -577,7 +599,8 @@ public sealed class OperationsService(
         var productModel = await repository.GetProductModelAsync(student.ProductModelId, cancellationToken);
         return new PublicStudentAddressContextResponse(student.FullName, student.GuardianPhone,
             customer?.Name ?? "Müşteri", order?.OrderNumber ?? cohort.Name,
-            productModel?.Name ?? "Eğitim kiti", student.AddressLine, student.Latitude, student.Longitude);
+            productModel?.Name ?? "Eğitim kiti", student.AddressLine, student.Latitude, student.Longitude,
+            student.CityId, student.DistrictId, student.City, student.District);
     }
 
     public async Task SavePublicStudentAddressAsync(SavePublicStudentAddressCommand command,
@@ -585,9 +608,11 @@ public sealed class OperationsService(
     {
         var (cohort, student) = await GetStudentByAddressTokenAsync(command.Token, cancellationToken);
         var now = timeProvider.GetTurkeyNow();
+        var region = await AddressRegionResolver.ResolveAsync(kargonomiClient, command.CityId, command.DistrictId,
+            command.City, command.District, cancellationToken);
         var address = KargonomiAddressSanitizer.Clean(command.AddressLine);
         cohort.UpdateStudentAddressByToken(command.Token, address, command.Latitude, command.Longitude,
-            now);
+            now, region.CityId, region.DistrictId, region.City, region.District);
         var order = student.OrderId.HasValue
             ? await repository.GetOrderAsync(student.OrderId.Value, cancellationToken)
             : null;
@@ -929,11 +954,13 @@ public sealed class OperationsService(
             throw new ForbiddenException("Arıza kaydı müşteri, sipariş ve ürün atamasıyla eşleşmiyor.");
 
         var now = timeProvider.GetTurkeyNow();
+        var region = await AddressRegionResolver.ResolveAsync(kargonomiClient, command.CityId, command.DistrictId,
+            command.City, command.District, cancellationToken, !string.IsNullOrWhiteSpace(command.ReporterAddress));
         var ticket = FaultTicket.Open(
             Guid.NewGuid(), $"FLT-{now:yyyyMMdd}-{Guid.NewGuid():N}"[..21], command.CustomerId, command.OrderId,
             command.AssignmentId, command.ProductUnitId, command.Category, command.Severity, command.Description, now,
             command.ReporterName, command.ReporterPhone, command.ReporterAddress, command.Latitude, command.Longitude,
-            command.Origin, command.AttachmentUrl);
+            command.Origin, command.AttachmentUrl, region.CityId, region.DistrictId, region.City, region.District);
         await repository.AddFaultTicketAsync(ticket, cancellationToken);
         await AddActivityAsync(command.ProductUnitId, command.AssignmentId, command.OrderId, null, command.ActorId,
             command.ReporterName ?? command.ActorId.ToString(), "Arıza kaydı oluşturuldu",
@@ -971,7 +998,8 @@ public sealed class OperationsService(
             cancellationToken);
         if (location is not null)
             return new PublicKitDeliveryContextResponse(location.ContactName, location.ContactPhone,
-                location.AddressLine, location.Latitude, location.Longitude);
+                location.AddressLine, location.Latitude, location.Longitude,
+                location.CityId, location.DistrictId, location.City, location.District);
 
         var customer = await repository.GetCustomerAsync(assignment.CustomerId, cancellationToken);
         var student = (await repository.GetRentalCohortsAsync(assignment.CustomerId, cancellationToken))
@@ -981,12 +1009,13 @@ public sealed class OperationsService(
                     (!item.AssignmentId.HasValue && item.ProductUnitId == unit.Id)));
         var order = await repository.FindOrderByLineIdAsync(assignment.OrderLineId, cancellationToken);
         var customerAddress = customer?.Addresses.FirstOrDefault();
+        var storedAddress = StoredAddress.First(StoredAddress.From(student), StoredAddress.From(order?.DeliveryAddress),
+            StoredAddress.From(customerAddress));
         return new PublicKitDeliveryContextResponse(
             FirstNotEmpty(student?.FullName, order?.DeliveryAddress.ContactName, customerAddress?.ContactName),
             FirstNotEmpty(student?.GuardianPhone, order?.DeliveryAddress.Phone, customerAddress?.Phone),
-            FirstNotEmpty(student?.AddressLine, order?.DeliveryAddress.Line1, customerAddress?.Line1),
-            student?.Latitude,
-            student?.Longitude);
+            storedAddress.Street, student?.Latitude, student?.Longitude,
+            storedAddress.CityId, storedAddress.DistrictId, storedAddress.City, storedAddress.District);
     }
 
     public async Task<PublicFaultContextResponse> GetPublicFaultContextAsync(string qrCode,
@@ -998,14 +1027,17 @@ public sealed class OperationsService(
         return ticket is null
             ? new PublicFaultContextResponse(null, null, null, null, null, null, null, null)
             : new PublicFaultContextResponse(ticket.Id, ticket.ReporterName, ticket.ReporterPhone,
-                ticket.ReporterAddress, ticket.Description, ticket.Latitude, ticket.Longitude, ticket.AttachmentUrl);
+                ticket.ReporterAddress, ticket.Description, ticket.Latitude, ticket.Longitude, ticket.AttachmentUrl,
+                ticket.CityId, ticket.DistrictId, ticket.City, ticket.District);
     }
 
     public async Task<FaultTicket> UpdatePublicFaultAsync(Guid faultId, string qrCode, string reporterName,
         string reporterPhone, string reporterAddress, string description,
         double? latitude, double? longitude, string? attachmentUrl,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, int? cityId = null, int? districtId = null,
+        string? city = null, string? district = null)
     {
+        var region = await AddressRegionResolver.ResolveAsync(kargonomiClient, cityId, districtId, city, district, cancellationToken);
         reporterAddress = KargonomiAddressSanitizer.Clean(reporterAddress);
         var unit = await repository.GetProductUnitByQrCodeAsync(qrCode, cancellationToken)
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
@@ -1015,13 +1047,15 @@ public sealed class OperationsService(
             throw new ConflictException("fault.edit_not_allowed", "Bu arıza kaydı güncellenemez.");
         ticket.UpdatePublicDetails(ticket.Category, description, reporterName, reporterPhone, reporterAddress,
             CoordinatesAreValid(latitude, longitude) ? latitude : null,
-            CoordinatesAreValid(latitude, longitude) ? longitude : null, attachmentUrl);
+            CoordinatesAreValid(latitude, longitude) ? longitude : null, attachmentUrl,
+            region.CityId, region.DistrictId, region.City, region.District);
         var now = timeProvider.GetTurkeyNow();
         await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id, ticket.AssignmentId,
             ticket.OrderId, ticket.CustomerId, KitLocationEventSource.FaultUpdate, ticket.Id, reporterName,
             reporterPhone, reporterAddress,
             CoordinatesAreValid(latitude, longitude) ? latitude : null,
-            CoordinatesAreValid(latitude, longitude) ? longitude : null, now, PublicActorId),
+            CoordinatesAreValid(latitude, longitude) ? longitude : null, now, PublicActorId,
+            region.CityId, region.DistrictId, region.City, region.District),
             cancellationToken);
         await AddActivityAsync(unit.Id, ticket.AssignmentId, ticket.OrderId, null, PublicActorId, reporterName,
             "Arıza kaydı güncellendi", $"{reporterName.Trim()} arıza kaydını güncelledi.",
@@ -1033,6 +1067,8 @@ public sealed class OperationsService(
     public async Task<FaultTicket> OpenPublicFaultAsync(OpenPublicFaultCommand command,
         CancellationToken cancellationToken)
     {
+        var region = await AddressRegionResolver.ResolveAsync(kargonomiClient, command.CityId, command.DistrictId,
+            command.City, command.District, cancellationToken);
         var reporterAddress = KargonomiAddressSanitizer.Clean(command.ReporterAddress);
         var unit = await repository.GetProductUnitByQrCodeAsync(command.QrCode, cancellationToken)
             ?? throw new ResourceNotFoundException("Bu QR kodla eşleşen fiziksel kit bulunamadı.");
@@ -1042,13 +1078,15 @@ public sealed class OperationsService(
             existing.UpdatePublicDetails("Son kullanıcı bildirimi", command.Description, command.ReporterName,
                 command.ReporterPhone, reporterAddress,
                 CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Latitude : null,
-                CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null, command.AttachmentUrl);
+                CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null, command.AttachmentUrl,
+                region.CityId, region.DistrictId, region.City, region.District);
             var now = timeProvider.GetTurkeyNow();
             await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id,
                 existing.AssignmentId, existing.OrderId, existing.CustomerId, KitLocationEventSource.FaultUpdate,
                 existing.Id, command.ReporterName, command.ReporterPhone, reporterAddress,
                 CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Latitude : null,
-                CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null, now, PublicActorId),
+                CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null, now, PublicActorId,
+                region.CityId, region.DistrictId, region.City, region.District),
                 cancellationToken);
             await AddActivityAsync(unit.Id, existing.AssignmentId, existing.OrderId, null, PublicActorId,
                 command.ReporterName, "Arıza kaydı güncellendi",
@@ -1068,14 +1106,14 @@ public sealed class OperationsService(
                 reporterAddress,
                 CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Latitude : null,
             CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null, FaultOrigin.PublicForm,
-            command.AttachmentUrl),
+            command.AttachmentUrl, region.CityId, region.DistrictId, region.City, region.District),
             cancellationToken);
         await repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), unit.Id, assignment.Id,
             order.Id, assignment.CustomerId, KitLocationEventSource.FaultReport, ticket.Id, command.ReporterName,
             command.ReporterPhone, reporterAddress,
             CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Latitude : null,
             CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null,
-            timeProvider.GetTurkeyNow(), PublicActorId),
+            timeProvider.GetTurkeyNow(), PublicActorId, region.CityId, region.DistrictId, region.City, region.District),
             cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return ticket;
@@ -1099,6 +1137,8 @@ public sealed class OperationsService(
         var now = timeProvider.GetTurkeyNow();
         var actorId = PublicActorId;
         var recipientName = command.RecipientName.Trim();
+        var region = await AddressRegionResolver.ResolveAsync(kargonomiClient, command.CityId, command.DistrictId,
+            command.City, command.District, cancellationToken);
         var fullAddress = KargonomiAddressSanitizer.Clean(command.AddressLine);
         unit.ConfirmDeliveryTo(actorId, now, recipientName, fullAddress);
         if (assignment.Status == RentalAssignmentStatus.Reserved) assignment.Activate();
@@ -1106,7 +1146,8 @@ public sealed class OperationsService(
             order.Id, assignment.CustomerId, KitLocationEventSource.DeliveryReceipt, null,
             command.RecipientName, command.RecipientPhone, fullAddress,
             CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Latitude : null,
-            CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null, now, actorId);
+            CoordinatesAreValid(command.Latitude, command.Longitude) ? command.Longitude : null, now, actorId,
+            region.CityId, region.DistrictId, region.City, region.District);
         await repository.AddKitLocationEventAsync(locationEvent, cancellationToken);
         await AddActivityAsync(unit.Id, assignment.Id, order.Id, null, actorId, recipientName,
             "Kit teslim alındı", $"{recipientName} kiti teslim aldı.", cancellationToken, now);
@@ -1203,15 +1244,16 @@ public sealed class OperationsService(
             var reporterPhone = !string.IsNullOrWhiteSpace(ticket.ReporterPhone) ? ticket.ReporterPhone : order?.DeliveryAddress.Phone
                 ?? customer?.Addresses.FirstOrDefault()?.Phone
                 ?? "-";
-            var reporterAddress = !string.IsNullOrWhiteSpace(ticket.ReporterAddress) ? ticket.ReporterAddress : order?.DeliveryAddress.Line1
-                ?? customer?.Addresses.FirstOrDefault()?.Line1
-                ?? "-";
+            var storedAddress = StoredAddress.First(StoredAddress.From(ticket), StoredAddress.From(order?.DeliveryAddress),
+                StoredAddress.From(customer?.Addresses.FirstOrDefault()));
+            var reporterAddress = storedAddress.Street ?? "-";
             return new FaultListItemResponse(ticket.Id, ticket.Number, ticket.CustomerId,
                 customer?.Name ?? "Müşteri", reporterName, reporterPhone, reporterAddress, ticket.Category, ticket.Severity,
                 ticket.Description, ticket.Status, ticket.OpenedAt, ticket.ApprovalStatus, ticket.Origin,
                 ticket.AttachmentUrl, ticket.OrderId, order?.OrderNumber, ticket.ProductUnitId,
                 Shipments: ticket.KargonomiShipments.OrderByDescending(shipment => shipment.CreatedAt)
-                    .Select(KargonomiShippingService.MapFault).ToArray());
+                    .Select(KargonomiShippingService.MapFault).ToArray(),
+                CityId: storedAddress.CityId, DistrictId: storedAddress.DistrictId, City: storedAddress.City, District: storedAddress.District);
         });
 
         if (query.CustomerId.HasValue)
@@ -1267,14 +1309,16 @@ public sealed class OperationsService(
         var cohorts = await repository.GetRentalCohortsAsync(ticket.CustomerId, cancellationToken);
         var reportedStudent = cohorts.SelectMany(cohort => cohort.Students)
             .FirstOrDefault(student => student.AssignmentId == ticket.AssignmentId && student.OrderId == ticket.OrderId);
+        var reportedAddress = StoredAddress.First(StoredAddress.From(ticket), StoredAddress.From(order?.DeliveryAddress));
         var fault = new FaultListItemResponse(ticket.Id, ticket.Number, ticket.CustomerId,
             customer?.Name ?? "Müşteri", FirstNotEmpty(ticket.ReporterName, order?.DeliveryAddress.ContactName, customer?.Name) ?? "—",
             FirstNotEmpty(ticket.ReporterPhone, order?.DeliveryAddress.Phone) ?? "—",
-            FirstNotEmpty(ticket.ReporterAddress, order?.DeliveryAddress.Line1) ?? "—",
+            reportedAddress.Street ?? "—",
             ticket.Category, ticket.Severity, ticket.Description, ticket.Status, ticket.OpenedAt,
             ticket.ApprovalStatus, ticket.Origin, ticket.AttachmentUrl, ticket.OrderId, order?.OrderNumber,
             unit.Id, unit.SerialNumber, ticket.KargonomiShipments.OrderByDescending(shipment => shipment.CreatedAt)
-                .Select(KargonomiShippingService.MapFault).ToArray());
+                .Select(KargonomiShippingService.MapFault).ToArray(),
+            reportedAddress.CityId, reportedAddress.DistrictId, reportedAddress.City, reportedAddress.District);
 
         // Resolve the latest live assignment independently from the historical fault's assignment.
         var assignment = (await repository.GetAssignmentsForProductUnitAsync(unit.Id, cancellationToken))
@@ -1298,11 +1342,13 @@ public sealed class OperationsService(
                     (item.AssignmentId == assignment.Id || (!item.AssignmentId.HasValue && item.ProductUnitId == unit.Id)));
                 var location = await repository.GetLatestKitLocationEventForAssignmentAsync(unit.Id, assignment.Id, cancellationToken);
                 var address = currentOrder?.DeliveryAddress;
+                var currentAddress = StoredAddress.First(StoredAddress.From(location), StoredAddress.From(student), StoredAddress.From(address));
                 current = new(assignment.Id, currentOrder?.Id ?? Guid.Empty, currentOrder?.OrderNumber ?? "—",
                     currentCustomer?.Name ?? "Müşteri", student?.FullName,
                     FirstNotEmpty(location?.ContactName, student?.FullName, address?.ContactName),
                     FirstNotEmpty(location?.ContactPhone, student?.GuardianPhone, address?.Phone),
-                    FirstNotEmpty(location?.AddressLine, student?.AddressLine, address?.Line1), location?.OccurredAt);
+                    currentAddress.Street, location?.OccurredAt,
+                    currentAddress.CityId, currentAddress.DistrictId, currentAddress.City, currentAddress.District);
             }
         }
         return new(fault, new(unit.Id, model.Name, model.Sku, unit.SerialNumber, unit.QrCode, unit.Status, current),
@@ -1318,7 +1364,8 @@ public sealed class OperationsService(
         var model = await repository.GetProductModelAsync(unit.ProductModelId, cancellationToken)
             ?? throw new ResourceNotFoundException("Kit modeli bulunamadı.");
         return new(unit.Id, model.Name, model.Sku, unit.SerialNumber, unit.QrCode,
-            ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress);
+            ticket.ReporterName, ticket.ReporterPhone, ticket.ReporterAddress,
+            ticket.CityId, ticket.DistrictId, ticket.City, ticket.District);
     }
 
     public async Task<FaultTicket> ChangeFaultStatusAsync(Guid ticketId, FaultStatus status, Guid actorId, string? note, CancellationToken cancellationToken)
@@ -1412,7 +1459,7 @@ public sealed class OperationsService(
                 item.ReturnAddress,
                 item.Latitude,
                 item.Longitude,
-                item.DeliveryMethod))
+                item.DeliveryMethod, item.CityId, item.DistrictId, item.City, item.District))
             .ToArray();
     }
 
@@ -1476,9 +1523,8 @@ public sealed class OperationsService(
                 _ => "İade Bekleniyor"
             };
             var request = currentReturn?.Request;
-            var addressLine = string.IsNullOrWhiteSpace(request?.ReturnAddress)
-                ? student?.AddressLine
-                : request.ReturnAddress;
+            var returnAddress = StoredAddress.First(StoredAddress.From(request), StoredAddress.From(student));
+            var addressLine = returnAddress.Street;
 
             result.Add(new ReturnTableItemResponse(
                 unit.Id,
@@ -1512,7 +1558,8 @@ public sealed class OperationsService(
                 student?.PublicAddressToken,
                 request?.RequesterName,
                 request?.RequesterPhone,
-                request is null ? (int)KitReturnDeliveryMethod.PickupFromAddress : (int)request.DeliveryMethod, order.Id));
+                request is null ? (int)KitReturnDeliveryMethod.PickupFromAddress : (int)request.DeliveryMethod, order.Id,
+                returnAddress.CityId, returnAddress.DistrictId, returnAddress.City, returnAddress.District));
         }
 
         return result
@@ -1623,7 +1670,8 @@ public sealed class OperationsService(
         Guid orderId, Guid customerId, Guid actorId, DateTimeOffset occurredAt, CancellationToken cancellationToken) =>
         repository.AddKitLocationEventAsync(KitLocationEvent.Create(Guid.NewGuid(), productUnitId, assignmentId,
             orderId, customerId, KitLocationEventSource.DeliveryReceipt, student.Id, student.FullName,
-            student.GuardianPhone, student.AddressLine, student.Latitude, student.Longitude, occurredAt, actorId),
+            student.GuardianPhone, student.AddressLine, student.Latitude, student.Longitude, occurredAt, actorId,
+            student.CityId, student.DistrictId, student.City, student.District),
             cancellationToken);
 }
 

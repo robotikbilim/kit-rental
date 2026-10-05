@@ -24,7 +24,7 @@ public sealed class RentalCohortStudentTests
         var submittedAt = DateTimeOffset.Parse("2026-09-07T12:00:00+03:00");
 
         cohort.UpdateStudentAddressByToken(student.PublicAddressToken, "Test Sokak 1", 41.012345, 29.012345,
-            submittedAt);
+            submittedAt, 34, 1, "İstanbul", "Kadıköy");
 
         Assert.True(student.HasAddress);
         Assert.Equal("Test Sokak 1", student.AddressLine);
@@ -40,7 +40,8 @@ public sealed class RentalCohortStudentTests
         var student = cohort.AddStudent("Ayşe Yılmaz", "05320000000", string.Empty, Guid.NewGuid());
         var submittedAt = DateTimeOffset.Parse("2026-09-07T12:00:00+03:00");
 
-        cohort.UpdateStudentAddressByToken(student.PublicAddressToken, "Test Sokak 1", 99, null, submittedAt);
+        cohort.UpdateStudentAddressByToken(student.PublicAddressToken, "Test Sokak 1", 99, null, submittedAt,
+            34, 1, "İstanbul", "Kadıköy");
 
         Assert.True(student.HasAddress);
         Assert.Equal("Test Sokak 1", student.AddressLine);
@@ -71,6 +72,21 @@ public sealed class RentalCohortStudentTests
         Assert.Equal("Mehmet Kaya", student.FullName);
         Assert.Equal("0544 000 00 00", student.GuardianPhone);
         Assert.Equal("Test Sokak 1", student.AddressLine);
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(34, null)]
+    [InlineData(null, 1)]
+    [InlineData(0, 1)]
+    [InlineData(34, 0)]
+    public void StreetWithoutCompletePositiveRegionIdsIsNotACompletedAddress(int? cityId, int? districtId)
+    {
+        var cohort = CreateCohort();
+        var student = cohort.AddStudent("Ayşe Yılmaz", "05320000000", "Test Sokak 1", Guid.NewGuid(),
+            cityId, districtId, "İstanbul", "Kadıköy");
+
+        Assert.False(student.HasAddress);
     }
 
     private static RentalCohort CreateCohort() =>

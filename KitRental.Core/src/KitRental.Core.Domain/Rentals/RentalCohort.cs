@@ -54,19 +54,20 @@ public sealed class RentalCohort
     }
 
     public RentalCohortStudent AddStudent(string fullName, string guardianPhone, string addressLine,
-        Guid productModelId)
+        Guid productModelId, int? cityId = null, int? districtId = null, string? city = null, string? district = null)
     {
         var student = RentalCohortStudent.Create(Guid.NewGuid(), Id, fullName, guardianPhone, addressLine,
-            productModelId);
+            productModelId, cityId, districtId, city, district);
         _students.Add(student);
         return student;
     }
 
     public RentalCohortStudent UpdateStudent(Guid studentId, string fullName, string guardianPhone,
-        string addressLine, Guid productModelId)
+        string addressLine, Guid productModelId, int? cityId = null, int? districtId = null,
+        string? city = null, string? district = null)
     {
         var student = GetStudent(studentId);
-        student.Update(fullName, guardianPhone, addressLine, productModelId);
+        student.Update(fullName, guardianPhone, addressLine, productModelId, cityId, districtId, city, district);
         return student;
     }
 
@@ -100,13 +101,14 @@ public sealed class RentalCohort
     }
 
     public RentalCohortStudent UpdateStudentAddressByToken(string publicAddressToken, string addressLine,
-        double? latitude, double? longitude, DateTimeOffset submittedAt)
+        double? latitude, double? longitude, DateTimeOffset submittedAt,
+        int? cityId = null, int? districtId = null, string? city = null, string? district = null)
     {
         var student = _students.SingleOrDefault(item =>
             !item.IsDeleted &&
             string.Equals(item.PublicAddressToken, publicAddressToken.Trim(), StringComparison.Ordinal))
             ?? throw new DomainException("rental_cohort.student_not_found", "Öğrenci bulunamadı.");
-        student.UpdatePublicAddress(addressLine, latitude, longitude, submittedAt);
+        student.UpdatePublicAddress(addressLine, latitude, longitude, submittedAt, cityId, districtId, city, district);
         return student;
     }
 
@@ -122,13 +124,17 @@ public sealed class RentalCohortStudent
     }
 
     private RentalCohortStudent(Guid id, Guid rentalCohortId, string fullName, string guardianPhone,
-        string addressLine, Guid productModelId)
+        string addressLine, Guid productModelId, int? cityId, int? districtId, string? city, string? district)
     {
         Id = id;
         RentalCohortId = rentalCohortId;
         FullName = fullName.Trim();
         GuardianPhone = TurkishPhoneNumber.Normalize(guardianPhone, "Veli telefon numarası");
         AddressLine = addressLine?.Trim() ?? string.Empty;
+        CityId = cityId;
+        DistrictId = districtId;
+        City = city?.Trim() ?? string.Empty;
+        District = district?.Trim() ?? string.Empty;
         ProductModelId = productModelId;
         PublicAddressToken = CreatePublicAddressToken();
     }
@@ -138,6 +144,10 @@ public sealed class RentalCohortStudent
     public string FullName { get; private set; } = string.Empty;
     public string GuardianPhone { get; private set; } = string.Empty;
     public string AddressLine { get; private set; } = string.Empty;
+    public int? CityId { get; private set; }
+    public int? DistrictId { get; private set; }
+    public string City { get; private set; } = string.Empty;
+    public string District { get; private set; } = string.Empty;
     public Guid ProductModelId { get; private set; }
     public Guid? OrderId { get; private set; }
     public Guid? AssignmentId { get; private set; }
@@ -149,20 +159,23 @@ public sealed class RentalCohortStudent
     public bool IsDeleted { get; private set; }
     public bool HasKitAssignment => AssignmentId.HasValue && ProductUnitId.HasValue;
     public bool HasCoordinates => Latitude.HasValue && Longitude.HasValue;
-    public bool HasAddress => !string.IsNullOrWhiteSpace(AddressLine);
+    public bool HasAddress => !string.IsNullOrWhiteSpace(AddressLine) && CityId is > 0 && DistrictId is > 0;
 
     public static RentalCohortStudent Create(Guid id, Guid rentalCohortId, string fullName,
-        string guardianPhone, string addressLine, Guid productModelId)
+        string guardianPhone, string addressLine, Guid productModelId,
+        int? cityId = null, int? districtId = null, string? city = null, string? district = null)
     {
         if (id == Guid.Empty || rentalCohortId == Guid.Empty || productModelId == Guid.Empty ||
             string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(guardianPhone))
             throw new DomainException("rental_cohort_student.required_fields",
                 "Öğrenci adı, veli telefonu ve eğitim kiti zorunludur.");
 
-        return new RentalCohortStudent(id, rentalCohortId, fullName, guardianPhone, addressLine, productModelId);
+        return new RentalCohortStudent(id, rentalCohortId, fullName, guardianPhone, addressLine, productModelId,
+            cityId, districtId, city, district);
     }
 
-    public void Update(string fullName, string guardianPhone, string addressLine, Guid productModelId)
+    public void Update(string fullName, string guardianPhone, string addressLine, Guid productModelId,
+        int? cityId = null, int? districtId = null, string? city = null, string? district = null)
     {
         if (IsDeleted)
             throw new DomainException("rental_cohort_student.deleted", "Silinmiş öğrenci güncellenemez.");
@@ -170,21 +183,36 @@ public sealed class RentalCohortStudent
             throw new DomainException("rental_cohort_student.kit_locked",
                 "Kit ataması yapıldıktan sonra eğitim kiti değiştirilemez.");
 
-        var updated = Create(Id, RentalCohortId, fullName, guardianPhone, addressLine, productModelId);
+        var preserveRegion = cityId is null && districtId is null && city is null && district is null;
+        var updated = Create(Id, RentalCohortId, fullName, guardianPhone, addressLine, productModelId,
+            preserveRegion ? CityId : cityId, preserveRegion ? DistrictId : districtId,
+            preserveRegion ? City : city, preserveRegion ? District : district);
         FullName = updated.FullName;
         GuardianPhone = updated.GuardianPhone;
         AddressLine = updated.AddressLine;
+        CityId = updated.CityId;
+        DistrictId = updated.DistrictId;
+        City = updated.City;
+        District = updated.District;
         ProductModelId = updated.ProductModelId;
     }
 
     public void UpdatePublicAddress(string addressLine, double? latitude, double? longitude,
-        DateTimeOffset submittedAt)
+        DateTimeOffset submittedAt, int? cityId = null, int? districtId = null,
+        string? city = null, string? district = null)
     {
         if (IsDeleted)
             throw new DomainException("rental_cohort_student.deleted", "Silinmiş öğrenci güncellenemez.");
         if (string.IsNullOrWhiteSpace(addressLine))
             throw new DomainException("rental_cohort_student.address_required", "Adres zorunludur.");
         AddressLine = addressLine.Trim();
+        if (cityId is not null || districtId is not null || city is not null || district is not null)
+        {
+            CityId = cityId;
+            DistrictId = districtId;
+            City = city?.Trim() ?? string.Empty;
+            District = district?.Trim() ?? string.Empty;
+        }
         if (latitude.HasValue && longitude.HasValue && CoordinatesAreValid(latitude.Value, longitude.Value))
         {
             Latitude = latitude;
@@ -240,6 +268,10 @@ public sealed class RentalCohortStudent
         FullName = string.Empty;
         GuardianPhone = string.Empty;
         AddressLine = string.Empty;
+        CityId = null;
+        DistrictId = null;
+        City = string.Empty;
+        District = string.Empty;
         Latitude = null;
         Longitude = null;
         AddressSubmittedAt = null;

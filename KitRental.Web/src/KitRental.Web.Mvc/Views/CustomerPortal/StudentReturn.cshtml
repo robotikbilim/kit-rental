@@ -22,6 +22,7 @@
                 <option value="1">Eğitim Tamamlandı</option>
                 <option value="2">Kayıt Silindi</option>
             </select><span asp-validation-for="ReturnReason" class="error"></span></div>
+            <partial name="_AddressRegionFields" model='@(new AddressRegionFieldsViewModel("", Model.CityId, Model.DistrictId, Model.City, Model.District, "ReturnAddress"))' />
             <div class="field"><label asp-for="ReturnAddress"></label><textarea asp-for="ReturnAddress" rows="3" autocomplete="street-address" placeholder="Kargo alınacak açık adresi yazın."></textarea><span asp-validation-for="ReturnAddress" class="error"></span></div>
             <div class="form-actions public-fault-actions">
                 <a class="secondary-action" asp-action="RentalPeriod" asp-route-id="@Model.CohortId">Vazgeç</a>

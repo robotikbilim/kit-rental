@@ -12,10 +12,12 @@ public sealed record CreateProductUnitRequest(Guid ProductModelId, string? Seria
 public sealed record CreateProductUnitsRequest(Guid ProductModelId, int Quantity);
 public sealed record UpdateProductUnitRequest(string SerialNumber, string QrCode);
 public sealed record RentPhysicalKitRequest(string CustomerName, string Email, string Phone, string AddressLine,
-    string PostalCode, DateOnly StartDate, DateOnly EndDate);
+    string PostalCode, DateOnly StartDate, DateOnly EndDate,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record BulkRentPhysicalKitsRequest(IReadOnlyCollection<Guid> ProductUnitIds, string CustomerName,
     string Email, string Phone, string AddressLine, string PostalCode,
-    DateOnly StartDate, DateOnly EndDate);
+    DateOnly StartDate, DateOnly EndDate,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record CreateComponentRequest(string Name, string Sku, string UnitOfMeasure, decimal MinimumStock,
     string? ImageUrl = null, Guid? DefaultStorageLocationId = null, decimal InitialStock = 0);
 public sealed record AdjustComponentStockRequest(decimal Change);
@@ -32,7 +34,8 @@ public sealed record BillOfMaterialsLineRequest(Guid ComponentId, decimal Quanti
 public sealed record CreateBillOfMaterialsRequest(int Version, IReadOnlyCollection<BillOfMaterialsLineRequest> Lines);
 public sealed record CreateKitRequest(string Name, string Sku, string? Description, string? ImageUrl, int BomVersion,
     IReadOnlyCollection<BillOfMaterialsLineRequest> Lines);
-public sealed record AddressRequest(string Title, string ContactName, string Phone, string Line1, string PostalCode);
+public sealed record AddressRequest(string Title, string ContactName, string Phone, string Line1, string PostalCode,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record CreateCustomerRequest(string Name, string Email, AddressRequest Address,
     IReadOnlyCollection<Guid>? AllowedProductModelIds = null);
 public sealed record UpdateCustomerRequest(string Name, string Email, bool IsActive,
@@ -49,9 +52,11 @@ public sealed record CreateOrderKitsRequest(IReadOnlyCollection<OrderLineRequest
     Guid? RentalCohortId = null, IReadOnlyCollection<Guid>? StudentIds = null);
 public sealed record RentalCohortRequest(string Name, DateOnly StartDate, DateOnly EndDate);
 public sealed record RentalCohortStudentRequest(string FullName, string GuardianPhone, string? AddressLine,
-    Guid ProductModelId);
+    Guid ProductModelId,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record RentalCohortImportRowRequest(string FullName, string GuardianPhone, string? AddressLine,
-    string ProductModel);
+    string ProductModel,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record RentalCohortStudentImportRequest(IReadOnlyCollection<RentalCohortImportRowRequest> Rows);
 public sealed record CreatePurchaseOrderRequest(Guid CustomerId, Guid AddressId,
     IReadOnlyCollection<OrderLineRequest> Lines);
@@ -65,19 +70,25 @@ public sealed record FaultGuideEntryRequest(string Title, string Problem, string
 public sealed record InspectionItemRequest(string Name, bool IsPresent, bool IsDamaged, string Note);
 public sealed record CompleteInspectionRequest(Guid OrderId, Guid ProductUnitId, IReadOnlyCollection<InspectionItemRequest> Items, decimal DamageCharge, ProductUnitStatus Outcome);
 public sealed record PortalFaultRequest(Guid AssignmentId, string ReporterName, string ReporterPhone,
-    string ReporterAddress, string Description);
+    string ReporterAddress, string Description,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PublicFaultRequest(Guid? FaultId, string Token, string ReporterName, string ReporterPhone,
     string ReporterAddress, string Description,
-    double? Latitude = null, double? Longitude = null, string? AttachmentUrl = null);
+    double? Latitude = null, double? Longitude = null, string? AttachmentUrl = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PublicKitReturnRequest(string Token, string RequesterName,
     string RequesterPhone, string ReturnAddress,
     double? Latitude, double? Longitude, KitReturnReason? ReturnReason = null,
-    KitReturnDeliveryMethod DeliveryMethod = KitReturnDeliveryMethod.PickupFromAddress);
+    KitReturnDeliveryMethod DeliveryMethod = KitReturnDeliveryMethod.PickupFromAddress,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PortalReturnRequest(IReadOnlyCollection<Guid> AssignmentIds);
 public sealed record PortalStudentReturnRequest(string RequesterName, string RequesterPhone, string ReturnAddress,
-    KitReturnReason? ReturnReason = null);
+    KitReturnReason? ReturnReason = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record PortalReturnShipmentRequest(string Carrier, string TrackingNumber);
 public sealed record PublicKitDeliveryRequest(string Token, string RecipientName,
-    string RecipientPhone, string AddressLine, double? Latitude = null, double? Longitude = null);
-public sealed record PublicStudentAddressRequest(string AddressLine, double? Latitude = null, double? Longitude = null);
+    string RecipientPhone, string AddressLine, double? Latitude = null, double? Longitude = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
+public sealed record PublicStudentAddressRequest(string AddressLine, double? Latitude = null, double? Longitude = null,
+    int? CityId = null, int? DistrictId = null, string? City = null, string? District = null);
 public sealed record BulkStudentDeliveryConfirmationRequest(IReadOnlyCollection<Guid> StudentIds);
