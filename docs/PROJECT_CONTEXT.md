@@ -42,7 +42,7 @@ Main user surfaces:
 - Avoid unrelated refactors and do not revert unrelated working-tree changes.
 - Ask for user approval before running build/compilation checks such as `dotnet build`.
 - Never push commits to a remote unless the user explicitly instructs you to push. After development, keep changes local until that instruction is given.
-- Never create a local Docker image on a server or run a server-side recreate/restart operation without the user's explicit approval for that operation. The normal release sequence is: commit the changes, push to `main`, let the GitHub workflow build the Docker images, then pull the updated images on the server and restart the services.
+- Never create a local Docker image on a server or run a server-side recreate/restart operation without the user's explicit approval for that operation. After pushing to `main`, do not monitor the GitHub workflow or check whether Docker images have finished building; leave image verification, server-side image pulls, and service restarts to the user unless the user explicitly asks you to handle a specific step. The normal release sequence is: commit the changes, push to `main`, let the GitHub workflow build the Docker images, then the user verifies/pulls the updated images and restarts the services.
 
 ## Persistence Rules
 
