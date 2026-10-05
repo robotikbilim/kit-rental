@@ -196,7 +196,11 @@
                         <td>
                             @if (!string.IsNullOrWhiteSpace(student.AddressLine))
                             {
-                                <span class="student-address-truncate" title="@(AddressDisplay.Full(student.AddressLine, student.City, student.District))">@(AddressDisplay.Full(student.AddressLine, student.City, student.District))</span>
+                                <span class="student-address-truncate" title="@(AddressDisplay.Full(student.AddressLine, student.City, student.District))">@student.AddressLine</span>
+                                @if (!string.IsNullOrWhiteSpace(student.City) || !string.IsNullOrWhiteSpace(student.District))
+                                {
+                                    <small class="block-muted">@AddressDisplay.Region(student.City, student.District)</small>
+                                }
                             }
                         </td>
                         <td>
