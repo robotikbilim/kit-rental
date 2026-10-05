@@ -167,7 +167,8 @@ public sealed class OperationsController : CoreApiControllerBase
         [FromServices] OperationsService service, CancellationToken cancellationToken)
     {
         return Ok(await service.UpdateOrderStudentAsync(new UpdateOrderStudentCommand(orderId, studentId,
-            request.FullName, request.GuardianPhone, User.GetRequiredUserId()), cancellationToken));
+            request.FullName, request.GuardianPhone, User.GetRequiredUserId(), request.AddressLine, request.City,
+            request.District), cancellationToken));
     }
 
     [Authorize(Roles = "SystemAdmin,OperationsManager")]
@@ -272,6 +273,5 @@ public sealed class OperationsController : CoreApiControllerBase
     }
 
 }
-
 
 

@@ -664,7 +664,10 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             $"/core/api/orders/{orderId}/students/{model.StudentId}", new
             {
                 model.FullName,
-                model.GuardianPhone
+                model.GuardianPhone,
+                model.AddressLine,
+                model.City,
+                model.District
             }, cancellationToken);
 
     public Task<ApiCommandResult<OrderDetailViewModel>> AddOrderStudentAsync(Guid orderId,
@@ -799,7 +802,6 @@ public sealed class KitRentalApiClient(HttpClient client, IHttpContextAccessor c
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
 }
-
 
 
 

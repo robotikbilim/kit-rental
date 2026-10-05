@@ -41,6 +41,8 @@ Main user surfaces:
 - Update this file after each development task when project behavior, schema, routes, or conventions change.
 - Avoid unrelated refactors and do not revert unrelated working-tree changes.
 - Ask for user approval before running build/compilation checks such as `dotnet build`.
+- Never push commits to a remote unless the user explicitly instructs you to push. After development, keep changes local until that instruction is given.
+- Never create a local Docker image on a server or run a server-side recreate/restart operation without the user's explicit approval for that operation. The normal release sequence is: commit the changes, push to `main`, let the GitHub workflow build the Docker images, then pull the updated images on the server and restart the services.
 
 ## Persistence Rules
 
@@ -115,6 +117,7 @@ dotnet build KitRental.slnx
 
 ## Structured Address Regions and Fault Shipping (2026-10-05)
 
+- The Admin order-detail student edit dialog shows editable street address, province, and district text fields. MVC sends those fields to `PUT /api/orders/{orderId}/students/{studentId}`; `AddressRegionResolver.ResolveNamesAsync` matches province and district against the Kargonomi catalog, then stores canonical names and separate catalog IDs on the student. When an address is present, both province and district are required and must match the selected province. The existing name/phone-only API contract remains compatible when address fields are omitted.
 - All persisted address stores use separate nullable `CityId` (Kargonomi province/state ID), `DistrictId` (Kargonomi district/city ID), and canonical `City` / `District` name columns. This covers `CustomerAddresses`, `RentalOrders` (`Delivery` prefix), `RentalCohortStudents`, `KitLocationEvents`, `FaultTickets`, `FaultKargonomiShipments`, and `KitReturnRequests`. Migration `20261005172144_AddStructuredAddressRegions` adds 28 columns without dropping or rewriting data. Order and provider-created shipment addresses remain snapshots.
 - Normal saves, reads, edits, exports, and shipping use these columns. Open-address text is never parsed or prefixed with regions by application code. `AddressDisplay.Full` combines separate fields for presentation only. Complete-address writes validate positive IDs, province/district membership, and canonical names against Kargonomi through `AddressRegionResolver`; request-supplied names cannot override provider names. Legacy records may have null IDs, but are not ready for shipping until corrected. Contact-only student updates retain their region fields; drop-off returns clear pickup-region fields.
 - Admin order details and customer rental-period details display a student's street address and labeled district/province on separate lines. This keeps both regions visible when a long street address is truncated in the table.

@@ -46,7 +46,8 @@ public sealed record CreateOrderRequest(Guid CustomerId, Guid ProductModelId, Da
     IReadOnlyCollection<CreateOrderStudentRequest> Students);
 public sealed record OrderTransitionRequest(RentalOrderStatus Target);
 public sealed record UpdateOrderRentalPeriodRequest(string PeriodName, DateOnly StartDate, DateOnly EndDate);
-public sealed record UpdateOrderStudentRequest(string FullName, string GuardianPhone);
+public sealed record UpdateOrderStudentRequest(string FullName, string GuardianPhone, string? AddressLine = null,
+    string? City = null, string? District = null);
 public sealed record AddOrderStudentRequest(string FullName, string GuardianPhone);
 public sealed record CreateOrderKitsRequest(IReadOnlyCollection<OrderLineRequest> Lines, bool UseAvailableKits = false,
     Guid? RentalCohortId = null, IReadOnlyCollection<Guid>? StudentIds = null);

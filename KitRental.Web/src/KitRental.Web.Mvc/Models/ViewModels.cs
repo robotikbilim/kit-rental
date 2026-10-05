@@ -554,6 +554,15 @@ public sealed class OrderStudentInputViewModel
 
     [Required, TurkishPhone, StringLength(40), Display(Name = "Telefon numarası")]
     public string GuardianPhone { get; set; } = string.Empty;
+
+    [StringLength(1000), Display(Name = "Adres")]
+    public string? AddressLine { get; set; }
+
+    [StringLength(100), Display(Name = "İl")]
+    public string? City { get; set; }
+
+    [StringLength(100), Display(Name = "İlçe")]
+    public string? District { get; set; }
 }
 
 public sealed record KargonomiShipmentEventViewModel(string ExternalStatus, string StatusLabel, int State,

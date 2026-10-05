@@ -29,7 +29,7 @@ public sealed record CreateStudentAddressOrderCommand(Guid CustomerId, Guid Prod
 public sealed record UpdateOrderRentalPeriodCommand(Guid OrderId, string PeriodName, DateOnly StartDate,
     DateOnly EndDate, Guid ActorId);
 public sealed record UpdateOrderStudentCommand(Guid OrderId, Guid StudentId, string FullName, string GuardianPhone,
-    Guid ActorId);
+    Guid ActorId, string? AddressLine = null, string? City = null, string? District = null);
 public sealed record AddOrderStudentCommand(Guid OrderId, string FullName, string GuardianPhone, Guid ActorId);
 public sealed record CreatePurchaseOrderCommand(Guid CustomerId, Guid AddressId,
     IReadOnlyCollection<OrderLineCommand> Lines, Guid ActorId);
@@ -453,12 +453,18 @@ public sealed class OperationsService(
             !item.IsDeleted && item.OrderId == command.OrderId)
             ?? throw new ResourceNotFoundException("Sipariş öğrencisi bulunamadı.");
 
-        var previousValue = $"{student.FullName}|{student.GuardianPhone}";
-        cohort.UpdateStudent(student.Id, command.FullName, command.GuardianPhone, student.AddressLine,
-            student.ProductModelId, student.CityId, student.DistrictId, student.City, student.District);
+        var addressLine = command.AddressLine ?? student.AddressLine;
+        var region = command.City is null && command.District is null
+            ? new AddressRegion(student.CityId, student.DistrictId, student.City, student.District)
+            : await AddressRegionResolver.ResolveNamesAsync(kargonomiClient, command.City, command.District,
+                cancellationToken, required: !string.IsNullOrWhiteSpace(addressLine));
+        var previousValue = $"{student.FullName}|{student.GuardianPhone}|{student.AddressLine}|{student.City}|{student.District}";
+        cohort.UpdateStudent(student.Id, command.FullName, command.GuardianPhone, addressLine,
+            student.ProductModelId, region.CityId, region.DistrictId, region.City, region.District);
         await repository.AddAuditEntryAsync(new AuditEntry(Guid.NewGuid(), command.ActorId, nameof(RentalCohort),
             cohort.Id, "OrderStudentUpdated", previousValue,
-            $"{student.FullName}|{student.GuardianPhone}", timeProvider.GetTurkeyNow()), cancellationToken);
+            $"{student.FullName}|{student.GuardianPhone}|{student.AddressLine}|{student.City}|{student.District}",
+            timeProvider.GetTurkeyNow()), cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return await GetOrderDetailAsync(order.Id, cancellationToken);
     }
@@ -1674,7 +1680,6 @@ public sealed class OperationsService(
             student.CityId, student.DistrictId, student.City, student.District),
             cancellationToken);
 }
-
 
 
 

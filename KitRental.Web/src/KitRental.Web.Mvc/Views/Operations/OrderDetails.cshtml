@@ -284,6 +284,8 @@
                                             data-student-name="@student.FullName"
                                             data-student-phone="@student.GuardianPhone"
                                             data-student-address="@student.AddressLine"
+                                            data-student-city="@student.City"
+                                            data-student-district="@student.District"
                                             data-student-product="@student.ProductModelId">
                                         <i data-lucide="pencil"></i><span class="visually-hidden">Güncelle</span>
                                     </button>
@@ -343,7 +345,6 @@
         <form class="student-edit-modal" asp-action="UpdateOrderStudent" asp-route-id="@Model.Id" method="post">
             <div asp-validation-summary="All" class="error"></div>
             <input type="hidden" id="edit-student-id" name="StudentId" />
-            <input type="hidden" id="edit-student-address" name="AddressLine" />
             <input type="hidden" id="edit-student-product" name="ProductModelId" />
             <header>
                 <div>
@@ -357,6 +358,9 @@
             <div class="form-grid">
                 <div class="field"><label for="edit-student-name">Öğrenci adı soyadı</label><input id="edit-student-name" name="FullName" maxlength="160" required /></div>
                 <div class="field"><label for="edit-student-phone">Telefon numarası</label><input id="edit-student-phone" name="GuardianPhone" type="tel" data-phone-mask="tr" maxlength="40" required /></div>
+                <div class="field"><label for="edit-student-address">Adres</label><textarea id="edit-student-address" name="AddressLine" maxlength="1000" rows="3"></textarea></div>
+                <div class="field"><label for="edit-student-city">İl</label><input id="edit-student-city" name="City" maxlength="100" autocomplete="address-level1" /></div>
+                <div class="field"><label for="edit-student-district">İlçe</label><input id="edit-student-district" name="District" maxlength="100" autocomplete="address-level2" /></div>
             </div>
             <footer>
                 <button class="secondary-action" type="button" data-student-edit-close>Vazgeç</button>

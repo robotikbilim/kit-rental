@@ -4,3 +4,5 @@
 - After every development task, update `docs/PROJECT_CONTEXT.md` when behavior, schema, routes, workflows, project structure, or conventions change.
 - When a change modifies the Entity Framework database schema, automatically add the corresponding migration file before finishing the task.
 - Ask for user approval before running any build or compilation check such as `dotnet build`.
+- Never push commits to a remote unless the user explicitly instructs you to push. After development, keep changes local until that instruction is given.
+- Never create a local Docker image on a server or run a server-side recreate/restart operation without the user's explicit approval for that operation. The normal release sequence is: commit the changes, push to `main`, let the GitHub workflow build the Docker images, then pull the updated images on the server and restart the services.

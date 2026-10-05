@@ -5,6 +5,8 @@ using KitRental.Core.Domain.Rentals;
 using KitRental.Core.Domain.Returns;
 using KitRental.Core.Domain.Support;
 using KitRental.SharedKernel;
+using System.Globalization;
+using System.Text;
 
 namespace KitRental.Core.Application.Common;
 
@@ -12,6 +14,33 @@ public sealed record AddressRegion(int? CityId, int? DistrictId, string? City, s
 
 public static class AddressRegionResolver
 {
+    public static async Task<AddressRegion> ResolveNamesAsync(IKargonomiClient? client, string? city,
+        string? district, CancellationToken cancellationToken, bool required = true)
+    {
+        if (string.IsNullOrWhiteSpace(city) && string.IsNullOrWhiteSpace(district) && !required)
+            return new(null, null, null, null);
+        if (string.IsNullOrWhiteSpace(city) || string.IsNullOrWhiteSpace(district))
+            throw new ConflictException("address.region_required", "Adres için il ve ilçe birlikte girilmelidir.");
+        if (client is null)
+            throw new ConflictException("address.catalog_unavailable", "İl ve ilçe Kargonomi adres listesinden doğrulanamadı.");
+
+        var normalizedCity = NormalizeName(city);
+        var states = await client.GetStatesAsync(cancellationToken);
+        var stateMatches = states.Where(item => NormalizeName(item.Name) == normalizedCity).ToArray();
+        if (stateMatches.Length != 1)
+            throw new ConflictException("address.city_invalid", "Girilen il Kargonomi adres listesinde bulunamadı.");
+
+        var state = stateMatches[0];
+        var normalizedDistrict = NormalizeName(district);
+        var districts = await client.GetCitiesAsync(state.Id, cancellationToken);
+        var districtMatches = districts.Where(item => NormalizeName(item.Name) == normalizedDistrict).ToArray();
+        if (districtMatches.Length != 1)
+            throw new ConflictException("address.district_invalid", "Girilen ilçe seçilen ile ait Kargonomi listesinde bulunamadı.");
+
+        var selectedDistrict = districtMatches[0];
+        return new(state.Id, selectedDistrict.Id, state.Name, selectedDistrict.Name);
+    }
+
     public static async Task<AddressRegion> ResolveAsync(IKargonomiClient? client, int? cityId,
         int? districtId, string? city, string? district, CancellationToken cancellationToken,
         bool required = true)
@@ -35,6 +64,23 @@ public static class AddressRegionResolver
         if (selectedDistrict is null)
             throw new ConflictException("address.district_invalid", "Seçilen ilçe bu ile ait değil.");
         return new(state.Id, selectedDistrict.Id, state.Name, selectedDistrict.Name);
+    }
+
+    private static string NormalizeName(string value)
+    {
+        var decomposed = value.Trim().Normalize(NormalizationForm.FormD);
+        var normalized = new StringBuilder(decomposed.Length);
+        foreach (var character in decomposed)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
+                continue;
+            normalized.Append(char.ToLowerInvariant(character switch
+            {
+                'ı' => 'i',
+                _ => character
+            }));
+        }
+        return normalized.ToString().Normalize(NormalizationForm.FormC);
     }
 }
 
